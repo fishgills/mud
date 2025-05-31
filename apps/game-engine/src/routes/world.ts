@@ -1,8 +1,99 @@
+
 import { Router } from 'express';
 import prisma from '../prisma';
 import { seedBiomes } from '../logic/biome';
-
 const router = Router();
+// GET /world/grid?z=0&size=11
+// Returns a text grid of the world for the given z (default 0) and size (default 11x11, centered at 0,0)
+router.get('/world/grid', async (req, res) => {
+  const z = req.query.z ? Number(req.query.z) : 0;
+  const size = req.query.size ? Number(req.query.size) : 11;
+  const half = Math.floor(size / 2);
+  // Get all tiles in the grid
+  const tiles = await prisma.worldTile.findMany({
+    where: {
+      z,
+      x: { gte: -half, lte: half },
+      y: { gte: -half, lte: half },
+    },
+    include: { biome: true },
+  });
+  // Map biome names to single letters
+  const biomeLetter: Record<string, string> = {
+    city: 'C',
+    village: 'V',
+    forest: 'F',
+    desert: 'D',
+    plains: 'P',
+    mountains: 'M',
+    hills: 'H',
+    sewers: 'S',
+    caves: 'X',
+  };
+  // Build a grid
+  const grid: string[][] = [];
+  for (let y = half; y >= -half; y--) {
+    const row: string[] = [];
+    for (let x = -half; x <= half; x++) {
+      const tile = tiles.find(t => t.x === x && t.y === y);
+      if (tile) {
+        row.push(biomeLetter[tile.biome.name] || '?');
+      } else {
+        row.push('.');
+      }
+    }
+    grid.push(row);
+  }
+  // Join rows into a string
+  const text = grid.map(row => row.join(' ')).join('\n');
+  res.type('text/plain').send(text);
+});
+
+// GET /world/grid?z=0&size=11
+// Returns a text grid of the world for the given z (default 0) and size (default 11x11, centered at 0,0)
+router.get('/world/grid', async (req, res) => {
+  const z = req.query.z ? Number(req.query.z) : 0;
+  const size = req.query.size ? Number(req.query.size) : 11;
+  const half = Math.floor(size / 2);
+  // Get all tiles in the grid
+  const tiles = await prisma.worldTile.findMany({
+    where: {
+      z,
+      x: { gte: -half, lte: half },
+      y: { gte: -half, lte: half },
+    },
+    include: { biome: true },
+  });
+  // Map biome names to single letters
+  const biomeLetter: Record<string, string> = {
+    city: 'C',
+    village: 'V',
+    forest: 'F',
+    desert: 'D',
+    plains: 'P',
+    mountains: 'M',
+    hills: 'H',
+    sewers: 'S',
+    caves: 'X',
+  };
+  // Build a grid
+  const grid: string[][] = [];
+  for (let y = half; y >= -half; y--) {
+    const row: string[] = [];
+    for (let x = -half; x <= half; x++) {
+      const tile = tiles.find(t => t.x === x && t.y === y);
+      if (tile) {
+        row.push(biomeLetter[tile.biome.name] || '?');
+      } else {
+        row.push('.');
+      }
+    }
+    grid.push(row);
+  }
+  // Join rows into a string
+  const text = grid.map(row => row.join(' ')).join('\n');
+  res.type('text/plain').send(text);
+});
 
 // World seeding (biomes and a small town)
 router.post('/seed-world', async (req, res) => {

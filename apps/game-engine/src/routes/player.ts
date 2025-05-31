@@ -27,8 +27,10 @@ router.post('/', async (req, res) => {
         worldTileId: tile.id,
       },
     });
+    console.log(`[player] Created: id=${player.id}, name=${player.name}, slackId=${player.slackId}`);
     return res.json(player);
-  } catch {
+  } catch (err) {
+    console.error('[player] Error creating player:', err);
     return res.status(500).json({ error: 'Failed to create player' });
   }
 });
@@ -73,6 +75,7 @@ router.post('/:id/move', async (req, res) => {
     const nz = player.z + dz;
     // Check if tile exists, or generate it if not
     let tile = await prisma.worldTile.findUnique({ where: { x_y_z: { x: nx, y: ny, z: nz } } });
+    let generated = false;
     if (!tile) {
       // Pick a biome (simple: city for z=0, caves for z<0, mountains for z>0, else random)
       let biomeName = 'plains';
@@ -96,18 +99,21 @@ router.post('/:id/move', async (req, res) => {
           description: desc,
         },
       });
+      generated = true;
     }
     await prisma.player.update({
       where: { id: player.id },
       data: { x: nx, y: ny, z: nz, worldTileId: tile.id },
     });
+    console.log(`[player] Move: id=${player.id}, name=${player.name}, from=(${player.x},${player.y},${player.z}) to=(${nx},${ny},${nz})${generated ? ' [generated tile]' : ''}`);
     // Return new location info
     const info = await getPlayerLocationInfo(player.id);
     if ('error' in info) {
       return res.status(info.status ?? 400).json({ error: info.error });
     }
     return res.json(info);
-  } catch {
+  } catch (err) {
+    console.error('[player] Error moving player:', err);
     return res.status(500).json({ error: 'Failed to move player' });
   }
 });
