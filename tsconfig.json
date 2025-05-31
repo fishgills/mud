@@ -8,6 +8,12 @@
     },
     {
       "path": "./apps/game-engine"
+    },
+    {
+      "path": "./apps/tick-e2e"
+    },
+    {
+      "path": "./apps/tick"
     }
   ]
 }
