@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 
@@ -10,6 +9,62 @@ const prisma = new PrismaClient();
 
 // Middleware to parse JSON bodies
 app.use(express.json());
+
+// --- Player Location ---
+// GET /players/:id/location
+app.get('/players/:id/location', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const player = await prisma.player.findUnique({ where: { id: Number(id) } });
+    if (!player) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
+    const tile = await prisma.worldTile.findUnique({
+      where: { x_y_z: { x: player.x, y: player.y, z: player.z } },
+      include: {
+        biome: true,
+        players: {
+          where: { id: { not: player.id } },
+          select: { id: true, name: true },
+        },
+      },
+    });
+    if (!tile) {
+      return res.status(404).json({ error: 'Location not found' });
+    }
+
+    // Check possible movement directions
+    const directions: Record<string, [number, number, number]> = {
+      n: [0, 1, 0],
+      s: [0, -1, 0],
+      e: [1, 0, 0],
+      w: [-1, 0, 0],
+      up: [0, 0, 1],
+      down: [0, 0, -1],
+    };
+    const possibleDirections: string[] = [];
+    for (const [dir, [dx, dy, dz]] of Object.entries(directions)) {
+      const exists = await prisma.worldTile.findUnique({
+        where: { x_y_z: { x: player.x + dx, y: player.y + dy, z: player.z + dz } },
+        select: { id: true },
+      });
+      if (exists) possibleDirections.push(dir);
+    }
+
+    return res.json({
+      x: tile.x,
+      y: tile.y,
+      z: tile.z,
+      description: tile.description,
+      biome: tile.biome.name,
+      biomeDescription: tile.biome.description,
+      otherPlayers: tile.players,
+      possibleDirections,
+    });
+  } catch {
+    return res.status(500).json({ error: 'Failed to get player location' });
+  }
+});
 
 // --- World Seeding ---
 // POST /seed-world: Seed a simple 5x5 town in a valley
@@ -33,9 +88,9 @@ app.post('/seed-world', async (req, res) => {
         });
       }
     }
-    res.json({ status: 'world seeded' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to seed world' });
+    return res.json({ status: 'world seeded' });
+  } catch {
+    return res.status(500).json({ error: 'Failed to seed world' });
   }
 });
 
@@ -43,11 +98,15 @@ app.post('/seed-world', async (req, res) => {
 // POST /players { slackId, name }
 app.post('/players', async (req, res) => {
   const { slackId, name } = req.body;
-  if (!slackId || !name) return res.status(400).json({ error: 'Missing slackId or name' });
+  if (!slackId || !name) {
+    return res.status(400).json({ error: 'Missing slackId or name' });
+  }
   try {
     // Start at (2,2,0) (town square)
     const tile = await prisma.worldTile.findUnique({ where: { x_y_z: { x: 2, y: 2, z: 0 } } });
-    if (!tile) return res.status(400).json({ error: 'World not seeded' });
+    if (!tile) {
+      return res.status(400).json({ error: 'World not seeded' });
+    }
     const player = await prisma.player.create({
       data: {
         slackId,
@@ -59,9 +118,9 @@ app.post('/players', async (req, res) => {
         worldTileId: tile.id,
       },
     });
-    res.json(player);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to create player' });
+    return res.json(player);
+  } catch {
+    return res.status(500).json({ error: 'Failed to create player' });
   }
 });
 
@@ -78,24 +137,30 @@ app.post('/players/:id/move', async (req, res) => {
     up: [0, 0, 1],
     down: [0, 0, -1],
   };
-  if (!directions[direction]) return res.status(400).json({ error: 'Invalid direction' });
+  if (!directions[direction]) {
+    return res.status(400).json({ error: 'Invalid direction' });
+  }
   try {
     const player = await prisma.player.findUnique({ where: { id: Number(id) } });
-    if (!player) return res.status(404).json({ error: 'Player not found' });
+    if (!player) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
     const [dx, dy, dz] = directions[direction];
     const nx = player.x + dx;
     const ny = player.y + dy;
     const nz = player.z + dz;
     // Check if tile exists
     const tile = await prisma.worldTile.findUnique({ where: { x_y_z: { x: nx, y: ny, z: nz } } });
-    if (!tile) return res.status(400).json({ error: 'Cannot move there' });
+    if (!tile) {
+      return res.status(400).json({ error: 'Cannot move there' });
+    }
     const updated = await prisma.player.update({
       where: { id: player.id },
       data: { x: nx, y: ny, z: nz, worldTileId: tile.id },
     });
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to move player' });
+    return res.json(updated);
+  } catch {
+    return res.status(500).json({ error: 'Failed to move player' });
   }
 });
 
@@ -134,7 +199,7 @@ app.post('/tick', async (req, res) => {
   try {
     // Advance game time
     let state = await getOrCreateGameState(prisma);
-    let tick = state.tick + 1;
+    const tick = state.tick + 1;
     let gameHour = state.gameHour + 1;
     let gameDay = state.gameDay;
     if (gameHour >= 24) {
@@ -150,11 +215,11 @@ app.post('/tick', async (req, res) => {
     let weather = await getOrCreateWeatherState(prisma);
     // Pressure mechanic: increase pressure, random chance to change weather
     let pressure = weather.pressure + Math.floor(Math.random() * 3) + 1; // +1 to +3
-    let stateOptions = ['clear', 'cloudy', 'overcast', 'raining', 'lightning'];
+    const stateOptions = ['clear', 'cloudy', 'overcast', 'raining', 'lightning'];
     let newWeather = weather.state;
     if (pressure > 10 && Math.random() < 0.3) {
       // Change weather
-      let idx = stateOptions.indexOf(weather.state);
+      const idx = stateOptions.indexOf(weather.state);
       let nextIdx = idx + (Math.random() < 0.5 ? 1 : -1);
       if (nextIdx < 0) nextIdx = 0;
       if (nextIdx >= stateOptions.length) nextIdx = stateOptions.length - 1;
@@ -167,10 +232,10 @@ app.post('/tick', async (req, res) => {
     });
 
     console.log(`[tick] Tick ${tick}, Day ${gameDay}, Hour ${gameHour}, Weather: ${newWeather}`);
-    res.json({ status: 'tick processed', tick, gameDay, gameHour, weather: newWeather });
+    return res.json({ status: 'tick processed', tick, gameDay, gameHour, weather: newWeather });
   } catch (err) {
     console.error('[tick] Error:', err);
-    res.status(500).json({ error: 'Tick failed' });
+    return res.status(500).json({ error: 'Tick failed' });
   }
 });
 
@@ -179,15 +244,15 @@ app.get('/state', async (req, res) => {
   try {
     const state = await getOrCreateGameState(prisma);
     const weather = await getOrCreateWeatherState(prisma);
-    res.json({
+    return res.json({
       tick: state.tick,
       gameDay: state.gameDay,
       gameHour: state.gameHour,
       weather: weather.state,
       weatherPressure: weather.pressure,
     });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to get state' });
+  } catch {
+    return res.status(500).json({ error: 'Failed to get state' });
   }
 });
 
