@@ -71,10 +71,31 @@ router.post('/:id/move', async (req, res) => {
     const nx = player.x + dx;
     const ny = player.y + dy;
     const nz = player.z + dz;
-    // Check if tile exists
-    const tile = await prisma.worldTile.findUnique({ where: { x_y_z: { x: nx, y: ny, z: nz } } });
+    // Check if tile exists, or generate it if not
+    let tile = await prisma.worldTile.findUnique({ where: { x_y_z: { x: nx, y: ny, z: nz } } });
     if (!tile) {
-      return res.status(400).json({ error: 'Cannot move there' });
+      // Pick a biome (simple: city for z=0, caves for z<0, mountains for z>0, else random)
+      let biomeName = 'plains';
+      if (nz < 0) biomeName = 'caves';
+      else if (nz > 0) biomeName = 'mountains';
+      else if (Math.abs(nx) < 5 && Math.abs(ny) < 5) biomeName = 'city';
+      else if (Math.abs(nx) < 10 && Math.abs(ny) < 10) biomeName = 'village';
+      else if (Math.abs(nx) % 7 === 0 || Math.abs(ny) % 7 === 0) biomeName = 'forest';
+      else if ((nx + ny) % 13 === 0) biomeName = 'desert';
+      else if ((nx + ny) % 11 === 0) biomeName = 'hills';
+      // Get biome
+      const biome = await prisma.biome.findUnique({ where: { name: biomeName } });
+      // Generate a placeholder description
+      const desc = `You are in a ${biomeName} at (${nx}, ${ny}, ${nz}).`;
+      tile = await prisma.worldTile.create({
+        data: {
+          x: nx,
+          y: ny,
+          z: nz,
+          biomeId: biome?.id ?? 1,
+          description: desc,
+        },
+      });
     }
     await prisma.player.update({
       where: { id: player.id },
