@@ -44,6 +44,8 @@ model WorldTile {
   description String
   monsters    Monster[]
   players     Player[]   @relation("PlayerLocation")
+
+  @@unique([x, y, z])
   // Add more fields as needed (items, exits, etc.)
 }
 
