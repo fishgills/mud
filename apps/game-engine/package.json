@@ -1,0 +1,78 @@
+{
+  "name": "@mud/game-engine",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "targets": {
+      "build": {
+        "executor": "@nx/esbuild:esbuild",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "defaultConfiguration": "production",
+        "options": {
+          "platform": "node",
+          "outputPath": "apps/game-engine/dist",
+          "format": [
+            "cjs"
+          ],
+          "bundle": false,
+          "main": "apps/game-engine/src/main.ts",
+          "tsConfig": "apps/game-engine/tsconfig.app.json",
+          "assets": [
+            "apps/game-engine/src/assets"
+          ],
+          "esbuildOptions": {
+            "sourcemap": true,
+            "outExtension": {
+              ".js": ".js"
+            }
+          }
+        },
+        "configurations": {
+          "development": {},
+          "production": {
+            "generateLockfile": true,
+            "esbuildOptions": {
+              "sourcemap": false,
+              "outExtension": {
+                ".js": ".js"
+              }
+            }
+          }
+        }
+      },
+      "serve": {
+        "continuous": true,
+        "executor": "@nx/js:node",
+        "defaultConfiguration": "development",
+        "dependsOn": [
+          "build"
+        ],
+        "options": {
+          "buildTarget": "@mud/game-engine:build",
+          "runBuildTargetDependencies": false
+        },
+        "configurations": {
+          "development": {
+            "buildTarget": "@mud/game-engine:build:development"
+          },
+          "production": {
+            "buildTarget": "@mud/game-engine:build:production"
+          }
+        }
+      },
+      "test": {
+        "options": {
+          "passWithNoTests": true
+        }
+      },
+      "docker-build": {
+        "dependsOn": [
+          "build"
+        ],
+        "command": "docker build -f apps/game-engine/Dockerfile . -t @mud/game-engine"
+      }
+    }
+  }
+}
