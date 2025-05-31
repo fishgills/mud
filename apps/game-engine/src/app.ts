@@ -1,0 +1,13 @@
+import express from 'express';
+import playerRoutes from './routes/player';
+import worldRoutes from './routes/world';
+import tickRoutes from './routes/tick';
+
+const app = express();
+app.use(express.json());
+
+app.use('/players', playerRoutes);
+app.use('/', worldRoutes);
+app.use('/', tickRoutes);
+
+export default app;
