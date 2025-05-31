@@ -10,57 +10,59 @@ const prisma = new PrismaClient();
 // Middleware to parse JSON bodies
 app.use(express.json());
 
+// --- Helper: Get Player Location Info ---
+async function getPlayerLocationInfo(playerId: number) {
+  const player = await prisma.player.findUnique({ where: { id: playerId } });
+  if (!player) return { error: 'Player not found', status: 404 };
+  const tile = await prisma.worldTile.findUnique({
+    where: { x_y_z: { x: player.x, y: player.y, z: player.z } },
+    include: {
+      biome: true,
+      players: {
+        where: { id: { not: player.id } },
+        select: { id: true, name: true },
+      },
+    },
+  });
+  if (!tile) return { error: 'Location not found', status: 404 };
+  const directions: Record<string, [number, number, number]> = {
+    n: [0, 1, 0],
+    s: [0, -1, 0],
+    e: [1, 0, 0],
+    w: [-1, 0, 0],
+    up: [0, 0, 1],
+    down: [0, 0, -1],
+  };
+  const possibleDirections: string[] = [];
+  for (const [dir, [dx, dy, dz]] of Object.entries(directions)) {
+    const exists = await prisma.worldTile.findUnique({
+      where: { x_y_z: { x: player.x + dx, y: player.y + dy, z: player.z + dz } },
+      select: { id: true },
+    });
+    if (exists) possibleDirections.push(dir);
+  }
+  return {
+    x: tile.x,
+    y: tile.y,
+    z: tile.z,
+    description: tile.description,
+    biome: tile.biome.name,
+    biomeDescription: tile.biome.description,
+    otherPlayers: tile.players,
+    possibleDirections,
+  };
+}
+
 // --- Player Location ---
 // GET /players/:id/location
 app.get('/players/:id/location', async (req, res) => {
   const { id } = req.params;
   try {
-    const player = await prisma.player.findUnique({ where: { id: Number(id) } });
-    if (!player) {
-      return res.status(404).json({ error: 'Player not found' });
+    const info = await getPlayerLocationInfo(Number(id));
+    if ('error' in info) {
+      return res.status(info.status ?? 400).json({ error: info.error });
     }
-    const tile = await prisma.worldTile.findUnique({
-      where: { x_y_z: { x: player.x, y: player.y, z: player.z } },
-      include: {
-        biome: true,
-        players: {
-          where: { id: { not: player.id } },
-          select: { id: true, name: true },
-        },
-      },
-    });
-    if (!tile) {
-      return res.status(404).json({ error: 'Location not found' });
-    }
-
-    // Check possible movement directions
-    const directions: Record<string, [number, number, number]> = {
-      n: [0, 1, 0],
-      s: [0, -1, 0],
-      e: [1, 0, 0],
-      w: [-1, 0, 0],
-      up: [0, 0, 1],
-      down: [0, 0, -1],
-    };
-    const possibleDirections: string[] = [];
-    for (const [dir, [dx, dy, dz]] of Object.entries(directions)) {
-      const exists = await prisma.worldTile.findUnique({
-        where: { x_y_z: { x: player.x + dx, y: player.y + dy, z: player.z + dz } },
-        select: { id: true },
-      });
-      if (exists) possibleDirections.push(dir);
-    }
-
-    return res.json({
-      x: tile.x,
-      y: tile.y,
-      z: tile.z,
-      description: tile.description,
-      biome: tile.biome.name,
-      biomeDescription: tile.biome.description,
-      otherPlayers: tile.players,
-      possibleDirections,
-    });
+    return res.json(info);
   } catch {
     return res.status(500).json({ error: 'Failed to get player location' });
   }
@@ -154,11 +156,16 @@ app.post('/players/:id/move', async (req, res) => {
     if (!tile) {
       return res.status(400).json({ error: 'Cannot move there' });
     }
-    const updated = await prisma.player.update({
+    await prisma.player.update({
       where: { id: player.id },
       data: { x: nx, y: ny, z: nz, worldTileId: tile.id },
     });
-    return res.json(updated);
+    // Return new location info
+    const info = await getPlayerLocationInfo(player.id);
+    if ('error' in info) {
+      return res.status(info.status ?? 400).json({ error: info.error });
+    }
+    return res.json(info);
   } catch {
     return res.status(500).json({ error: 'Failed to move player' });
   }
