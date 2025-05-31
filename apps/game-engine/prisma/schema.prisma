@@ -42,6 +42,7 @@ model WorldTile {
   biomeId     Int
   biome       Biome      @relation(fields: [biomeId], references: [id])
   description String
+  biomeMix    Json?
   monsters    Monster[]
   players     Player[]   @relation("PlayerLocation")
 

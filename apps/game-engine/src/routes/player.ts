@@ -77,15 +77,92 @@ router.post('/:id/move', async (req, res) => {
     let tile = await prisma.worldTile.findUnique({ where: { x_y_z: { x: nx, y: ny, z: nz } } });
     let generated = false;
     if (!tile) {
-      // Pick a biome (simple: city for z=0, caves for z<0, mountains for z>0, else random)
-      let biomeName = 'plains';
+      // --- DEBUG LOGGING ---
+      console.log(`[tilegen] Generating tile at (${nx},${ny},${nz}) for player ${player.id}`);
+      // Biome neighbor map for smooth transitions
+      const biomeNeighbors: Record<string, string[]> = {
+        city: ['city', 'village', 'plains'],
+        village: ['village', 'city', 'plains', 'forest'],
+        plains: ['plains', 'village', 'forest', 'hills'],
+        forest: ['forest', 'plains', 'hills'],
+        hills: ['hills', 'plains', 'mountains', 'forest'],
+        mountains: ['mountains', 'hills', 'caves'],
+        caves: ['caves', 'mountains', 'sewers'],
+        sewers: ['sewers', 'caves'],
+        desert: ['desert', 'plains', 'hills'],
+      };
+
+      // Get previous tile's biome
+      const prevTile = await prisma.worldTile.findUnique({ where: { x_y_z: { x: player.x, y: player.y, z: player.z } }, include: { biome: true } });
+      const prevBiome = prevTile?.biome?.name || 'plains';
+      const allowedBiomes = biomeNeighbors[prevBiome] || ['plains'];
+
+      // Look at adjacent tiles' biomes
+      const neighborCoords = [
+        [nx + 1, ny, nz],
+        [nx - 1, ny, nz],
+        [nx, ny + 1, nz],
+        [nx, ny - 1, nz],
+      ];
+      const neighborTiles = await Promise.all(
+        neighborCoords.map(([x, y, z]) =>
+          prisma.worldTile.findUnique({ where: { x_y_z: { x, y, z } }, include: { biome: true } })
+        )
+      );
+      const neighborBiomes = neighborTiles
+        .map(t => t?.biome?.name)
+        .filter(Boolean) as string[];
+
+      // Count biomes among neighbors
+      const biomeCounts: Record<string, number> = {};
+      for (const b of neighborBiomes) {
+        biomeCounts[b] = (biomeCounts[b] || 0) + 1;
+      }
+      console.log(`[tilegen] Neighbor biomes:`, neighborBiomes, 'Counts:', biomeCounts);
+
+      // Pick the most common neighbor biome, or previous biome if tie/none
+      let biomeName = prevBiome;
+      let maxCount = 0;
+      for (const b of Object.keys(biomeCounts)) {
+        if (biomeCounts[b] > maxCount) {
+          biomeName = b;
+          maxCount = biomeCounts[b];
+        }
+      }
+
+      // Add more randomness: if there are multiple neighbor biomes, pick randomly among the most common
+      const maxBiomes = Object.entries(biomeCounts).filter(([k, v]) => v === maxCount).map(([k]) => k);
+      if (maxBiomes.length > 1 && Math.random() < 0.5) {
+        biomeName = maxBiomes[Math.floor(Math.random() * maxBiomes.length)];
+        console.log(`[tilegen] Randomly picked among most common neighbor biomes:`, maxBiomes, '->', biomeName);
+      }
+
+      // If no neighbors, or random chance, pick from allowed biomes
+      if (neighborBiomes.length === 0 || (Math.random() < 0.2)) {
+        biomeName = Math.random() < 0.7 ? prevBiome : allowedBiomes[Math.floor(Math.random() * allowedBiomes.length)];
+        console.log(`[tilegen] Picked biome by fallback/random:`, biomeName);
+      }
+
+      // Occasional hard transition to desert, but only if a neighbor is desert or by rare chance
+      if ((neighborBiomes.includes('desert') && Math.random() < 0.2) || (Math.abs(nx + ny) % 47 === 0 && Math.random() < 0.05)) {
+        biomeName = 'desert';
+        console.log(`[tilegen] Hard transition to desert.`);
+      }
+
+      // Handle z-levels
       if (nz < 0) biomeName = 'caves';
       else if (nz > 0) biomeName = 'mountains';
-      else if (Math.abs(nx) < 5 && Math.abs(ny) < 5) biomeName = 'city';
-      else if (Math.abs(nx) < 10 && Math.abs(ny) < 10) biomeName = 'village';
-      else if (Math.abs(nx) % 7 === 0 || Math.abs(ny) % 7 === 0) biomeName = 'forest';
-      else if ((nx + ny) % 13 === 0) biomeName = 'desert';
-      else if ((nx + ny) % 11 === 0) biomeName = 'hills';
+
+      // Calculate biome mix (percentages)
+      const mix: Record<string, number> = {};
+      for (const b of neighborBiomes) {
+        mix[b] = (mix[b] || 0) + 1;
+      }
+      mix[biomeName] = (mix[biomeName] || 0) + 2;
+      const total = Object.values(mix).reduce((a, b) => a + b, 0);
+      const biomeMix = Object.fromEntries(Object.entries(mix).map(([k, v]) => [k, +(v / total).toFixed(2)]));
+      console.log(`[tilegen] Final biome:`, biomeName, 'BiomeMix:', biomeMix);
+
       // Get biome
       const biome = await prisma.biome.findUnique({ where: { name: biomeName } });
       // Generate a placeholder description
@@ -97,6 +174,7 @@ router.post('/:id/move', async (req, res) => {
           z: nz,
           biomeId: biome?.id ?? 1,
           description: desc,
+          biomeMix,
         },
       });
       generated = true;

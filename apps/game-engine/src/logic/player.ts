@@ -37,6 +37,7 @@ export async function getPlayerLocationInfo(playerId: number) {
     description: tile.description,
     biome: tile.biome.name,
     biomeDescription: tile.biome.description,
+    biomeMix: tile.biomeMix ?? { [tile.biome.name]: 1 },
     otherPlayers: tile.players,
     possibleDirections,
   };
