@@ -8,8 +8,6 @@ export const BIOMES = [
   { name: 'plains', description: 'Open plains with tall grass.' },
   { name: 'mountains', description: 'Towering mountains with rocky peaks.' },
   { name: 'hills', description: 'Rolling hills and gentle slopes.' },
-  { name: 'sewers', description: 'Dark, damp sewers beneath the city.' },
-  { name: 'caves', description: 'Dark caves winding underground.' },
 ];
 
 export async function seedBiomes() {

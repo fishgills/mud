@@ -7,7 +7,7 @@ const app = express();
 app.use(express.json());
 
 app.use('/players', playerRoutes);
-app.use('/', worldRoutes);
-app.use('/', tickRoutes);
+app.use('/world', worldRoutes);
+app.use('/tick', tickRoutes);
 
 export default app;

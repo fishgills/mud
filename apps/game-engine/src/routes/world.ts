@@ -3,16 +3,28 @@ import { Router } from 'express';
 import prisma from '../prisma';
 import { seedBiomes } from '../logic/biome';
 const router = Router();
-// GET /world/grid?z=0&size=11
-// Returns a text grid of the world for the given z (default 0) and size (default 11x11, centered at 0,0)
-router.get('/world/grid', async (req, res) => {
-  const z = req.query.z ? Number(req.query.z) : 0;
+
+// Reset world: delete all tiles
+router.post('/reset', async (req, res) => {
+  try {
+    await prisma.worldTile.deleteMany({});
+    console.log('[world] All tiles deleted.');
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[world] Error deleting tiles:', err);
+    return res.status(500).json({ error: 'Failed to reset world' });
+  }
+});
+
+
+// GET /world/grid?size=11
+// Returns a text grid of the world for the given size (default 11x11, centered at 0,0)
+router.get('/grid', async (req, res) => {
   const size = req.query.size ? Number(req.query.size) : 11;
   const half = Math.floor(size / 2);
   // Get all tiles in the grid
   const tiles = await prisma.worldTile.findMany({
     where: {
-      z,
       x: { gte: -half, lte: half },
       y: { gte: -half, lte: half },
     },
@@ -27,8 +39,6 @@ router.get('/world/grid', async (req, res) => {
     plains: 'P',
     mountains: 'M',
     hills: 'H',
-    sewers: 'S',
-    caves: 'X',
   };
   // Build a grid
   const grid: string[][] = [];
@@ -36,7 +46,7 @@ router.get('/world/grid', async (req, res) => {
     const row: string[] = [];
     for (let x = -half; x <= half; x++) {
       const tile = tiles.find(t => t.x === x && t.y === y);
-      if (tile) {
+      if (tile && tile.biome) {
         row.push(biomeLetter[tile.biome.name] || '?');
       } else {
         row.push('.');
@@ -51,14 +61,12 @@ router.get('/world/grid', async (req, res) => {
 
 // GET /world/grid?z=0&size=11
 // Returns a text grid of the world for the given z (default 0) and size (default 11x11, centered at 0,0)
-router.get('/world/grid', async (req, res) => {
-  const z = req.query.z ? Number(req.query.z) : 0;
+router.get('/grid', async (req, res) => {
   const size = req.query.size ? Number(req.query.size) : 11;
   const half = Math.floor(size / 2);
   // Get all tiles in the grid
   const tiles = await prisma.worldTile.findMany({
     where: {
-      z,
       x: { gte: -half, lte: half },
       y: { gte: -half, lte: half },
     },
@@ -96,7 +104,7 @@ router.get('/world/grid', async (req, res) => {
 });
 
 // World seeding (biomes and a small town)
-router.post('/seed-world', async (req, res) => {
+router.post('/seed', async (req, res) => {
   try {
     await seedBiomes();
     // Use 'city' biome for the town
@@ -108,9 +116,9 @@ router.post('/seed-world', async (req, res) => {
           ? 'The town square, bustling with activity.'
           : 'A quiet part of the small city.';
         await prisma.worldTile.upsert({
-          where: { x_y_z: { x, y, z: 0 } },
+          where: { x_y: { x, y } },
           update: {},
-          create: { x, y, z: 0, biomeId: biome.id, description: desc },
+          create: { x, y, biomeId: biome.id, description: desc },
         });
       }
     }

@@ -24,7 +24,6 @@ model Player {
   name        String
   x           Int        // X coordinate
   y           Int        // Y coordinate
-  z           Int        // Z coordinate (surface, sewers, etc.)
   hp          Int        // Hit points
   gold        Int        @default(0)
   xp          Int        @default(0)
@@ -38,7 +37,6 @@ model WorldTile {
   id          Int        @id @default(autoincrement())
   x           Int
   y           Int
-  z           Int
   biomeId     Int
   biome       Biome      @relation(fields: [biomeId], references: [id])
   description String
@@ -46,7 +44,7 @@ model WorldTile {
   monsters    Monster[]
   players     Player[]   @relation("PlayerLocation")
 
-  @@unique([x, y, z])
+  @@unique([x, y])
   // Add more fields as needed (items, exits, etc.)
 }
 
@@ -64,7 +62,6 @@ model Monster {
   hp        Int
   x         Int
   y         Int
-  z         Int
   biomeId   Int
   biome     Biome    @relation(fields: [biomeId], references: [id])
   worldTileId Int?
