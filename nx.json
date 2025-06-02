@@ -41,7 +41,11 @@
       "options": {
         "targetName": "test"
       },
-      "exclude": ["apps/game-engine-e2e/**/*", "apps/tick-e2e/**/*"]
+      "exclude": [
+        "apps/game-engine-e2e/**/*",
+        "apps/tick-e2e/**/*",
+        "apps/world-e2e/**/*"
+      ]
     }
   ],
   "targetDefaults": {
@@ -52,6 +56,11 @@
     },
     "test": {
       "dependsOn": ["^build"]
+    },
+    "@nx/js:tsc": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
     }
   }
 }

@@ -14,6 +14,15 @@
     },
     {
       "path": "./apps/tick"
+    },
+    {
+      "path": "./libs/database"
+    },
+    {
+      "path": "./apps/world-e2e"
+    },
+    {
+      "path": "./apps/world"
     }
   ]
 }

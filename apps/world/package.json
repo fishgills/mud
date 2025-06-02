@@ -1,8 +1,9 @@
 {
-  "name": "@mud/game-engine",
+  "name": "@mud/world",
   "version": "0.0.1",
   "private": true,
   "nx": {
+    "name": "world",
     "targets": {
       "build": {
         "executor": "@nx/esbuild:esbuild",
@@ -12,15 +13,15 @@
         "defaultConfiguration": "production",
         "options": {
           "platform": "node",
-          "outputPath": "apps/game-engine/dist",
+          "outputPath": "apps/world/dist",
           "format": [
             "cjs"
           ],
           "bundle": false,
-          "main": "apps/game-engine/src/main.ts",
-          "tsConfig": "apps/game-engine/tsconfig.app.json",
+          "main": "apps/world/src/main.ts",
+          "tsConfig": "apps/world/tsconfig.app.json",
           "assets": [
-            "apps/game-engine/src/assets"
+            "apps/world/src/assets"
           ],
           "esbuildOptions": {
             "sourcemap": true,
@@ -32,7 +33,6 @@
         "configurations": {
           "development": {},
           "production": {
-            "generateLockfile": true,
             "esbuildOptions": {
               "sourcemap": false,
               "outExtension": {
@@ -47,20 +47,18 @@
         "executor": "@nx/js:node",
         "defaultConfiguration": "development",
         "dependsOn": [
-          "build",
-          "world:serve"
+          "build"
         ],
         "options": {
-          "buildTarget": "@mud/game-engine:build",
-          "runBuildTargetDependencies": false,
-          "proxyConfig": "apps/game-engine/proxy.conf.json"
+          "buildTarget": "world:build",
+          "runBuildTargetDependencies": false
         },
         "configurations": {
           "development": {
-            "buildTarget": "@mud/game-engine:build:development"
+            "buildTarget": "world:build:development"
           },
           "production": {
-            "buildTarget": "@mud/game-engine:build:production"
+            "buildTarget": "world:build:production"
           }
         }
       },
@@ -68,19 +66,7 @@
         "options": {
           "passWithNoTests": true
         }
-      },
-      "docker-build": {
-        "dependsOn": [
-          "build"
-        ],
-        "command": "docker build -f apps/game-engine/Dockerfile . -t @mud/game-engine"
       }
     }
-  },
-  "devDependencies": {
-    "prisma": "^6.8.2"
-  },
-  "dependencies": {
-    "@prisma/client": "^6.8.2"
   }
 }
