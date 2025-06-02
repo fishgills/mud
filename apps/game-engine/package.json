@@ -52,8 +52,7 @@
         ],
         "options": {
           "buildTarget": "@mud/game-engine:build",
-          "runBuildTargetDependencies": false,
-          "proxyConfig": "apps/game-engine/proxy.conf.json"
+          "runBuildTargetDependencies": false
         },
         "configurations": {
           "development": {

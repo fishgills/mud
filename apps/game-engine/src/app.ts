@@ -1,6 +1,6 @@
 import express from 'express';
-import playerRoutes from './routes/player';
-import worldRoutes from './routes/world';
+import playerRoutes from './routes/player-new';
+import worldRoutes from './routes/world-new';
 import tickRoutes from './routes/tick';
 
 const app = express();
