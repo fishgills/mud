@@ -1,11 +1,3 @@
-model GameState {
-  id        Int      @id @default(autoincrement())
-  tick      Int      @default(0)
-  gameHour  Int      @default(0) // 0-23
-  gameDay   Int      @default(1)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
 // Prisma schema for the dungeon crawler game engine
 // This schema covers Player, WorldTile, Monster, WeatherState, and Biome
 
@@ -16,6 +8,15 @@ generator client {
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
+}
+
+model GameState {
+  id        Int      @id @default(autoincrement())
+  tick      Int      @default(0)
+  gameHour  Int      @default(0) // 0-23
+  gameDay   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Player {

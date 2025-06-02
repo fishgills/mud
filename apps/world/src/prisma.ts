@@ -1,5 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { getPrismaClient } from '@mud/database';
+import type { PrismaClient } from '@mud/database';
 
-const prisma = new PrismaClient();
+const prisma: PrismaClient = getPrismaClient();
 
 export default prisma;

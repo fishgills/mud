@@ -1,6 +1,22 @@
 import prisma from '../prisma';
+import type { Prisma } from '@mud/database';
 
-export async function getPlayerLocationInfo(playerId: number) {
+interface PlayerLocationInfo {
+  x: number;
+  y: number;
+  description: string;
+  biome: string;
+  biomeDescription: string;
+  biomeMix: Prisma.JsonValue;
+  possibleDirections: string[];
+}
+
+interface ErrorResponse {
+  error: string;
+  status: number;
+}
+
+export async function getPlayerLocationInfo(playerId: number): Promise<PlayerLocationInfo | ErrorResponse> {
   const player = await prisma.player.findUnique({ where: { id: playerId } });
   if (!player) return { error: 'Player not found', status: 404 };
   const tile = await prisma.worldTile.findUnique({

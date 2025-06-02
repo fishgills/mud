@@ -77,9 +77,8 @@
     }
   },
   "devDependencies": {
-    "prisma": "^6.8.2"
   },
   "dependencies": {
-    "@prisma/client": "^6.8.2"
+    "@mud/database": "*"
   }
 }
