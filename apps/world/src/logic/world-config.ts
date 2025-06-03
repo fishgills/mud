@@ -46,69 +46,8 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
     }
   },
   chunkSize: 20,
-  settlementSpacing: 50,
-  cityProbability: 0.002,    // 0.2% chance per suitable tile
-  villageProbability: 0.01   // 1% chance per suitable tile
+  settlementSpacing: 50, // Minimum distance between settlements
+  cityProbability: 0.008, // 1% chance of a city in any chunk
+  villageProbability: 0.001, // 5% chance of a village in any chunk
 };
 
-// Alternative configuration for a more mountainous world
-export const MOUNTAINOUS_WORLD_CONFIG: WorldConfig = {
-  ...DEFAULT_WORLD_CONFIG,
-  worldParameters: {
-    heightNoise: {
-      seed: 12345,
-      scale: 0.008,    // Slightly smaller height features
-      octaves: 8,      // More height detail
-      persistence: 0.7, // More prominent height differences
-      lacunarity: 2.2
-    },
-    temperatureNoise: {
-      ...DEFAULT_WORLD_CONFIG.worldParameters.temperatureNoise,
-      scale: 0.006     // Slightly more varied temperature
-    },
-    moistureNoise: {
-      ...DEFAULT_WORLD_CONFIG.worldParameters.moistureNoise,
-      scale: 0.01      // More varied moisture patterns
-    }
-  }
-};
-
-// Alternative configuration for an island world
-export const ISLAND_WORLD_CONFIG: WorldConfig = {
-  ...DEFAULT_WORLD_CONFIG,
-  worldParameters: {
-    heightNoise: {
-      seed: 12345,
-      scale: 0.003,    // Very large landmass features
-      octaves: 4,      // Less height detail for smoother islands
-      persistence: 0.3,
-      lacunarity: 1.8
-    },
-    temperatureNoise: {
-      ...DEFAULT_WORLD_CONFIG.worldParameters.temperatureNoise,
-      scale: 0.004     // Large temperature zones
-    },
-    moistureNoise: {
-      ...DEFAULT_WORLD_CONFIG.worldParameters.moistureNoise,
-      scale: 0.006     // Varied moisture for different island climates
-    }
-  },
-  settlementSpacing: 30,     // Closer settlements on islands
-  cityProbability: 0.001,    // Fewer cities
-  villageProbability: 0.015  // More villages
-};
-
-/**
- * Get world configuration by name
- */
-export function getWorldConfig(configName: string): WorldConfig {
-  switch (configName.toLowerCase()) {
-    case 'mountainous':
-      return MOUNTAINOUS_WORLD_CONFIG;
-    case 'island':
-      return ISLAND_WORLD_CONFIG;
-    case 'default':
-    default:
-      return DEFAULT_WORLD_CONFIG;
-  }
-}

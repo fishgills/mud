@@ -89,28 +89,3 @@ export class NoiseGenerator {
     return terrain;
   }
 }
-
-// Default world parameters for a balanced world
-export const DEFAULT_WORLD_PARAMETERS: WorldParameters = {
-  heightNoise: {
-    seed: 12345,
-    scale: 0.01,
-    octaves: 6,
-    persistence: 0.5,
-    lacunarity: 2.0
-  },
-  temperatureNoise: {
-    seed: 54321,
-    scale: 0.005,
-    octaves: 4,
-    persistence: 0.6,
-    lacunarity: 2.0
-  },
-  moistureNoise: {
-    seed: 98765,
-    scale: 0.008,
-    octaves: 5,
-    persistence: 0.4,
-    lacunarity: 2.0
-  }
-};

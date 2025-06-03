@@ -1,7 +1,17 @@
 import { Router } from 'express';
-import { generateTile, generateTileGrid, generateChunk, worldToChunk, chunkToWorld } from '../logic/world';
+import {
+  generateTile,
+  generateTileGrid,
+  generateChunk,
+  worldToChunk,
+  chunkToWorld,
+} from '../logic/world';
 import { seedBiomes } from '../logic/biome';
-import { renderWorldMap, getBiomeColors } from '../logic/map-renderer';
+import {
+  renderWorldMap,
+  getBiomeColors,
+} from '../logic/map-renderer';
+import { BiomeRegistry } from '../logic/biome-definitions';
 import prisma from '../prisma';
 
 const router = Router();
@@ -11,11 +21,11 @@ router.get('/tile/:x/:y', async (req, res) => {
   try {
     const x = parseInt(req.params.x);
     const y = parseInt(req.params.y);
-    
+
     if (isNaN(x) || isNaN(y)) {
       return res.status(400).json({ error: 'Invalid coordinates' });
     }
-    
+
     const tile = await generateTile(x, y);
     return res.json(tile);
   } catch (error) {
@@ -28,15 +38,17 @@ router.get('/tile/:x/:y', async (req, res) => {
 router.post('/grid', async (req, res) => {
   try {
     const { centerX, centerY, radius = 5 } = req.body;
-    
+
     if (typeof centerX !== 'number' || typeof centerY !== 'number') {
-      return res.status(400).json({ error: 'centerX and centerY must be numbers' });
+      return res
+        .status(400)
+        .json({ error: 'centerX and centerY must be numbers' });
     }
-    
+
     if (radius > 10) {
       return res.status(400).json({ error: 'Maximum radius is 10' });
     }
-    
+
     const tiles = await generateTileGrid(centerX, centerY, radius);
     return res.json({ tiles, count: tiles.length });
   } catch (error) {
@@ -50,11 +62,11 @@ router.get('/chunk/:chunkX/:chunkY', async (req, res) => {
   try {
     const chunkX = parseInt(req.params.chunkX);
     const chunkY = parseInt(req.params.chunkY);
-    
+
     if (isNaN(chunkX) || isNaN(chunkY)) {
       return res.status(400).json({ error: 'Invalid chunk coordinates' });
     }
-    
+
     const chunk = await generateChunk(chunkX, chunkY);
     return res.json(chunk);
   } catch (error) {
@@ -68,18 +80,18 @@ router.get('/chunk-info/:x/:y', async (req, res) => {
   try {
     const x = parseInt(req.params.x);
     const y = parseInt(req.params.y);
-    
+
     if (isNaN(x) || isNaN(y)) {
       return res.status(400).json({ error: 'Invalid coordinates' });
     }
-    
+
     const chunkCoords = worldToChunk(x, y);
     const worldBounds = chunkToWorld(chunkCoords.chunkX, chunkCoords.chunkY);
-    
+
     return res.json({
       worldCoordinates: { x, y },
       chunkCoordinates: chunkCoords,
-      chunkWorldBounds: worldBounds
+      chunkWorldBounds: worldBounds,
     });
   } catch (error) {
     console.error('Error getting chunk info:', error);
@@ -92,9 +104,9 @@ router.get('/grid', async (req, res) => {
   const size = req.query.size ? Number(req.query.size) : 11;
   const centerX = req.query.centerX ? Number(req.query.centerX) : 0;
   const centerY = req.query.centerY ? Number(req.query.centerY) : 0;
-  
+
   const half = Math.floor(size / 2);
-  
+
   // Get all tiles in the grid
   const tiles = await prisma.worldTile.findMany({
     where: {
@@ -103,35 +115,16 @@ router.get('/grid', async (req, res) => {
     },
     include: { biome: true },
   });
-  
-  // Map biome names to single letters
-  const biomeLetter: Record<string, string> = {
-    city: 'C',
-    village: 'V',
-    forest: 'F',
-    desert: 'D',
-    plains: 'P',
-    mountains: 'M',
-    hills: 'H',
-    ocean: 'O',
-    lake: 'L',
-    beach: 'B',
-    tundra: 'T',
-    taiga: 'A',
-    savanna: 'S',
-    jungle: 'J',
-    rainforest: 'R',
-    swamp: 'W',
-    sewers: 'E', // Keep for compatibility
-    caves: 'X',  // Keep for compatibility
-  };
-  
+
+  // Get biome letter mapping from the consolidated registry
+  const biomeLetter = BiomeRegistry.getLetterMap();
+
   // Build a grid
   const grid: string[][] = [];
   for (let y = centerY + half; y >= centerY - half; y--) {
     const row: string[] = [];
     for (let x = centerX - half; x <= centerX + half; x++) {
-      const tile = tiles.find(t => t.x === x && t.y === y);
+      const tile = tiles.find((t) => t.x === x && t.y === y);
       if (tile && tile.biome) {
         row.push(biomeLetter[tile.biome.name] || '?');
       } else {
@@ -140,9 +133,9 @@ router.get('/grid', async (req, res) => {
     }
     grid.push(row);
   }
-  
+
   // Join rows into a string
-  const text = grid.map(row => row.join(' ')).join('\n');
+  const text = grid.map((row) => row.join(' ')).join('\n');
   res.type('text/plain').send(text);
 });
 
@@ -150,18 +143,21 @@ router.get('/grid', async (req, res) => {
 router.post('/seed', async (req, res) => {
   try {
     await seedBiomes();
-    
+
     // Create a small starting town at (2,2)
-    const cityBiome = await prisma.biome.findUnique({ where: { name: 'city' } });
+    const cityBiome = await prisma.biome.findUnique({
+      where: { name: 'city' },
+    });
     if (!cityBiome) {
       return res.status(500).json({ error: 'City biome not found' });
     }
-    
+
     for (let x = 0; x < 5; x++) {
       for (let y = 0; y < 5; y++) {
-        const description = (x === 2 && y === 2)
-          ? 'The town square, bustling with activity.'
-          : 'A quiet part of the small city.';
+        const description =
+          x === 2 && y === 2
+            ? 'The town square, bustling with activity.'
+            : 'A quiet part of the small city.';
         await prisma.worldTile.upsert({
           where: { x_y: { x, y } },
           update: {},
@@ -169,7 +165,7 @@ router.post('/seed', async (req, res) => {
         });
       }
     }
-    
+
     return res.json({ status: 'world seeded' });
   } catch (error) {
     console.error('Error seeding world:', error);
@@ -194,23 +190,48 @@ router.get('/map', async (req, res): Promise<void> => {
   try {
     const centerX = parseInt(req.query.centerX as string) || 0;
     const centerY = parseInt(req.query.centerY as string) || 0;
-    const width = Math.min(parseInt(req.query.width as string) || 100, 500); // Max 500 to prevent overload
-    const height = Math.min(parseInt(req.query.height as string) || 100, 500); // Max 500 to prevent overload
-    const pixelSize = Math.max(1, Math.min(parseInt(req.query.pixelSize as string) || 2, 10)); // 1-10 pixel size
-    
+    const width = Math.min(parseInt(req.query.width as string) || 100, 10000); // Max 10000 to prevent overload
+    const height = Math.min(parseInt(req.query.height as string) || 100, 10000); // Max 10000 to prevent overload
+    const pixelSize = Math.max(
+      1,
+      Math.min(parseInt(req.query.pixelSize as string) || 2, 10)
+    ); // 1-10 pixel size
+    const useOptimized = req.query.optimized === 'true';
+
+    // Use optimized rendering for large areas or when explicitly requested
+    const totalTiles = width * height;
+    const shouldUseOptimized = useOptimized || totalTiles > 250000;
+
+    // const imageBuffer = shouldUseOptimized
+    //   ? await renderWorldMapOptimized({
+    //       centerX,
+    //       centerY,
+    //       width,
+    //       height,
+    //       pixelSize
+    //     })
+    //   : await renderWorldMap({
+    //       centerX,
+    //       centerY,
+    //       width,
+    //       height,
+    //       pixelSize
+    //     });
+
     const imageBuffer = await renderWorldMap({
       centerX,
       centerY,
       width,
       height,
-      pixelSize
+      pixelSize,
     });
-    
+
     res.set({
       'Content-Type': 'image/png',
-      'Content-Length': imageBuffer.length
+      'Content-Length': imageBuffer.length,
+      'X-Render-Method': shouldUseOptimized ? 'optimized' : 'standard',
     });
-    
+
     res.send(imageBuffer);
   } catch (error) {
     console.error('Error generating world map:', error);

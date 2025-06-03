@@ -1,10 +1,18 @@
-import { NoiseGenerator, DEFAULT_WORLD_PARAMETERS, WorldParameters, TerrainData } from './noise-generator';
+import { NoiseGenerator, TerrainData } from './noise-generator';
+import { DEFAULT_WORLD_CONFIG, WorldConfig } from './world-config';
 import { BiomeMapper } from './biome-mapper';
 import { WorldTile } from './world';
 import prisma from '../prisma';
 import redis from '../redis';
 
 export const CHUNK_SIZE = 20;
+
+// Constants for biome mix calculations
+const BIOME_MIX_SAMPLE_RADIUS = 1;
+const BIOME_MIX_PRECISION = 100;
+
+// Constants for settlement calculations
+const SETTLEMENT_HASH_MOD = 10000;
 
 export interface ChunkCoordinate {
   chunkX: number;
@@ -20,11 +28,15 @@ export interface WorldChunk {
 
 export class ChunkWorldGenerator {
   private noiseGenerator: NoiseGenerator;
-  private settlementSpacing: number;
+  private config: WorldConfig;
 
-  constructor(parameters: WorldParameters = DEFAULT_WORLD_PARAMETERS, settlementSpacing = 50) {
-    this.noiseGenerator = new NoiseGenerator(parameters);
-    this.settlementSpacing = settlementSpacing;
+  // Cache TTL constants
+  private static readonly TILE_CACHE_TTL = 3600; // 1 hour
+  private static readonly CHUNK_CACHE_TTL = 7200; // 2 hours
+
+  constructor(config: WorldConfig = DEFAULT_WORLD_CONFIG) {
+    this.noiseGenerator = new NoiseGenerator(config.worldParameters);
+    this.config = config;
   }
 
   /**
@@ -52,126 +64,28 @@ export class ChunkWorldGenerator {
   }
 
   /**
-   * Generate a tile at specific world coordinates
+   * Generate cache keys
    */
-  async generateTile(x: number, y: number): Promise<WorldTile> {
-    // Check cache first
-    const cached = await this.getTileFromCache(x, y);
-    if (cached) {
-      return cached;
-    }
-
-    // Check if tile already exists in database
-    const existingTile = await prisma.worldTile.findUnique({ 
-      where: { x_y: { x, y } },
-      include: { biome: true }
-    });
-    
-    if (existingTile) {
-      const tile: WorldTile = {
-        id: existingTile.id,
-        x: existingTile.x,
-        y: existingTile.y,
-        biomeId: existingTile.biomeId,
-        description: existingTile.description,
-        biomeMix: existingTile.biomeMix as Record<string, number> || undefined,
-      };
-      await this.cacheTile(tile);
-      return tile;
-    }
-
-    // Generate new tile using noise-based generation
-    const tile = await this.generateNewTile(x, y);
-    
-    // Cache the generated tile
-    await this.cacheTile(tile);
-    
-    // Store in database asynchronously
-    this.storeTileAsync(tile).catch(error => {
-      console.error('Error storing tile async:', error);
-    });
-    
-    return tile;
+  private static getCacheKey(type: 'tile' | 'chunk', ...coords: number[]): string {
+    return `${type}:${coords.join(':')}`;
   }
 
   /**
-   * Generate an entire chunk
+   * Handle async operations with consistent error handling
    */
-  async generateChunk(chunkX: number, chunkY: number): Promise<WorldChunk> {
-    const cacheKey = `chunk:${chunkX}:${chunkY}`;
-    
-    // Check if chunk is cached
+  private async handleAsync<T>(operation: () => Promise<T>, errorMessage: string): Promise<T | null> {
     try {
-      const cachedChunk = await redis.get(cacheKey);
-      if (cachedChunk) {
-        return JSON.parse(cachedChunk);
-      }
+      return await operation();
     } catch (error) {
-      console.error('Error getting chunk from cache:', error);
+      console.error(`${errorMessage}:`, error);
+      return null;
     }
-
-    // Generate terrain data for the entire chunk
-    const terrainGrid = this.noiseGenerator.generateChunkTerrain(chunkX, chunkY, CHUNK_SIZE);
-    
-    const tiles: WorldTile[] = [];
-    const { startX, startY } = ChunkWorldGenerator.chunkToWorld({ chunkX, chunkY });
-
-    // Generate tiles for each position in the chunk
-    for (let localX = 0; localX < CHUNK_SIZE; localX++) {
-      for (let localY = 0; localY < CHUNK_SIZE; localY++) {
-        const worldX = startX + localX;
-        const worldY = startY + localY;
-        const terrain = terrainGrid[localX][localY];
-        
-        // Determine base biome from terrain
-        let biomeName = BiomeMapper.getBiome(terrain);
-        
-        // Apply settlement spacing rules
-        if (BiomeMapper.isSettlement(biomeName)) {
-          if (!this.shouldPlaceSettlement(worldX, worldY, biomeName)) {
-            // Fall back to a natural biome based on terrain
-            biomeName = this.getNaturalBiomeAlternative(terrain);
-          }
-        }
-
-        // Get biome mix
-        const biomeMix = BiomeMapper.getBiomeMix(terrainGrid, localX, localY);
-
-        // Create tile
-        const tile = await this.createTileFromBiome(worldX, worldY, biomeName, biomeMix);
-        tiles.push(tile);
-      }
-    }
-
-    const chunk: WorldChunk = {
-      chunkX,
-      chunkY,
-      tiles,
-      generatedAt: new Date()
-    };
-
-    // Cache the chunk
-    try {
-      await redis.setEx(cacheKey, 7200, JSON.stringify(chunk)); // Cache for 2 hours
-    } catch (error) {
-      console.error('Error caching chunk:', error);
-    }
-
-    // Store tiles in database asynchronously
-    this.storeChunkAsync(chunk).catch(error => {
-      console.error('Error storing chunk async:', error);
-    });
-
-    return chunk;
   }
 
   /**
-   * Generate a new tile using noise-based generation
+   * Determine the appropriate biome for a location, handling settlements
    */
-  private async generateNewTile(x: number, y: number): Promise<WorldTile> {
-    const terrain = this.noiseGenerator.generateTerrain(x, y);
-    
-    // Determine base biome
+  private determineBiome(terrain: TerrainData, x: number, y: number): string {
     let biomeName = BiomeMapper.getBiome(terrain);
     
     // Apply settlement spacing rules
@@ -180,10 +94,196 @@ export class ChunkWorldGenerator {
         biomeName = this.getNaturalBiomeAlternative(terrain);
       }
     }
+    
+    return biomeName;
+  }
 
-    // For single tile generation, we need to sample nearby terrain for biome mix
+  /**
+   * Generate a tile at specific world coordinates
+   */
+  async generateTile(x: number, y: number): Promise<WorldTile> {
+    const result = await this.generateTileWithCacheInfo(x, y);
+    return result.tile;
+  }
+
+  /**
+   * Generate a tile with cache hit information
+   */
+  async generateTileWithCacheInfo(x: number, y: number): Promise<{ tile: WorldTile; cacheHit: boolean; source: 'cache' | 'database' | 'generated' }> {
+    return this.processTileGenerationWithCacheInfo(
+      x, 
+      y, 
+      () => this.getTileFromCache(x, y),
+      () => this.findExistingTile(x, y),
+      () => this.generateNewTile(x, y)
+    );
+  }
+
+  /**
+   * Unified tile generation workflow with cache information
+   */
+  private async processTileGenerationWithCacheInfo(
+    x: number,
+    y: number,
+    getCached: () => Promise<WorldTile | null>,
+    getExisting: () => Promise<WorldTile | null>,
+    generateNew: () => Promise<WorldTile>
+  ): Promise<{ tile: WorldTile; cacheHit: boolean; source: 'cache' | 'database' | 'generated' }> {
+    // Check cache first
+    const cached = await getCached();
+    if (cached) {
+      return { tile: cached, cacheHit: true, source: 'cache' };
+    }
+
+    // Check if tile already exists in database
+    const existing = await getExisting();
+    if (existing) {
+      await this.cacheTile(existing);
+      return { tile: existing, cacheHit: false, source: 'database' };
+    }
+
+    // Generate new tile
+    const tile = await generateNew();
+    
+    // Cache and store the generated tile
+    await this.cacheTile(tile);
+    this.handleAsync(() => this.storeTileAsync(tile), 'Error storing tile async');
+    
+    return { tile, cacheHit: false, source: 'generated' };
+  }
+
+  /**
+   * Generate an entire chunk
+   */
+  async generateChunk(chunkX: number, chunkY: number): Promise<WorldChunk> {
+    const cacheKey = ChunkWorldGenerator.getCacheKey('chunk', chunkX, chunkY);
+    
+    // Check if chunk is cached
+    const cachedChunk = await this.getCachedData<WorldChunk>(cacheKey, 'Error getting chunk from cache');
+    if (cachedChunk) {
+      return cachedChunk;
+    }
+
+    // Generate chunk tiles
+    const tiles = await this.generateChunkTiles(chunkX, chunkY);
+
+    const chunk: WorldChunk = {
+      chunkX,
+      chunkY,
+      tiles,
+      generatedAt: new Date()
+    };
+
+    // Cache and store the chunk
+    await this.setCachedData(cacheKey, ChunkWorldGenerator.CHUNK_CACHE_TTL, chunk, 'Error caching chunk');
+    this.handleAsync(() => this.storeChunkAsync(chunk), 'Error storing chunk async');
+
+    return chunk;
+  }
+
+  /**
+   * Generate an entire chunk with cache information
+   */
+  async generateChunkWithCacheInfo(chunkX: number, chunkY: number): Promise<{ chunk: WorldChunk; cacheHit: boolean; source: 'cache' | 'generated' }> {
+    const cacheKey = ChunkWorldGenerator.getCacheKey('chunk', chunkX, chunkY);
+    
+    // Check if chunk is cached
+    const cachedChunk = await this.getCachedData<WorldChunk>(cacheKey, 'Error getting chunk from cache');
+    if (cachedChunk) {
+      return { chunk: cachedChunk, cacheHit: true, source: 'cache' };
+    }
+
+    // Generate chunk tiles
+    const tiles = await this.generateChunkTiles(chunkX, chunkY);
+
+    const chunk: WorldChunk = {
+      chunkX,
+      chunkY,
+      tiles,
+      generatedAt: new Date()
+    };
+
+    // Cache and store the chunk
+    await this.setCachedData(cacheKey, ChunkWorldGenerator.CHUNK_CACHE_TTL, chunk, 'Error caching chunk');
+    this.handleAsync(() => this.storeChunkAsync(chunk), 'Error storing chunk async');
+
+    return { chunk, cacheHit: false, source: 'generated' };
+  }
+
+  /**
+   * Generate all tiles for a chunk
+   */
+  private async generateChunkTiles(chunkX: number, chunkY: number): Promise<WorldTile[]> {
+    const terrainGrid = this.noiseGenerator.generateChunkTerrain(chunkX, chunkY, CHUNK_SIZE);
+    const tiles: WorldTile[] = [];
+    const { startX, startY } = ChunkWorldGenerator.chunkToWorld({ chunkX, chunkY });
+
+    for (let localX = 0; localX < CHUNK_SIZE; localX++) {
+      for (let localY = 0; localY < CHUNK_SIZE; localY++) {
+        const worldX = startX + localX;
+        const worldY = startY + localY;
+        const terrain = terrainGrid[localX][localY];
+        
+        const tile = await this.createTileFromTerrain(worldX, worldY, terrain, terrainGrid, localX, localY);
+        tiles.push(tile);
+      }
+    }
+
+    return tiles;
+  }
+
+  /**
+   * Find existing tile in database
+   */
+  private async findExistingTile(x: number, y: number): Promise<WorldTile | null> {
+    const existingTile = await this.performDatabaseOperation(
+      () => prisma.worldTile.findUnique({ 
+        where: { x_y: { x, y } },
+        include: { biome: true }
+      }),
+      'Error finding existing tile'
+    );
+    
+    if (!existingTile) return null;
+
+    return {
+      id: existingTile.id,
+      x: existingTile.x,
+      y: existingTile.y,
+      biomeId: existingTile.biomeId,
+      description: existingTile.description,
+      biomeMix: existingTile.biomeMix as Record<string, number> || undefined,
+    };
+  }
+
+  /**
+   * Generate a new tile using noise-based generation
+   */
+  private async generateNewTile(x: number, y: number): Promise<WorldTile> {
+    const terrain = this.noiseGenerator.generateTerrain(x, y);
     const biomeMix = await this.calculateBiomeMixForSingleTile(x, y);
+    return this.createTileFromTerrain(x, y, terrain, null, 0, 0, biomeMix);
+  }
 
+  /**
+   * Create a tile from terrain data (unified logic for both single tiles and chunk generation)
+   */
+  private async createTileFromTerrain(
+    x: number, 
+    y: number, 
+    terrain: TerrainData, 
+    terrainGrid?: TerrainData[][] | null, 
+    localX = 0, 
+    localY = 0,
+    biomeMixOverride?: Record<string, number>
+  ): Promise<WorldTile> {
+    const biomeName = this.determineBiome(terrain, x, y);
+    
+    // Calculate biome mix based on available data
+    const biomeMix = biomeMixOverride ?? 
+      (terrainGrid ? BiomeMapper.getBiomeMix(terrainGrid, localX, localY) : 
+       await this.calculateBiomeMixForSingleTile(x, y));
+    
     return this.createTileFromBiome(x, y, biomeName, biomeMix);
   }
 
@@ -191,22 +291,25 @@ export class ChunkWorldGenerator {
    * Calculate biome mix for a single tile by sampling nearby terrain
    */
   private async calculateBiomeMixForSingleTile(x: number, y: number): Promise<Record<string, number>> {
+    return this.calculateBiomeMix((dx, dy) => {
+      const sampleX = x + dx;
+      const sampleY = y + dy;
+      const terrain = this.noiseGenerator.generateTerrain(sampleX, sampleY);
+      return this.getCleanBiome(terrain);
+    });
+  }
+
+  /**
+   * Generic biome mix calculation
+   */
+  private calculateBiomeMix(getBiome: (dx: number, dy: number) => string): Record<string, number> {
     const biomeCounts: Record<string, number> = {};
     let totalSamples = 0;
 
-    // Sample a 3x3 area around the tile
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        const sampleX = x + dx;
-        const sampleY = y + dy;
-        const terrain = this.noiseGenerator.generateTerrain(sampleX, sampleY);
-        let biome = BiomeMapper.getBiome(terrain);
-        
-        // Don't place settlements in the mix calculation
-        if (BiomeMapper.isSettlement(biome)) {
-          biome = this.getNaturalBiomeAlternative(terrain);
-        }
-        
+    // Sample a 3x3 area around the center point
+    for (let dx = -BIOME_MIX_SAMPLE_RADIUS; dx <= BIOME_MIX_SAMPLE_RADIUS; dx++) {
+      for (let dy = -BIOME_MIX_SAMPLE_RADIUS; dy <= BIOME_MIX_SAMPLE_RADIUS; dy++) {
+        const biome = getBiome(dx, dy);
         biomeCounts[biome] = (biomeCounts[biome] || 0) + 1;
         totalSamples++;
       }
@@ -215,29 +318,32 @@ export class ChunkWorldGenerator {
     // Convert to percentages
     const biomeMix: Record<string, number> = {};
     for (const [biome, count] of Object.entries(biomeCounts)) {
-      biomeMix[biome] = Math.round((count / totalSamples) * 100) / 100;
+      biomeMix[biome] = Math.round((count / totalSamples) * BIOME_MIX_PRECISION) / BIOME_MIX_PRECISION;
     }
 
     return biomeMix;
   }
 
   /**
+   * Get biome without settlements for mix calculations
+   */
+  private getCleanBiome(terrain: TerrainData): string {
+    let biome = BiomeMapper.getBiome(terrain);
+    if (BiomeMapper.isSettlement(biome)) {
+      biome = this.getNaturalBiomeAlternative(terrain);
+    }
+    return biome;
+  }
+
+  /**
    * Create a WorldTile from biome information
    */
   private async createTileFromBiome(x: number, y: number, biomeName: string, biomeMix: Record<string, number>): Promise<WorldTile> {
-    // Get or create biome
-    let biome = await prisma.biome.findUnique({ where: { name: biomeName } });
+    const biome = await this.getOrCreateBiome(biomeName);
     if (!biome) {
-      // Create biome if it doesn't exist
-      const biomeRule = BiomeMapper.getAllBiomes().find(name => name === biomeName);
-      biome = await prisma.biome.create({
-        data: {
-          name: biomeName,
-          description: biomeRule ? `A ${biomeName} biome.` : `Unknown biome: ${biomeName}`
-        }
-      });
+      throw new Error(`Failed to get or create biome: ${biomeName}`);
     }
-
+    
     const description = `You are in a ${biomeName} at (${x}, ${y}).`;
 
     return {
@@ -251,21 +357,70 @@ export class ChunkWorldGenerator {
   }
 
   /**
-   * Determine if a settlement should be placed at the given coordinates
+   * Generic database operation with caching
+   */
+  private async performDatabaseOperation<T>(
+    operation: () => Promise<T>,
+    errorMessage: string,
+    cacheKey?: string,
+    cacheTtl?: number,
+    cacheValue?: unknown
+  ): Promise<T | null> {
+    const result = await this.handleAsync(operation, errorMessage);
+    
+    if (result && cacheKey && cacheTtl !== undefined && cacheValue !== undefined) {
+      await this.handleAsync(
+        () => redis.setEx(cacheKey, cacheTtl, JSON.stringify(cacheValue)),
+        'Error caching operation result'
+      );
+    }
+    
+    return result;
+  }
+
+  /**
+   * Get or create biome in database
+   */
+  private async getOrCreateBiome(biomeName: string) {
+    return this.performDatabaseOperation(
+      async () => {
+        let biome = await prisma.biome.findUnique({ where: { name: biomeName } });
+        if (!biome) {
+          biome = await prisma.biome.create({
+            data: { name: biomeName }
+          });
+        }
+        return biome;
+      },
+      `Error getting or creating biome: ${biomeName}`
+    );
+  }
+
+  /**
+   * Settlement placement logic
    */
   private shouldPlaceSettlement(x: number, y: number, settlementType: string): boolean {
-    // Use a deterministic pseudo-random approach based on coordinates
     const hash = this.simpleHash(x, y, settlementType);
-    const probability = settlementType === 'city' ? 0.002 : 0.01; // Cities are rarer than villages
+    const probability = this.getSettlementProbability(settlementType);
     
-    // Check if this location should have a settlement based on spacing and probability
-    if ((hash % 10000) / 10000 < probability) {
-      // Check spacing constraints - no other settlements nearby
-      const spacing = settlementType === 'city' ? this.settlementSpacing * 2 : this.settlementSpacing;
+    if ((hash % SETTLEMENT_HASH_MOD) / SETTLEMENT_HASH_MOD < probability) {
+      const spacing = this.getSettlementSpacing(settlementType);
       return this.isLocationSuitableForSettlement(x, y, spacing);
     }
     
     return false;
+  }
+
+  private getSettlementProbability(settlementType: string): number {
+    return settlementType === 'city' 
+      ? this.config.cityProbability 
+      : this.config.villageProbability;
+  }
+
+  private getSettlementSpacing(settlementType: string): number {
+    return settlementType === 'city' 
+      ? this.config.settlementSpacing * 2 
+      : this.config.settlementSpacing;
   }
 
   /**
@@ -305,32 +460,38 @@ export class ChunkWorldGenerator {
   }
 
   /**
-   * Cache operations
+   * Cache operations - unified for better DRY
    */
+  private async getCachedData<T>(cacheKey: string, errorMessage: string): Promise<T | null> {
+    return this.handleAsync(
+      () => redis.get(cacheKey).then(data => data ? JSON.parse(data) : null),
+      errorMessage
+    );
+  }
+
+  private async setCachedData<T>(cacheKey: string, ttl: number, data: T, errorMessage: string): Promise<void> {
+    await this.handleAsync(
+      () => redis.setEx(cacheKey, ttl, JSON.stringify(data)),
+      errorMessage
+    );
+  }
+
   private async getTileFromCache(x: number, y: number): Promise<WorldTile | null> {
-    try {
-      const cached = await redis.get(`tile:${x}:${y}`);
-      return cached ? JSON.parse(cached) : null;
-    } catch (error) {
-      console.error('Error getting tile from cache:', error);
-      return null;
-    }
+    const cacheKey = ChunkWorldGenerator.getCacheKey('tile', x, y);
+    return this.getCachedData<WorldTile>(cacheKey, 'Error getting tile from cache');
   }
 
   private async cacheTile(tile: WorldTile): Promise<void> {
-    try {
-      await redis.setEx(`tile:${tile.x}:${tile.y}`, 3600, JSON.stringify(tile));
-    } catch (error) {
-      console.error('Error caching tile:', error);
-    }
+    const cacheKey = ChunkWorldGenerator.getCacheKey('tile', tile.x, tile.y);
+    await this.setCachedData(cacheKey, ChunkWorldGenerator.TILE_CACHE_TTL, tile, 'Error caching tile');
   }
 
   /**
-   * Database operations
+   * Database operations - unified storage methods
    */
   private async storeTileAsync(tile: WorldTile): Promise<void> {
-    try {
-      const stored = await prisma.worldTile.create({
+    const stored = await this.performDatabaseOperation(
+      () => prisma.worldTile.create({
         data: {
           x: tile.x,
           y: tile.y,
@@ -338,26 +499,23 @@ export class ChunkWorldGenerator {
           description: tile.description,
           biomeMix: tile.biomeMix,
         },
-      });
-      
+      }),
+      'Error storing tile to database'
+    );
+    
+    if (stored) {
       // Update cache with real ID
       const updatedTile = { ...tile, id: stored.id };
       await this.cacheTile(updatedTile);
-    } catch (error) {
-      console.error('Error storing tile to database:', error);
     }
   }
 
   private async storeChunkAsync(chunk: WorldChunk): Promise<void> {
-    try {
-      // Store all tiles in the chunk
-      for (const tile of chunk.tiles) {
-        if (tile.id === 0) { // Only store if not already in database
-          await this.storeTileAsync(tile);
-        }
-      }
-    } catch (error) {
-      console.error('Error storing chunk to database:', error);
-    }
+    const tilesToStore = chunk.tiles.filter(tile => tile.id === 0);
+    
+    await this.performDatabaseOperation(
+      () => Promise.all(tilesToStore.map(tile => this.storeTileAsync(tile))),
+      'Error storing chunk to database'
+    );
   }
 }

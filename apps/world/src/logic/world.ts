@@ -1,9 +1,9 @@
 import redis from '../redis';
 import { ChunkWorldGenerator } from './chunk-generator';
-import { DEFAULT_WORLD_PARAMETERS } from './noise-generator';
+import { DEFAULT_WORLD_CONFIG } from './world-config';
 
 // Create a global instance of the chunk world generator
-const chunkGenerator = new ChunkWorldGenerator(DEFAULT_WORLD_PARAMETERS);
+const chunkGenerator = new ChunkWorldGenerator(DEFAULT_WORLD_CONFIG);
 
 // Legacy biome size limits - kept for compatibility but may not be used in new system
 export const BIOME_SIZE_LIMITS: Record<string, number> = {

@@ -52,7 +52,6 @@ model WorldTile {
 model Biome {
   id        Int      @id @default(autoincrement())
   name      String   @unique
-  description String
   tiles     WorldTile[]
   monsters  Monster[]
 }
