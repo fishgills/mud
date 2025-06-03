@@ -1,7 +1,7 @@
 import express from 'express';
 import worldRoutes from './routes/world';
 
-const host = process.env.HOST ?? 'localhost';
+const host = process.env.HOST ?? '0.0.0.0';
 const port = process.env.PORT ? Number(process.env.PORT) : 3001; // Different port from game-engine
 
 const app = express();
@@ -38,6 +38,10 @@ app.get('/', (req, res) => {
       tile: 'GET /world/tile/:x/:y',
       grid: 'POST /world/grid',
       gridView: 'GET /world/grid',
+      chunk: 'GET /world/chunk/:chunkX/:chunkY',
+      chunkInfo: 'GET /world/chunk-info/:x/:y',
+      map: 'GET /world/map?centerX=0&centerY=0&width=100&height=100&pixelSize=2',
+      mapColors: 'GET /world/map/colors',
       seed: 'POST /world/seed',
       reset: 'DELETE /world/reset'
     }

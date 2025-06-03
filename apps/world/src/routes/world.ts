@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { generateTile, generateTileGrid } from '../logic/world';
+import { generateTile, generateTileGrid, generateChunk, worldToChunk, chunkToWorld } from '../logic/world';
 import { seedBiomes } from '../logic/biome';
+import { renderWorldMap, getBiomeColors } from '../logic/map-renderer';
 import prisma from '../prisma';
 
 const router = Router();
@@ -44,6 +45,48 @@ router.post('/grid', async (req, res) => {
   }
 });
 
+// GET /chunk/:chunkX/:chunkY - Generate or get a complete chunk (20x20 tiles)
+router.get('/chunk/:chunkX/:chunkY', async (req, res) => {
+  try {
+    const chunkX = parseInt(req.params.chunkX);
+    const chunkY = parseInt(req.params.chunkY);
+    
+    if (isNaN(chunkX) || isNaN(chunkY)) {
+      return res.status(400).json({ error: 'Invalid chunk coordinates' });
+    }
+    
+    const chunk = await generateChunk(chunkX, chunkY);
+    return res.json(chunk);
+  } catch (error) {
+    console.error('Error generating chunk:', error);
+    return res.status(500).json({ error: 'Failed to generate chunk' });
+  }
+});
+
+// GET /chunk-info/:x/:y - Get chunk information for world coordinates
+router.get('/chunk-info/:x/:y', async (req, res) => {
+  try {
+    const x = parseInt(req.params.x);
+    const y = parseInt(req.params.y);
+    
+    if (isNaN(x) || isNaN(y)) {
+      return res.status(400).json({ error: 'Invalid coordinates' });
+    }
+    
+    const chunkCoords = worldToChunk(x, y);
+    const worldBounds = chunkToWorld(chunkCoords.chunkX, chunkCoords.chunkY);
+    
+    return res.json({
+      worldCoordinates: { x, y },
+      chunkCoordinates: chunkCoords,
+      chunkWorldBounds: worldBounds
+    });
+  } catch (error) {
+    console.error('Error getting chunk info:', error);
+    return res.status(500).json({ error: 'Failed to get chunk info' });
+  }
+});
+
 // GET /grid - Get a text representation of the world grid
 router.get('/grid', async (req, res) => {
   const size = req.query.size ? Number(req.query.size) : 11;
@@ -70,8 +113,17 @@ router.get('/grid', async (req, res) => {
     plains: 'P',
     mountains: 'M',
     hills: 'H',
-    sewers: 'S',
-    caves: 'X',
+    ocean: 'O',
+    lake: 'L',
+    beach: 'B',
+    tundra: 'T',
+    taiga: 'A',
+    savanna: 'S',
+    jungle: 'J',
+    rainforest: 'R',
+    swamp: 'W',
+    sewers: 'E', // Keep for compatibility
+    caves: 'X',  // Keep for compatibility
   };
   
   // Build a grid
@@ -135,6 +187,41 @@ router.delete('/reset', async (req, res) => {
     console.error('[world] Error deleting tiles:', error);
     return res.status(500).json({ error: 'Failed to reset world' });
   }
+});
+
+// GET /map - Generate a visual map image of the world
+router.get('/map', async (req, res): Promise<void> => {
+  try {
+    const centerX = parseInt(req.query.centerX as string) || 0;
+    const centerY = parseInt(req.query.centerY as string) || 0;
+    const width = Math.min(parseInt(req.query.width as string) || 100, 500); // Max 500 to prevent overload
+    const height = Math.min(parseInt(req.query.height as string) || 100, 500); // Max 500 to prevent overload
+    const pixelSize = Math.max(1, Math.min(parseInt(req.query.pixelSize as string) || 2, 10)); // 1-10 pixel size
+    
+    const imageBuffer = await renderWorldMap({
+      centerX,
+      centerY,
+      width,
+      height,
+      pixelSize
+    });
+    
+    res.set({
+      'Content-Type': 'image/png',
+      'Content-Length': imageBuffer.length
+    });
+    
+    res.send(imageBuffer);
+  } catch (error) {
+    console.error('Error generating world map:', error);
+    res.status(500).json({ error: 'Failed to generate world map' });
+  }
+});
+
+// GET /map/colors - Get biome color mapping for reference
+router.get('/map/colors', (req, res) => {
+  const colors = getBiomeColors();
+  res.json(colors);
 });
 
 export default router;
