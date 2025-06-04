@@ -375,11 +375,22 @@ export class ChunkWorldGenerator {
   /**
    * Database operations - unified storage methods
    */
-  private async storeTileAsync(tile: WorldTile): Promise<void> {
+  private async storeTileAsync(tile: WorldTile): Promise<WorldTile | null> {
     const stored = await this.performDatabaseOperation(
       () =>
-        prisma.worldTile.create({
-          data: {
+        prisma.worldTile.upsert({
+          where: {
+            x_y: {
+              x: tile.x,
+              y: tile.y,
+            },
+          },
+          update: {
+            // Only update if the tile data has changed
+            biomeId: tile.biomeId,
+            description: tile.description,
+          },
+          create: {
             x: tile.x,
             y: tile.y,
             biomeId: tile.biomeId,
@@ -393,15 +404,35 @@ export class ChunkWorldGenerator {
       // Update cache with real ID
       const updatedTile = { ...tile, id: stored.id };
       await DRYTileUtils.cacheTile(updatedTile);
+      return updatedTile;
     }
+    return null;
   }
 
   private async storeChunkAsync(chunk: WorldChunk): Promise<void> {
     const tilesToStore = chunk.tiles.filter((tile) => tile.id === 0);
 
-    await this.performDatabaseOperation(
+    if (tilesToStore.length === 0) {
+      return; // No tiles to store
+    }
+
+    const storedTiles = await this.performDatabaseOperation(
       () => Promise.all(tilesToStore.map((tile) => this.storeTileAsync(tile))),
       'Error storing chunk to database'
     );
+
+    // Update chunk with stored tile IDs
+    if (storedTiles) {
+      storedTiles.forEach((storedTile) => {
+        if (storedTile) {
+          const originalTile = chunk.tiles.find(
+            (t) => t.x === storedTile.x && t.y === storedTile.y
+          );
+          if (originalTile) {
+            originalTile.id = storedTile.id;
+          }
+        }
+      });
+    }
   }
 }

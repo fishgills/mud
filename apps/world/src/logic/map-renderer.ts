@@ -2,8 +2,10 @@ import { createCanvas } from 'canvas';
 import { BiomeRegistry } from './biome-definitions';
 import { ChunkWorldGenerator, WorldChunk } from './chunk-generator';
 import { DEFAULT_WORLD_CONFIG } from './world-config';
-import { WorldTile } from './world';
-import prisma from '../prisma';
+import {
+  TileRenderWorkerPool,
+  TileRenderTask,
+} from './tile-render-worker-pool';
 
 export interface MapRenderOptions {
   centerX: number;
@@ -19,21 +21,6 @@ export interface CacheStats {
   generated: number;
   total: number;
   cacheHitRate: number;
-}
-
-/**
- * Get the biome name from a tile (either from cached biome info or database lookup)
- */
-async function getBiomeNameFromTile(tile: WorldTile): Promise<string> {
-  try {
-    const biome = await prisma.biome.findUnique({
-      where: { id: tile.biomeId },
-    });
-    return biome?.name || 'unknown';
-  } catch (error) {
-    console.warn('Failed to fetch biome name for tile:', error);
-    return 'unknown';
-  }
 }
 
 /**
@@ -130,6 +117,10 @@ export async function renderWorldMap(
 
   const totalTiles = width * height;
 
+  // Timing stats for tile retrievals
+  let totalTileTime = 0;
+  let tileCount = 0;
+
   // Determine which chunks we need to cover the area
   const chunks = await getRequiredChunks(
     startX,
@@ -141,87 +132,102 @@ export async function renderWorldMap(
   chunksUsed = chunks.length;
   console.log(`📦 Need ${chunksUsed} chunks to render the area`);
 
-  // Timing stats for tile retrievals
-  let totalTileTime = 0;
-  let tileCount = 0;
+  // Initialize worker pool for parallel tile rendering
+  const workerPool = new TileRenderWorkerPool({
+    maxWorkers: Math.max(2, require('os').availableParallelism() - 2),
+  });
 
-  // Generate and render each tile asynchronously by row
-  const tileStartTime = Date.now();
-  for (let worldY = startY; worldY <= endY; worldY++) {
-    const rowPromises: Promise<void>[] = [];
-    for (let worldX = startX; worldX <= endX; worldX++) {
-      rowPromises.push(
-        (async () => {
-          try {
-            const tileResult = await chunkGenerator.generateTileWithCacheInfo(
-              worldX,
-              worldY
-            );
-            tileCount++;
-            const tile = tileResult.tile;
+  try {
+    await workerPool.initialize();
 
-            // Update cache statistics
-            cacheStats.total++;
-            switch (tileResult.source) {
-              case 'cache':
-                cacheStats.cacheHits++;
-                break;
-              case 'database':
-                cacheStats.databaseHits++;
-                break;
-              case 'generated':
-                cacheStats.generated++;
-                break;
-            }
+    // Prepare all tile rendering tasks
+    const tileStartTime = Date.now();
+    const allTasks: TileRenderTask[] = [];
 
-            const biomeName = await getBiomeNameFromTile(tile);
-            const color = BIOME_COLORS[biomeName] || BIOME_COLORS.unknown;
-
-            // Track biome statistics
-            biomeStats[biomeName] = (biomeStats[biomeName] || 0) + 1;
-
-            // Calculate pixel position (flip Y axis for proper image orientation)
-            const pixelX = (worldX - startX) * pixelSize;
-            const pixelY = (endY - worldY) * pixelSize;
-
-            // Draw pixel block
-            ctx.fillStyle = color;
-            ctx.fillRect(pixelX, pixelY, pixelSize, pixelSize);
-
-            // (Settlement marker logic removed)
-
-            tilesProcessed++;
-          } catch (error) {
-            tilesWithErrors++;
-            console.warn(
-              `⚠️  Failed to generate tile at (${worldX}, ${worldY}):`,
-              error
-            );
-            // Use unknown color for failed tiles
-            const pixelX = (worldX - startX) * pixelSize;
-            const pixelY = (endY - worldY) * pixelSize;
-            ctx.fillStyle = BIOME_COLORS.unknown;
-            ctx.fillRect(pixelX, pixelY, pixelSize, pixelSize);
-          }
-        })()
-      );
+    for (let worldY = startY; worldY <= endY; worldY++) {
+      for (let worldX = startX; worldX <= endX; worldX++) {
+        allTasks.push({
+          worldX,
+          worldY,
+          startX,
+          startY,
+          endY,
+          pixelSize,
+        });
+      }
     }
-    await Promise.all(rowPromises);
 
-    // Log progress every 10% of rows processed
-    const rowsProcessed = worldY - startY + 1;
-    const totalRows = height;
-    const progressPercent = Math.floor((rowsProcessed / totalRows) * 100);
-    if (
-      progressPercent % 10 === 0 &&
-      rowsProcessed === Math.floor((totalRows * progressPercent) / 100)
-    ) {
-      console.log(
-        `📊 Rendering progress: ${progressPercent}% (${rowsProcessed}/${totalRows} rows)`
-      );
+    console.log(
+      `🔄 Processing ${allTasks.length} tiles using ${workerPool['maxWorkers']} worker threads (persistent workers)`
+    );
+
+    // Process all tiles concurrently using the worker pool with progress monitoring
+    const results = await workerPool.processTasksWithProgress(
+      allTasks,
+      (completed, total) => {
+        const progressPercent = Math.floor((completed / total) * 100);
+        if (
+          completed % Math.max(1, Math.floor(total / 10)) === 0 ||
+          completed === total
+        ) {
+          console.log(
+            `📊 Rendering progress: ${progressPercent}% (${completed}/${total} tiles)`
+          );
+        }
+      }
+    );
+
+    // Log final worker pool statistics
+    const stats = workerPool.getStats();
+    console.log(
+      `📊 Worker pool processed ${stats.totalTasksProcessed} tasks total`
+    );
+
+    // Apply results to canvas
+    for (const result of results) {
+      tileCount++;
+
+      // Update cache statistics
+      cacheStats.total++;
+      switch (result.cacheSource) {
+        case 'cache':
+          cacheStats.cacheHits++;
+          break;
+        case 'database':
+          cacheStats.databaseHits++;
+          break;
+        case 'generated':
+          cacheStats.generated++;
+          break;
+      }
+
+      if (result.success) {
+        // Track biome statistics
+        biomeStats[result.biomeName] = (biomeStats[result.biomeName] || 0) + 1;
+
+        // Draw pixel block
+        ctx.fillStyle = result.color;
+        ctx.fillRect(result.pixelX, result.pixelY, pixelSize, pixelSize);
+
+        tilesProcessed++;
+      } else {
+        tilesWithErrors++;
+        console.warn(
+          `⚠️  Failed to render tile at (${result.worldX}, ${result.worldY}):`,
+          result.error
+        );
+
+        // Use unknown color for failed tiles
+        ctx.fillStyle = BIOME_COLORS.unknown;
+        ctx.fillRect(result.pixelX, result.pixelY, pixelSize, pixelSize);
+      }
     }
+
+    totalTileTime = Date.now() - tileStartTime;
+  } finally {
+    // Always cleanup worker pool
+    await workerPool.shutdown();
   }
-  totalTileTime = Date.now() - tileStartTime;
 
   const renderTime = Date.now() - startTime;
 
