@@ -8,7 +8,6 @@ export interface WorldTile {
   y: number;
   biomeId: number;
   description: string;
-  biomeMix?: Record<string, number>;
 }
 
 export class WorldServiceClient {

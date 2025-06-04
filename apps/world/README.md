@@ -29,11 +29,7 @@ Get or generate a single tile at coordinates (x, y).
   "x": 5,
   "y": 3,
   "biomeId": 2,
-  "description": "You are in a forest at (5, 3).",
-  "biomeMix": {
-    "forest": 0.6,
-    "plains": 0.4
-  }
+  "description": "You are in a forest at (5, 3)."
 }
 ```
 

@@ -57,36 +57,6 @@ export class BiomeMapper {
   }
 
   /**
-   * Get biome mix for a location based on surrounding terrain
-   */
-  static getBiomeMix(terrainGrid: TerrainData[][], centerX: number, centerY: number): Record<string, number> {
-    const biomeCounts: Record<string, number> = {};
-    let totalSamples = 0;
-
-    // Sample a 3x3 area around the center point
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        const x = centerX + dx;
-        const y = centerY + dy;
-        
-        if (x >= 0 && x < terrainGrid.length && y >= 0 && y < terrainGrid[0].length) {
-          const biome = this.getBiome(terrainGrid[x][y]);
-          biomeCounts[biome] = (biomeCounts[biome] || 0) + 1;
-          totalSamples++;
-        }
-      }
-    }
-
-    // Convert counts to percentages
-    const biomeMix: Record<string, number> = {};
-    for (const [biome, count] of Object.entries(biomeCounts)) {
-      biomeMix[biome] = Math.round((count / totalSamples) * 100) / 100;
-    }
-
-    return biomeMix;
-  }
-
-  /**
    * Check if a biome should have special placement rules (like cities/villages)
    */
   static isSettlement(biomeName: string): boolean {

@@ -22,7 +22,6 @@ export interface WorldTile {
   y: number;
   biomeId: number;
   description: string;
-  biomeMix?: Record<string, number>;
 }
 
 export async function getTileFromCache(x: number, y: number): Promise<WorldTile | null> {

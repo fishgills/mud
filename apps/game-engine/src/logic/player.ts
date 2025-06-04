@@ -1,5 +1,4 @@
 import prisma from '../prisma';
-import type { Prisma } from '@mud/database';
 
 interface PlayerLocationInfo {
   x: number;
@@ -7,7 +6,6 @@ interface PlayerLocationInfo {
   description: string;
   biome: string;
   biomeDescription: string;
-  biomeMix: Prisma.JsonValue;
   possibleDirections: string[];
 }
 
@@ -43,8 +41,7 @@ export async function getPlayerLocationInfo(playerId: number): Promise<PlayerLoc
     y: tile.y,
     description: tile.description,
     biome: tile.biome.name,
-    biomeDescription: tile.biome.description,
-    biomeMix: tile.biomeMix ?? { [tile.biome.name]: 1 },
+    biomeDescription: tile.biome.name, // Use biome name since description doesn't exist
     possibleDirections,
   };
 }

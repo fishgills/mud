@@ -5,11 +5,7 @@ import { WorldTile } from './world';
 import prisma from '../prisma';
 import redis from '../redis';
 
-export const CHUNK_SIZE = 20;
-
-// Constants for biome mix calculations
-const BIOME_MIX_SAMPLE_RADIUS = 1;
-const BIOME_MIX_PRECISION = 100;
+export const CHUNK_SIZE = 50;
 
 // Constants for settlement calculations
 const SETTLEMENT_HASH_MOD = 10000;
@@ -224,7 +220,7 @@ export class ChunkWorldGenerator {
         const worldY = startY + localY;
         const terrain = terrainGrid[localX][localY];
         
-        const tile = await this.createTileFromTerrain(worldX, worldY, terrain, terrainGrid, localX, localY);
+        const tile = await this.createTileFromTerrain(worldX, worldY, terrain);
         tiles.push(tile);
       }
     }
@@ -252,7 +248,6 @@ export class ChunkWorldGenerator {
       y: existingTile.y,
       biomeId: existingTile.biomeId,
       description: existingTile.description,
-      biomeMix: existingTile.biomeMix as Record<string, number> || undefined,
     };
   }
 
@@ -261,8 +256,7 @@ export class ChunkWorldGenerator {
    */
   private async generateNewTile(x: number, y: number): Promise<WorldTile> {
     const terrain = this.noiseGenerator.generateTerrain(x, y);
-    const biomeMix = await this.calculateBiomeMixForSingleTile(x, y);
-    return this.createTileFromTerrain(x, y, terrain, null, 0, 0, biomeMix);
+    return this.createTileFromTerrain(x, y, terrain);
   }
 
   /**
@@ -271,74 +265,16 @@ export class ChunkWorldGenerator {
   private async createTileFromTerrain(
     x: number, 
     y: number, 
-    terrain: TerrainData, 
-    terrainGrid?: TerrainData[][] | null, 
-    localX = 0, 
-    localY = 0,
-    biomeMixOverride?: Record<string, number>
+    terrain: TerrainData
   ): Promise<WorldTile> {
     const biomeName = this.determineBiome(terrain, x, y);
-    
-    // Calculate biome mix based on available data
-    const biomeMix = biomeMixOverride ?? 
-      (terrainGrid ? BiomeMapper.getBiomeMix(terrainGrid, localX, localY) : 
-       await this.calculateBiomeMixForSingleTile(x, y));
-    
-    return this.createTileFromBiome(x, y, biomeName, biomeMix);
-  }
-
-  /**
-   * Calculate biome mix for a single tile by sampling nearby terrain
-   */
-  private async calculateBiomeMixForSingleTile(x: number, y: number): Promise<Record<string, number>> {
-    return this.calculateBiomeMix((dx, dy) => {
-      const sampleX = x + dx;
-      const sampleY = y + dy;
-      const terrain = this.noiseGenerator.generateTerrain(sampleX, sampleY);
-      return this.getCleanBiome(terrain);
-    });
-  }
-
-  /**
-   * Generic biome mix calculation
-   */
-  private calculateBiomeMix(getBiome: (dx: number, dy: number) => string): Record<string, number> {
-    const biomeCounts: Record<string, number> = {};
-    let totalSamples = 0;
-
-    // Sample a 3x3 area around the center point
-    for (let dx = -BIOME_MIX_SAMPLE_RADIUS; dx <= BIOME_MIX_SAMPLE_RADIUS; dx++) {
-      for (let dy = -BIOME_MIX_SAMPLE_RADIUS; dy <= BIOME_MIX_SAMPLE_RADIUS; dy++) {
-        const biome = getBiome(dx, dy);
-        biomeCounts[biome] = (biomeCounts[biome] || 0) + 1;
-        totalSamples++;
-      }
-    }
-
-    // Convert to percentages
-    const biomeMix: Record<string, number> = {};
-    for (const [biome, count] of Object.entries(biomeCounts)) {
-      biomeMix[biome] = Math.round((count / totalSamples) * BIOME_MIX_PRECISION) / BIOME_MIX_PRECISION;
-    }
-
-    return biomeMix;
-  }
-
-  /**
-   * Get biome without settlements for mix calculations
-   */
-  private getCleanBiome(terrain: TerrainData): string {
-    let biome = BiomeMapper.getBiome(terrain);
-    if (BiomeMapper.isSettlement(biome)) {
-      biome = this.getNaturalBiomeAlternative(terrain);
-    }
-    return biome;
+    return this.createTileFromBiome(x, y, biomeName);
   }
 
   /**
    * Create a WorldTile from biome information
    */
-  private async createTileFromBiome(x: number, y: number, biomeName: string, biomeMix: Record<string, number>): Promise<WorldTile> {
+  private async createTileFromBiome(x: number, y: number, biomeName: string): Promise<WorldTile> {
     const biome = await this.getOrCreateBiome(biomeName);
     if (!biome) {
       throw new Error(`Failed to get or create biome: ${biomeName}`);
@@ -352,7 +288,6 @@ export class ChunkWorldGenerator {
       y,
       biomeId: biome.id,
       description,
-      biomeMix,
     };
   }
 
@@ -497,7 +432,6 @@ export class ChunkWorldGenerator {
           y: tile.y,
           biomeId: tile.biomeId,
           description: tile.description,
-          biomeMix: tile.biomeMix,
         },
       }),
       'Error storing tile to database'

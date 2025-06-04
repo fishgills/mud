@@ -126,7 +126,6 @@ async function movePlayerSimple(id: string, direction: string): Promise<boolean>
           y: newY,
           biomeId: worldTile.biomeId,
           description: worldTile.description,
-          biomeMix: worldTile.biomeMix,
         },
       });
     }
