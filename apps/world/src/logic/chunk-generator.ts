@@ -1,14 +1,11 @@
-import { NoiseGenerator, TerrainData } from './noise-generator';
+import { NoiseGenerator } from './noise-generator';
 import { DEFAULT_WORLD_CONFIG, WorldConfig } from './world-config';
-import { BiomeMapper } from './biome-mapper';
 import { WorldTile } from './world';
 import prisma from '../prisma';
 import redis from '../redis';
+import { DRYTileUtils } from './tile-utils';
 
 export const CHUNK_SIZE = 50;
-
-// Constants for settlement calculations
-const SETTLEMENT_HASH_MOD = 10000;
 
 export interface ChunkCoordinate {
   chunkX: number;
@@ -24,15 +21,15 @@ export interface WorldChunk {
 
 export class ChunkWorldGenerator {
   private noiseGenerator: NoiseGenerator;
-  private config: WorldConfig;
+  // private config: WorldConfig; // not used
 
   // Cache TTL constants
-  private static readonly TILE_CACHE_TTL = 3600; // 1 hour
+  // private static readonly TILE_CACHE_TTL = 3600; // 1 hour (moved to DRYTileUtils)
   private static readonly CHUNK_CACHE_TTL = 7200; // 2 hours
 
   constructor(config: WorldConfig = DEFAULT_WORLD_CONFIG) {
     this.noiseGenerator = new NoiseGenerator(config.worldParameters);
-    this.config = config;
+    // this.config = config; // not used
   }
 
   /**
@@ -90,27 +87,13 @@ export class ChunkWorldGenerator {
   }
 
   /**
-   * Determine the appropriate biome for a location, handling settlements
-   */
-  private determineBiome(terrain: TerrainData, x: number, y: number): string {
-    let biomeName = BiomeMapper.getBiome(terrain);
-
-    // Apply settlement spacing rules
-    if (BiomeMapper.isSettlement(biomeName)) {
-      if (!this.shouldPlaceSettlement(x, y, biomeName)) {
-        biomeName = this.getNaturalBiomeAlternative(terrain);
-      }
-    }
-
-    return biomeName;
-  }
-
-  /**
    * Generate a tile at specific world coordinates
    */
   async generateTile(x: number, y: number): Promise<WorldTile> {
-    const result = await this.generateTileWithCacheInfo(x, y);
-    return result.tile;
+    // Use TileGenerator logic for tile generation
+    const terrain = this.noiseGenerator.generateTerrain(x, y);
+    const biomeName = DRYTileUtils.determineBiome(terrain);
+    return DRYTileUtils.createTileFromBiome(x, y, biomeName);
   }
 
   /**
@@ -127,9 +110,9 @@ export class ChunkWorldGenerator {
     return this.processTileGenerationWithCacheInfo(
       x,
       y,
-      () => this.getTileFromCache(x, y),
-      () => this.findExistingTile(x, y),
-      () => this.generateNewTile(x, y)
+      () => DRYTileUtils.getTileFromCache(x, y),
+      () => DRYTileUtils.findExistingTile(x, y),
+      () => this.generateTile(x, y)
     );
   }
 
@@ -156,7 +139,7 @@ export class ChunkWorldGenerator {
     // Check if tile already exists in database
     const existing = await getExisting();
     if (existing) {
-      await this.cacheTile(existing);
+      await DRYTileUtils.cacheTile(existing);
       return { tile: existing, cacheHit: false, source: 'database' };
     }
 
@@ -164,7 +147,7 @@ export class ChunkWorldGenerator {
     const tile = await generateNew();
 
     // Cache and store the generated tile
-    await this.cacheTile(tile);
+    await DRYTileUtils.cacheTile(tile);
     await this.storeTileAsync(tile);
 
     return { tile, cacheHit: false, source: 'generated' };
@@ -338,85 +321,18 @@ export class ChunkWorldGenerator {
         const worldY = startY + localY;
         const terrain = terrainGrid[localX][localY];
 
-        const tile = await this.createTileFromTerrain(worldX, worldY, terrain);
+        const biomeName = DRYTileUtils.determineBiome(terrain);
+        const tile = await DRYTileUtils.createTileFromBiome(
+          worldX,
+          worldY,
+          biomeName
+        );
         tiles.push(tile);
       }
     }
 
     return tiles;
   }
-
-  /**
-   * Find existing tile in database
-   */
-  private async findExistingTile(
-    x: number,
-    y: number
-  ): Promise<WorldTile | null> {
-    const existingTile = await this.performDatabaseOperation(
-      () =>
-        prisma.worldTile.findUnique({
-          where: { x_y: { x, y } },
-          include: { biome: true },
-        }),
-      'Error finding existing tile'
-    );
-
-    if (!existingTile) return null;
-
-    return {
-      id: existingTile.id,
-      x: existingTile.x,
-      y: existingTile.y,
-      biomeId: existingTile.biomeId,
-      description: existingTile.description,
-    };
-  }
-
-  /**
-   * Generate a new tile using noise-based generation
-   */
-  private async generateNewTile(x: number, y: number): Promise<WorldTile> {
-    const terrain = this.noiseGenerator.generateTerrain(x, y);
-    return this.createTileFromTerrain(x, y, terrain);
-  }
-
-  /**
-   * Create a tile from terrain data (unified logic for both single tiles and chunk generation)
-   */
-  private async createTileFromTerrain(
-    x: number,
-    y: number,
-    terrain: TerrainData
-  ): Promise<WorldTile> {
-    const biomeName = this.determineBiome(terrain, x, y);
-    return this.createTileFromBiome(x, y, biomeName);
-  }
-
-  /**
-   * Create a WorldTile from biome information
-   */
-  private async createTileFromBiome(
-    x: number,
-    y: number,
-    biomeName: string
-  ): Promise<WorldTile> {
-    const biome = await this.getOrCreateBiome(biomeName);
-    if (!biome) {
-      throw new Error(`Failed to get or create biome: ${biomeName}`);
-    }
-
-    const description = `You are in a ${biomeName} at (${x}, ${y}).`;
-
-    return {
-      id: 0, // Will be set when stored in database
-      x,
-      y,
-      biomeId: biome.id,
-      description,
-    };
-  }
-
   /**
    * Generic database operation with caching
    */
@@ -445,95 +361,6 @@ export class ChunkWorldGenerator {
   }
 
   /**
-   * Get or create biome in database
-   */
-  private async getOrCreateBiome(biomeName: string) {
-    return this.performDatabaseOperation(async () => {
-      let biome = await prisma.biome.findUnique({ where: { name: biomeName } });
-      if (!biome) {
-        biome = await prisma.biome.create({
-          data: { name: biomeName },
-        });
-      }
-      return biome;
-    }, `Error getting or creating biome: ${biomeName}`);
-  }
-
-  /**
-   * Settlement placement logic
-   */
-  private shouldPlaceSettlement(
-    x: number,
-    y: number,
-    settlementType: string
-  ): boolean {
-    const hash = this.simpleHash(x, y, settlementType);
-    const probability = this.getSettlementProbability(settlementType);
-
-    if ((hash % SETTLEMENT_HASH_MOD) / SETTLEMENT_HASH_MOD < probability) {
-      const spacing = this.getSettlementSpacing(settlementType);
-      return this.isLocationSuitableForSettlement(x, y, spacing);
-    }
-
-    return false;
-  }
-
-  private getSettlementProbability(settlementType: string): number {
-    return settlementType === 'city'
-      ? this.config.cityProbability
-      : this.config.villageProbability;
-  }
-
-  private getSettlementSpacing(settlementType: string): number {
-    return settlementType === 'city'
-      ? this.config.settlementSpacing * 2
-      : this.config.settlementSpacing;
-  }
-
-  /**
-   * Simple hash function for deterministic pseudo-random values
-   */
-  private simpleHash(x: number, y: number, extra = ''): number {
-    let hash = 0;
-    const str = `${x},${y},${extra}`;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash);
-  }
-
-  /**
-   * Check if a location is suitable for settlement placement (not too close to others)
-   */
-  private isLocationSuitableForSettlement(
-    x: number,
-    y: number,
-    minDistance: number
-  ): boolean {
-    // For now, use a simple grid-based approach
-    // In a real implementation, you might want to check the database
-    const gridSize = minDistance;
-    const gridX = Math.floor(x / gridSize) * gridSize;
-    const gridY = Math.floor(y / gridSize) * gridSize;
-
-    // Only allow one settlement per grid cell
-    return (
-      x === gridX + Math.floor(gridSize / 2) &&
-      y === gridY + Math.floor(gridSize / 2)
-    );
-  }
-
-  /**
-   * Get a natural biome alternative when settlements can't be placed
-   */
-  private getNaturalBiomeAlternative(terrain: TerrainData): string {
-    // Find the best matching natural biome by re-evaluating terrain without settlements
-    return BiomeMapper.getBiome(terrain) || 'plains';
-  }
-
-  /**
    * Cache operations - unified for better DRY
    */
   private async getCachedData<T>(cacheKey: string): Promise<T | null> {
@@ -543,23 +370,6 @@ export class ChunkWorldGenerator {
 
   private async setCachedData<T>(cacheKey: string, ttl: number, data: T) {
     return redis.set(cacheKey, JSON.stringify(data), 'EX', ttl);
-  }
-
-  private async getTileFromCache(
-    x: number,
-    y: number
-  ): Promise<WorldTile | null> {
-    const cacheKey = ChunkWorldGenerator.getCacheKey('tile', x, y);
-    return this.getCachedData<WorldTile>(cacheKey);
-  }
-
-  private async cacheTile(tile: WorldTile): Promise<void> {
-    const cacheKey = ChunkWorldGenerator.getCacheKey('tile', tile.x, tile.y);
-    await this.setCachedData(
-      cacheKey,
-      ChunkWorldGenerator.TILE_CACHE_TTL,
-      tile
-    );
   }
 
   /**
@@ -582,7 +392,7 @@ export class ChunkWorldGenerator {
     if (stored) {
       // Update cache with real ID
       const updatedTile = { ...tile, id: stored.id };
-      await this.cacheTile(updatedTile);
+      await DRYTileUtils.cacheTile(updatedTile);
     }
   }
 
