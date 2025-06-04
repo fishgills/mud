@@ -36,7 +36,7 @@ export async function getTileFromCache(x: number, y: number): Promise<WorldTile 
 
 export async function cacheTile(tile: WorldTile): Promise<void> {
   try {
-    await redis.setEx(`tile:${tile.x}:${tile.y}`, 3600, JSON.stringify(tile)); // Cache for 1 hour
+    await redis.set(`tile:${tile.x}:${tile.y}`, JSON.stringify(tile));
   } catch (error) {
     console.error('Error caching tile:', error);
   }

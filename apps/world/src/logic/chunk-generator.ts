@@ -4,6 +4,7 @@ import { BiomeMapper } from './biome-mapper';
 import { WorldTile } from './world';
 import prisma from '../prisma';
 import redis from '../redis';
+import { error } from 'console';
 
 export const CHUNK_SIZE = 50;
 
@@ -304,10 +305,7 @@ export class ChunkWorldGenerator {
     const result = await this.handleAsync(operation, errorMessage);
     
     if (result && cacheKey && cacheTtl !== undefined && cacheValue !== undefined) {
-      await this.handleAsync(
-        () => redis.setEx(cacheKey, cacheTtl, JSON.stringify(cacheValue)),
-        'Error caching operation result'
-      );
+      await this.handleAsync(() => redis.set(cacheKey, JSON.stringify(cacheValue)), errorMessage);
     }
     
     return result;
@@ -405,10 +403,7 @@ export class ChunkWorldGenerator {
   }
 
   private async setCachedData<T>(cacheKey: string, ttl: number, data: T, errorMessage: string): Promise<void> {
-    await this.handleAsync(
-      () => redis.setEx(cacheKey, ttl, JSON.stringify(data)),
-      errorMessage
-    );
+    await this.handleAsync(() => redis.set(cacheKey, JSON.stringify(data)), errorMessage);
   }
 
   private async getTileFromCache(x: number, y: number): Promise<WorldTile | null> {
