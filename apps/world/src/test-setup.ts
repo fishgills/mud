@@ -1,5 +1,5 @@
-import { mockDeep, mock, DeepMockProxy } from 'jest-mock-extended';
-import { getPrismaClient, PrismaClient } from '@mud/database';
+import { mockDeep } from 'jest-mock-extended';
+import { PrismaClient } from '@mud/database';
 import Redis from 'ioredis-mock';
 
 // Extend global jest types

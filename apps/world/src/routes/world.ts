@@ -7,10 +7,7 @@ import {
   chunkToWorld,
 } from '../logic/world';
 import { seedBiomes } from '../logic/biome';
-import {
-  renderWorldMap,
-  getBiomeColors,
-} from '../logic/map-renderer';
+import { renderWorldMap, getBiomeColors } from '../logic/map-renderer';
 import { BiomeRegistry } from '../logic/biome-definitions';
 import prisma from '../prisma';
 
@@ -201,22 +198,6 @@ router.get('/map', async (req, res): Promise<void> => {
     // Use optimized rendering for large areas or when explicitly requested
     const totalTiles = width * height;
     const shouldUseOptimized = useOptimized || totalTiles > 250000;
-
-    // const imageBuffer = shouldUseOptimized
-    //   ? await renderWorldMapOptimized({
-    //       centerX,
-    //       centerY,
-    //       width,
-    //       height,
-    //       pixelSize
-    //     })
-    //   : await renderWorldMap({
-    //       centerX,
-    //       centerY,
-    //       width,
-    //       height,
-    //       pixelSize
-    //     });
 
     const imageBuffer = await renderWorldMap({
       centerX,

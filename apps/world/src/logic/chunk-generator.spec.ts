@@ -1,13 +1,17 @@
 import { ChunkWorldGenerator, ChunkCoordinate } from './chunk-generator';
 import { DEFAULT_WORLD_CONFIG, WorldConfig } from './world-config';
 import { prismaMock } from '../test-setup';
+import redis from '../redis';
 
 describe('ChunkWorldGenerator', () => {
   let generator: ChunkWorldGenerator;
   let config: WorldConfig;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+
+    // Clear Redis cache between tests
+    await redis.flushall();
 
     // Setup common Prisma mock implementations
     prismaMock.biome.findUnique.mockResolvedValue({
@@ -123,6 +127,15 @@ describe('ChunkWorldGenerator', () => {
     });
 
     it('should handle cache operations for tiles', async () => {
+      // Configure mock to return a specific tile ID when creating
+      prismaMock.worldTile.create.mockResolvedValue({
+        id: 100,
+        x: 5,
+        y: 5,
+        biomeId: 1,
+        description: 'A cached test tile',
+      });
+
       // Generate the same tile twice to test caching
       const tile1 = await generator.generateTileWithCacheInfo(5, 5);
       const tile2 = await generator.generateTileWithCacheInfo(5, 5);
@@ -134,8 +147,13 @@ describe('ChunkWorldGenerator', () => {
       expect(tile2.tile.x).toBe(5);
       expect(tile2.tile.y).toBe(5);
 
-      // The tiles should be identical
-      expect(tile1.tile.id).toBe(tile2.tile.id);
+      // First call should be a generation, second should be cache hit
+      expect(tile1.source).toBe('generated');
+      expect(tile1.cacheHit).toBe(false);
+      expect(tile2.source).toBe('cache');
+      expect(tile2.cacheHit).toBe(true);
+
+      // The tiles should be identical after the cache lookup
       expect(tile1.tile.biomeId).toBe(tile2.tile.biomeId);
       expect(tile1.tile.description).toBe(tile2.tile.description);
     });
@@ -411,6 +429,115 @@ describe('ChunkWorldGenerator', () => {
       expect(tile1.y).toBe(tile2.y);
       expect(tile1.biomeId).toBe(tile2.biomeId);
       expect(tile1.description).toBe(tile2.description);
+    });
+  });
+
+  describe('Database-aware chunk generation', () => {
+    beforeEach(async () => {
+      // Ensure clean slate for each test in this describe block
+      await redis.flushall();
+      jest.clearAllMocks();
+    });
+
+    it('should load existing chunk from database when available', async () => {
+      const chunkX = 0;
+      const chunkY = 0;
+
+      // Mock existing tiles in database for the entire chunk
+      const existingTiles = [];
+      for (let x = 0; x < 50; x++) {
+        for (let y = 0; y < 50; y++) {
+          existingTiles.push({
+            id: x * 50 + y + 1,
+            x,
+            y,
+            biomeId: 1,
+            description: `Existing tile at (${x}, ${y})`,
+            biome: { id: 1, name: 'forest' },
+          });
+        }
+      }
+
+      prismaMock.worldTile.findMany.mockResolvedValue(existingTiles);
+
+      const result = await generator.generateChunkWithCacheInfo(chunkX, chunkY);
+
+      expect(result.source).toBe('database');
+      expect(result.cacheHit).toBe(false);
+      expect(result.chunk.tiles).toHaveLength(2500); // 50x50
+      expect(result.chunk.chunkX).toBe(chunkX);
+      expect(result.chunk.chunkY).toBe(chunkY);
+
+      // Verify it loaded from database, not generated new tiles
+      expect(prismaMock.worldTile.findMany).toHaveBeenCalledWith({
+        where: {
+          x: { gte: 0, lte: 49 },
+          y: { gte: 0, lte: 49 },
+        },
+        include: { biome: true },
+        orderBy: [{ x: 'asc' }, { y: 'asc' }],
+      });
+
+      // Should not create any new tiles
+      expect(prismaMock.worldTile.create).not.toHaveBeenCalled();
+    });
+
+    it('should generate new chunk when no existing data in database', async () => {
+      const chunkX = 1;
+      const chunkY = 1;
+
+      // Mock no existing tiles in database
+      prismaMock.worldTile.findMany.mockResolvedValue([]);
+
+      const result = await generator.generateChunkWithCacheInfo(chunkX, chunkY);
+
+      expect(result.source).toBe('generated');
+      expect(result.cacheHit).toBe(false);
+      expect(result.chunk.tiles).toHaveLength(2500); // 50x50
+      expect(result.chunk.chunkX).toBe(chunkX);
+      expect(result.chunk.chunkY).toBe(chunkY);
+
+      // Verify it tried to load from database first
+      expect(prismaMock.worldTile.findMany).toHaveBeenCalledWith({
+        where: {
+          x: { gte: 50, lte: 99 },
+          y: { gte: 50, lte: 99 },
+        },
+        include: { biome: true },
+        orderBy: [{ x: 'asc' }, { y: 'asc' }],
+      });
+    });
+
+    it('should generate new chunk when only partial data exists in database', async () => {
+      const chunkX = 0;
+      const chunkY = 0;
+
+      // Mock partial tiles in database (less than full chunk)
+      const partialTiles = [];
+      for (let x = 0; x < 25; x++) {
+        // Only half the chunk
+        for (let y = 0; y < 25; y++) {
+          partialTiles.push({
+            id: x * 25 + y + 1,
+            x,
+            y,
+            biomeId: 1,
+            description: `Partial tile at (${x}, ${y})`,
+            biome: { id: 1, name: 'forest' },
+          });
+        }
+      }
+
+      prismaMock.worldTile.findMany.mockResolvedValue(partialTiles);
+
+      const result = await generator.generateChunkWithCacheInfo(chunkX, chunkY);
+
+      expect(result.source).toBe('generated');
+      expect(result.cacheHit).toBe(false);
+      expect(result.chunk.tiles).toHaveLength(2500); // 50x50
+
+      // Should fall back to generation since chunk is incomplete
+      expect(prismaMock.worldTile.findMany).toHaveBeenCalled();
     });
   });
 });
