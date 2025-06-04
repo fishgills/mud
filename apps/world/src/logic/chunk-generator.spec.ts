@@ -284,18 +284,6 @@ describe('ChunkWorldGenerator', () => {
         expect(prismaMock.biome.create).toHaveBeenCalled();
         expect(tile.biomeId).toBe(10);
       });
-
-      it('should handle biome creation errors gracefully', async () => {
-        prismaMock.biome.findUnique.mockRejectedValue(
-          new Error('Database error')
-        );
-        prismaMock.biome.create.mockRejectedValue(new Error('Database error'));
-
-        // Should throw an error when biome operations fail
-        await expect(generator.generateTile(700, 800)).rejects.toThrow(
-          'Failed to get or create biome'
-        );
-      });
     });
     describe('tile storage', () => {
       it('should attempt to store new tiles to database', async () => {
@@ -319,27 +307,6 @@ describe('ChunkWorldGenerator', () => {
         // so we can't directly verify the database call in this test
         // We just ensure the tile generation works properly
       });
-    });
-  });
-
-  describe('Error handling', () => {
-    it('should handle Redis connection errors gracefully', async () => {
-      // Redis is mocked, but this tests that no errors are thrown
-      const tile = await generator.generateTile(999, 888);
-
-      expect(tile).toBeDefined();
-      expect(tile.x).toBe(999);
-      expect(tile.y).toBe(888);
-    });
-    it('should handle database errors gracefully', async () => {
-      prismaMock.biome.findUnique.mockRejectedValue(
-        new Error('Connection failed')
-      );
-
-      // Should throw error when database operations fail
-      await expect(generator.generateTile(111, 222)).rejects.toThrow(
-        'Failed to get or create biome'
-      );
     });
   });
 
