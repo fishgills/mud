@@ -11,30 +11,28 @@ This document describes the new deterministic, chunk-based world generation syst
 - **Multi-Layer Noise**: Uses separate noise maps for height, temperature, and moisture
 - **Rich Biome System**: 15+ different biomes based on terrain combinations
 - **Configurable**: Easy to tweak generation parameters and add new biomes
-- **Settlement Placement**: Intelligent city and village placement with spacing constraints
+- **Settlement Placement**: (Removed: city and village placement)
 
 ### 🏔️ Available Biomes
 
 The system includes these biomes, determined by combinations of height, temperature, and moisture:
 
-| Biome | Height | Temperature | Moisture | Description |
-|-------|--------|-------------|----------|-------------|
-| Ocean | Very Low | Any | Any | Deep ocean waters |
-| Lake | Low | Any | High | Freshwater lakes |
-| Beach | Low | Medium-High | Low-Medium | Sandy coastal areas |
-| Tundra | Medium | Very Low | Low-Medium | Frozen tundra |
-| Taiga | Medium | Low | Medium-High | Northern coniferous forest |
-| Mountains | Very High | Low-Medium | Any | Rocky mountain peaks |
-| Hills | High | Medium | Any | Rolling hills |
-| Desert | Medium | Very High | Very Low | Arid desert |
-| Savanna | Medium | High | Low-Medium | Grassland with scattered trees |
-| Plains | Medium | Medium | Medium | Open grasslands |
-| Forest | Medium | Medium | Medium-High | Temperate deciduous forest |
-| Jungle | Medium | Very High | Very High | Dense tropical jungle |
-| Rainforest | Medium | High | Very High | Lush tropical rainforest |
-| Swamp | Low-Medium | Medium-High | Very High | Wetland marshes |
-| Village | Medium | Medium | Medium | Small settlements (rare) |
-| City | Medium | Medium | Medium | Large settlements (very rare) |
+| Biome      | Height     | Temperature | Moisture    | Description                    |
+| ---------- | ---------- | ----------- | ----------- | ------------------------------ |
+| Ocean      | Very Low   | Any         | Any         | Deep ocean waters              |
+| Lake       | Low        | Any         | High        | Freshwater lakes               |
+| Beach      | Low        | Medium-High | Low-Medium  | Sandy coastal areas            |
+| Tundra     | Medium     | Very Low    | Low-Medium  | Frozen tundra                  |
+| Taiga      | Medium     | Low         | Medium-High | Northern coniferous forest     |
+| Mountains  | Very High  | Low-Medium  | Any         | Rocky mountain peaks           |
+| Hills      | High       | Medium      | Any         | Rolling hills                  |
+| Desert     | Medium     | Very High   | Very Low    | Arid desert                    |
+| Savanna    | Medium     | High        | Low-Medium  | Grassland with scattered trees |
+| Plains     | Medium     | Medium      | Medium      | Open grasslands                |
+| Forest     | Medium     | Medium      | Medium-High | Temperate deciduous forest     |
+| Jungle     | Medium     | Very High   | Very High   | Dense tropical jungle          |
+| Rainforest | Medium     | High        | Very High   | Lush tropical rainforest       |
+| Swamp      | Low-Medium | Medium-High | Very High   | Wetland marshes                |
 
 ## Architecture
 
@@ -53,16 +51,19 @@ apps/world/src/logic/
 ### 🔧 Core Components
 
 #### NoiseGenerator
+
 - Generates deterministic Perlin noise with multiple octaves
 - Separate noise maps for height, temperature, and moisture
 - Configurable parameters (scale, octaves, persistence, lacunarity)
 
 #### BiomeMapper
+
 - Maps terrain data (height/temperature/moisture) to biomes
 - Uses rule-based system with priority scoring
 - Calculates biome mix for transitions between different areas
 
 #### ChunkWorldGenerator
+
 - Generates world in 20x20 tile chunks
 - Caches generated chunks in Redis
 - Handles settlement placement with spacing constraints
@@ -85,12 +86,12 @@ const tiles = await generateTileGrid(centerX, centerY, radius);
 
 ### 🌐 API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/tile/:x/:y` | GET | Generate/get a single tile |
-| `/chunk/:chunkX/:chunkY` | GET | Generate/get a complete chunk |
-| `/chunk-info/:x/:y` | GET | Get chunk information for coordinates |
-| `/grid` | POST | Generate a grid of tiles |
+| Endpoint                 | Method | Description                           |
+| ------------------------ | ------ | ------------------------------------- |
+| `/tile/:x/:y`            | GET    | Generate/get a single tile            |
+| `/chunk/:chunkX/:chunkY` | GET    | Generate/get a complete chunk         |
+| `/chunk-info/:x/:y`      | GET    | Get chunk information for coordinates |
+| `/grid`                  | POST   | Generate a grid of tiles              |
 
 ### 📡 Example API Calls
 
@@ -147,9 +148,6 @@ Control settlement generation:
 
 ```typescript
 {
-  settlementSpacing: 50,    // Minimum distance between settlements
-  cityProbability: 0.002,   // 0.2% chance per suitable tile
-  villageProbability: 0.01  // 1% chance per suitable tile
 }
 ```
 
@@ -183,7 +181,7 @@ Add to `biome.ts`:
 Add to route mapping in `routes/world.ts`:
 
 ```typescript
-volcanic: 'v'  // Letter for text display
+volcanic: 'v'; // Letter for text display
 ```
 
 ## Performance
@@ -237,6 +235,7 @@ curl http://localhost:3000/grid?size=21&centerX=0&centerY=0
 ```
 
 This returns a text map like:
+
 ```
 O O O L L F F M M M M M M F F L L O O O O
 O O L L F F F F M M M M F F F F L L O O O

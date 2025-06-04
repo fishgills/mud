@@ -42,17 +42,30 @@ export class DRYTileUtils {
     return BiomeMapper.getBiome(terrain);
   }
 
+  // In-memory cache for biome IDs
+  private static biomeIdCache: Map<string, number> = new Map();
+
   static async createTileFromBiome(
     x: number,
     y: number,
     biomeName: string
   ): Promise<WorldTile> {
-    // This is a simplified version; in chunk-generator, this is async for DB
+    let biomeId = DRYTileUtils.biomeIdCache.get(biomeName);
+    if (biomeId === undefined) {
+      const biome = await prisma.biome.findUnique({
+        where: { name: biomeName },
+      });
+      if (!biome) {
+        throw new Error(`Biome not found: ${biomeName}`);
+      }
+      biomeId = biome.id;
+      DRYTileUtils.biomeIdCache.set(biomeName, biomeId);
+    }
     return {
       id: 0,
       x,
       y,
-      biomeId: 0, // Should be set properly if DB is used
+      biomeId,
       description: `You are in a ${biomeName} at (${x}, ${y}).`,
     };
   }

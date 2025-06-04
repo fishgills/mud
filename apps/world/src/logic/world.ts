@@ -7,8 +7,6 @@ const chunkGenerator = new ChunkWorldGenerator(DEFAULT_WORLD_CONFIG);
 
 // Legacy biome size limits - kept for compatibility but may not be used in new system
 export const BIOME_SIZE_LIMITS: Record<string, number> = {
-  city: 5,
-  village: 8,
   forest: 25,
   desert: 30,
   plains: 40,
@@ -24,7 +22,10 @@ export interface WorldTile {
   description: string;
 }
 
-export async function getTileFromCache(x: number, y: number): Promise<WorldTile | null> {
+export async function getTileFromCache(
+  x: number,
+  y: number
+): Promise<WorldTile | null> {
   try {
     const cached = await redis.get(`tile:${x}:${y}`);
     return cached ? JSON.parse(cached) : null;
@@ -47,9 +48,13 @@ export async function generateTile(x: number, y: number): Promise<WorldTile> {
   return await chunkGenerator.generateTile(x, y);
 }
 
-export async function generateTileGrid(centerX: number, centerY: number, radius: number): Promise<WorldTile[]> {
+export async function generateTileGrid(
+  centerX: number,
+  centerY: number,
+  radius: number
+): Promise<WorldTile[]> {
   const tiles: WorldTile[] = [];
-  
+
   for (let dx = -radius; dx <= radius; dx++) {
     for (let dy = -radius; dy <= radius; dy++) {
       const x = centerX + dx;
@@ -58,7 +63,7 @@ export async function generateTileGrid(centerX: number, centerY: number, radius:
       tiles.push(tile);
     }
   }
-  
+
   return tiles;
 }
 

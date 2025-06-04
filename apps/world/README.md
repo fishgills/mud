@@ -12,7 +12,7 @@ The World Service is a separate microservice responsible for generating and cach
 ## Features
 
 - **Biome Generation**: Intelligent biome placement with size limits and neighbor rules
-- **Spatial Constraints**: Cities and villages have minimum distance requirements
+- **Spatial Constraints**: Biomes have minimum distance and adjacency requirements
 - **Biome Mixing**: Each tile has a biome mix based on surrounding tiles
 - **Grid Generation**: Can generate entire grids of tiles at once
 - **Seeding**: Initial world seeding with starter town
@@ -20,9 +20,11 @@ The World Service is a separate microservice responsible for generating and cach
 ## API Endpoints
 
 ### GET /world/tile/:x/:y
+
 Get or generate a single tile at coordinates (x, y).
 
 **Response:**
+
 ```json
 {
   "id": 1,
@@ -34,9 +36,11 @@ Get or generate a single tile at coordinates (x, y).
 ```
 
 ### POST /world/grid
+
 Generate a grid of tiles around a center point.
 
 **Request:**
+
 ```json
 {
   "centerX": 0,
@@ -46,6 +50,7 @@ Generate a grid of tiles around a center point.
 ```
 
 **Response:**
+
 ```json
 {
   "tiles": [...],
@@ -54,9 +59,11 @@ Generate a grid of tiles around a center point.
 ```
 
 ### GET /world/grid
+
 Get a text representation of the world grid.
 
 **Query Parameters:**
+
 - `size`: Grid size (default: 11)
 - `centerX`: Center X coordinate (default: 0)
 - `centerY`: Center Y coordinate (default: 0)
@@ -64,9 +71,11 @@ Get a text representation of the world grid.
 **Response:** Plain text grid representation
 
 ### POST /world/seed
+
 Seed the world with initial biomes and starter town.
 
 ### DELETE /world/reset
+
 Reset the world by deleting all tiles.
 
 ## Environment Variables
@@ -79,10 +88,9 @@ Reset the world by deleting all tiles.
 ## Configuration
 
 ### Biome Size Limits
+
 ```typescript
 export const BIOME_SIZE_LIMITS: Record<string, number> = {
-  city: 5,
-  village: 8,
   forest: 25,
   desert: 30,
   plains: 40,
@@ -92,13 +100,12 @@ export const BIOME_SIZE_LIMITS: Record<string, number> = {
 ```
 
 ### Distance Constraints
-- Cities: Minimum 10 tiles apart
-- Villages: Minimum 6 tiles apart
+
+- (City and village distance constraints removed)
 
 ### Biome Neighbors
-Each biome has rules about which biomes can be adjacent:
-- Cities can border: city, village, plains
-- Villages can border: village, plains, forest
+
+- Each biome has rules about which biomes can be adjacent.
 - And so on...
 
 ## Integration with Game Engine
@@ -135,6 +142,7 @@ npx nx build world
 ## Scaling
 
 The service can be scaled horizontally:
+
 - Multiple instances can share the same Redis cache
 - Database writes are async so they don't create bottlenecks
 - Stateless design allows for load balancing
@@ -142,6 +150,7 @@ The service can be scaled horizontally:
 ## Monitoring
 
 Key metrics to monitor:
+
 - Cache hit ratio
 - Average generation time
 - Database write lag

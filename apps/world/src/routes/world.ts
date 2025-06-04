@@ -141,27 +141,7 @@ router.post('/seed', async (req, res) => {
   try {
     await seedBiomes();
 
-    // Create a small starting town at (2,2)
-    const cityBiome = await prisma.biome.findUnique({
-      where: { name: 'city' },
-    });
-    if (!cityBiome) {
-      return res.status(500).json({ error: 'City biome not found' });
-    }
-
-    for (let x = 0; x < 5; x++) {
-      for (let y = 0; y < 5; y++) {
-        const description =
-          x === 2 && y === 2
-            ? 'The town square, bustling with activity.'
-            : 'A quiet part of the small city.';
-        await prisma.worldTile.upsert({
-          where: { x_y: { x, y } },
-          update: {},
-          create: { x, y, biomeId: cityBiome.id, description },
-        });
-      }
-    }
+    // (City biome and starting town creation removed)
 
     return res.json({ status: 'world seeded' });
   } catch (error) {
