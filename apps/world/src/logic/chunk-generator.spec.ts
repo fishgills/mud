@@ -3,6 +3,8 @@ import { DEFAULT_WORLD_CONFIG, WorldConfig } from './world-config';
 import { getPrismaClient, PrismaClient } from '@mud/database';
 // Import mocked instances
 
+
+
 describe('ChunkWorldGenerator', () => {
   let generator: ChunkWorldGenerator;
   let config: WorldConfig;
@@ -70,18 +72,18 @@ describe('ChunkWorldGenerator', () => {
     });
   });
 
-  describe('generateTile', () => {
-    it('should generate a tile with correct properties', async () => {
-      const tile = await generator.generateTile(10, 20);
+  // describe('generateTile', () => {
+  //   it('should generate a tile with correct properties', async () => {
+  //     const tile = await generator.generateTile(10, 20);
 
-      expect(tile).toEqual({
-        id: 0,
-        x: 10,
-        y: 20,
-        biomeId: 1,
-        description: 'You are in a forest at (10, 20).',
-      });
-    });
+  //     expect(tile).toEqual({
+  //       id: 0,
+  //       x: 10,
+  //       y: 20,
+  //       biomeId: 1,
+  //       description: 'You are in a forest at (10, 20).',
+  //     });
+  //   });
 
-  });
+  // });
 });

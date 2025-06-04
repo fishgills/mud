@@ -30,9 +30,21 @@ export class NoiseGenerator {
     this.parameters = parameters;
     
     // Create deterministic noise functions based on seeds
-    this.heightNoise = createNoise2D(() => parameters.heightNoise.seed);
-    this.temperatureNoise = createNoise2D(() => parameters.temperatureNoise.seed);
-    this.moistureNoise = createNoise2D(() => parameters.moistureNoise.seed);
+    // Use a simple PRNG function to convert seed to proper random function
+    this.heightNoise = createNoise2D(this.createPRNG(parameters.heightNoise.seed));
+    this.temperatureNoise = createNoise2D(this.createPRNG(parameters.temperatureNoise.seed));
+    this.moistureNoise = createNoise2D(this.createPRNG(parameters.moistureNoise.seed));
+  }
+
+  /**
+   * Create a simple pseudo-random number generator from a seed
+   */
+  private createPRNG(seed: number): () => number {
+    let state = seed;
+    return () => {
+      state = (state * 9301 + 49297) % 233280;
+      return state / 233280;
+    };
   }
 
   /**
@@ -55,6 +67,11 @@ export class NoiseGenerator {
     noiseFunc: (x: number, y: number) => number,
     settings: NoiseSettings
   ): number {
+    // Handle edge case of zero octaves
+    if (settings.octaves <= 0) {
+      return 0.5; // Return middle value
+    }
+
     let value = 0;
     let amplitude = 1;
     let frequency = settings.scale;
@@ -65,6 +82,11 @@ export class NoiseGenerator {
       maxValue += amplitude;
       amplitude *= settings.persistence;
       frequency *= settings.lacunarity;
+    }
+
+    // Handle case where maxValue is zero to avoid division by zero
+    if (maxValue === 0) {
+      return 0.5;
     }
 
     // Normalize to 0-1 range
