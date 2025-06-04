@@ -9,6 +9,7 @@ import {
 import { seedBiomes } from '../logic/biome';
 import { renderWorldMap, getBiomeColors } from '../logic/map-renderer';
 import { BiomeRegistry } from '../logic/biome-definitions';
+import { worldStructureService } from '../logic/world-structure-service';
 import prisma from '../prisma';
 
 const router = Router();
@@ -204,6 +205,150 @@ router.get('/map', async (req, res): Promise<void> => {
 router.get('/map/colors', (req, res) => {
   const colors = getBiomeColors();
   res.json(colors);
+});
+
+// POST /region/structures - Generate settlements and landmarks for a region
+router.post('/region/structures', async (req, res) => {
+  try {
+    const { centerX, centerY, width, height } = req.body;
+
+    if (
+      typeof centerX !== 'number' ||
+      typeof centerY !== 'number' ||
+      typeof width !== 'number' ||
+      typeof height !== 'number'
+    ) {
+      return res.status(400).json({
+        error: 'centerX, centerY, width, and height must be numbers',
+      });
+    }
+
+    if (width > 2000 || height > 2000) {
+      return res.status(400).json({
+        error: 'Maximum region size is 2000x2000',
+      });
+    }
+
+    const region = { centerX, centerY, width, height };
+    const structures = await worldStructureService.generateRegionStructures(
+      region
+    );
+
+    return res.json({
+      region,
+      settlementsCount: structures.settlements.length,
+      landmarksCount: structures.landmarks.length,
+      settlements: structures.settlements,
+      landmarks: structures.landmarks,
+    });
+  } catch (error) {
+    console.error('Error generating region structures:', error);
+    return res
+      .status(500)
+      .json({ error: 'Failed to generate region structures' });
+  }
+});
+
+// GET /structure/:x/:y - Get settlement or landmark at specific coordinates
+router.get('/structure/:x/:y', async (req, res) => {
+  try {
+    const x = parseInt(req.params.x);
+    const y = parseInt(req.params.y);
+
+    if (isNaN(x) || isNaN(y)) {
+      return res.status(400).json({ error: 'Invalid coordinates' });
+    }
+
+    const structure = await worldStructureService.getStructureAt(x, y);
+
+    if (!structure) {
+      return res.json({
+        structure: null,
+        message: 'No structure found at these coordinates',
+      });
+    }
+
+    return res.json({ structure });
+  } catch (error) {
+    console.error('Error getting structure:', error);
+    return res.status(500).json({ error: 'Failed to get structure' });
+  }
+});
+
+// GET /settlements - Get all settlements in a region
+router.get('/settlements', async (req, res) => {
+  try {
+    const { minX, maxX, minY, maxY } = req.query;
+
+    const whereClause: any = {};
+    if (minX)
+      whereClause.x = { gte: parseInt(minX as string), ...whereClause.x };
+    if (maxX)
+      whereClause.x = { lte: parseInt(maxX as string), ...whereClause.x };
+    if (minY)
+      whereClause.y = { gte: parseInt(minY as string), ...whereClause.y };
+    if (maxY)
+      whereClause.y = { lte: parseInt(maxY as string), ...whereClause.y };
+
+    const settlements = await prisma.settlement.findMany({
+      where: whereClause,
+      orderBy: [{ type: 'asc' }, { population: 'desc' }],
+    });
+
+    res.json({
+      count: settlements.length,
+      settlements: settlements.map((s) => ({
+        id: s.id,
+        name: s.name,
+        type: s.type,
+        x: s.x,
+        y: s.y,
+        size: s.size,
+        population: s.population,
+        description: s.description,
+      })),
+    });
+  } catch (error) {
+    console.error('Error getting settlements:', error);
+    res.status(500).json({ error: 'Failed to get settlements' });
+  }
+});
+
+// GET /landmarks - Get all landmarks in a region
+router.get('/landmarks', async (req, res) => {
+  try {
+    const { minX, maxX, minY, maxY } = req.query;
+
+    const whereClause: any = {};
+    if (minX)
+      whereClause.x = { gte: parseInt(minX as string), ...whereClause.x };
+    if (maxX)
+      whereClause.x = { lte: parseInt(maxX as string), ...whereClause.x };
+    if (minY)
+      whereClause.y = { gte: parseInt(minY as string), ...whereClause.y };
+    if (maxY)
+      whereClause.y = { lte: parseInt(maxY as string), ...whereClause.y };
+
+    const landmarks = await prisma.landmark.findMany({
+      where: whereClause,
+      orderBy: [{ type: 'asc' }, { name: 'asc' }],
+    });
+
+    res.json({
+      count: landmarks.length,
+      landmarks: landmarks.map((l) => ({
+        id: l.id,
+        name: l.name,
+        type: l.type,
+        x: l.x,
+        y: l.y,
+        description: l.description,
+      })),
+    });
+  } catch (error) {
+    console.error('Error getting landmarks:', error);
+    res.status(500).json({ error: 'Failed to get landmarks' });
+  }
 });
 
 export default router;

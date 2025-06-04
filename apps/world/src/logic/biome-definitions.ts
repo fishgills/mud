@@ -21,18 +21,18 @@ export const BIOME_DEFINITIONS: BiomeDefinition[] = [
     color: '#1565C0', // Deep ocean blue - darker than other water biomes
     letter: 'O',
     priority: 10,
-    heightRange: [0.0, 0.55], // Further increased from 0.45 to 0.55 for more ocean coverage
+    heightRange: [0.0, 0.5], // Reduced from 0.55 to make room for more land
     temperatureRange: [0.0, 1.0],
-    moistureRange: [0.5, 1.0], // Further reduced from 0.6 to 0.5 for more ocean coverage
+    moistureRange: [0.5, 1.0],
   },
   {
     name: 'lake',
     color: '#42A5F5', // Bright sky blue - lighter than ocean for distinction
     letter: 'L',
     priority: 9,
-    heightRange: [0.55, 0.65], // Adjusted to start where ocean ends
-    temperatureRange: [0.0, 1.0],
-    moistureRange: [0.7, 1.0],
+    heightRange: [0.65, 0.75], // Moved higher to avoid ocean areas, smaller range
+    temperatureRange: [0.2, 0.8], // More restricted temperature range
+    moistureRange: [0.8, 1.0], // Higher moisture requirement to ensure they're in wet areas
   },
 
   // Coastal biomes
@@ -40,10 +40,10 @@ export const BIOME_DEFINITIONS: BiomeDefinition[] = [
     name: 'beach',
     color: '#F5DEB3', // Sandy beige - more realistic sand color
     letter: 'B',
-    priority: 8,
-    heightRange: [0.55, 0.65], // Adjusted to start where ocean ends
-    temperatureRange: [0.3, 1.0],
-    moistureRange: [0.4, 0.8],
+    priority: 6, // Reduced priority from 8 to make beaches less common
+    heightRange: [0.5, 0.58], // Narrower range, right at ocean edge
+    temperatureRange: [0.4, 1.0], // Slightly more restricted
+    moistureRange: [0.4, 0.7], // Reduced upper moisture to avoid wet areas
   },
 
   // Cold biomes (low temperature)
@@ -71,8 +71,8 @@ export const BIOME_DEFINITIONS: BiomeDefinition[] = [
     name: 'mountains',
     color: '#8D6E63', // Rocky brown-gray - stone and exposed rock
     letter: 'M',
-    priority: 8,
-    heightRange: [0.8, 1.0],
+    priority: 9, // Increased priority from 8 to make mountains more prominent
+    heightRange: [0.75, 1.0], // Lowered from 0.8 to create more mountain ranges
     temperatureRange: [0.0, 0.6],
     moistureRange: [0.0, 1.0],
   },

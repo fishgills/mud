@@ -23,9 +23,9 @@ model Player {
   id          Int        @id @default(autoincrement())
   slackId     String     @unique // Slack user ID
   name        String
-  x           Int        // X coordinate
-  y           Int        // Y coordinate
-  hp          Int        // Hit points
+  x           Int // X coordinate
+  y           Int // Y coordinate
+  hp          Int // Hit points
   gold        Int        @default(0)
   xp          Int        @default(0)
   createdAt   DateTime   @default(now())
@@ -35,34 +35,34 @@ model Player {
 }
 
 model WorldTile {
+  id          Int       @id @default(autoincrement())
+  x           Int
+  y           Int
+  biomeId     Int
+  biome       Biome     @relation(fields: [biomeId], references: [id])
+  description String
+  monsters    Monster[]
+  players     Player[]  @relation("PlayerLocation")
+  // Add more fields as needed (items, exits, etc.)
+
+  @@unique([x, y])
+}
+
+model Biome {
+  id       Int         @id @default(autoincrement())
+  name     String      @unique
+  tiles    WorldTile[]
+  monsters Monster[]
+}
+
+model Monster {
   id          Int        @id @default(autoincrement())
+  name        String
+  hp          Int
   x           Int
   y           Int
   biomeId     Int
   biome       Biome      @relation(fields: [biomeId], references: [id])
-  description String
-  monsters    Monster[]
-  players     Player[]   @relation("PlayerLocation")
-
-  @@unique([x, y])
-  // Add more fields as needed (items, exits, etc.)
-}
-
-model Biome {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  tiles     WorldTile[]
-  monsters  Monster[]
-}
-
-model Monster {
-  id        Int      @id @default(autoincrement())
-  name      String
-  hp        Int
-  x         Int
-  y         Int
-  biomeId   Int
-  biome     Biome    @relation(fields: [biomeId], references: [id])
   worldTileId Int?
   worldTile   WorldTile? @relation(fields: [worldTileId], references: [id])
   // Add more fields as needed (type, loot, etc.)
@@ -70,7 +70,35 @@ model Monster {
 
 model WeatherState {
   id        Int      @id @default(autoincrement())
-  state     String   // e.g., clear, cloudy, overcast, raining, lightning
-  pressure  Int      // Used for weather change logic
+  state     String // e.g., clear, cloudy, overcast, raining, lightning
+  pressure  Int // Used for weather change logic
   updatedAt DateTime @updatedAt
+}
+
+model Settlement {
+  id          Int      @id @default(autoincrement())
+  name        String
+  type        String // city, town, village, hamlet
+  x           Int
+  y           Int
+  size        String // large, medium, small, tiny
+  population  Int
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([x, y])
+}
+
+model Landmark {
+  id          Int      @id @default(autoincrement())
+  name        String
+  type        String // ruins, tower, shrine, etc.
+  x           Int
+  y           Int
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([x, y])
 }
