@@ -15,10 +15,7 @@
     }
   },
   "dependencies": {
-    "tslib": "^2.3.0",
-    "@prisma/client": "^5.0.0"
+    "tslib": "^2.3.0"
   },
-  "devDependencies": {
-    "prisma": "^5.0.0"
-  }
+  "devDependencies": {}
 }
