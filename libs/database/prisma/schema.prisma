@@ -34,18 +34,51 @@ model Player {
   worldTileId Int?
 }
 
+model WorldSeed {
+  id                     Int      @id @default(autoincrement())
+  seed                   Int      @unique
+  heightSeed             Int
+  temperatureSeed        Int
+  moistureSeed           Int
+  heightScale            Float    @default(0.01)
+  temperatureScale       Float    @default(0.008)
+  moistureScale          Float    @default(0.012)
+  heightOctaves          Int      @default(4)
+  temperatureOctaves     Int      @default(3)
+  moistureOctaves        Int      @default(3)
+  heightPersistence      Float    @default(0.5)
+  temperaturePersistence Float    @default(0.6)
+  moisturePersistence    Float    @default(0.4)
+  heightLacunarity       Float    @default(2.0)
+  temperatureLacunarity  Float    @default(2.1)
+  moistureLacunarity     Float    @default(1.9)
+  isActive               Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
 model WorldTile {
   id          Int       @id @default(autoincrement())
   x           Int
   y           Int
   biomeId     Int
   biome       Biome     @relation(fields: [biomeId], references: [id])
+  biomeName   String // Store biome name for faster queries
   description String
+  height      Float // 0-1 height value from terrain noise
+  temperature Float // 0-1 temperature value from temperature noise
+  moisture    Float // 0-1 moisture value from moisture noise
+  seed        Int // World seed used to generate this tile
+  chunkX      Int // Chunk X coordinate (x / 50)
+  chunkY      Int // Chunk Y coordinate (y / 50)
   monsters    Monster[]
   players     Player[]  @relation("PlayerLocation")
-  // Add more fields as needed (items, exits, etc.)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@unique([x, y])
+  @@index([chunkX, chunkY])
+  @@index([seed])
 }
 
 model Biome {

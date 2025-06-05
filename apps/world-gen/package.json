@@ -1,9 +1,8 @@
 {
-  "name": "@mud/world",
+  "name": "@mud/world-gen",
   "version": "0.0.1",
   "private": true,
   "nx": {
-    "name": "world",
     "targets": {
       "build": {
         "executor": "@nx/esbuild:esbuild",
@@ -13,15 +12,15 @@
         "defaultConfiguration": "production",
         "options": {
           "platform": "node",
-          "outputPath": "apps/world/dist",
+          "outputPath": "apps/world-gen/dist",
           "format": [
             "cjs"
           ],
           "bundle": false,
-          "main": "apps/world/src/main.ts",
-          "tsConfig": "apps/world/tsconfig.app.json",
+          "main": "apps/world-gen/src/main.ts",
+          "tsConfig": "apps/world-gen/tsconfig.app.json",
           "assets": [
-            "apps/world/src/assets"
+            "apps/world-gen/src/assets"
           ],
           "esbuildOptions": {
             "sourcemap": true,
@@ -50,15 +49,15 @@
           "build"
         ],
         "options": {
-          "buildTarget": "world:build",
+          "buildTarget": "@mud/world-gen:build",
           "runBuildTargetDependencies": false
         },
         "configurations": {
           "development": {
-            "buildTarget": "world:build:development"
+            "buildTarget": "@mud/world-gen:build:development"
           },
           "production": {
-            "buildTarget": "world:build:production"
+            "buildTarget": "@mud/world-gen:build:production"
           }
         }
       },
@@ -68,10 +67,5 @@
         }
       }
     }
-  },
-  "dependencies": {
-    "@mud/database": "*"
-  },
-  "devDependencies": {
   }
 }

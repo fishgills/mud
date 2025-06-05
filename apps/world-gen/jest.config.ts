@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { readFileSync } from 'fs';
 
 // Reading the SWC compilation config for the spec files
@@ -9,10 +10,9 @@ const swcJestConfig = JSON.parse(
 swcJestConfig.swcrc = false;
 
 export default {
-  displayName: 'world',
+  displayName: '@mud/world-gen',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
-  setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },

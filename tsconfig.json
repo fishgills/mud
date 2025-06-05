@@ -19,10 +19,7 @@
       "path": "./libs/database"
     },
     {
-      "path": "./apps/world-e2e"
-    },
-    {
-      "path": "./apps/world"
+      "path": "./apps/world-gen"
     }
   ]
 }
