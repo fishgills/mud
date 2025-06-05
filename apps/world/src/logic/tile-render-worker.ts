@@ -4,6 +4,7 @@ import { ChunkWorldGenerator } from './chunk-generator';
 import { DEFAULT_WORLD_CONFIG } from './world-config';
 import prisma from '../prisma';
 import { TileRenderTask, TileRenderResult } from './tile-render-worker-pool';
+import { RenderMode } from './map-renderer';
 
 /**
  * Get the biome name from a tile (either from cached biome info or database lookup)
@@ -17,6 +18,68 @@ async function getBiomeNameFromTile(biomeId: number): Promise<string> {
   } catch (error) {
     console.warn('Failed to fetch biome name for biome ID:', biomeId, error);
     return 'unknown';
+  }
+}
+
+/**
+ * Convert terrain height (0-1) to a grayscale color
+ */
+function terrainToColor(height: number): string {
+  const intensity = Math.floor(height * 255);
+  return `rgb(${intensity}, ${intensity}, ${intensity})`;
+}
+
+/**
+ * Convert temperature (0-1) to a color gradient from blue (cold) to red (hot)
+ */
+function temperatureToColor(temperature: number): string {
+  // Blue to cyan to green to yellow to red gradient
+  if (temperature < 0.25) {
+    // Blue to cyan
+    const t = temperature * 4;
+    const blue = 255;
+    const green = Math.floor(t * 255);
+    return `rgb(0, ${green}, ${blue})`;
+  } else if (temperature < 0.5) {
+    // Cyan to green
+    const t = (temperature - 0.25) * 4;
+    const blue = Math.floor((1 - t) * 255);
+    const green = 255;
+    return `rgb(0, ${green}, ${blue})`;
+  } else if (temperature < 0.75) {
+    // Green to yellow
+    const t = (temperature - 0.5) * 4;
+    const red = Math.floor(t * 255);
+    const green = 255;
+    return `rgb(${red}, ${green}, 0)`;
+  } else {
+    // Yellow to red
+    const t = (temperature - 0.75) * 4;
+    const red = 255;
+    const green = Math.floor((1 - t) * 255);
+    return `rgb(${red}, ${green}, 0)`;
+  }
+}
+
+/**
+ * Convert moisture (0-1) to a color gradient from brown (dry) to blue (wet)
+ */
+function moistureToColor(moisture: number): string {
+  // Brown to green to blue gradient
+  if (moisture < 0.5) {
+    // Brown to green
+    const t = moisture * 2;
+    const red = Math.floor((1 - t) * 139 + t * 0); // Brown (139, 69, 19) to green (0, 128, 0)
+    const green = Math.floor((1 - t) * 69 + t * 128);
+    const blue = Math.floor((1 - t) * 19 + t * 0);
+    return `rgb(${red}, ${green}, ${blue})`;
+  } else {
+    // Green to blue
+    const t = (moisture - 0.5) * 2;
+    const red = 0;
+    const green = Math.floor((1 - t) * 128 + t * 0);
+    const blue = Math.floor((1 - t) * 0 + t * 255);
+    return `rgb(${red}, ${green}, ${blue})`;
   }
 }
 
@@ -49,18 +112,48 @@ if (parentPort) {
         throw new Error('Worker not properly initialized');
       }
 
-      const { worldX, worldY, startX, endY, pixelSize } = task;
+      const { worldX, worldY, startX, endY, pixelSize, renderMode } = task;
 
-      // Generate tile with cache info
-      const tileResult = await chunkGenerator.generateTileWithCacheInfo(
-        worldX,
-        worldY
-      );
-      const tile = tileResult.tile;
+      let color: string;
+      let biomeName: string;
+      let cacheSource: 'cache' | 'database' | 'generated';
 
-      // Get biome name
-      const biomeName = await getBiomeNameFromTile(tile.biomeId);
-      const color = biomeColors[biomeName] || biomeColors.unknown || '#000000';
+      if (renderMode === RenderMode.WORLD) {
+        // Original world biome rendering logic
+        const tileResult = await chunkGenerator.generateTileWithCacheInfo(
+          worldX,
+          worldY
+        );
+        const tile = tileResult.tile;
+
+        biomeName = await getBiomeNameFromTile(tile.biomeId);
+        color = biomeColors[biomeName] || biomeColors.unknown || '#000000';
+        cacheSource = tileResult.source;
+      } else {
+        // Generate terrain data for noise map rendering
+        const terrain = chunkGenerator
+          .getNoiseGenerator()
+          .generateTerrain(worldX, worldY);
+
+        switch (renderMode) {
+          case RenderMode.TERRAIN:
+            color = terrainToColor(terrain.height);
+            biomeName = `height:${terrain.height.toFixed(3)}`;
+            break;
+          case RenderMode.TEMPERATURE:
+            color = temperatureToColor(terrain.temperature);
+            biomeName = `temp:${terrain.temperature.toFixed(3)}`;
+            break;
+          case RenderMode.MOISTURE:
+            color = moistureToColor(terrain.moisture);
+            biomeName = `moisture:${terrain.moisture.toFixed(3)}`;
+            break;
+          default:
+            color = '#000000';
+            biomeName = 'unknown';
+        }
+        cacheSource = 'generated'; // Direct noise generation
+      }
 
       // Calculate pixel position (flip Y axis for proper image orientation)
       const pixelX = (worldX - startX) * pixelSize;
@@ -73,7 +166,7 @@ if (parentPort) {
         pixelY,
         color,
         biomeName,
-        cacheSource: tileResult.source,
+        cacheSource,
         success: true,
       };
 

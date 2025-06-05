@@ -1,4 +1,5 @@
 import { Worker } from 'worker_threads';
+import { RenderMode } from './map-renderer';
 
 export interface TileRenderTask {
   worldX: number;
@@ -7,6 +8,7 @@ export interface TileRenderTask {
   startY: number;
   endY: number;
   pixelSize: number;
+  renderMode: RenderMode;
 }
 
 export interface TileRenderResult {

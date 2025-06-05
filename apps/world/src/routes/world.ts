@@ -7,7 +7,11 @@ import {
   chunkToWorld,
 } from '../logic/world';
 import { seedBiomes } from '../logic/biome';
-import { renderWorldMap, getBiomeColors } from '../logic/map-renderer';
+import {
+  renderWorldMap,
+  getBiomeColors,
+  RenderMode,
+} from '../logic/map-renderer';
 import { BiomeRegistry } from '../logic/biome-definitions';
 import { worldStructureService } from '../logic/world-structure-service';
 import prisma from '../prisma';
@@ -176,6 +180,17 @@ router.get('/map', async (req, res): Promise<void> => {
     ); // 1-10 pixel size
     const useOptimized = req.query.optimized === 'true';
 
+    // Parse render mode from query parameter
+    const renderModeParam = req.query.renderMode as string;
+    let renderMode: RenderMode = RenderMode.WORLD; // Default to world view
+
+    if (
+      renderModeParam &&
+      Object.values(RenderMode).includes(renderModeParam as RenderMode)
+    ) {
+      renderMode = renderModeParam as RenderMode;
+    }
+
     // Use optimized rendering for large areas or when explicitly requested
     const totalTiles = width * height;
     const shouldUseOptimized = useOptimized || totalTiles > 250000;
@@ -186,12 +201,14 @@ router.get('/map', async (req, res): Promise<void> => {
       width,
       height,
       pixelSize,
+      renderMode,
     });
 
     res.set({
       'Content-Type': 'image/png',
       'Content-Length': imageBuffer.length,
       'X-Render-Method': shouldUseOptimized ? 'optimized' : 'standard',
+      'X-Render-Mode': renderMode,
     });
 
     res.send(imageBuffer);

@@ -4,6 +4,8 @@ import { WorldTile } from './world';
 import prisma from '../prisma';
 import redis from '../redis';
 import { DRYTileUtils } from './tile-utils';
+import { SettlementGenerator } from './settlement-generator';
+import { Settlement, Landmark } from './settlement-definitions';
 
 export const CHUNK_SIZE = 50;
 
@@ -21,6 +23,7 @@ export interface WorldChunk {
 
 export class ChunkWorldGenerator {
   private noiseGenerator: NoiseGenerator;
+  private settlementGenerator: SettlementGenerator;
   // private config: WorldConfig; // not used
 
   // Cache TTL constants
@@ -29,7 +32,15 @@ export class ChunkWorldGenerator {
 
   constructor(config: WorldConfig = DEFAULT_WORLD_CONFIG) {
     this.noiseGenerator = new NoiseGenerator(config.worldParameters);
+    this.settlementGenerator = new SettlementGenerator(config.worldParameters);
     // this.config = config; // not used
+  }
+
+  /**
+   * Get the noise generator for direct terrain data access
+   */
+  getNoiseGenerator(): NoiseGenerator {
+    return this.noiseGenerator;
   }
 
   /**
@@ -225,6 +236,19 @@ export class ChunkWorldGenerator {
     // Generate chunk tiles
     const tiles = await this.generateChunkTiles(chunkX, chunkY);
 
+    // Generate settlements and landmarks for this chunk
+    const settlements = this.settlementGenerator.generateSettlementsForChunk(
+      chunkX,
+      chunkY,
+      CHUNK_SIZE
+    );
+    const landmarks = this.settlementGenerator.generateLandmarksForChunk(
+      chunkX,
+      chunkY,
+      CHUNK_SIZE,
+      settlements
+    );
+
     const chunk: WorldChunk = {
       chunkX,
       chunkY,
@@ -238,7 +262,28 @@ export class ChunkWorldGenerator {
       ChunkWorldGenerator.CHUNK_CACHE_TTL,
       chunk
     );
-    await this.storeChunkAsync(chunk);
+
+    // Store chunk and structures asynchronously
+    this.handleAsync(
+      () => this.storeChunkAsync(chunk),
+      'Error storing chunk async'
+    );
+
+    // Store settlements and landmarks asynchronously
+    if (settlements.length > 0) {
+      this.handleAsync(
+        () => this.storeSettlementsAsync(settlements),
+        'Error storing settlements async'
+      );
+    }
+
+    if (landmarks.length > 0) {
+      this.handleAsync(
+        () => this.storeLandmarksAsync(landmarks),
+        'Error storing landmarks async'
+      );
+    }
+
     return chunk;
   }
 
@@ -433,6 +478,54 @@ export class ChunkWorldGenerator {
           }
         }
       });
+    }
+  }
+
+  /**
+   * Store settlements to database asynchronously
+   */
+  private async storeSettlementsAsync(
+    settlements: Settlement[]
+  ): Promise<void> {
+    if (settlements.length === 0) return;
+
+    try {
+      await prisma.settlement.createMany({
+        data: settlements.map((s) => ({
+          name: s.name,
+          type: s.type,
+          x: s.x,
+          y: s.y,
+          size: s.size,
+          population: s.population,
+          description: s.description,
+        })),
+        skipDuplicates: true,
+      });
+    } catch (error) {
+      console.error('Error storing settlements:', error);
+    }
+  }
+
+  /**
+   * Store landmarks to database asynchronously
+   */
+  private async storeLandmarksAsync(landmarks: Landmark[]): Promise<void> {
+    if (landmarks.length === 0) return;
+
+    try {
+      await prisma.landmark.createMany({
+        data: landmarks.map((l) => ({
+          name: l.name,
+          type: l.type,
+          x: l.x,
+          y: l.y,
+          description: l.description,
+        })),
+        skipDuplicates: true,
+      });
+    } catch (error) {
+      console.error('Error storing landmarks:', error);
     }
   }
 }

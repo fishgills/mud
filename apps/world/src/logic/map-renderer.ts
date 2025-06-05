@@ -7,12 +7,20 @@ import {
   TileRenderTask,
 } from './tile-render-worker-pool';
 
+export enum RenderMode {
+  WORLD = 'world',
+  TERRAIN = 'terrain',
+  TEMPERATURE = 'temperature',
+  MOISTURE = 'moisture',
+}
+
 export interface MapRenderOptions {
   centerX: number;
   centerY: number;
   width: number;
   height: number;
   pixelSize: number;
+  renderMode?: RenderMode;
 }
 
 export interface CacheStats {
@@ -56,12 +64,20 @@ async function getRequiredChunks(
 export async function renderWorldMap(
   options: MapRenderOptions
 ): Promise<Buffer> {
-  const { centerX, centerY, width, height, pixelSize } = options;
+  const {
+    centerX,
+    centerY,
+    width,
+    height,
+    pixelSize,
+    renderMode = RenderMode.WORLD,
+  } = options;
 
-  console.log(`🗺️  Starting world map render:`, {
+  console.log(`🗺️  Starting ${renderMode} map render:`, {
     center: `(${centerX}, ${centerY})`,
     dimensions: `${width}x${height}`,
     pixelSize,
+    renderMode,
     totalTiles: width * height,
     canvasSize: `${width * pixelSize}x${height * pixelSize}`,
   });
@@ -92,8 +108,21 @@ export async function renderWorldMap(
 
   console.log(`🎨 Canvas created: ${canvasWidth}x${canvasHeight} pixels`);
 
-  // Fill background
-  ctx.fillStyle = BIOME_COLORS.ocean;
+  // Fill background based on render mode
+  let backgroundColor: string;
+  switch (renderMode) {
+    case RenderMode.WORLD:
+      backgroundColor = BIOME_COLORS.ocean;
+      break;
+    case RenderMode.TERRAIN:
+    case RenderMode.TEMPERATURE:
+    case RenderMode.MOISTURE:
+      backgroundColor = '#000000'; // Black background for data visualization
+      break;
+    default:
+      backgroundColor = BIOME_COLORS.ocean;
+  }
+  ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
   // Initialize chunk generator for efficient tile/chunk management
@@ -153,6 +182,7 @@ export async function renderWorldMap(
           startY,
           endY,
           pixelSize,
+          renderMode,
         });
       }
     }
@@ -245,7 +275,7 @@ export async function renderWorldMap(
   // Log completion statistics
   const avgTileTime =
     tileCount > 0 ? (totalTileTime / tileCount).toFixed(2) : '0';
-  console.log(`✅ World map render completed:`, {
+  console.log(`✅ ${renderMode} map render completed:`, {
     renderTime: `${renderTime}ms`,
     bufferTime: `${bufferTime}ms`,
     totalTime: `${renderTime + bufferTime}ms`,
@@ -261,16 +291,29 @@ export async function renderWorldMap(
     },
   });
 
-  // Log biome distribution
-  console.log(
-    `🌍 Biome distribution:`,
-    Object.entries(biomeStats)
-      .sort(([, a], [, b]) => b - a)
-      .reduce((acc, [biome, count]) => {
-        acc[biome] = `${count} (${Math.round((count / totalTiles) * 100)}%)`;
-        return acc;
-      }, {} as Record<string, string>)
-  );
+  // Log distribution based on render mode
+  if (renderMode === RenderMode.WORLD) {
+    console.log(
+      `🌍 Biome distribution:`,
+      Object.entries(biomeStats)
+        .sort(([, a], [, b]) => b - a)
+        .reduce((acc, [biome, count]) => {
+          acc[biome] = `${count} (${Math.round((count / totalTiles) * 100)}%)`;
+          return acc;
+        }, {} as Record<string, string>)
+    );
+  } else {
+    console.log(
+      `📊 Data distribution for ${renderMode}:`,
+      Object.entries(biomeStats)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 10) // Show top 10 values for noise data
+        .reduce((acc, [value, count]) => {
+          acc[value] = `${count} (${Math.round((count / totalTiles) * 100)}%)`;
+          return acc;
+        }, {} as Record<string, string>)
+    );
+  }
 
   return buffer;
 }
