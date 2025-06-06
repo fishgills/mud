@@ -36,6 +36,13 @@ interface TileWithNearbyBiomes extends CachedTile {
     description: string;
     distance: number;
   }>;
+  settlement?: {
+    name: string;
+    type: string;
+    size: string;
+    intensity: number;
+    isCenter: boolean;
+  };
 }
 
 interface SettlementData {
@@ -257,6 +264,50 @@ export class WorldService {
       .filter((s) => s.distance <= radius)
       .sort((a, b) => a.distance - b.distance);
 
+    // Check if the current tile is part of any settlement footprint
+    let settlementInfo:
+      | {
+          name: string;
+          type: string;
+          size: string;
+          intensity: number;
+          isCenter: boolean;
+        }
+      | undefined;
+
+    for (const settlement of settlements) {
+      // Check if this is the settlement center
+      if (settlement.x === x && settlement.y === y) {
+        settlementInfo = {
+          name: settlement.name,
+          type: settlement.type,
+          size: settlement.size,
+          intensity: 1.0,
+          isCenter: true,
+        };
+        break;
+      }
+
+      // Check if this tile is within the settlement footprint
+      const footprint = this.regenerateSettlementFootprint({
+        x: settlement.x,
+        y: settlement.y,
+        size: settlement.size,
+      });
+
+      const tile = footprint.tiles.find((t) => t.x === x && t.y === y);
+      if (tile) {
+        settlementInfo = {
+          name: settlement.name,
+          type: settlement.type,
+          size: settlement.size,
+          intensity: tile.intensity,
+          isCenter: false,
+        };
+        break; // Use the first settlement found (closest one should be first)
+      }
+    }
+
     return {
       ...tile,
       nearbyBiomes: nearbyBiomes.slice(0, 5), // Return up to 5 nearby biomes
@@ -270,6 +321,7 @@ export class WorldService {
         description: s.description,
         distance: Math.round(s.distance * 10) / 10,
       })),
+      settlement: settlementInfo,
     };
   }
 
