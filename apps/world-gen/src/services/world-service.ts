@@ -328,6 +328,52 @@ export class WorldService {
     }
   }
 
+  private async getTileExistingOnly(
+    x: number,
+    y: number
+  ): Promise<CachedTile | null> {
+    // Check cache first
+    const cacheKey = CACHE_KEYS.TILE(x, y);
+    const cachedTile = await redisClient.get(cacheKey);
+
+    if (cachedTile) {
+      this.stats.cacheHits++;
+      return JSON.parse(cachedTile);
+    }
+
+    this.stats.cacheMisses++;
+
+    // Check database only - don't generate new tiles
+    const dbTile = await this.prisma.worldTile.findUnique({
+      where: { x_y: { x, y } },
+      include: { biome: true },
+    });
+
+    if (dbTile) {
+      this.stats.dbHits++;
+      const tile: CachedTile = {
+        x: dbTile.x,
+        y: dbTile.y,
+        biomeId: dbTile.biomeId,
+        biomeName: dbTile.biomeName,
+        description: dbTile.description,
+        height: dbTile.height,
+        temperature: dbTile.temperature,
+        moisture: dbTile.moisture,
+        seed: dbTile.seed,
+        chunkX: dbTile.chunkX,
+        chunkY: dbTile.chunkY,
+      };
+
+      // Cache it
+      await redisClient.setex(cacheKey, CACHE_TTL.TILE, JSON.stringify(tile));
+      return tile;
+    }
+
+    this.stats.dbMisses++;
+    return null; // Return null if tile doesn't exist, don't generate
+  }
+
   private async getChunkFromDatabase(
     chunkX: number,
     chunkY: number
@@ -467,28 +513,99 @@ export class WorldService {
     const canvas = createCanvas(width * 4, height * 4); // 4 pixels per tile
     const ctx = canvas.getContext('2d');
 
-    // Background
-    ctx.fillStyle = '#000000';
+    // Background - use a neutral color to show ungenerated areas
+    ctx.fillStyle = '#2c2c2c'; // Dark gray for ungenerated areas
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    let existingTileCount = 0;
 
     for (let x = minX; x < maxX; x++) {
       for (let y = minY; y < maxY; y++) {
         try {
-          const tile = await this.getTile(x, y);
+          // Use the new method that only gets existing tiles
+          const tile = await this.getTileExistingOnly(x, y);
           if (tile) {
+            existingTileCount++;
             const biome = BIOMES[tile.biomeName] || BIOMES.GRASSLAND;
             ctx.fillStyle = biome.color;
             const pixelX = (x - minX) * 4;
             const pixelY = (y - minY) * 4;
             ctx.fillRect(pixelX, pixelY, 4, 4);
           }
-        } catch {
+          // If tile is null, leave the background color (dark gray)
+        } catch (error) {
           // Skip tiles that can't be loaded
+          logger.debug(`Failed to load tile at ${x},${y}:`, error);
         }
       }
     }
 
+    logger.info(
+      `Rendered map with ${existingTileCount} existing tiles out of ${
+        width * height
+      } total coordinates`
+    );
     return canvas.toBuffer('image/png');
+  }
+
+  async renderMapAscii(
+    minX: number,
+    maxX: number,
+    minY: number,
+    maxY: number
+  ): Promise<string> {
+    const width = maxX - minX;
+    const height = maxY - minY;
+
+    let asciiMap = '';
+    let existingTileCount = 0;
+
+    // Add a header with coordinate information
+    asciiMap += `ASCII Map (${minX},${minY}) to (${maxX - 1},${maxY - 1})\n`;
+    asciiMap += `Legend: ~ Ocean, ≈ Shallow Ocean, . Beach, d Desert, g Grassland, T Forest\n`;
+    asciiMap += `        J Jungle, S Swamp, L Lake, r River, t Tundra, P Taiga\n`;
+    asciiMap += `        ^ Mountain, A Snowy Mountain, h Hills, s Savanna, a Alpine, V Volcanic\n`;
+    asciiMap += `        • Ungenerated area\n\n`;
+
+    for (let y = minY; y < maxY; y++) {
+      let row = '';
+      for (let x = minX; x < maxX; x++) {
+        try {
+          // Use the existing-only method to avoid generating new tiles
+          const tile = await this.getTileExistingOnly(x, y);
+          if (tile) {
+            existingTileCount++;
+            // Find the biome by name (case-insensitive) to handle DB vs. code key mismatch
+            const biome =
+              Object.values(BIOMES).find(
+                (b) => b.name.toLowerCase() === tile.biomeName.toLowerCase()
+              ) || BIOMES.GRASSLAND;
+            row += biome.ascii;
+          } else {
+            // Use a different character for ungenerated areas
+            row += '•';
+          }
+        } catch (error) {
+          // Use error character for failed tile loads
+          logger.debug(`Failed to load tile at ${x},${y}:`, error);
+          row += '?';
+        }
+      }
+      asciiMap += row + '\n';
+    }
+
+    // Add a footer with statistics
+    asciiMap += `\nExisting tiles: ${existingTileCount}/${width * height} (${(
+      (existingTileCount / (width * height)) *
+      100
+    ).toFixed(1)}%)\n`;
+
+    logger.info(
+      `Rendered ASCII map with ${existingTileCount} existing tiles out of ${
+        width * height
+      } total coordinates`
+    );
+    return asciiMap;
   }
 
   async getStatistics(): Promise<WorldStats> {
