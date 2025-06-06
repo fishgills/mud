@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import { redisClient, CACHE_KEYS, CACHE_TTL } from './redis-service';
 import { WorkerPool, WorkerTask } from './worker-pool';
 import { TileData, BiomeGenerator, BIOMES } from '../utils/biome';
 import { logger } from '../utils/logger';
@@ -141,19 +140,6 @@ export class WorldService {
     const startTime = Date.now();
 
     try {
-      // Check cache first
-      const cacheKey = CACHE_KEYS.CHUNK(chunkX, chunkY);
-      const cachedChunk = await redisClient.get(cacheKey);
-
-      if (cachedChunk) {
-        this.stats.cacheHits++;
-        logger.debug(`Cache hit for chunk ${chunkX},${chunkY}`);
-        return JSON.parse(cachedChunk);
-      }
-
-      this.stats.cacheMisses++;
-      logger.debug(`Cache miss for chunk ${chunkX},${chunkY}`);
-
       // Check database for existing tiles
       const existingTiles = await this.getChunkFromDatabase(chunkX, chunkY);
 
@@ -161,13 +147,6 @@ export class WorldService {
         // Full 50x50 chunk
         this.stats.dbHits++;
         const chunkData = this.reconstructChunkFromTiles(existingTiles);
-
-        // Cache the result
-        await redisClient.setex(
-          cacheKey,
-          CACHE_TTL.CHUNK,
-          JSON.stringify(chunkData)
-        );
 
         return chunkData;
       }
@@ -179,13 +158,6 @@ export class WorldService {
 
       // Store in database
       await this.saveChunkToDatabase(chunkData);
-
-      // Cache the result
-      await redisClient.setex(
-        cacheKey,
-        CACHE_TTL.CHUNK,
-        JSON.stringify(chunkData)
-      );
 
       const generationTime = Date.now() - startTime;
       this.stats.chunksGenerated++;
@@ -310,17 +282,6 @@ export class WorldService {
       return null;
     }
 
-    // Check cache first
-    const cacheKey = CACHE_KEYS.TILE(x, y);
-    const cachedTile = await redisClient.get(cacheKey);
-
-    if (cachedTile) {
-      this.stats.cacheHits++;
-      return JSON.parse(cachedTile);
-    }
-
-    this.stats.cacheMisses++;
-
     // Check database
     const dbTile = await this.prisma.worldTile.findUnique({
       where: { x_y: { x, y } },
@@ -343,8 +304,6 @@ export class WorldService {
         chunkY: dbTile.chunkY,
       };
 
-      // Cache it
-      await redisClient.setex(cacheKey, CACHE_TTL.TILE, JSON.stringify(tile));
       return tile;
     }
 
@@ -368,52 +327,6 @@ export class WorldService {
     }
   }
 
-  private async getTileExistingOnly(
-    x: number,
-    y: number
-  ): Promise<CachedTile | null> {
-    // Check cache first
-    const cacheKey = CACHE_KEYS.TILE(x, y);
-    const cachedTile = await redisClient.get(cacheKey);
-
-    if (cachedTile) {
-      this.stats.cacheHits++;
-      return JSON.parse(cachedTile);
-    }
-
-    this.stats.cacheMisses++;
-
-    // Check database only - don't generate new tiles
-    const dbTile = await this.prisma.worldTile.findUnique({
-      where: { x_y: { x, y } },
-      include: { biome: true },
-    });
-
-    if (dbTile) {
-      this.stats.dbHits++;
-      const tile: CachedTile = {
-        x: dbTile.x,
-        y: dbTile.y,
-        biomeId: dbTile.biomeId,
-        biomeName: dbTile.biomeName,
-        description: dbTile.description,
-        height: dbTile.height,
-        temperature: dbTile.temperature,
-        moisture: dbTile.moisture,
-        seed: dbTile.seed,
-        chunkX: dbTile.chunkX,
-        chunkY: dbTile.chunkY,
-      };
-
-      // Cache it
-      await redisClient.setex(cacheKey, CACHE_TTL.TILE, JSON.stringify(tile));
-      return tile;
-    }
-
-    this.stats.dbMisses++;
-    return null; // Return null if tile doesn't exist, don't generate
-  }
-
   private async getChunkFromDatabase(
     chunkX: number,
     chunkY: number
@@ -426,19 +339,7 @@ export class WorldService {
       include: { biome: true },
     });
 
-    return tiles.map((tile) => ({
-      x: tile.x,
-      y: tile.y,
-      biomeId: tile.biomeId,
-      biomeName: tile.biomeName,
-      description: tile.description,
-      height: tile.height,
-      temperature: tile.temperature,
-      moisture: tile.moisture,
-      seed: tile.seed,
-      chunkX: tile.chunkX,
-      chunkY: tile.chunkY,
-    }));
+    return tiles;
   }
 
   private reconstructChunkFromTiles(tiles: CachedTile[]): ChunkData {
@@ -577,18 +478,41 @@ export class WorldService {
       })) || [];
     const settlementMap = new Map(settlements.map((s) => [`${s.x},${s.y}`, s]));
 
+    // Fetch all tiles in the region in one DB call
+    const tiles = await this.prisma.worldTile.findMany({
+      where: {
+        x: { gte: minX, lt: maxX },
+        y: { gte: minY, lt: maxY },
+      },
+      include: { biome: true },
+    });
+    const tileMap = new Map(tiles.map((t) => [`${t.x},${t.y}`, t]));
+
     const tileData = [];
     let existingTileCount = 0;
 
-    // Collect all tile data
+    // Collect all tile data using the tileMap
     for (let y = minY; y < maxY; y++) {
       for (let x = minX; x < maxX; x++) {
         let tile = null;
         let hasError = false;
 
         try {
-          tile = await this.getTileExistingOnly(x, y);
-          if (tile) {
+          const dbTile = tileMap.get(`${x},${y}`);
+          if (dbTile) {
+            tile = {
+              x: dbTile.x,
+              y: dbTile.y,
+              biomeId: dbTile.biomeId,
+              biomeName: dbTile.biomeName,
+              description: dbTile.description,
+              height: dbTile.height,
+              temperature: dbTile.temperature,
+              moisture: dbTile.moisture,
+              seed: dbTile.seed,
+              chunkX: dbTile.chunkX,
+              chunkY: dbTile.chunkY,
+            };
             existingTileCount++;
           }
         } catch (error) {

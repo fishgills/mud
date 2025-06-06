@@ -105,24 +105,25 @@ export class SettlementGenerator {
     const baseChance = coordRng();
 
     // Different biomes have different settlement probabilities
+    // Greatly reduced settlement spawn rates
     const biomeModifiers: Record<string, number> = {
-      [BIOMES.GRASSLAND.name]: 0.008, // Higher chance in grasslands
-      [BIOMES.FOREST.name]: 0.006,
-      [BIOMES.HILLS.name]: 0.005,
-      [BIOMES.RIVER.name]: 0.012, // Higher chance near rivers
-      [BIOMES.LAKE.name]: 0.01, // Higher chance near lakes
-      [BIOMES.BEACH.name]: 0.007, // Coastal settlements
-      [BIOMES.SAVANNA.name]: 0.004,
-      [BIOMES.TAIGA.name]: 0.003,
-      [BIOMES.DESERT.name]: 0.002, // Lower chance in desert
-      [BIOMES.SWAMP.name]: 0.001, // Very low chance in swamps
-      [BIOMES.MOUNTAIN.name]: 0.002,
-      [BIOMES.TUNDRA.name]: 0.001,
+      [BIOMES.GRASSLAND.name]: 0.0001,
+      [BIOMES.FOREST.name]: 0.00005,
+      [BIOMES.HILLS.name]: 0.00005,
+      [BIOMES.RIVER.name]: 0,
+      [BIOMES.LAKE.name]: 0,
+      [BIOMES.BEACH.name]: 0,
+      [BIOMES.SAVANNA.name]: 0,
+      [BIOMES.TAIGA.name]: 0,
+      [BIOMES.DESERT.name]: 0.0001,
+      [BIOMES.SWAMP.name]: 0,
+      [BIOMES.MOUNTAIN.name]: 0,
+      [BIOMES.TUNDRA.name]: 0,
       [BIOMES.OCEAN.name]: 0,
       [BIOMES.SHALLOW_OCEAN.name]: 0,
     };
 
-    const modifier = biomeModifiers[biome.name] || 0.003;
+    const modifier = biomeModifiers[biome.name] || 0.0005;
     return baseChance < modifier;
   }
 

@@ -1,6 +1,5 @@
 import express from 'express';
 import { worldService } from './services/world-service';
-import { redisClient } from './services/redis-service';
 import { logger } from './utils/logger';
 
 const app = express();
@@ -100,7 +99,6 @@ app.listen(PORT, () => {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   logger.info('Shutting down gracefully...');
-  await redisClient.quit();
   await worldService.shutdown();
   process.exit(0);
 });
