@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 
 import seedrandom from 'seedrandom';
 import {
@@ -74,18 +74,18 @@ export interface ChunkData {
 }
 
 @Injectable()
-export class WorldService implements OnModuleInit {
+export class WorldService {
   private readonly logger = new Logger(WorldService.name);
 
   private currentSeed = 0;
-  constructor(@Inject(PrismaService) private prismaService: PrismaService) {}
-
-  async onModuleInit() {
-    // Give NestJS time to properly initialize dependencies
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    await this.initializeBiomes();
-    await this.loadWorldSeed();
+  constructor(@Inject(PrismaService) private prismaService: PrismaService) {
+    this.logger.log('WorldService initialized');
+    this.initializeBiomes().catch((error) => {
+      this.logger.error('Failed to initialize biomes:', error);
+    });
+    this.loadWorldSeed().catch((error) => {
+      this.logger.error('Failed to load world seed:', error);
+    });
   }
 
   private async loadWorldSeed() {
