@@ -526,7 +526,11 @@ export class WorldService {
           const tile = await this.getTileExistingOnly(x, y);
           if (tile) {
             existingTileCount++;
-            const biome = BIOMES[tile.biomeName] || BIOMES.GRASSLAND;
+            // Find the biome by name (case-insensitive) to handle DB vs. code key mismatch
+            const biome =
+              Object.values(BIOMES).find(
+                (b) => b.name.toLowerCase() === tile.biomeName.toLowerCase()
+              ) || BIOMES.GRASSLAND;
             ctx.fillStyle = biome.color;
             const pixelX = (x - minX) * 4;
             const pixelY = (y - minY) * 4;
