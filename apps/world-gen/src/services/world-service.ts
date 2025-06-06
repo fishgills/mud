@@ -27,17 +27,19 @@ interface TileWithNearbyBiomes extends CachedTile {
   }>;
 }
 
+interface SettlementData {
+  name: string;
+  type: string;
+  size: string;
+  population: number;
+  x: number;
+  y: number;
+  description: string;
+}
+
 interface ChunkData {
   tiles: TileData[];
-  settlements: Array<{
-    name: string;
-    type: string;
-    size: string;
-    population: number;
-    x: number;
-    y: number;
-    description: string;
-  }>;
+  settlements: Array<SettlementData>;
   stats: {
     biomes: Record<string, number>;
     averageHeight: number;
@@ -502,22 +504,31 @@ export class WorldService {
     }
   }
 
-  async renderMap(
+  /**
+   * Common data structure for map rendering
+   */
+  private async prepareMapData(
     minX: number,
     maxX: number,
     minY: number,
     maxY: number
-  ): Promise<Buffer> {
+  ): Promise<{
+    width: number;
+    height: number;
+    settlementMap: Map<string, SettlementData>;
+    existingTileCount: number;
+    tileData: Array<{
+      x: number;
+      y: number;
+      tile: CachedTile | null;
+      settlement: SettlementData | undefined;
+      biome: (typeof BIOMES)[keyof typeof BIOMES] | null;
+      hasError: boolean;
+    }>;
+  }> {
     const width = maxX - minX;
     const height = maxY - minY;
-    const canvas = createCanvas(width * 4, height * 4); // 4 pixels per tile
-    const ctx = canvas.getContext('2d');
 
-    // Background - use a neutral color to show ungenerated areas
-    ctx.fillStyle = '#2c2c2c'; // Dark gray for ungenerated areas
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    let existingTileCount = 0;
     // Fetch all settlements in the region
     const settlements =
       (await this.prisma.settlement.findMany({
@@ -528,34 +539,82 @@ export class WorldService {
       })) || [];
     const settlementMap = new Map(settlements.map((s) => [`${s.x},${s.y}`, s]));
 
-    for (let x = minX; x < maxX; x++) {
-      for (let y = minY; y < maxY; y++) {
+    const tileData = [];
+    let existingTileCount = 0;
+
+    // Collect all tile data
+    for (let y = minY; y < maxY; y++) {
+      for (let x = minX; x < maxX; x++) {
+        let tile = null;
+        let hasError = false;
+
         try {
-          // Use the new method that only gets existing tiles
-          const tile = await this.getTileExistingOnly(x, y);
-          const settlement = settlementMap.get(`${x},${y}`);
-          const pixelX = (x - minX) * 4;
-          const pixelY = (y - minY) * 4;
+          tile = await this.getTileExistingOnly(x, y);
           if (tile) {
             existingTileCount++;
-            // Find the biome by name (case-insensitive) to handle DB vs. code key mismatch
-            const biome =
-              Object.values(BIOMES).find(
-                (b) => b.name.toLowerCase() === tile.biomeName.toLowerCase()
-              ) || BIOMES.GRASSLAND;
-            ctx.fillStyle = biome.color;
-            ctx.fillRect(pixelX, pixelY, 4, 4);
-            // Overlay settlement if present
-            if (settlement) {
-              ctx.fillStyle = '#ff3333'; // Red for settlements
-              ctx.fillRect(pixelX + 1, pixelY + 1, 2, 2); // Small dot in center
-            }
           }
-          // If tile is null, leave the background color (dark gray)
         } catch (error) {
-          // Skip tiles that can't be loaded
           logger.debug(`Failed to load tile at ${x},${y}:`, error);
+          hasError = true;
         }
+
+        const settlement = settlementMap.get(`${x},${y}`);
+        const biome = tile
+          ? Object.values(BIOMES).find(
+              (b) => b.name.toLowerCase() === tile.biomeName.toLowerCase()
+            ) || BIOMES.GRASSLAND
+          : null;
+
+        tileData.push({
+          x,
+          y,
+          tile,
+          settlement,
+          biome,
+          hasError,
+        });
+      }
+    }
+
+    return {
+      width,
+      height,
+      settlementMap,
+      existingTileCount,
+      tileData,
+    };
+  }
+
+  async renderMap(
+    minX: number,
+    maxX: number,
+    minY: number,
+    maxY: number
+  ): Promise<Buffer> {
+    const { width, height, existingTileCount, tileData } =
+      await this.prepareMapData(minX, maxX, minY, maxY);
+
+    const canvas = createCanvas(width * 4, height * 4); // 4 pixels per tile
+    const ctx = canvas.getContext('2d');
+
+    // Background - use a neutral color to show ungenerated areas
+    ctx.fillStyle = '#2c2c2c'; // Dark gray for ungenerated areas
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Render each tile
+    for (const { x, y, tile, settlement, biome } of tileData) {
+      const pixelX = (x - minX) * 4;
+      const pixelY = (y - minY) * 4;
+
+      if (tile && biome) {
+        ctx.fillStyle = biome.color;
+        ctx.fillRect(pixelX, pixelY, 4, 4);
+      }
+
+      // Overlay settlement if present
+      if (settlement) {
+        ctx.fillStyle = '#ff3333'; // Red for settlements
+        ctx.fillRect(pixelX + 1, pixelY + 1, 2, 2); // Small dot in center
       }
     }
 
@@ -573,11 +632,10 @@ export class WorldService {
     minY: number,
     maxY: number
   ): Promise<string> {
-    const width = maxX - minX;
-    const height = maxY - minY;
+    const { width, height, existingTileCount, tileData } =
+      await this.prepareMapData(minX, maxX, minY, maxY);
 
     let asciiMap = '';
-    let existingTileCount = 0;
 
     // Add a header with coordinate information
     asciiMap += `ASCII Map (${minX},${minY}) to (${maxX - 1},${maxY - 1})\n`;
@@ -586,41 +644,23 @@ export class WorldService {
     asciiMap += `        ^ Mountain, A Snowy Mountain, h Hills, s Savanna, a Alpine, V Volcanic\n`;
     asciiMap += `        * Settlement, • Ungenerated area\n\n`;
 
-    // Fetch all settlements in the region
-    const settlements =
-      (await this.prisma.settlement.findMany({
-        where: {
-          x: { gte: minX, lt: maxX },
-          y: { gte: minY, lt: maxY },
-        },
-      })) || [];
-    const settlementMap = new Map(settlements.map((s) => [`${s.x},${s.y}`, s]));
-
+    // Render each row
     for (let y = minY; y < maxY; y++) {
       let row = '';
       for (let x = minX; x < maxX; x++) {
-        try {
-          // Use the existing-only method to avoid generating new tiles
-          const tile = await this.getTileExistingOnly(x, y);
-          const settlement = settlementMap.get(`${x},${y}`);
-          if (settlement) {
-            row += '*'; // Settlement marker
-          } else if (tile) {
-            existingTileCount++;
-            // Find the biome by name (case-insensitive) to handle DB vs. code key mismatch
-            const biome =
-              Object.values(BIOMES).find(
-                (b) => b.name.toLowerCase() === tile.biomeName.toLowerCase()
-              ) || BIOMES.GRASSLAND;
-            row += biome.ascii;
-          } else {
-            // Use a different character for ungenerated areas
-            row += '•';
-          }
-        } catch (error) {
-          // Use error character for failed tile loads
-          logger.debug(`Failed to load tile at ${x},${y}:`, error);
-          row += '?';
+        const tileInfo = tileData.find((t) => t.x === x && t.y === y);
+        if (!tileInfo) continue;
+
+        const { settlement, tile, biome, hasError } = tileInfo;
+
+        if (settlement) {
+          row += '*'; // Settlement marker
+        } else if (tile && biome) {
+          row += biome.ascii;
+        } else if (hasError) {
+          row += '?'; // Error character
+        } else {
+          row += '•'; // Ungenerated area
         }
       }
       asciiMap += row + '\n';
