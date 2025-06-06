@@ -91,13 +91,32 @@ const SETTLEMENT_SUFFIXES = [
   'shire',
 ];
 
+/**
+ * SettlementGenerator is responsible for generating settlements based on coordinates and biome information.
+ * It uses a seeded random number generator to ensure deterministic results.
+ * Settlement generation is influenced by the biome type and coordinates, allowing for unique settlement names and characteristics.
+ */
 export class SettlementGenerator {
   private seed: number;
 
+  /**
+   * Creates an instance of SettlementGenerator.
+   *
+   * @param seed - A seed value to initialize the random number generator.
+   * This seed ensures that the settlement generation is deterministic and reproducible.
+   */
   constructor(seed: number) {
     this.seed = seed;
   }
 
+  /**
+   * Determines whether a settlement should be generated at the given coordinates and biome.
+   *
+   * @param x - The x-coordinate of the location.
+   * @param y - The y-coordinate of the location.
+   * @param biome - The biome information at the location.
+   * @returns True if a settlement should be generated, false otherwise.
+   */
   shouldGenerateSettlement(x: number, y: number, biome: BiomeInfo): boolean {
     // Create a deterministic random value based on coordinates and seed
     const coordSeed = x * 1000 + y + this.seed;
@@ -127,6 +146,13 @@ export class SettlementGenerator {
     return baseChance < modifier;
   }
 
+  /**
+   * Generates a settlement at the given coordinates and biome.
+   * @param x - The x-coordinate of the location.
+   * @param y - The y-coordinate of the location.
+   * @param biome - The biome information at the location.
+   * @returns The generated settlement information.
+   */
   generateSettlement(x: number, y: number, biome: BiomeInfo): SettlementInfo {
     // Create deterministic randomness based on coordinates
     const coordSeed = x * 1000 + y + this.seed;
@@ -154,6 +180,11 @@ export class SettlementGenerator {
     };
   }
 
+  /**
+   *
+   * @param rng - A function that returns a random number between 0 and 1.
+   * @returns
+   */
   private generateSettlementName(rng: () => number): string {
     const usePrefix = rng() < 0.4;
     const useSuffix = rng() < 0.8;
