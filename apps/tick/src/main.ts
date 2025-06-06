@@ -1,15 +1,14 @@
 import express from 'express';
 import axios from 'axios';
 
-
 const host = process.env.HOST ?? 'localhost';
-const port = process.env.PORT ? Number(process.env.PORT) : 4000;
+const port = process.env.PORT ? Number(process.env.PORT) : 3001;
 
 // Configure the game engine endpoint (adjust as needed)
-const GAME_ENGINE_URL = process.env.GAME_ENGINE_URL || 'http://localhost:3000/tick';
+const GAME_ENGINE_URL =
+  process.env.GAME_ENGINE_URL || 'http://localhost:3002/tick';
 
 const app = express();
-
 
 app.get('/', (req, res) => {
   res.send({ message: 'Tick service running' });
