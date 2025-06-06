@@ -25,6 +25,16 @@ interface TileWithNearbyBiomes extends CachedTile {
     distance: number;
     direction: string;
   }>;
+  nearbySettlements: Array<{
+    name: string;
+    type: string;
+    size: string;
+    population: number;
+    x: number;
+    y: number;
+    description: string;
+    distance: number;
+  }>;
 }
 
 interface SettlementData {
@@ -255,9 +265,37 @@ export class WorldService {
       }
     }
 
+    // Find nearby settlements within radius 50
+    const radius = 50;
+    const settlements = await this.prisma.settlement.findMany({
+      where: {
+        x: { gte: x - radius, lte: x + radius },
+        y: { gte: y - radius, lte: y + radius },
+      },
+    });
+
+    // Calculate distance for each settlement and filter by true radius
+    const nearbySettlements = settlements
+      .map((s) => ({
+        ...s,
+        distance: Math.sqrt((s.x - x) ** 2 + (s.y - y) ** 2),
+      }))
+      .filter((s) => s.distance <= radius)
+      .sort((a, b) => a.distance - b.distance);
+
     return {
       ...tile,
       nearbyBiomes: nearbyBiomes.slice(0, 5), // Return up to 5 nearby biomes
+      nearbySettlements: nearbySettlements.map((s) => ({
+        name: s.name,
+        type: s.type,
+        size: s.size,
+        population: s.population,
+        x: s.x,
+        y: s.y,
+        description: s.description,
+        distance: Math.round(s.distance * 10) / 10,
+      })),
     };
   }
 
