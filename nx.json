@@ -44,8 +44,19 @@
       "exclude": [
         "apps/game-engine-e2e/**/*",
         "apps/tick-e2e/**/*",
-        "apps/world-e2e/**/*"
+        "apps/world-e2e/**/*",
+        "test-e2e/**/*"
       ]
+    },
+    {
+      "plugin": "@nx/webpack/plugin",
+      "options": {
+        "buildTargetName": "build",
+        "serveTargetName": "serve",
+        "previewTargetName": "preview",
+        "buildDepsTargetName": "build-deps",
+        "watchDepsTargetName": "watch-deps"
+      }
     }
   ],
   "targetDefaults": {

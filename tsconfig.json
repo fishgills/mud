@@ -4,13 +4,7 @@
   "files": [],
   "references": [
     {
-      "path": "./apps/game-engine-e2e"
-    },
-    {
       "path": "./apps/game-engine"
-    },
-    {
-      "path": "./apps/tick-e2e"
     },
     {
       "path": "./apps/tick"
@@ -19,7 +13,7 @@
       "path": "./libs/database"
     },
     {
-      "path": "./apps/world-gen"
+      "path": "./apps/world"
     }
   ]
 }
