@@ -518,12 +518,24 @@ export class WorldService {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     let existingTileCount = 0;
+    // Fetch all settlements in the region
+    const settlements =
+      (await this.prisma.settlement.findMany({
+        where: {
+          x: { gte: minX, lt: maxX },
+          y: { gte: minY, lt: maxY },
+        },
+      })) || [];
+    const settlementMap = new Map(settlements.map((s) => [`${s.x},${s.y}`, s]));
 
     for (let x = minX; x < maxX; x++) {
       for (let y = minY; y < maxY; y++) {
         try {
           // Use the new method that only gets existing tiles
           const tile = await this.getTileExistingOnly(x, y);
+          const settlement = settlementMap.get(`${x},${y}`);
+          const pixelX = (x - minX) * 4;
+          const pixelY = (y - minY) * 4;
           if (tile) {
             existingTileCount++;
             // Find the biome by name (case-insensitive) to handle DB vs. code key mismatch
@@ -532,9 +544,12 @@ export class WorldService {
                 (b) => b.name.toLowerCase() === tile.biomeName.toLowerCase()
               ) || BIOMES.GRASSLAND;
             ctx.fillStyle = biome.color;
-            const pixelX = (x - minX) * 4;
-            const pixelY = (y - minY) * 4;
             ctx.fillRect(pixelX, pixelY, 4, 4);
+            // Overlay settlement if present
+            if (settlement) {
+              ctx.fillStyle = '#ff3333'; // Red for settlements
+              ctx.fillRect(pixelX + 1, pixelY + 1, 2, 2); // Small dot in center
+            }
           }
           // If tile is null, leave the background color (dark gray)
         } catch (error) {
@@ -569,7 +584,17 @@ export class WorldService {
     asciiMap += `Legend: ~ Ocean, ≈ Shallow Ocean, . Beach, d Desert, g Grassland, T Forest\n`;
     asciiMap += `        J Jungle, S Swamp, L Lake, r River, t Tundra, P Taiga\n`;
     asciiMap += `        ^ Mountain, A Snowy Mountain, h Hills, s Savanna, a Alpine, V Volcanic\n`;
-    asciiMap += `        • Ungenerated area\n\n`;
+    asciiMap += `        * Settlement, • Ungenerated area\n\n`;
+
+    // Fetch all settlements in the region
+    const settlements =
+      (await this.prisma.settlement.findMany({
+        where: {
+          x: { gte: minX, lt: maxX },
+          y: { gte: minY, lt: maxY },
+        },
+      })) || [];
+    const settlementMap = new Map(settlements.map((s) => [`${s.x},${s.y}`, s]));
 
     for (let y = minY; y < maxY; y++) {
       let row = '';
@@ -577,7 +602,10 @@ export class WorldService {
         try {
           // Use the existing-only method to avoid generating new tiles
           const tile = await this.getTileExistingOnly(x, y);
-          if (tile) {
+          const settlement = settlementMap.get(`${x},${y}`);
+          if (settlement) {
+            row += '*'; // Settlement marker
+          } else if (tile) {
             existingTileCount++;
             // Find the biome by name (case-insensitive) to handle DB vs. code key mismatch
             const biome =
