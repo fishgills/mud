@@ -9,6 +9,22 @@ export interface SettlementInfo {
   x: number;
   y: number;
   description: string;
+  // New fields for settlement footprint
+  footprint?: SettlementFootprint;
+}
+
+export interface SettlementFootprint {
+  centerX: number;
+  centerY: number;
+  tiles: Array<{ x: number; y: number; intensity: number }>; // intensity 0-1 for settlement density
+  radius: number;
+}
+
+export interface SettlementTileInfo {
+  isSettlement: boolean;
+  settlementName?: string;
+  settlementType?: string;
+  intensity: number; // 0-1, how much of this tile is settlement
 }
 
 // Settlement name pools
@@ -169,6 +185,9 @@ export class SettlementGenerator {
       coordRng
     );
 
+    // Generate settlement footprint
+    const footprint = this.generateSettlementFootprint(x, y, size, coordRng);
+
     return {
       name,
       type,
@@ -177,6 +196,51 @@ export class SettlementGenerator {
       x,
       y,
       description,
+      footprint,
+    };
+  }
+
+  /**
+   * Check if a given coordinate is within any settlement's footprint
+   * @param x - The x-coordinate to check
+   * @param y - The y-coordinate to check
+   * @param settlements - Array of settlements to check against
+   * @returns Settlement tile information if the coordinate is within a settlement
+   */
+  static getSettlementAtCoordinate(
+    x: number,
+    y: number,
+    settlements: SettlementInfo[]
+  ): SettlementTileInfo {
+    for (const settlement of settlements) {
+      if (settlement.footprint) {
+        const tile = settlement.footprint.tiles.find(
+          (t) => t.x === x && t.y === y
+        );
+        if (tile) {
+          return {
+            isSettlement: true,
+            settlementName: settlement.name,
+            settlementType: settlement.type,
+            intensity: tile.intensity,
+          };
+        }
+      } else {
+        // Fallback for settlements without footprint (legacy support)
+        if (settlement.x === x && settlement.y === y) {
+          return {
+            isSettlement: true,
+            settlementName: settlement.name,
+            settlementType: settlement.type,
+            intensity: 1.0,
+          };
+        }
+      }
+    }
+
+    return {
+      isSettlement: false,
+      intensity: 0,
     };
   }
 
@@ -309,5 +373,166 @@ export class SettlementGenerator {
     const biomeDesc = biomeDescriptions[biome.name] || 'in a remote location';
 
     return `${baseDesc} ${biomeDesc}.`;
+  }
+
+  /**
+   * Generate an irregular settlement footprint based on size
+   * @param centerX - Center X coordinate of the settlement
+   * @param centerY - Center Y coordinate of the settlement
+   * @param size - Size category of the settlement
+   * @param rng - Random number generator function
+   * @returns Settlement footprint with irregular shape
+   */
+  generateSettlementFootprint(
+    centerX: number,
+    centerY: number,
+    size: SettlementInfo['size'],
+    rng: () => number
+  ): SettlementFootprint {
+    // Determine base radius based on settlement size
+    const baseRadius = this.getSettlementRadius(size);
+
+    const tiles: Array<{ x: number; y: number; intensity: number }> = [];
+
+    // Generate multiple center points for organic growth patterns
+    const growthCenters = this.generateGrowthCenters(
+      centerX,
+      centerY,
+      size,
+      rng
+    );
+
+    // For each potential tile in the area, calculate if it should be part of the settlement
+    const searchRadius = Math.ceil(baseRadius * 1.5); // Search a bit beyond base radius
+
+    for (let dx = -searchRadius; dx <= searchRadius; dx++) {
+      for (let dy = -searchRadius; dy <= searchRadius; dy++) {
+        const x = centerX + dx;
+        const y = centerY + dy;
+
+        const intensity = this.calculateTileIntensity(
+          x,
+          y,
+          growthCenters,
+          baseRadius,
+          rng
+        );
+
+        if (intensity > 0.1) {
+          // Only include tiles with meaningful settlement presence
+          tiles.push({ x, y, intensity });
+        }
+      }
+    }
+
+    return {
+      centerX,
+      centerY,
+      tiles,
+      radius: baseRadius,
+    };
+  }
+
+  /**
+   * Get the base radius for a settlement based on its size
+   */
+  private getSettlementRadius(size: SettlementInfo['size']): number {
+    switch (size) {
+      case 'large':
+        return 8; // Cities: ~8 tile radius
+      case 'medium':
+        return 5; // Towns: ~5 tile radius
+      case 'small':
+        return 3; // Villages: ~3 tile radius
+      case 'tiny':
+        return 1; // Hamlets/Farms: ~1 tile radius
+      default:
+        return 1;
+    }
+  }
+
+  /**
+   * Generate growth centers for organic settlement shape
+   */
+  private generateGrowthCenters(
+    centerX: number,
+    centerY: number,
+    size: SettlementInfo['size'],
+    rng: () => number
+  ): Array<{ x: number; y: number; weight: number }> {
+    const centers: Array<{ x: number; y: number; weight: number }> = [];
+
+    // Always include the main center
+    centers.push({ x: centerX, y: centerY, weight: 1.0 });
+
+    // Add additional growth centers based on size
+    const additionalCenters = this.getAdditionalCenterCount(size);
+
+    for (let i = 0; i < additionalCenters; i++) {
+      // Generate points around the main center with some randomness
+      const angle = rng() * Math.PI * 2;
+      const distance = rng() * this.getSettlementRadius(size) * 0.6; // Stay within reasonable bounds
+
+      const x = centerX + Math.round(Math.cos(angle) * distance);
+      const y = centerY + Math.round(Math.sin(angle) * distance);
+      const weight = 0.3 + rng() * 0.5; // Secondary centers have less influence
+
+      centers.push({ x, y, weight });
+    }
+
+    return centers;
+  }
+
+  /**
+   * Get number of additional growth centers based on settlement size
+   */
+  private getAdditionalCenterCount(size: SettlementInfo['size']): number {
+    switch (size) {
+      case 'large':
+        return 3; // Cities have multiple districts
+      case 'medium':
+        return 2; // Towns have a couple areas
+      case 'small':
+        return 1; // Villages might have one secondary area
+      case 'tiny':
+        return 0; // Hamlets/farms are compact
+      default:
+        return 0;
+    }
+  }
+
+  /**
+   * Calculate settlement intensity at a given tile based on distance to growth centers
+   */
+  private calculateTileIntensity(
+    x: number,
+    y: number,
+    growthCenters: Array<{ x: number; y: number; weight: number }>,
+    baseRadius: number,
+    rng: () => number
+  ): number {
+    let maxIntensity = 0;
+
+    for (const center of growthCenters) {
+      const distance = Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2);
+
+      // Add some noise to make the boundaries irregular
+      const noise = (rng() - 0.5) * 0.8; // ±0.4 tiles of noise
+      const effectiveDistance = distance + noise;
+
+      if (effectiveDistance <= baseRadius) {
+        // Calculate intensity based on distance from center, with falloff
+        const falloff = 1 - effectiveDistance / baseRadius;
+        const intensity = Math.max(0, falloff * center.weight);
+
+        // Add some randomness to create organic variation
+        const variation = 0.8 + rng() * 0.4; // 0.8-1.2 multiplier
+        const adjustedIntensity = Math.min(1, intensity * variation);
+
+        maxIntensity = Math.max(maxIntensity, adjustedIntensity);
+      }
+    }
+
+    return maxIntensity;
   }
 }

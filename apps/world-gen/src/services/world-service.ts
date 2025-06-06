@@ -1,8 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import { WorkerPool, WorkerTask } from './worker-pool';
 import { TileData, BiomeGenerator, BIOMES } from '../utils/biome';
+import { SettlementGenerator, SettlementFootprint } from '../utils/settlement';
 import { logger } from '../utils/logger';
 import { createCanvas } from 'canvas';
+import seedrandom from 'seedrandom';
 
 interface CachedTile {
   x: number;
@@ -521,6 +523,22 @@ export class WorldService {
         }
 
         const settlement = settlementMap.get(`${x},${y}`);
+
+        // Check if this coordinate is within any settlement footprint
+        let settlementFromFootprint: SettlementData | undefined;
+        if (!settlement && settlements.length > 0) {
+          const settlementCheck = this.isCoordinateInSettlement(
+            x,
+            y,
+            settlements
+          );
+          if (settlementCheck.isSettlement) {
+            settlementFromFootprint = settlementCheck.settlement;
+          }
+        }
+
+        const finalSettlement = settlement || settlementFromFootprint;
+
         const biome = tile
           ? Object.values(BIOMES).find(
               (b) => b.name.toLowerCase() === tile.biomeName.toLowerCase()
@@ -531,7 +549,7 @@ export class WorldService {
           x,
           y,
           tile,
-          settlement,
+          settlement: finalSettlement,
           biome,
           hasError,
         });
@@ -575,8 +593,27 @@ export class WorldService {
 
       // Overlay settlement if present
       if (settlement) {
-        ctx.fillStyle = '#ff3333'; // Red for settlements
-        ctx.fillRect(pixelX + 1, pixelY + 1, 2, 2); // Small dot in center
+        const isCenter = settlement.x === x && settlement.y === y;
+        if (isCenter) {
+          // Settlement center - bright red
+          ctx.fillStyle = '#ff0000';
+          ctx.fillRect(pixelX, pixelY, 4, 4);
+        } else {
+          // Check settlement intensity for footprint areas
+          const settlementCheck = this.isCoordinateInSettlement(x, y, [
+            settlement,
+          ]);
+          if (settlementCheck.isSettlement) {
+            const intensity = settlementCheck.intensity;
+            // Create a semi-transparent red overlay based on intensity
+            ctx.fillStyle = `rgba(255, 51, 51, ${intensity * 0.8})`;
+            ctx.fillRect(pixelX, pixelY, 4, 4);
+          } else {
+            // Fallback - small red dot
+            ctx.fillStyle = '#ff3333';
+            ctx.fillRect(pixelX + 1, pixelY + 1, 2, 2);
+          }
+        }
       }
     }
 
@@ -604,7 +641,7 @@ export class WorldService {
     asciiMap += `Legend: ~ Ocean, ≈ Shallow Ocean, . Beach, d Desert, g Grassland, T Forest\n`;
     asciiMap += `        J Jungle, S Swamp, L Lake, r River, t Tundra, P Taiga\n`;
     asciiMap += `        ^ Mountain, A Snowy Mountain, h Hills, s Savanna, a Alpine, V Volcanic\n`;
-    asciiMap += `        * Settlement, • Ungenerated area\n\n`;
+    asciiMap += `        ★ Settlement Center, ▓ Dense Settlement, ░ Sparse Settlement, • Ungenerated area\n\n`;
 
     // Render each row
     for (let y = minY; y < maxY; y++) {
@@ -616,7 +653,28 @@ export class WorldService {
         const { settlement, tile, biome, hasError } = tileInfo;
 
         if (settlement) {
-          row += '*'; // Settlement marker
+          // Check if this is exactly the settlement center or part of footprint
+          const isCenter = settlement.x === x && settlement.y === y;
+          if (isCenter) {
+            row += '★'; // Settlement center marker
+          } else {
+            // Get settlement intensity for this tile
+            const settlementCheck = this.isCoordinateInSettlement(x, y, [
+              settlement,
+            ]);
+            if (settlementCheck.isSettlement) {
+              const intensity = settlementCheck.intensity;
+              if (intensity > 0.7) {
+                row += '▓'; // Dense settlement
+              } else if (intensity > 0.3) {
+                row += '▒'; // Medium settlement
+              } else {
+                row += '░'; // Sparse settlement
+              }
+            } else {
+              row += '*'; // Fallback settlement marker
+            }
+          }
         } else if (tile && biome) {
           row += biome.ascii;
         } else if (hasError) {
@@ -684,6 +742,57 @@ export class WorldService {
     logger.info('Shutting down World Service');
     await this.workerPool.shutdown();
     await this.prisma.$disconnect();
+  }
+  /**
+   * Regenerate settlement footprint for an existing settlement
+   * This is used for backward compatibility with settlements stored without footprints
+   */
+  private regenerateSettlementFootprint(settlement: {
+    x: number;
+    y: number;
+    size: string;
+  }): SettlementFootprint {
+    // Create a deterministic random generator based on settlement position
+    const coordSeed = settlement.x * 1000 + settlement.y + this.currentSeed;
+    const coordRng = seedrandom(coordSeed.toString());
+
+    const settlementGenerator = new SettlementGenerator(this.currentSeed);
+    return settlementGenerator.generateSettlementFootprint(
+      settlement.x,
+      settlement.y,
+      settlement.size as 'large' | 'medium' | 'small' | 'tiny',
+      coordRng
+    );
+  }
+
+  /**
+   * Check if a coordinate is within any settlement, using footprint data
+   */
+  private isCoordinateInSettlement(
+    x: number,
+    y: number,
+    settlements: Array<{
+      x: number;
+      y: number;
+      size: string;
+      name: string;
+      type: string;
+    }>
+  ): { isSettlement: boolean; settlement?: SettlementData; intensity: number } {
+    for (const settlement of settlements) {
+      const footprint = this.regenerateSettlementFootprint(settlement);
+      const tile = footprint.tiles.find((t) => t.x === x && t.y === y);
+
+      if (tile) {
+        return {
+          isSettlement: true,
+          settlement: settlement as SettlementData,
+          intensity: tile.intensity,
+        };
+      }
+    }
+
+    return { isSettlement: false, intensity: 0 };
   }
 }
 

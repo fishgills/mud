@@ -1,4 +1,12 @@
 {
     "nxConsole.generateAiAgentRules": true,
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "chat.mcp.serverSampling": {
+        "mud/.vscode/mcp.json: mud-database": {
+            "allowedModels": [
+                "github.copilot-chat/gpt-4.1",
+                "github.copilot-chat/claude-sonnet-4"
+            ]
+        }
+    }
 }

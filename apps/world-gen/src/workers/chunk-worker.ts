@@ -26,6 +26,24 @@ interface ChunkData {
   };
 }
 
+/**
+ * Get minimum distance between settlements based on size
+ */
+function getMinDistanceBetweenSettlements(size: string): number {
+  switch (size) {
+    case 'large':
+      return 20; // Cities need lots of space
+    case 'medium':
+      return 15; // Towns need moderate space
+    case 'small':
+      return 10; // Villages need some space
+    case 'tiny':
+      return 8; // Hamlets/farms need minimal space
+    default:
+      return 8;
+  }
+}
+
 if (parentPort) {
   parentPort.on('message', (task) => {
     try {
@@ -117,12 +135,28 @@ function generateChunk(
 
       // Check for settlement generation
       if (settlementGenerator.shouldGenerateSettlement(worldX, worldY, biome)) {
-        const settlement = settlementGenerator.generateSettlement(
-          worldX,
-          worldY,
-          biome
-        );
-        settlements.push(settlement);
+        // Ensure no overlap with existing settlements
+        const hasOverlap = settlements.some((existingSettlement) => {
+          const distance = Math.sqrt(
+            (existingSettlement.x - worldX) ** 2 +
+              (existingSettlement.y - worldY) ** 2
+          );
+          // Prevent settlements from being too close - use a simple distance check
+          // Large settlements need more space around them
+          const minDistance = getMinDistanceBetweenSettlements(
+            existingSettlement.size
+          );
+          return distance < minDistance;
+        });
+
+        if (!hasOverlap) {
+          const settlement = settlementGenerator.generateSettlement(
+            worldX,
+            worldY,
+            biome
+          );
+          settlements.push(settlement);
+        }
       }
     }
   }
