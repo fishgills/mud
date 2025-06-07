@@ -73,39 +73,18 @@
   "nx": {
     "targets": {
       "build": {
-        "executor": "@nx/esbuild:esbuild",
-        "outputs": [
-          "{options.outputPath}"
-        ],
-        "defaultConfiguration": "production",
+        "executor": "nx:run-commands",
         "options": {
-          "platform": "node",
-          "outputPath": "apps/world/dist",
-          "format": [
-            "cjs"
-          ],
-          "bundle": false,
-          "main": "apps/world/src/main.ts",
-          "tsConfig": "apps/world/tsconfig.app.json",
-          "assets": [
-            "apps/world/src/assets"
-          ],
-          "esbuildOptions": {
-            "sourcemap": true,
-            "outExtension": {
-              ".js": ".js"
-            }
-          }
+          "command": "webpack-cli build",
+          "args": [
+            "node-env=production"
+          ]
         },
         "configurations": {
-          "development": {},
-          "production": {
-            "esbuildOptions": {
-              "sourcemap": false,
-              "outExtension": {
-                ".js": ".js"
-              }
-            }
+          "development": {
+            "args": [
+              "node-env=development"
+            ]
           }
         }
       },

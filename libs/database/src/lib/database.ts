@@ -18,11 +18,14 @@ export async function disconnectPrisma(): Promise<void> {
 
 // Re-export PrismaClient class and types from Prisma for convenience
 export { PrismaClient, Prisma };
-export type { 
-  Player, 
-  WorldTile, 
-  Biome, 
-  Monster, 
-  WeatherState, 
-  GameState 
+export type {
+  Player,
+  WorldTile,
+  Biome,
+  Monster,
+  WeatherState,
+  GameState,
+  Settlement,
+  Landmark,
+  CombatLog,
 } from '@prisma/client';

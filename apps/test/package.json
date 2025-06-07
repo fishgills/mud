@@ -1,9 +1,8 @@
 {
-  "name": "@mud/dm",
+  "name": "@mud/test",
   "version": "0.0.1",
   "private": true,
   "nx": {
-    "name": "dm",
     "targets": {
       "build": {
         "executor": "nx:run-commands",
@@ -29,17 +28,21 @@
           "build"
         ],
         "options": {
-          "buildTarget": "dm:build",
-          "runBuildTargetDependencies": false,
-          "port": 9230
+          "buildTarget": "@mud/test:build",
+          "runBuildTargetDependencies": false
         },
         "configurations": {
           "development": {
-            "buildTarget": "dm:build:development"
+            "buildTarget": "@mud/test:build:development"
           },
           "production": {
-            "buildTarget": "dm:build:production"
+            "buildTarget": "@mud/test:build:production"
           }
+        }
+      },
+      "test": {
+        "options": {
+          "passWithNoTests": true
         }
       }
     }

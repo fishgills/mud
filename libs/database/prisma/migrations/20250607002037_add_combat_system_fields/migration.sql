@@ -1,0 +1,41 @@
+/*
+  Warnings:
+
+  - Added the required column `updatedAt` to the `Monster` table without a default value. This is not possible if the table is not empty.
+
+*/
+-- AlterTable
+ALTER TABLE "Monster" ADD COLUMN     "agility" INTEGER NOT NULL DEFAULT 8,
+ADD COLUMN     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "health" INTEGER NOT NULL DEFAULT 8,
+ADD COLUMN     "isAlive" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "lastMove" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "maxHp" INTEGER NOT NULL DEFAULT 50,
+ADD COLUMN     "spawnedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "strength" INTEGER NOT NULL DEFAULT 8,
+ADD COLUMN     "type" TEXT NOT NULL DEFAULT 'generic',
+ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL;
+
+-- AlterTable
+ALTER TABLE "Player" ADD COLUMN     "agility" INTEGER NOT NULL DEFAULT 10,
+ADD COLUMN     "health" INTEGER NOT NULL DEFAULT 10,
+ADD COLUMN     "isAlive" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "lastAction" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "level" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "maxHp" INTEGER NOT NULL DEFAULT 100,
+ADD COLUMN     "strength" INTEGER NOT NULL DEFAULT 10;
+
+-- CreateTable
+CREATE TABLE "CombatLog" (
+    "id" SERIAL NOT NULL,
+    "attackerId" INTEGER NOT NULL,
+    "attackerType" TEXT NOT NULL,
+    "defenderId" INTEGER NOT NULL,
+    "defenderType" TEXT NOT NULL,
+    "damage" INTEGER NOT NULL,
+    "x" INTEGER NOT NULL,
+    "y" INTEGER NOT NULL,
+    "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CombatLog_pkey" PRIMARY KEY ("id")
+);

@@ -12,10 +12,13 @@ export class WorldController {
 
   @Get('chunk/:chunkX/:chunkY')
   async getChunk(
-    @Param('chunkX') chunkX: number,
-    @Param('chunkY') chunkY: number,
+    @Param('chunkX') chunkX: string,
+    @Param('chunkY') chunkY: string,
   ) {
-    const chunk = await this.worldService.getChunk(chunkX, chunkY);
+    const chunk = await this.worldService.getChunk(
+      parseInt(chunkX),
+      parseInt(chunkY),
+    );
     return chunk;
   }
 

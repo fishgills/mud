@@ -4,9 +4,6 @@
   "files": [],
   "references": [
     {
-      "path": "./apps/game-engine"
-    },
-    {
       "path": "./apps/tick"
     },
     {
@@ -16,10 +13,13 @@
       "path": "./apps/world"
     },
     {
-      "path": "./apps/dm-e2e"
+      "path": "./apps/dm"
     },
     {
-      "path": "./apps/dm"
+      "path": "./apps/test-e2e"
+    },
+    {
+      "path": "./apps/test"
     }
   ]
 }

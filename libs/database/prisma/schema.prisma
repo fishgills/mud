@@ -25,9 +25,16 @@ model Player {
   name        String
   x           Int // X coordinate
   y           Int // Y coordinate
-  hp          Int // Hit points
+  hp          Int // Hit points (current health)
+  maxHp       Int        @default(100) // Maximum health
+  strength    Int        @default(10) // Strength attribute (1-20)
+  agility     Int        @default(10) // Agility attribute (1-20)
+  health      Int        @default(10) // Health attribute (1-20, affects max HP)
   gold        Int        @default(0)
   xp          Int        @default(0)
+  level       Int        @default(1)
+  isAlive     Boolean    @default(true)
+  lastAction  DateTime   @default(now())
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   worldTile   WorldTile? @relation("PlayerLocation", fields: [worldTileId], references: [id])
@@ -91,13 +98,23 @@ model Biome {
 model Monster {
   id          Int        @id @default(autoincrement())
   name        String
+  type        String     @default("generic") // monster type/species
   hp          Int
+  maxHp       Int        @default(50)
+  strength    Int        @default(8)
+  agility     Int        @default(8)
+  health      Int        @default(8)
   x           Int
   y           Int
+  isAlive     Boolean    @default(true)
+  lastMove    DateTime   @default(now())
+  spawnedAt   DateTime   @default(now())
   biomeId     Int
   biome       Biome      @relation(fields: [biomeId], references: [id])
   worldTileId Int?
   worldTile   WorldTile? @relation(fields: [worldTileId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   // Add more fields as needed (type, loot, etc.)
 }
 
@@ -134,4 +151,16 @@ model Landmark {
   updatedAt   DateTime @updatedAt
 
   @@unique([x, y])
+}
+
+model CombatLog {
+  id           Int      @id @default(autoincrement())
+  attackerId   Int // Player or Monster ID
+  attackerType String // "player" or "monster"
+  defenderId   Int // Player or Monster ID
+  defenderType String // "player" or "monster"
+  damage       Int
+  x            Int // Location where combat occurred
+  y            Int
+  timestamp    DateTime @default(now())
 }
