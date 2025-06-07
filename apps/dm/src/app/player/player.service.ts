@@ -11,7 +11,7 @@ export class PlayerService {
   private prisma = getPrismaClient();
 
   async createPlayer(createPlayerDto: CreatePlayerDto): Promise<Player> {
-    const { slackId, name, x = 0, y = 0 } = createPlayerDto;
+    const { slackId, name, x, y } = createPlayerDto;
 
     // Check if player already exists
     const existingPlayer = await this.prisma.player.findUnique({
@@ -21,6 +21,9 @@ export class PlayerService {
     if (existingPlayer) {
       return existingPlayer;
     }
+
+    // Find a spawn position that's at least 100 tiles away from existing players
+    const spawnPosition = await this.findValidSpawnPosition(x, y);
 
     // Generate random starting stats (8-15 range)
     const strength = Math.floor(Math.random() * 8) + 8;
@@ -34,8 +37,8 @@ export class PlayerService {
       data: {
         slackId,
         name,
-        x,
-        y,
+        x: spawnPosition.x,
+        y: spawnPosition.y,
         hp: maxHp,
         maxHp,
         strength,
@@ -273,5 +276,92 @@ export class PlayerService {
     if (normalizedAngle >= 202.5 && normalizedAngle < 247.5) return 'southwest';
     if (normalizedAngle >= 247.5 && normalizedAngle < 292.5) return 'south';
     return 'southeast';
+  }
+
+  private async findValidSpawnPosition(
+    preferredX?: number,
+    preferredY?: number
+  ): Promise<{ x: number; y: number }> {
+    const MIN_DISTANCE = 100;
+    const MAX_ATTEMPTS = 50;
+    const SEARCH_RADIUS = 1000; // Maximum distance from origin to search
+
+    // Get all existing alive players
+    const existingPlayers = await this.prisma.player.findMany({
+      where: { isAlive: true },
+      select: { x: true, y: true },
+    });
+
+    // If no existing players, use preferred position or origin
+    if (existingPlayers.length === 0) {
+      return {
+        x: preferredX ?? 0,
+        y: preferredY ?? 0,
+      };
+    }
+
+    // Try to find a valid spawn position
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      let candidateX: number;
+      let candidateY: number;
+
+      if (
+        attempt === 0 &&
+        preferredX !== undefined &&
+        preferredY !== undefined
+      ) {
+        // First attempt: try the preferred position
+        candidateX = preferredX;
+        candidateY = preferredY;
+      } else {
+        // Generate random position within search radius
+        const angle = Math.random() * 2 * Math.PI;
+        const distance = Math.random() * SEARCH_RADIUS;
+        candidateX = Math.floor(Math.cos(angle) * distance);
+        candidateY = Math.floor(Math.sin(angle) * distance);
+      }
+
+      // Check if this position is far enough from all existing players
+      const isValidPosition = existingPlayers.every((player) => {
+        const distance = Math.sqrt(
+          Math.pow(candidateX - player.x, 2) +
+            Math.pow(candidateY - player.y, 2)
+        );
+        return distance >= MIN_DISTANCE;
+      });
+
+      if (isValidPosition) {
+        return { x: candidateX, y: candidateY };
+      }
+    }
+
+    // If we couldn't find a valid position after MAX_ATTEMPTS,
+    // find the position that's farthest from the nearest player
+    let bestPosition = { x: 0, y: 0 };
+    let maxMinDistance = 0;
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const angle = Math.random() * 2 * Math.PI;
+      const distance = Math.random() * SEARCH_RADIUS;
+      const candidateX = Math.floor(Math.cos(angle) * distance);
+      const candidateY = Math.floor(Math.sin(angle) * distance);
+
+      // Find minimum distance to any existing player
+      const minDistance = Math.min(
+        ...existingPlayers.map((player) =>
+          Math.sqrt(
+            Math.pow(candidateX - player.x, 2) +
+              Math.pow(candidateY - player.y, 2)
+          )
+        )
+      );
+
+      if (minDistance > maxMinDistance) {
+        maxMinDistance = minDistance;
+        bestPosition = { x: candidateX, y: candidateY };
+      }
+    }
+
+    return bestPosition;
   }
 }
