@@ -192,4 +192,86 @@ export class PlayerService {
       },
     });
   }
+
+  async getNearbyPlayers(
+    currentX: number,
+    currentY: number,
+    excludeSlackId?: string,
+    radius = Infinity,
+    limit = 10
+  ): Promise<
+    Array<{ distance: number; direction: string; x: number; y: number }>
+  > {
+    // Get all players (or within bounding box if radius is finite)
+    const whereClause: {
+      isAlive: boolean;
+      slackId?: { not: string };
+      x?: { gte: number; lte: number };
+      y?: { gte: number; lte: number };
+    } = {
+      isAlive: true,
+      ...(excludeSlackId && { slackId: { not: excludeSlackId } }),
+    };
+
+    // Only add spatial constraints if radius is finite
+    if (radius !== Infinity) {
+      whereClause.x = { gte: currentX - radius, lte: currentX + radius };
+      whereClause.y = { gte: currentY - radius, lte: currentY + radius };
+    }
+
+    const players = await this.prisma.player.findMany({
+      where: whereClause,
+    });
+
+    // Calculate actual distance and filter by circular radius
+    const playersWithDistance = players
+      .map((player) => {
+        const distance = Math.sqrt(
+          (player.x - currentX) ** 2 + (player.y - currentY) ** 2
+        );
+        const direction = this.calculateDirection(
+          currentX,
+          currentY,
+          player.x,
+          player.y
+        );
+        return {
+          distance: Math.round(distance * 10) / 10,
+          direction,
+          x: player.x,
+          y: player.y,
+        };
+      })
+      .filter((player) => radius === Infinity || player.distance <= radius)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, limit);
+
+    return playersWithDistance;
+  }
+
+  private calculateDirection(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number
+  ): string {
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+
+    // Calculate angle in radians, then convert to degrees
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+    // Normalize angle to 0-360 range
+    const normalizedAngle = (angle + 360) % 360;
+
+    // Convert to compass direction
+    if (normalizedAngle >= 337.5 || normalizedAngle < 22.5) return 'east';
+    if (normalizedAngle >= 22.5 && normalizedAngle < 67.5) return 'northeast';
+    if (normalizedAngle >= 67.5 && normalizedAngle < 112.5) return 'north';
+    if (normalizedAngle >= 112.5 && normalizedAngle < 157.5) return 'northwest';
+    if (normalizedAngle >= 157.5 && normalizedAngle < 202.5) return 'west';
+    if (normalizedAngle >= 202.5 && normalizedAngle < 247.5) return 'southwest';
+    if (normalizedAngle >= 247.5 && normalizedAngle < 292.5) return 'south';
+    return 'southeast';
+  }
 }

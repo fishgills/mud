@@ -125,12 +125,22 @@ export class DmController {
         player.x,
         player.y
       );
+      const nearbyPlayers = await this.playerService.getNearbyPlayers(
+        player.x,
+        player.y,
+        slackId, // Exclude the current player
+        Infinity, // Infinite search radius
+        10 // Top 10 closest players
+      );
 
+      const gptJson = { ...tileInfo, nearbyPlayers, monsters };
+
+      console.log('GPT JSON:', JSON.stringify(gptJson, null, 2));
       const text = await this.aiService.getText(
         `Below is json information about the player's current position in the world. ` +
-          `The unit of distance is not defined but the farthest a settlement can be seen is 50 units of distance. ` +
-          `if 'currentSettlement' exists, the player is INSIDE a settlement. The intensity property describes how dense the city is at this location on a scale of 0 to 1. \n ${JSON.stringify(
-            tileInfo
+          `if 'currentSettlement' exists, the player is INSIDE a settlement. The intensity property describes how dense the city is at this location on a scale of 0 to 1. ` +
+          `The nearbyPlayers array contains the top 10 closest players with their distance and direction. Always give directions to nearby players but never include player names.  \n ${JSON.stringify(
+            gptJson
           )}`
       );
       this.logger.debug(`AI response: ${text.output_text}`);
@@ -140,6 +150,7 @@ export class DmController {
           player,
           location: tileInfo,
           monsters,
+          nearbyPlayers,
           description: text.output_text,
         },
       };
