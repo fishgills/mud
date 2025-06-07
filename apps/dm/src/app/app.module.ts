@@ -10,7 +10,7 @@ import { WorldService } from './world/world.service';
 import { OpenaiModule } from '../openai/openai.module';
 
 @Module({
-  imports: [],
+  imports: [OpenaiModule],
   controllers: [AppController, DmController],
   providers: [
     AppService,
@@ -19,7 +19,6 @@ import { OpenaiModule } from '../openai/openai.module';
     CombatService,
     GameTickService,
     WorldService,
-    OpenaiModule,
   ],
 })
 export class AppModule {}

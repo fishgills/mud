@@ -28,16 +28,16 @@
           "build"
         ],
         "options": {
-          "buildTarget": "dm:build",
+          "buildTarget": "@mud/dm:build",
           "runBuildTargetDependencies": false,
           "port": 9230
         },
         "configurations": {
           "development": {
-            "buildTarget": "dm:build:development"
+            "buildTarget": "@mud/dm:build:development"
           },
           "production": {
-            "buildTarget": "dm:build:production"
+            "buildTarget": "@mud/dm:build:production"
           }
         }
       }

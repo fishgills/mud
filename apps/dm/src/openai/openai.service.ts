@@ -3,7 +3,8 @@ import OpenAIApi from 'openai';
 
 @Injectable()
 export class OpenaiService {
-  constructor(private readonly openai: OpenAIApi) {
+  private openai: OpenAIApi;
+  constructor() {
     this.openai = new OpenAIApi({
       apiKey: process.env.OPENAI_API_KEY,
     });
@@ -13,8 +14,9 @@ export class OpenaiService {
     const complete = await this.openai.responses.create({
       model: 'gpt-4.1-nano',
       instructions:
-        'You are a making up tile descriptions for a fantasy game world. It is 2 dimensional and in x/y coordinates. The world is a fantasy world with magic, monsters, and dungeons. The tiles are 1x1 km in size. The world is procedurally generated and the tiles are generated based on the surrounding tiles.',
+        'You are to describe a location in a fantasy world. The description should be vivid and immersive, providing details about the environment, atmosphere, and any notable features. The description should be suitable for a tabletop role-playing game setting and be on paragraph. Distances should be describe in vague terms.',
       input: prompt,
     });
+    return complete;
   }
 }

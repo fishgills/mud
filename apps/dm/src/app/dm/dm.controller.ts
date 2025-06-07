@@ -126,14 +126,19 @@ export class DmController {
         player.y
       );
 
-      const text = await this.aiService.getText(JSON.stringify(tileInfo));
-      this.logger.debug(`AI response: ${text}`);
+      const text = await this.aiService.getText(
+        `Below is json information about the player's current position in the world. The unit of distance is not defined but the farthest a settlement can be seen is 50 units of distance. ${JSON.stringify(
+          tileInfo
+        )}`
+      );
+      this.logger.debug(`AI response: ${text.output_text}`);
       return {
         success: true,
         data: {
           player,
           location: tileInfo,
           monsters,
+          description: text.output_text,
         },
       };
     } catch (error) {

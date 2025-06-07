@@ -14,12 +14,6 @@
     },
     {
       "path": "./apps/dm"
-    },
-    {
-      "path": "./apps/test-e2e"
-    },
-    {
-      "path": "./apps/test"
     }
   ]
 }
