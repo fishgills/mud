@@ -45,7 +45,8 @@
         "apps/game-engine-e2e/**/*",
         "apps/tick-e2e/**/*",
         "apps/test-e2e/**/*",
-        "apps/test-e2e/**/*"
+        "apps/test-e2e/**/*",
+        "apps/dm-e2e/**/*"
       ]
     },
     {
