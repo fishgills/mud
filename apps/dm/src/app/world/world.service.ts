@@ -11,6 +11,45 @@ export interface WorldTileInfo {
   height: number;
   temperature: number;
   moisture: number;
+  seed: number;
+  chunkX: number;
+  chunkY: number;
+  createdAt: string;
+  updatedAt: string;
+  biome: Biome;
+  nearbyBiomes: NearbyBiome[];
+  nearbySettlements?: NearbySettlement[];
+  settlement?: Settlement;
+}
+
+export interface Biome {
+  id: number;
+  name: string;
+}
+
+export interface NearbyBiome {
+  biomeName: string;
+  distance: number;
+  direction: string;
+}
+
+export interface NearbySettlement {
+  name: string;
+  type: string;
+  size: string;
+  population: number;
+  x: number;
+  y: number;
+  description: string;
+  distance: number;
+}
+
+export interface Settlement {
+  name: string;
+  type: string;
+  size: string;
+  intensity: number;
+  isCenter: boolean;
 }
 
 @Injectable()
@@ -20,7 +59,7 @@ export class WorldService {
 
   async getTileInfo(x: number, y: number): Promise<WorldTileInfo> {
     try {
-      const response = await axios.get(
+      const response = await axios.get<WorldTileInfo>(
         `${this.worldServiceUrl}world/tile/${x}/${y}`
       );
       return response.data;
@@ -40,6 +79,18 @@ export class WorldService {
         height: 0.5,
         temperature: 0.6,
         moisture: 0.5,
+        seed: 12345,
+        chunkX: Math.floor(x / 16),
+        chunkY: Math.floor(y / 16),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        biome: {
+          id: 1,
+          name: 'grassland',
+        },
+        nearbyBiomes: [],
+        nearbySettlements: [],
+        settlement: undefined,
       };
     }
   }

@@ -7,6 +7,7 @@ import { MonsterService } from './monster/monster.service';
 import { CombatService } from './combat/combat.service';
 import { GameTickService } from './game-tick/game-tick.service';
 import { WorldService } from './world/world.service';
+import { OpenaiModule } from '../openai/openai.module';
 
 @Module({
   imports: [],
@@ -18,6 +19,7 @@ import { WorldService } from './world/world.service';
     CombatService,
     GameTickService,
     WorldService,
+    OpenaiModule,
   ],
 })
 export class AppModule {}

@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "private": true,
   "nx": {
-    "name": "dm",
     "targets": {
       "build": {
         "executor": "nx:run-commands",

@@ -6,6 +6,7 @@ import {
   Param,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { PlayerService } from '../player/player.service';
 import { MonsterService } from '../monster/monster.service';
@@ -17,15 +18,19 @@ import type {
   MovePlayerDto,
   AttackDto,
 } from '../player/dto/player.dto';
+import { OpenaiService } from '../../openai/openai.service';
 
 @Controller('dm')
 export class DmController {
+  private readonly logger = new Logger(DmController.name);
+
   constructor(
     private playerService: PlayerService,
     private monsterService: MonsterService,
     private combatService: CombatService,
     private gameTickService: GameTickService,
-    private worldService: WorldService
+    private worldService: WorldService,
+    private aiService: OpenaiService
   ) {}
 
   // Health check endpoint
@@ -121,13 +126,14 @@ export class DmController {
         player.y
       );
 
+      const text = await this.aiService.getText(JSON.stringify(tileInfo));
+      this.logger.debug(`AI response: ${text}`);
       return {
         success: true,
         data: {
           player,
           location: tileInfo,
           monsters,
-          message: `You move ${moveDto.direction} to ${tileInfo.description}`,
         },
       };
     } catch (error) {
