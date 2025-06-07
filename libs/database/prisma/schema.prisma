@@ -71,7 +71,7 @@ model WorldTile {
   biomeId     Int
   biome       Biome     @relation(fields: [biomeId], references: [id])
   biomeName   String // Store biome name for faster queries
-  description String
+  description String?
   height      Float // 0-1 height value from terrain noise
   temperature Float // 0-1 temperature value from temperature noise
   moisture    Float // 0-1 moisture value from moisture noise

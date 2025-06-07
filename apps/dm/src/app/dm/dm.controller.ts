@@ -127,9 +127,11 @@ export class DmController {
       );
 
       const text = await this.aiService.getText(
-        `Below is json information about the player's current position in the world. The unit of distance is not defined but the farthest a settlement can be seen is 50 units of distance. ${JSON.stringify(
-          tileInfo
-        )}`
+        `Below is json information about the player's current position in the world. ` +
+          `The unit of distance is not defined but the farthest a settlement can be seen is 50 units of distance. ` +
+          `if 'currentSettlement' exists, the player is INSIDE a settlement. The intensity property describes how dense the city is at this location on a scale of 0 to 1. \n ${JSON.stringify(
+            tileInfo
+          )}`
       );
       this.logger.debug(`AI response: ${text.output_text}`);
       return {

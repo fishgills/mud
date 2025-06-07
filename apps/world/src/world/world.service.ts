@@ -18,7 +18,6 @@ interface CachedTile {
   y: number;
   biomeId: number;
   biomeName: string;
-  description: string;
   height: number;
   temperature: number;
   moisture: number;
@@ -43,7 +42,7 @@ export interface TileWithNearbyBiomes extends CachedTile {
     description: string;
     distance: number;
   }>;
-  settlement?: {
+  currentSettlement?: {
     name: string;
     type: string;
     size: string;
@@ -314,12 +313,6 @@ export class WorldService {
       y: tile.y,
       biomeId: tile.biome.id,
       biomeName: tile.biome.name,
-      description: BiomeGenerator.generateTileDescription(
-        tile.biome,
-        tile.height,
-        tile.temperature,
-        tile.moisture,
-      ),
       height: tile.height,
       temperature: tile.temperature,
       moisture: tile.moisture,
@@ -437,15 +430,6 @@ export class WorldService {
       },
     });
 
-    // Calculate distance for each settlement and filter by true radius
-    const nearbySettlements = settlements
-      .map((s) => ({
-        ...s,
-        distance: Math.sqrt((s.x - x) ** 2 + (s.y - y) ** 2),
-      }))
-      .filter((s) => s.distance <= radius)
-      .sort((a, b) => a.distance - b.distance);
-
     // Check if the current tile is part of any settlement footprint
     let settlementInfo:
       | {
@@ -456,6 +440,7 @@ export class WorldService {
           isCenter: boolean;
         }
       | undefined;
+    let currentSettlementId: number | undefined;
 
     for (const settlement of settlements) {
       // Check if this is the settlement center
@@ -467,6 +452,7 @@ export class WorldService {
           intensity: 1.0,
           isCenter: true,
         };
+        currentSettlementId = settlement.id;
         break;
       }
 
@@ -486,9 +472,21 @@ export class WorldService {
           intensity: tile.intensity,
           isCenter: false,
         };
+        currentSettlementId = settlement.id;
         break; // Use the first settlement found (closest one should be first)
       }
     }
+
+    // Calculate distance for each settlement and filter by true radius
+    // Exclude the settlement that the current tile is part of
+    const nearbySettlements = settlements
+      .filter((s) => s.id !== currentSettlementId) // Exclude current settlement
+      .map((s) => ({
+        ...s,
+        distance: Math.sqrt((s.x - x) ** 2 + (s.y - y) ** 2),
+      }))
+      .filter((s) => s.distance <= radius)
+      .sort((a, b) => a.distance - b.distance);
 
     return {
       ...tile,
@@ -503,7 +501,7 @@ export class WorldService {
         description: s.description,
         distance: Math.round(s.distance * 10) / 10,
       })),
-      settlement: settlementInfo,
+      currentSettlement: settlementInfo,
     };
   }
 
@@ -592,5 +590,31 @@ export class WorldService {
     }
 
     return { isSettlement: false, intensity: 0 };
+  }
+
+  private calculateDirection(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+  ): string {
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+
+    // Calculate angle in radians, then convert to degrees
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+    // Normalize angle to 0-360 range
+    const normalizedAngle = (angle + 360) % 360;
+
+    // Convert to compass direction
+    if (normalizedAngle >= 337.5 || normalizedAngle < 22.5) return 'east';
+    if (normalizedAngle >= 22.5 && normalizedAngle < 67.5) return 'northeast';
+    if (normalizedAngle >= 67.5 && normalizedAngle < 112.5) return 'north';
+    if (normalizedAngle >= 112.5 && normalizedAngle < 157.5) return 'northwest';
+    if (normalizedAngle >= 157.5 && normalizedAngle < 202.5) return 'west';
+    if (normalizedAngle >= 202.5 && normalizedAngle < 247.5) return 'southwest';
+    if (normalizedAngle >= 247.5 && normalizedAngle < 292.5) return 'south';
+    return 'southeast';
   }
 }
