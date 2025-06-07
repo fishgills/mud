@@ -1,5 +1,5 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import { WorldService } from './world.service';
+import { WorldService } from './world-refactored.service';
 
 @Controller()
 export class WorldController {

@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createCanvas } from 'canvas';
 import { PrismaService } from '../prisma/prisma.service';
-import { WorldService } from '../world/world.service';
 import { CachedTile, SettlementData } from '../world/types';
 import { BIOMES } from '../constants';
+import { WorldService } from '../world/world-refactored.service';
 
 @Injectable()
 export class RenderService {

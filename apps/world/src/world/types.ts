@@ -82,6 +82,7 @@ export interface SettlementTileInfo {
 }
 
 export interface SettlementData {
+  id?: number;
   name: string;
   type: string;
   size: string;
@@ -107,7 +108,7 @@ export interface CachedTile {
   y: number;
   biomeId: number;
   biomeName: string;
-  description: string;
+  description?: string | null;
   height: number;
   temperature: number;
   moisture: number;
