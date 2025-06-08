@@ -19,7 +19,6 @@ import type {
   AttackDto,
 } from '../player/dto/player.dto';
 import { OpenaiService } from '../../openai/openai.service';
-import { WorldTile } from '@prisma/client';
 
 @Controller('dm')
 export class DmController {
@@ -33,6 +32,28 @@ export class DmController {
     private worldService: WorldService,
     private aiService: OpenaiService
   ) {}
+
+  // Helper method to calculate direction from center tile to surrounding tile
+  private getDirectionFromCenter(
+    centerX: number,
+    centerY: number,
+    tileX: number,
+    tileY: number
+  ): string {
+    const dx = tileX - centerX;
+    const dy = tileY - centerY;
+
+    if (dx === 0 && dy === -1) return 'north';
+    if (dx === 1 && dy === -1) return 'northeast';
+    if (dx === 1 && dy === 0) return 'east';
+    if (dx === 1 && dy === 1) return 'southeast';
+    if (dx === 0 && dy === 1) return 'south';
+    if (dx === -1 && dy === 1) return 'southwest';
+    if (dx === -1 && dy === 0) return 'west';
+    if (dx === -1 && dy === -1) return 'northwest';
+
+    return 'unknown';
+  }
 
   // Health check endpoint
   @Get('health')
@@ -134,12 +155,37 @@ export class DmController {
         10 // Top 10 closest players
       );
 
-      const gptJson = { ...tileInfo, nearbyPlayers, monsters };
+      // Get surrounding tiles for better context in AI description
+      const surroundingTiles = await this.worldService.getSurroundingTiles(
+        player.x,
+        player.y,
+        1 // 1 tile radius around the player
+      );
+
+      const gptJson = {
+        ...tileInfo,
+        nearbyPlayers,
+        monsters,
+        surroundingTiles: surroundingTiles.map((tile) => ({
+          x: tile.x,
+          y: tile.y,
+          biomeName: tile.biomeName,
+          description: tile.description,
+          direction: this.getDirectionFromCenter(
+            player.x,
+            player.y,
+            tile.x,
+            tile.y
+          ),
+        })),
+      };
 
       const text = await this.aiService.getText(
         `Below is json information about the player's current position in the world. ` +
           `if 'currentSettlement' exists, the player is INSIDE a settlement. The intensity property describes how dense the city is at this location on a scale of 0 to 1. ` +
-          `The nearbyPlayers array contains the top 10 closest players with their distance and direction. Always give directions to nearby players but never include player names.  \n ${JSON.stringify(
+          `The nearbyPlayers array contains the top 10 closest players with their distance and direction. Always give directions to nearby players but never include player names. ` +
+          `The surroundingTiles array contains information about the 8 tiles immediately surrounding the player's current position, including their biome, description, and direction from the player. ` +
+          `Use this information to create a cohesive description that considers the immediate surroundings and transitions between different areas. \n ${JSON.stringify(
             gptJson
           )}`
       );
@@ -150,6 +196,7 @@ export class DmController {
           location: tileInfo,
           monsters,
           nearbyPlayers,
+          surroundingTiles,
           description: text.output_text,
         },
       };

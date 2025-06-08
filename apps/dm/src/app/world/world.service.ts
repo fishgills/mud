@@ -86,6 +86,41 @@ export class WorldService {
     }
   }
 
+  async getSurroundingTiles(
+    x: number,
+    y: number,
+    radius = 1
+  ): Promise<WorldTile[]> {
+    const surroundingTiles: WorldTile[] = [];
+
+    try {
+      for (let dx = -radius; dx <= radius; dx++) {
+        for (let dy = -radius; dy <= radius; dy++) {
+          // Skip the center tile (current player position)
+          if (dx === 0 && dy === 0) continue;
+
+          try {
+            const tile = await this.getTileInfo(x + dx, y + dy);
+            surroundingTiles.push(tile);
+          } catch (error) {
+            // If a tile fails to load, continue with others
+            console.warn(
+              `Failed to load tile at (${x + dx}, ${y + dy}):`,
+              error instanceof Error ? error.message : 'Unknown error'
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error(
+        `Failed to get surrounding tiles for (${x}, ${y}):`,
+        error instanceof Error ? error.message : 'Unknown error'
+      );
+    }
+
+    return surroundingTiles;
+  }
+
   async healthCheck(): Promise<boolean> {
     try {
       const response = await axios.get(`${this.worldServiceUrl}/health`);
