@@ -1,26 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { WorldTile } from '@prisma/client';
 import axios from 'axios';
-
-export interface WorldTileInfo {
-  id: number;
-  x: number;
-  y: number;
-  biomeId: number;
-  biomeName: string;
-  description: string;
-  height: number;
-  temperature: number;
-  moisture: number;
-  seed: number;
-  chunkX: number;
-  chunkY: number;
-  createdAt: string;
-  updatedAt: string;
-  biome: Biome;
-  nearbyBiomes: NearbyBiome[];
-  nearbySettlements?: NearbySettlement[];
-  settlement?: Settlement;
-}
 
 export interface Biome {
   id: number;
@@ -57,9 +37,9 @@ export class WorldService {
   private readonly worldServiceUrl =
     process.env.WORLD_SERVICE_URL || 'http://localhost:3001/api';
 
-  async getTileInfo(x: number, y: number): Promise<WorldTileInfo> {
+  async getTileInfo(x: number, y: number): Promise<WorldTile> {
     try {
-      const response = await axios.get<WorldTileInfo>(
+      const response = await axios.get<WorldTile>(
         `${this.worldServiceUrl}world/tile/${x}/${y}`
       );
       return response.data;
@@ -82,20 +62,13 @@ export class WorldService {
         seed: 12345,
         chunkX: Math.floor(x / 16),
         chunkY: Math.floor(y / 16),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        biome: {
-          id: 1,
-          name: 'grassland',
-        },
-        nearbyBiomes: [],
-        nearbySettlements: [],
-        settlement: undefined,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
     }
   }
 
-  async getChunk(chunkX: number, chunkY: number): Promise<WorldTileInfo[]> {
+  async getChunk(chunkX: number, chunkY: number): Promise<WorldTile[]> {
     try {
       const response = await axios.get(
         `${this.worldServiceUrl}/chunk/${chunkX}/${chunkY}`

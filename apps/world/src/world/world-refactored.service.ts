@@ -1,11 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import seedrandom from 'seedrandom';
-import { ChunkData, SettlementFootprint, SettlementData } from './types';
+import { ChunkData, SettlementFootprint } from './types';
 import { WorldDatabaseService } from './world-database.service';
 import { ChunkGeneratorService } from './chunk-generator.service';
 import { TileService, TileWithNearbyBiomes } from './tile.service';
 import { WorldUtilsService } from './world-utils.service';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
+import { Settlement } from '@prisma/client';
 
 @Injectable()
 export class WorldService {
@@ -106,14 +107,8 @@ export class WorldService {
   isCoordinateInSettlement(
     x: number,
     y: number,
-    settlements: Array<{
-      x: number;
-      y: number;
-      size: string;
-      name: string;
-      type: string;
-    }>,
-  ): { isSettlement: boolean; settlement?: SettlementData; intensity: number } {
+    settlements: Array<Settlement>,
+  ): { isSettlement: boolean; settlement?: Settlement; intensity: number } {
     for (const settlement of settlements) {
       const footprint = this.regenerateSettlementFootprint(settlement);
       const tile = footprint.tiles.find((t) => t.x === x && t.y === y);
@@ -121,7 +116,7 @@ export class WorldService {
       if (tile) {
         return {
           isSettlement: true,
-          settlement: settlement as SettlementData,
+          settlement: settlement,
           intensity: tile.intensity,
         };
       }
@@ -146,5 +141,33 @@ export class WorldService {
       settlement.size as 'large' | 'medium' | 'small' | 'tiny',
       coordRng,
     );
+  }
+
+  async updateTileDescription(
+    x: number,
+    y: number,
+    description: string,
+  ): Promise<boolean | null> {
+    try {
+      const updatedTile = await this.worldDatabase.updateTileDescription(
+        x,
+        y,
+        description,
+      );
+
+      if (!updatedTile) {
+        this.logger.warn(`Tile not found at coordinates (${x}, ${y})`);
+        return null;
+      }
+
+      // Return the updated tile with nearby biomes info
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Failed to update tile description at (${x}, ${y}):`,
+        error,
+      );
+      throw error;
+    }
   }
 }

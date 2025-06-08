@@ -1,10 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CachedTile, SettlementData } from './types';
 import { WorldDatabaseService } from './world-database.service';
 import { WorldUtilsService } from './world-utils.service';
 import { BIOMES } from '../constants';
+import { WorldTile } from '@prisma/client';
+import { ChunkData } from './types';
 
-export interface TileWithNearbyBiomes extends CachedTile {
+export interface TileWithNearbyBiomes extends WorldTile {
   nearbyBiomes: Array<{
     biomeName: string;
     distance: number;
@@ -63,7 +64,7 @@ export class TileService {
     x: number,
     y: number,
     retryCount = 0,
-  ): Promise<CachedTile | null> {
+  ): Promise<WorldTile | null> {
     // Prevent infinite recursion
     if (retryCount > 2) {
       this.logger.error(`Max retries reached for tile ${x},${y}`);
@@ -80,30 +81,21 @@ export class TileService {
     return null;
   }
 
-  reconstructChunkFromTiles(tiles: CachedTile[]) {
+  reconstructChunkFromTiles(tiles: WorldTile[]): ChunkData {
     const biomeCount: Record<string, number> = {};
     let totalHeight = 0;
     let totalTemperature = 0;
     let totalMoisture = 0;
 
-    const tileData = tiles.map((tile) => {
+    tiles.forEach((tile) => {
       biomeCount[tile.biomeName] = (biomeCount[tile.biomeName] || 0) + 1;
       totalHeight += tile.height;
       totalTemperature += tile.temperature;
       totalMoisture += tile.moisture;
-
-      return {
-        x: tile.x,
-        y: tile.y,
-        height: tile.height,
-        temperature: tile.temperature,
-        moisture: tile.moisture,
-        biome: BIOMES[tile.biomeName] || BIOMES.GRASSLAND,
-      };
     });
 
     return {
-      tiles: tileData,
+      tiles: tiles,
       settlements: [], // Would need to fetch from Settlement table
       stats: {
         biomes: biomeCount,

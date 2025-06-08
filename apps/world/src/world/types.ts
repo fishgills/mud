@@ -1,11 +1,13 @@
-export interface TileData {
-  x: number;
-  y: number;
-  height: number;
-  temperature: number;
-  moisture: number;
-  biome: BiomeInfo;
-}
+import { Settlement, WorldTile } from '@prisma/client';
+
+// export interface TileData {
+//   x: number;
+//   y: number;
+//   height: number;
+//   temperature: number;
+//   moisture: number;
+//   biome: BiomeInfo;
+// }
 
 export interface BiomeInfo {
   id: number;
@@ -81,38 +83,13 @@ export interface SettlementTileInfo {
   intensity: number; // 0-1, how much of this tile is settlement
 }
 
-export interface SettlementData {
-  id?: number;
-  name: string;
-  type: string;
-  size: string;
-  population: number;
-  x: number;
-  y: number;
-  description: string;
-}
-
 export interface ChunkData {
-  tiles: TileData[];
-  settlements: Array<SettlementData>;
+  tiles: WorldTile[];
+  settlements: Array<Settlement>;
   stats: {
     biomes: Record<string, number>;
     averageHeight: number;
     averageTemperature: number;
     averageMoisture: number;
   };
-}
-
-export interface CachedTile {
-  x: number;
-  y: number;
-  biomeId: number;
-  biomeName: string;
-  description?: string | null;
-  height: number;
-  temperature: number;
-  moisture: number;
-  seed: number;
-  chunkX: number;
-  chunkY: number;
 }

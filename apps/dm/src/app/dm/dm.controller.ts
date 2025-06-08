@@ -19,6 +19,7 @@ import type {
   AttackDto,
 } from '../player/dto/player.dto';
 import { OpenaiService } from '../../openai/openai.service';
+import { WorldTile } from '@prisma/client';
 
 @Controller('dm')
 export class DmController {
@@ -135,7 +136,6 @@ export class DmController {
 
       const gptJson = { ...tileInfo, nearbyPlayers, monsters };
 
-      console.log('GPT JSON:', JSON.stringify(gptJson, null, 2));
       const text = await this.aiService.getText(
         `Below is json information about the player's current position in the world. ` +
           `if 'currentSettlement' exists, the player is INSIDE a settlement. The intensity property describes how dense the city is at this location on a scale of 0 to 1. ` +
@@ -143,7 +143,6 @@ export class DmController {
             gptJson
           )}`
       );
-      this.logger.debug(`AI response: ${text.output_text}`);
       return {
         success: true,
         data: {

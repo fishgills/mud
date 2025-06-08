@@ -1,7 +1,8 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BIOMES } from '../constants';
-import { ChunkData, CachedTile, SettlementData } from './types';
+import { ChunkData } from './types';
+import { WorldTile } from '@prisma/client';
 
 @Injectable()
 export class WorldDatabaseService {
@@ -47,7 +48,7 @@ export class WorldDatabaseService {
   async getChunkFromDatabase(
     chunkX: number,
     chunkY: number,
-  ): Promise<CachedTile[]> {
+  ): Promise<WorldTile[]> {
     return await this.prismaService.worldTile.findMany({
       where: {
         x: chunkX,
@@ -57,7 +58,7 @@ export class WorldDatabaseService {
     });
   }
 
-  async getTileFromDatabase(x: number, y: number): Promise<CachedTile | null> {
+  async getTileFromDatabase(x: number, y: number): Promise<WorldTile | null> {
     return await this.prismaService.worldTile.findUnique({
       where: {
         x_y: { x, y },
@@ -74,8 +75,8 @@ export class WorldDatabaseService {
     const tileData = chunkData.tiles.map((tile) => ({
       x: tile.x,
       y: tile.y,
-      biomeId: tile.biome.id,
-      biomeName: tile.biome.name,
+      biomeId: tile.biomeId,
+      biomeName: tile.biomeName,
       height: tile.height,
       temperature: tile.temperature,
       moisture: tile.moisture,
@@ -108,16 +109,30 @@ export class WorldDatabaseService {
     }
   }
 
-  async getSettlementsInRadius(
-    x: number,
-    y: number,
-    radius: number,
-  ): Promise<SettlementData[]> {
+  async getSettlementsInRadius(x: number, y: number, radius: number) {
     return await this.prismaService.settlement.findMany({
       where: {
         x: { gte: x - radius, lte: Number(x + radius) },
         y: { gte: y - radius, lte: Number(y + radius) },
       },
     });
+  }
+
+  async updateTileDescription(
+    x: number,
+    y: number,
+    description: string,
+  ): Promise<WorldTile | null> {
+    const updatedTile = await this.prismaService.worldTile.update({
+      where: {
+        x_y: { x, y },
+      },
+      data: {
+        description,
+      },
+      include: { biome: true },
+    });
+
+    return updatedTile;
   }
 }
