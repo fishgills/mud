@@ -162,22 +162,24 @@ export class DmController {
         1 // 1 tile radius around the player
       );
 
+      const newLocal = surroundingTiles.map((tile) => ({
+        x: tile.x,
+        y: tile.y,
+        biomeName: tile.biomeName,
+        description: tile.description,
+        direction: this.getDirectionFromCenter(
+          player.x,
+          player.y,
+          tile.x,
+          tile.y
+        ),
+      }));
+
       const gptJson = {
         ...tileInfo,
         nearbyPlayers,
         monsters,
-        surroundingTiles: surroundingTiles.map((tile) => ({
-          x: tile.x,
-          y: tile.y,
-          biomeName: tile.biomeName,
-          description: tile.description,
-          direction: this.getDirectionFromCenter(
-            player.x,
-            player.y,
-            tile.x,
-            tile.y
-          ),
-        })),
+        surroundingTiles: newLocal,
       };
 
       // Only generate AI description if the current tile has no description
@@ -217,7 +219,7 @@ export class DmController {
           location: tileInfo,
           monsters,
           nearbyPlayers,
-          surroundingTiles,
+          surroundingTiles: newLocal,
           description,
         },
       };

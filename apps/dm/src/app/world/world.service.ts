@@ -37,53 +37,90 @@ export class WorldService {
   private readonly worldServiceUrl =
     process.env.WORLD_SERVICE_URL || 'http://localhost:3001/api';
 
-  async getTileInfo(x: number, y: number): Promise<WorldTile> {
+  /**
+   * Generic HTTP client wrapper with error handling
+   */
+  private async makeRequest<T>(
+    method: 'get' | 'post' | 'put' | 'delete',
+    url: string,
+    data?: Record<string, unknown>,
+    options: {
+      logErrorMessage?: string;
+      throwOnError?: boolean;
+      defaultValue?: T;
+    } = {}
+  ): Promise<T | null> {
+    const {
+      logErrorMessage,
+      throwOnError = false,
+      defaultValue = null,
+    } = options;
+
     try {
-      const response = await axios.get<WorldTile>(
-        `${this.worldServiceUrl}world/tile/${x}/${y}`
-      );
+      const response = await axios[method](url, data);
       return response.data;
     } catch (error) {
-      console.error(
-        `Failed to fetch tile info for (${x}, ${y}):`,
-        error instanceof Error ? error.message : 'Unknown error'
-      );
-      // Return a default tile if the world service is unavailable
-      return {
-        id: 0,
-        x,
-        y,
-        biomeId: 1,
-        biomeName: 'grassland',
-        description: 'A rolling grassland with scattered trees.',
-        height: 0.5,
-        temperature: 0.6,
-        moisture: 0.5,
-        seed: 12345,
-        chunkX: Math.floor(x / 16),
-        chunkY: Math.floor(y / 16),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+
+      if (logErrorMessage) {
+        console.error(logErrorMessage, errorMessage);
+      }
+
+      if (throwOnError) {
+        throw new HttpException(
+          'World service unavailable',
+          HttpStatus.SERVICE_UNAVAILABLE
+        );
+      }
+
+      return defaultValue as T;
     }
   }
 
+  async getTileInfo(x: number, y: number): Promise<WorldTile> {
+    const defaultTile: WorldTile = {
+      id: 0,
+      x,
+      y,
+      biomeId: 1,
+      biomeName: 'grassland',
+      description: 'A rolling grassland with scattered trees.',
+      height: 0.5,
+      temperature: 0.6,
+      moisture: 0.5,
+      seed: 12345,
+      chunkX: Math.floor(x / 16),
+      chunkY: Math.floor(y / 16),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await this.makeRequest<WorldTile>(
+      'get',
+      `${this.worldServiceUrl}world/tile/${x}/${y}`,
+      undefined,
+      {
+        logErrorMessage: `Failed to fetch tile info for (${x}, ${y}):`,
+        defaultValue: defaultTile,
+      }
+    );
+
+    return result || defaultTile;
+  }
+
   async getChunk(chunkX: number, chunkY: number): Promise<WorldTile[]> {
-    try {
-      const response = await axios.get(
-        `${this.worldServiceUrl}/chunk/${chunkX}/${chunkY}`
-      );
-      return response.data;
-    } catch (error) {
-      console.error(
-        `Failed to fetch chunk (${chunkX}, ${chunkY}):`,
-        error instanceof Error ? error.message : 'Unknown error'
-      );
-      throw new HttpException(
-        'World service unavailable',
-        HttpStatus.SERVICE_UNAVAILABLE
-      );
-    }
+    const result = await this.makeRequest<WorldTile[]>(
+      'get',
+      `${this.worldServiceUrl}/chunk/${chunkX}/${chunkY}`,
+      undefined,
+      {
+        logErrorMessage: `Failed to fetch chunk (${chunkX}, ${chunkY}):`,
+        throwOnError: true,
+      }
+    );
+
+    return result || [];
   }
 
   async getSurroundingTiles(
@@ -93,29 +130,14 @@ export class WorldService {
   ): Promise<WorldTile[]> {
     const surroundingTiles: WorldTile[] = [];
 
-    try {
-      for (let dx = -radius; dx <= radius; dx++) {
-        for (let dy = -radius; dy <= radius; dy++) {
-          // Skip the center tile (current player position)
-          if (dx === 0 && dy === 0) continue;
+    for (let dx = -radius; dx <= radius; dx++) {
+      for (let dy = -radius; dy <= radius; dy++) {
+        // Skip the center tile (current player position)
+        if (dx === 0 && dy === 0) continue;
 
-          try {
-            const tile = await this.getTileInfo(x + dx, y + dy);
-            surroundingTiles.push(tile);
-          } catch (error) {
-            // If a tile fails to load, continue with others
-            console.warn(
-              `Failed to load tile at (${x + dx}, ${y + dy}):`,
-              error instanceof Error ? error.message : 'Unknown error'
-            );
-          }
-        }
+        const tile = await this.getTileInfo(x + dx, y + dy);
+        surroundingTiles.push(tile);
       }
-    } catch (error) {
-      console.error(
-        `Failed to get surrounding tiles for (${x}, ${y}):`,
-        error instanceof Error ? error.message : 'Unknown error'
-      );
     }
 
     return surroundingTiles;
@@ -126,27 +148,28 @@ export class WorldService {
     y: number,
     description: string
   ): Promise<boolean> {
-    try {
-      const response = await axios.put(
-        `${this.worldServiceUrl}/tile/${x}/${y}/description`,
-        { description }
-      );
-      return response.status === 200;
-    } catch (error) {
-      console.error(
-        `Failed to update tile description for (${x}, ${y}):`,
-        error instanceof Error ? error.message : 'Unknown error'
-      );
-      return false;
-    }
+    const result = await this.makeRequest<{ status: number }>(
+      'put',
+      `${this.worldServiceUrl}world/tile/${x}/${y}/description`,
+      { description },
+      {
+        logErrorMessage: `Failed to update tile description for (${x}, ${y}):`,
+      }
+    );
+
+    return result !== null;
   }
 
   async healthCheck(): Promise<boolean> {
-    try {
-      const response = await axios.get(`${this.worldServiceUrl}/health`);
-      return response.status === 200;
-    } catch {
-      return false;
-    }
+    const result = await this.makeRequest<{ status: number }>(
+      'get',
+      `${this.worldServiceUrl}/health`,
+      undefined,
+      {
+        // No logging for health check failures to avoid spam
+      }
+    );
+
+    return result !== null;
   }
 }
