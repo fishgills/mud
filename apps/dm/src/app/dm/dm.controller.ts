@@ -180,15 +180,36 @@ export class DmController {
         })),
       };
 
-      const text = await this.aiService.getText(
-        `Below is json information about the player's current position in the world. ` +
-          `if 'currentSettlement' exists, the player is INSIDE a settlement. The intensity property describes how dense the city is at this location on a scale of 0 to 1. ` +
-          `The nearbyPlayers array contains the top 10 closest players with their distance and direction. Always give directions to nearby players but never include player names. ` +
-          `The surroundingTiles array contains information about the 8 tiles immediately surrounding the player's current position, including their biome, description, and direction from the player. ` +
-          `Use this information to create a cohesive description that considers the immediate surroundings and transitions between different areas. \n ${JSON.stringify(
-            gptJson
-          )}`
-      );
+      // Only generate AI description if the current tile has no description
+      let description = tileInfo.description;
+      if (!tileInfo.description || tileInfo.description.trim() === '') {
+        const text = await this.aiService.getText(
+          `Below is json information about the player's current position in the world. ` +
+            `if 'currentSettlement' exists, the player is INSIDE a settlement. The intensity property describes how dense the city is at this location on a scale of 0 to 1. ` +
+            `The nearbyPlayers array contains the top 10 closest players with their distance and direction. Always give directions to nearby players but never include player names. ` +
+            `The surroundingTiles array contains information about the 8 tiles immediately surrounding the player's current position, including their biome, description, and direction from the player. ` +
+            `Use this information to create a cohesive description that considers the immediate surroundings and transitions between different areas. \n ${JSON.stringify(
+              gptJson
+            )}`
+        );
+        description = text.output_text;
+
+        // Save the generated description back to the tile
+        try {
+          await this.worldService.updateTileDescription(
+            player.x,
+            player.y,
+            description || ''
+          );
+        } catch (error) {
+          // Log the error but don't fail the request
+          console.warn(
+            `Failed to save tile description for (${player.x}, ${player.y}):`,
+            error instanceof Error ? error.message : 'Unknown error'
+          );
+        }
+      }
+
       return {
         success: true,
         data: {
@@ -197,7 +218,7 @@ export class DmController {
           monsters,
           nearbyPlayers,
           surroundingTiles,
-          description: text.output_text,
+          description,
         },
       };
     } catch (error) {

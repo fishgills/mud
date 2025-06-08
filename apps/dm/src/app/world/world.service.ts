@@ -121,6 +121,26 @@ export class WorldService {
     return surroundingTiles;
   }
 
+  async updateTileDescription(
+    x: number,
+    y: number,
+    description: string
+  ): Promise<boolean> {
+    try {
+      const response = await axios.put(
+        `${this.worldServiceUrl}/tile/${x}/${y}/description`,
+        { description }
+      );
+      return response.status === 200;
+    } catch (error) {
+      console.error(
+        `Failed to update tile description for (${x}, ${y}):`,
+        error instanceof Error ? error.message : 'Unknown error'
+      );
+      return false;
+    }
+  }
+
   async healthCheck(): Promise<boolean> {
     try {
       const response = await axios.get(`${this.worldServiceUrl}/health`);

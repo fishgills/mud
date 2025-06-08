@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { WorldDatabaseService } from './world-database.service';
 import { WorldUtilsService } from './world-utils.service';
-import { BIOMES } from '../constants';
 import { WorldTile } from '@prisma/client';
 import { ChunkData } from './types';
 
