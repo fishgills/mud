@@ -175,13 +175,16 @@ export class PlayerService {
   async respawnPlayer(slackId: string): Promise<Player> {
     const player = await this.getPlayer(slackId);
 
+    // Find a respawn position near other players
+    const respawnPosition = await this.findRespawnPositionNearPlayers(slackId);
+
     return this.prisma.player.update({
       where: { slackId },
       data: {
         hp: player.maxHp,
         isAlive: true,
-        x: 0, // Respawn at origin
-        y: 0,
+        x: respawnPosition.x,
+        y: respawnPosition.y,
       },
     });
   }
@@ -363,5 +366,71 @@ export class PlayerService {
     }
 
     return bestPosition;
+  }
+
+  private async findRespawnPositionNearPlayers(
+    respawningPlayerSlackId: string
+  ): Promise<{ x: number; y: number }> {
+    const RESPAWN_DISTANCE = 100; // Distance from other players to respawn
+    const MAX_ATTEMPTS = 50;
+
+    // Get all living players except the one being respawned
+    const livingPlayers = await this.prisma.player.findMany({
+      where: {
+        isAlive: true,
+        slackId: { not: respawningPlayerSlackId },
+      },
+      select: { x: true, y: true },
+    });
+
+    // If no other living players, use origin as fallback
+    if (livingPlayers.length === 0) {
+      return { x: 0, y: 0 };
+    }
+
+    // Choose a random living player as reference point
+    const referencePlayer =
+      livingPlayers[Math.floor(Math.random() * livingPlayers.length)];
+
+    // Try to find a position approximately 100 tiles away from the reference player
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      // Generate a random angle and use fixed distance of ~100 tiles
+      const angle = Math.random() * 2 * Math.PI;
+      const distance = RESPAWN_DISTANCE + Math.random() * 50 - 25; // 75-125 tiles away
+
+      const candidateX = Math.floor(
+        referencePlayer.x + Math.cos(angle) * distance
+      );
+      const candidateY = Math.floor(
+        referencePlayer.y + Math.sin(angle) * distance
+      );
+
+      // Check if this position is far enough from all living players
+      const isValidPosition = livingPlayers.every((player) => {
+        const distanceToPlayer = Math.sqrt(
+          Math.pow(candidateX - player.x, 2) +
+            Math.pow(candidateY - player.y, 2)
+        );
+        return distanceToPlayer >= 50; // At least 50 tiles from any other player
+      });
+
+      if (isValidPosition) {
+        return { x: candidateX, y: candidateY };
+      }
+    }
+
+    // If we couldn't find a valid position, just place them near the reference player
+    // with some random offset
+    const fallbackAngle = Math.random() * 2 * Math.PI;
+    const fallbackDistance = RESPAWN_DISTANCE;
+
+    return {
+      x: Math.floor(
+        referencePlayer.x + Math.cos(fallbackAngle) * fallbackDistance
+      ),
+      y: Math.floor(
+        referencePlayer.y + Math.sin(fallbackAngle) * fallbackDistance
+      ),
+    };
   }
 }

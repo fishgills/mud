@@ -160,7 +160,9 @@ export class CombatService {
     if (damage === 0) {
       message = `${monster.name} attacks ${player.name} but misses!`;
     } else if (!updatedPlayer.isAlive) {
-      message = `${monster.name} defeats ${player.name} for ${damage} damage! ${player.name} has died!`;
+      // Automatically respawn the player near other players
+      await this.playerService.respawnPlayer(playerSlackId);
+      message = `${monster.name} defeats ${player.name} for ${damage} damage! ${player.name} has been respawned near other players!`;
     } else {
       message = `${monster.name} attacks ${player.name} for ${damage} damage!`;
     }
@@ -216,7 +218,9 @@ export class CombatService {
     if (damage === 0) {
       message = `${attacker.name} attacks ${defender.name} but misses!`;
     } else if (!updatedDefender.isAlive) {
-      message = `${attacker.name} defeats ${defender.name} for ${damage} damage! ${defender.name} has died!`;
+      // Automatically respawn the defeated player near other players
+      await this.playerService.respawnPlayer(defenderSlackId);
+      message = `${attacker.name} defeats ${defender.name} for ${damage} damage! ${defender.name} has been respawned near other players!`;
     } else {
       message = `${attacker.name} attacks ${defender.name} for ${damage} damage!`;
     }
