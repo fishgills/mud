@@ -141,26 +141,24 @@ export class DmController {
     try {
       const player = await this.playerService.movePlayer(slackId, moveDto);
 
-      // Get new location info
-      const tileInfo = await this.worldService.getTileInfo(player.x, player.y);
-      const monsters = await this.monsterService.getMonstersAtLocation(
-        player.x,
-        player.y
-      );
-      const nearbyPlayers = await this.playerService.getNearbyPlayers(
-        player.x,
-        player.y,
-        slackId, // Exclude the current player
-        Infinity, // Infinite search radius
-        10 // Top 10 closest players
-      );
-
-      // Get surrounding tiles for better context in AI description
-      const surroundingTiles = await this.worldService.getSurroundingTiles(
-        player.x,
-        player.y,
-        1 // 1 tile radius around the player
-      );
+      // Batch all location-related data fetching in parallel
+      const [tileInfo, monsters, nearbyPlayers, surroundingTiles] =
+        await Promise.all([
+          this.worldService.getTileInfo(player.x, player.y),
+          this.monsterService.getMonstersAtLocation(player.x, player.y),
+          this.playerService.getNearbyPlayers(
+            player.x,
+            player.y,
+            slackId, // Exclude the current player
+            Infinity, // Infinite search radius
+            10 // Top 10 closest players
+          ),
+          this.worldService.getSurroundingTiles(
+            player.x,
+            player.y,
+            1 // 1 tile radius around the player
+          ),
+        ]);
 
       const newLocal = surroundingTiles.map((tile) => ({
         x: tile.x,
@@ -177,39 +175,59 @@ export class DmController {
 
       const gptJson = {
         ...tileInfo,
-        nearbyPlayers,
-        monsters,
         surroundingTiles: newLocal,
       };
 
-      // Only generate AI description if the current tile has no description
-      let description = tileInfo.description;
-      if (!tileInfo.description || tileInfo.description.trim() === '') {
-        const text = await this.aiService.getText(
-          `Below is json information about the player's current position in the world. ` +
-            `if 'currentSettlement' exists, the player is INSIDE a settlement. The intensity property describes how dense the city is at this location on a scale of 0 to 1. ` +
-            `The nearbyPlayers array contains the top 10 closest players with their distance and direction. Always give directions to nearby players but never include player names. ` +
-            `The surroundingTiles array contains information about the 8 tiles immediately surrounding the player's current position, including their biome, description, and direction from the player. ` +
-            `Use this information to create a cohesive description that considers the immediate surroundings and transitions between different areas. \n ${JSON.stringify(
-              gptJson
-            )}`
-        );
-        description = text.output_text;
+      // Batch AI calls in parallel
+      const aiPromises: Promise<{ output_text: string }>[] = [];
+      const needsDescription =
+        !tileInfo.description || tileInfo.description.trim() === '';
 
-        // Save the generated description back to the tile
-        try {
-          await this.worldService.updateTileDescription(
-            player.x,
-            player.y,
-            description || ''
-          );
-        } catch (error) {
-          // Log the error but don't fail the request
-          console.warn(
-            `Failed to save tile description for (${player.x}, ${player.y}):`,
-            error instanceof Error ? error.message : 'Unknown error'
-          );
-        }
+      if (needsDescription) {
+        aiPromises.push(
+          this.aiService.getText(
+            `Below is json information about the player's current position in the world. ` +
+              `if 'currentSettlement' exists, the player is INSIDE a settlement. The intensity property describes how dense the city is at this location on a scale of 0 to 1. ` +
+              `The surroundingTiles array contains information about the 8 tiles immediately surrounding the player's current position, including their biome, description, and direction from the player. ` +
+              `Use this information to create a cohesive description that considers the immediate surroundings and transitions between different areas. \n ${JSON.stringify(
+                gptJson
+              )}`
+          )
+        );
+      }
+
+      // Always add player info generation
+      aiPromises.push(
+        this.aiService.getText(
+          `Below is a list of nearby players with their distance and direction from the player. Write a short paragraph describing the players relative to the current player. \n ${JSON.stringify(
+            nearbyPlayers
+          )}`
+        )
+      );
+
+      // Execute all AI calls in parallel
+      const aiResults = await Promise.all(aiPromises);
+
+      // Process AI results
+      let description = tileInfo.description;
+      let playerInfo: string;
+
+      if (needsDescription) {
+        description = aiResults[0].output_text;
+        playerInfo = aiResults[1].output_text;
+
+        // Save the generated description back to the tile (don't await to avoid blocking)
+        this.worldService
+          .updateTileDescription(player.x, player.y, description || '')
+          .catch((error) => {
+            // Log the error but don't fail the request
+            console.warn(
+              `Failed to save tile description for (${player.x}, ${player.y}):`,
+              error instanceof Error ? error.message : 'Unknown error'
+            );
+          });
+      } else {
+        playerInfo = aiResults[0].output_text;
       }
 
       return {
@@ -218,7 +236,7 @@ export class DmController {
           player,
           location: tileInfo,
           monsters,
-          nearbyPlayers,
+          playerInfo,
           surroundingTiles: newLocal,
           description,
         },

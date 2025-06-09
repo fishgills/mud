@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { WorldTile } from '@prisma/client';
 import axios from 'axios';
 
@@ -34,6 +34,7 @@ export interface Settlement {
 
 @Injectable()
 export class WorldService {
+  private readonly logger = new Logger(WorldService.name);
   private readonly worldServiceUrl =
     process.env.WORLD_SERVICE_URL || 'http://localhost:3001/api';
 
@@ -56,6 +57,7 @@ export class WorldService {
       defaultValue = null,
     } = options;
 
+    this.logger.log(`Making ${method.toUpperCase()} request to ${url}`);
     try {
       const response = await axios[method](url, data);
       return response.data;
@@ -64,7 +66,7 @@ export class WorldService {
         error instanceof Error ? error.message : 'Unknown error';
 
       if (logErrorMessage) {
-        console.error(logErrorMessage, errorMessage);
+        this.logger.error(logErrorMessage, errorMessage);
       }
 
       if (throwOnError) {
@@ -128,19 +130,18 @@ export class WorldService {
     y: number,
     radius = 1
   ): Promise<WorldTile[]> {
-    const surroundingTiles: WorldTile[] = [];
+    const tilePromises: Promise<WorldTile>[] = [];
 
     for (let dx = -radius; dx <= radius; dx++) {
       for (let dy = -radius; dy <= radius; dy++) {
         // Skip the center tile (current player position)
         if (dx === 0 && dy === 0) continue;
 
-        const tile = await this.getTileInfo(x + dx, y + dy);
-        surroundingTiles.push(tile);
+        tilePromises.push(this.getTileInfo(x + dx, y + dy));
       }
     }
 
-    return surroundingTiles;
+    return Promise.all(tilePromises);
   }
 
   async updateTileDescription(
