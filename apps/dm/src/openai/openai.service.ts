@@ -22,7 +22,6 @@ export class OpenaiService {
         instructions:
           `You are to describe a location in a fantasy world.` +
           `The description should be vivid and immersive, providing details about the environment, atmosphere, and any notable features.` +
-          `The description should be suitable for a tabletop role-playing game setting and be one paragraph.` +
           `Temperature is a scale between 0 and 1, where 0 is freezing and 1 is very hot.` +
           `Height is is a scale of 0 to 1, where 0 is sea level and 1 is the highest mountain peak.` +
           `Moisture is a scale of 0 to 1, where 0 is desert and 1 is a rainforest.` +
