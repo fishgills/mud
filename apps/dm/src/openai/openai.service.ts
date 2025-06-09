@@ -30,7 +30,6 @@ export class OpenaiService {
         input: prompt,
       });
       this.logger.log(`OpenAI Called`);
-      console.log(response);
       return response;
     } catch (error) {
       if (error instanceof Error) {
