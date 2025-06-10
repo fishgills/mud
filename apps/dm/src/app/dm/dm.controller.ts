@@ -30,7 +30,7 @@ export class DmController {
     private combatService: CombatService,
     private gameTickService: GameTickService,
     private worldService: WorldService,
-    private aiService: OpenaiService
+    private aiService: OpenaiService,
   ) {}
 
   // Helper method to calculate direction from center tile to surrounding tile
@@ -38,7 +38,7 @@ export class DmController {
     centerX: number,
     centerY: number,
     tileX: number,
-    tileY: number
+    tileY: number,
   ): string {
     const dx = tileX - centerX;
     const dy = tileY - centerY;
@@ -73,7 +73,7 @@ export class DmController {
     } catch {
       throw new HttpException(
         'Failed to process tick',
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -90,7 +90,7 @@ export class DmController {
     } catch (error) {
       throw new HttpException(
         error instanceof Error ? error.message : 'Failed to create player',
-        HttpStatus.BAD_REQUEST
+        HttpStatus.BAD_REQUEST,
       );
     }
   }
@@ -106,13 +106,13 @@ export class DmController {
       // Get monsters at the same location
       const monsters = await this.monsterService.getMonstersAtLocation(
         player.x,
-        player.y
+        player.y,
       );
 
       // Get other players at the same location
       const otherPlayers = await this.playerService.getPlayersAtLocation(
         player.x,
-        player.y
+        player.y,
       );
       const filteredPlayers = otherPlayers.filter((p) => p.slackId !== slackId);
 
@@ -128,7 +128,7 @@ export class DmController {
     } catch (error) {
       throw new HttpException(
         error instanceof Error ? error.message : 'Player not found',
-        HttpStatus.NOT_FOUND
+        HttpStatus.NOT_FOUND,
       );
     }
   }
@@ -136,7 +136,7 @@ export class DmController {
   @Post('player/:slackId/move')
   async movePlayer(
     @Param('slackId') slackId: string,
-    @Body() moveDto: MovePlayerDto
+    @Body() moveDto: MovePlayerDto,
   ) {
     try {
       const player = await this.playerService.movePlayer(slackId, moveDto);
@@ -151,12 +151,12 @@ export class DmController {
             player.y,
             slackId, // Exclude the current player
             Infinity, // Infinite search radius
-            10 // Top 10 closest players
+            10, // Top 10 closest players
           ),
           this.worldService.getSurroundingTiles(
             player.x,
             player.y,
-            1 // 1 tile radius around the player
+            1, // 1 tile radius around the player
           ),
         ]);
 
@@ -169,7 +169,7 @@ export class DmController {
           player.x,
           player.y,
           tile.x,
-          tile.y
+          tile.y,
         ),
       }));
 
@@ -190,9 +190,9 @@ export class DmController {
               `if 'currentSettlement' exists, the player is INSIDE a settlement. The intensity property describes how dense the city is at this location on a scale of 0 to 1. ` +
               `The surroundingTiles array contains information about the 8 tiles immediately surrounding the player's current position, including their biome, description, and direction from the player. ` +
               `Use this information to create a cohesive description that considers the immediate surroundings and transitions between different areas. \n ${JSON.stringify(
-                gptJson
-              )}`
-          )
+                gptJson,
+              )}`,
+          ),
         );
       }
 
@@ -200,9 +200,9 @@ export class DmController {
       aiPromises.push(
         this.aiService.getText(
           `Below is a list of nearby players with their distance and direction from the player. Write a short paragraph describing the players relative to the current player. \n ${JSON.stringify(
-            nearbyPlayers
-          )}`
-        )
+            nearbyPlayers,
+          )}`,
+        ),
       );
 
       // Execute all AI calls in parallel
@@ -223,7 +223,7 @@ export class DmController {
             // Log the error but don't fail the request
             console.warn(
               `Failed to save tile description for (${player.x}, ${player.y}):`,
-              error instanceof Error ? error.message : 'Unknown error'
+              error instanceof Error ? error.message : 'Unknown error',
             );
           });
       } else {
@@ -244,7 +244,7 @@ export class DmController {
     } catch (error) {
       throw new HttpException(
         error instanceof Error ? error.message : 'Failed to move player',
-        HttpStatus.BAD_REQUEST
+        HttpStatus.BAD_REQUEST,
       );
     }
   }
@@ -252,7 +252,7 @@ export class DmController {
   @Post('player/:slackId/attack')
   async playerAttack(
     @Param('slackId') slackId: string,
-    @Body() attackDto: AttackDto
+    @Body() attackDto: AttackDto,
   ) {
     try {
       let result;
@@ -260,14 +260,14 @@ export class DmController {
       if (attackDto.targetType === 'monster') {
         result = await this.combatService.playerAttackMonster(
           slackId,
-          attackDto.targetId
+          attackDto.targetId,
         );
       } else if (attackDto.targetType === 'player') {
         // For player vs player, we need to find the target player by ID
         // This is a simplification - in a real system you might want to use slackId
         const allPlayers = await this.playerService.getAllPlayers();
         const targetPlayer = allPlayers.find(
-          (p) => p.id === attackDto.targetId
+          (p) => p.id === attackDto.targetId,
         );
 
         if (!targetPlayer) {
@@ -276,7 +276,7 @@ export class DmController {
 
         result = await this.combatService.playerAttackPlayer(
           slackId,
-          targetPlayer.slackId
+          targetPlayer.slackId,
         );
       } else {
         throw new Error('Invalid target type');
@@ -289,7 +289,7 @@ export class DmController {
     } catch (error) {
       throw new HttpException(
         error instanceof Error ? error.message : 'Attack failed',
-        HttpStatus.BAD_REQUEST
+        HttpStatus.BAD_REQUEST,
       );
     }
   }
@@ -306,7 +306,7 @@ export class DmController {
     } catch (error) {
       throw new HttpException(
         error instanceof Error ? error.message : 'Failed to respawn player',
-        HttpStatus.BAD_REQUEST
+        HttpStatus.BAD_REQUEST,
       );
     }
   }
@@ -348,15 +348,15 @@ export class DmController {
       const tileInfo = await this.worldService.getTileInfo(xCoord, yCoord);
       const monsters = await this.monsterService.getMonstersAtLocation(
         xCoord,
-        yCoord
+        yCoord,
       );
       const players = await this.playerService.getPlayersAtLocation(
         xCoord,
-        yCoord
+        yCoord,
       );
       const combatLog = await this.combatService.getCombatLogForLocation(
         xCoord,
-        yCoord
+        yCoord,
       );
 
       return {
@@ -371,7 +371,7 @@ export class DmController {
     } catch (error) {
       throw new HttpException(
         error instanceof Error ? error.message : 'Failed to get location info',
-        HttpStatus.BAD_REQUEST
+        HttpStatus.BAD_REQUEST,
       );
     }
   }
@@ -388,7 +388,7 @@ export class DmController {
       const monster = await this.monsterService.spawnMonster(
         xCoord,
         yCoord,
-        tileInfo.biomeId
+        tileInfo.biomeId,
       );
 
       return {
@@ -399,7 +399,139 @@ export class DmController {
     } catch (error) {
       throw new HttpException(
         error instanceof Error ? error.message : 'Failed to spawn monster',
-        HttpStatus.BAD_REQUEST
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Get('player/:slackId/stats')
+  async getPlayerStats(@Param('slackId') slackId: string) {
+    try {
+      const player = await this.playerService.getPlayer(slackId);
+
+      // Calculate D&D-like modifiers
+      const strengthModifier = Math.floor((player.strength - 10) / 2);
+      const agilityModifier = Math.floor((player.agility - 10) / 2);
+      const healthModifier = Math.floor((player.health - 10) / 2);
+
+      // Calculate derived stats
+      const dodgeChance = Math.max(0, (player.agility - 10) * 5); // 5% per point above 10
+      const baseDamage = `1d6${strengthModifier >= 0 ? '+' : ''}${strengthModifier}`;
+      const armorClass = 10 + agilityModifier; // Basic AC calculation
+
+      // Calculate XP needed for next level (simple progression: level * 100)
+      const xpForNextLevel = player.level * 100;
+      const xpProgress = player.xp - (player.level - 1) * 100;
+      const xpNeeded = xpForNextLevel - player.xp;
+
+      // Get recent combat history for this player
+      const combatHistory = await this.combatService.getCombatLogForLocation(
+        player.x,
+        player.y,
+        5, // Last 5 combat events
+      );
+
+      return {
+        success: true,
+        data: {
+          // Basic Info
+          character: {
+            name: player.name,
+            level: player.level,
+            isAlive: player.isAlive,
+            location: { x: player.x, y: player.y },
+            lastAction: player.lastAction,
+          },
+
+          // Core Attributes
+          attributes: {
+            strength: {
+              score: player.strength,
+              modifier: strengthModifier,
+              description: 'Affects damage dealt in combat',
+            },
+            agility: {
+              score: player.agility,
+              modifier: agilityModifier,
+              description: 'Affects dodge chance and armor class',
+            },
+            health: {
+              score: player.health,
+              modifier: healthModifier,
+              description: 'Affects maximum hit points',
+            },
+          },
+
+          // Derived Combat Stats
+          combat: {
+            hitPoints: {
+              current: player.hp,
+              maximum: player.maxHp,
+              percentage: Math.round((player.hp / player.maxHp) * 100),
+            },
+            armorClass,
+            baseDamage,
+            dodgeChance: `${dodgeChance}%`,
+          },
+
+          // Progression
+          progression: {
+            experience: {
+              current: player.xp,
+              forNextLevel: xpForNextLevel,
+              progress: xpProgress,
+              needed: Math.max(0, xpNeeded),
+              progressPercentage: Math.round(
+                (xpProgress / (xpForNextLevel - (player.level - 1) * 100)) *
+                  100,
+              ),
+            },
+            gold: player.gold,
+          },
+
+          // Recent Activity
+          recentCombat: combatHistory.slice(0, 3), // Show last 3 combat events
+
+          // Summary for AI description
+          summary: {
+            statusDescription: player.isAlive
+              ? player.hp === player.maxHp
+                ? 'In perfect health'
+                : player.hp > player.maxHp * 0.75
+                  ? 'Lightly wounded'
+                  : player.hp > player.maxHp * 0.5
+                    ? 'Moderately wounded'
+                    : player.hp > player.maxHp * 0.25
+                      ? 'Heavily wounded'
+                      : 'Near death'
+              : 'Deceased',
+            combatEffectiveness:
+              strengthModifier >= 2
+                ? 'Mighty warrior'
+                : strengthModifier >= 0
+                  ? 'Capable fighter'
+                  : 'Struggles in combat',
+            survivability:
+              agilityModifier >= 2
+                ? 'Very agile'
+                : agilityModifier >= 0
+                  ? 'Reasonably quick'
+                  : 'Slow to react',
+            resilience:
+              healthModifier >= 2
+                ? 'Extremely hardy'
+                : healthModifier >= 0
+                  ? 'Healthy constitution'
+                  : 'Frail constitution',
+          },
+        },
+      };
+    } catch (error) {
+      throw new HttpException(
+        error instanceof Error
+          ? error.message
+          : 'Player not found or stats unavailable',
+        HttpStatus.NOT_FOUND,
       );
     }
   }
