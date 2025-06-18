@@ -1,7 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { DmController } from './dm/dm.controller';
+import {
+  HealthController,
+  PlayerController,
+  GameStateController,
+  LocationController,
+  AdminController,
+} from './dm/controllers';
 import { PlayerService } from './player/player.service';
 import { MonsterService } from './monster/monster.service';
 import { CombatService } from './combat/combat.service';
@@ -11,7 +17,14 @@ import { OpenaiModule } from '../openai/openai.module';
 
 @Module({
   imports: [OpenaiModule],
-  controllers: [AppController, DmController],
+  controllers: [
+    AppController,
+    HealthController,
+    PlayerController,
+    GameStateController,
+    LocationController,
+    AdminController,
+  ],
   providers: [
     AppService,
     PlayerService,

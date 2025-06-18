@@ -6,77 +6,28 @@ import {
   Param,
   HttpException,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
-import { PlayerService } from '../player/player.service';
-import { MonsterService } from '../monster/monster.service';
-import { CombatService } from '../combat/combat.service';
-import { GameTickService } from '../game-tick/game-tick.service';
-import { WorldService } from '../world/world.service';
+import { PlayerService } from '../../player/player.service';
+import { MonsterService } from '../../monster/monster.service';
+import { CombatService } from '../../combat/combat.service';
+import { WorldService } from '../../world/world.service';
+import { OpenaiService } from '../../../openai/openai.service';
 import type {
   CreatePlayerDto,
   MovePlayerDto,
   AttackDto,
-} from '../player/dto/player.dto';
-import { OpenaiService } from '../../openai/openai.service';
+} from '../../player/dto/player.dto';
+import { getDirectionFromCenter } from './utils';
 
 @Controller('dm')
-export class DmController {
-  private readonly logger = new Logger(DmController.name);
-
+export class PlayerController {
   constructor(
     private playerService: PlayerService,
     private monsterService: MonsterService,
     private combatService: CombatService,
-    private gameTickService: GameTickService,
     private worldService: WorldService,
     private aiService: OpenaiService,
   ) {}
-
-  // Helper method to calculate direction from center tile to surrounding tile
-  private getDirectionFromCenter(
-    centerX: number,
-    centerY: number,
-    tileX: number,
-    tileY: number,
-  ): string {
-    const dx = tileX - centerX;
-    const dy = tileY - centerY;
-
-    if (dx === 0 && dy === -1) return 'north';
-    if (dx === 1 && dy === -1) return 'northeast';
-    if (dx === 1 && dy === 0) return 'east';
-    if (dx === 1 && dy === 1) return 'southeast';
-    if (dx === 0 && dy === 1) return 'south';
-    if (dx === -1 && dy === 1) return 'southwest';
-    if (dx === -1 && dy === 0) return 'west';
-    if (dx === -1 && dy === -1) return 'northwest';
-
-    return 'unknown';
-  }
-
-  // Health check endpoint
-  @Get('health')
-  health() {
-    return { status: 'healthy', timestamp: new Date().toISOString() };
-  }
-
-  // Tick endpoint - called by the external tick service
-  @Post('tick')
-  async processTick() {
-    try {
-      const result = await this.gameTickService.processTick();
-      return {
-        success: true,
-        data: result,
-      };
-    } catch {
-      throw new HttpException(
-        'Failed to process tick',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
 
   // Player management endpoints
   @Post('player')
@@ -165,12 +116,7 @@ export class DmController {
         y: tile.y,
         biomeName: tile.biomeName,
         description: tile.description,
-        direction: this.getDirectionFromCenter(
-          player.x,
-          player.y,
-          tile.x,
-          tile.y,
-        ),
+        direction: getDirectionFromCenter(player.x, player.y, tile.x, tile.y),
       }));
 
       const gptJson = {
@@ -306,99 +252,6 @@ export class DmController {
     } catch (error) {
       throw new HttpException(
         error instanceof Error ? error.message : 'Failed to respawn player',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-  }
-
-  // Game state endpoints
-  @Get('game-state')
-  async getGameState() {
-    const state = await this.gameTickService.getGameState();
-    return {
-      success: true,
-      data: state,
-    };
-  }
-
-  @Get('players')
-  async getAllPlayers() {
-    const players = await this.playerService.getAllPlayers();
-    return {
-      success: true,
-      data: players,
-    };
-  }
-
-  @Get('monsters')
-  async getAllMonsters() {
-    const monsters = await this.monsterService.getAllMonsters();
-    return {
-      success: true,
-      data: monsters,
-    };
-  }
-
-  @Get('location/:x/:y')
-  async getLocationInfo(@Param('x') x: string, @Param('y') y: string) {
-    try {
-      const xCoord = parseInt(x);
-      const yCoord = parseInt(y);
-
-      const tileInfo = await this.worldService.getTileInfo(xCoord, yCoord);
-      const monsters = await this.monsterService.getMonstersAtLocation(
-        xCoord,
-        yCoord,
-      );
-      const players = await this.playerService.getPlayersAtLocation(
-        xCoord,
-        yCoord,
-      );
-      const combatLog = await this.combatService.getCombatLogForLocation(
-        xCoord,
-        yCoord,
-      );
-
-      return {
-        success: true,
-        data: {
-          location: tileInfo,
-          monsters,
-          players,
-          recentCombat: combatLog,
-        },
-      };
-    } catch (error) {
-      throw new HttpException(
-        error instanceof Error ? error.message : 'Failed to get location info',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-  }
-
-  // Admin endpoints
-  @Post('admin/spawn-monster/:x/:y')
-  async spawnMonster(@Param('x') x: string, @Param('y') y: string) {
-    try {
-      const xCoord = parseInt(x);
-      const yCoord = parseInt(y);
-
-      // Get biome info from world service
-      const tileInfo = await this.worldService.getTileInfo(xCoord, yCoord);
-      const monster = await this.monsterService.spawnMonster(
-        xCoord,
-        yCoord,
-        tileInfo.biomeId,
-      );
-
-      return {
-        success: true,
-        data: monster,
-        message: `Spawned ${monster.name} at (${xCoord}, ${yCoord})`,
-      };
-    } catch (error) {
-      throw new HttpException(
-        error instanceof Error ? error.message : 'Failed to spawn monster',
         HttpStatus.BAD_REQUEST,
       );
     }
