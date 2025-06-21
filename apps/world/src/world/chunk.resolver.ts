@@ -1,5 +1,12 @@
-import { Args, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
-import { ChunkData, ChunkStats, BiomeCount } from './models';
+import {
+  Args,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+  Int,
+} from '@nestjs/graphql';
+import { ChunkData, ChunkStats, BiomeCount, PaginatedTiles } from './models';
 import { WorldTile } from './models/world-tile.model';
 import { Settlement } from './models/settlement.model';
 import { WorldService } from './world-refactored.service';
@@ -23,6 +30,36 @@ export class ChunkResolver {
   @ResolveField(() => [WorldTile])
   async tiles(@Parent() chunk: ChunkData): Promise<WorldTile[]> {
     return this.worldService.getChunkTiles(chunk.chunkX, chunk.chunkY);
+  }
+
+  @ResolveField(() => PaginatedTiles)
+  async paginatedTiles(
+    @Parent() chunk: ChunkData,
+    @Args('limit', { type: () => Int, nullable: true }) limit?: number,
+    @Args('offset', { type: () => Int, nullable: true }) offset?: number,
+  ): Promise<PaginatedTiles> {
+    // Set defaults
+    const actualLimit = limit ?? 100;
+    const actualOffset = offset ?? 0;
+
+    // Get tiles and total count
+    const [tiles, totalCount] = await Promise.all([
+      this.worldService.getChunkTiles(
+        chunk.chunkX,
+        chunk.chunkY,
+        actualLimit,
+        actualOffset,
+      ),
+      this.worldService.getChunkTileCount(chunk.chunkX, chunk.chunkY),
+    ]);
+
+    return {
+      tiles,
+      totalCount,
+      offset: actualOffset,
+      limit: actualLimit,
+      hasMore: actualOffset + actualLimit < totalCount,
+    };
   }
 
   @ResolveField(() => [Settlement])

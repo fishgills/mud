@@ -1,5 +1,10 @@
 export { Biome } from './biome.model';
-export { ChunkData, ChunkStats, BiomeCount } from './chunk.model';
+export {
+  ChunkData,
+  ChunkStats,
+  BiomeCount,
+  PaginatedTiles,
+} from './chunk.model';
 export { CombatLog } from './combat-log.model';
 export { GameState } from './game-state.model';
 export { Landmark } from './landmark.model';

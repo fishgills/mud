@@ -24,6 +24,24 @@ export class BiomeCount {
 }
 
 @ObjectType()
+export class PaginatedTiles {
+  @Field(() => [WorldTile])
+  tiles!: WorldTile[];
+
+  @Field(() => Int)
+  totalCount!: number;
+
+  @Field(() => Int)
+  offset!: number;
+
+  @Field(() => Int)
+  limit!: number;
+
+  @Field(() => Boolean)
+  hasMore!: boolean;
+}
+
+@ObjectType()
 export class ChunkData {
   @Field(() => Int)
   chunkX!: number;
@@ -34,6 +52,9 @@ export class ChunkData {
   // These fields will be resolved by @ResolveField decorators
   @Field(() => [WorldTile], { nullable: true })
   tiles?: WorldTile[];
+
+  @Field(() => PaginatedTiles, { nullable: true })
+  paginatedTiles?: PaginatedTiles;
 
   @Field(() => [Settlement], { nullable: true })
   settlements?: Settlement[];

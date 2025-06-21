@@ -175,14 +175,41 @@ export class WorldService {
   }
 
   // GraphQL-friendly methods for field resolution
-  async getChunkTiles(chunkX: number, chunkY: number): Promise<WorldTile[]> {
+  async getChunkTiles(
+    chunkX: number,
+    chunkY: number,
+    limit?: number,
+    offset?: number,
+  ): Promise<WorldTile[]> {
     // Check database for existing tiles first
     const existingTiles = await this.worldDatabase.getChunkFromDatabase(
       chunkX,
       chunkY,
+      limit,
+      offset,
     );
 
-    if (existingTiles.length === 2500) {
+    // If we have pagination parameters, return the paginated results directly
+    if (limit !== undefined || offset !== undefined) {
+      // Ensure chunk exists first
+      await this.ensureChunkExists(chunkX, chunkY);
+
+      // Return paginated results
+      return await this.worldDatabase.getChunkFromDatabase(
+        chunkX,
+        chunkY,
+        limit,
+        offset,
+      );
+    }
+
+    // Legacy behavior: check for full chunk and generate if needed
+    const totalTiles = await this.worldDatabase.getChunkTileCount(
+      chunkX,
+      chunkY,
+    );
+
+    if (totalTiles === 2500) {
       this.logger.debug(
         `Loaded existing chunk ${chunkX},${chunkY} from database.`,
       );
@@ -194,6 +221,13 @@ export class WorldService {
 
     // Re-fetch tiles from database to get the proper IDs
     return await this.worldDatabase.getChunkFromDatabase(chunkX, chunkY);
+  }
+
+  async getChunkTileCount(chunkX: number, chunkY: number): Promise<number> {
+    // Ensure chunk exists first
+    await this.ensureChunkExists(chunkX, chunkY);
+
+    return await this.worldDatabase.getChunkTileCount(chunkX, chunkY);
   }
 
   async getChunkSettlements(
@@ -276,12 +310,12 @@ export class WorldService {
     chunkX: number,
     chunkY: number,
   ): Promise<void> {
-    const existingTiles = await this.worldDatabase.getChunkFromDatabase(
+    const tileCount = await this.worldDatabase.getChunkTileCount(
       chunkX,
       chunkY,
     );
 
-    if (existingTiles.length < 2500) {
+    if (tileCount < 2500) {
       await this.getChunk(chunkX, chunkY);
     }
   }

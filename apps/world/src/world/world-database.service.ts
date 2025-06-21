@@ -48,6 +48,8 @@ export class WorldDatabaseService {
   async getChunkFromDatabase(
     chunkX: number,
     chunkY: number,
+    limit?: number,
+    offset?: number,
   ): Promise<WorldTile[]> {
     return await this.prismaService.worldTile.findMany({
       where: {
@@ -55,6 +57,18 @@ export class WorldDatabaseService {
         chunkY: chunkY,
       },
       include: { biome: true },
+      ...(limit !== undefined && { take: limit }),
+      ...(offset !== undefined && { skip: offset }),
+      orderBy: [{ x: 'asc' }, { y: 'asc' }],
+    });
+  }
+
+  async getChunkTileCount(chunkX: number, chunkY: number): Promise<number> {
+    return await this.prismaService.worldTile.count({
+      where: {
+        chunkX: chunkX,
+        chunkY: chunkY,
+      },
     });
   }
 
