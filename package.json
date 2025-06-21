@@ -33,9 +33,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
-    "@nestjs/cli": "^11.0.7",
-    "@nestjs/schematics": "^11.0.5",
-    "@nestjs/testing": "^11.1.3",
     "@nx/esbuild": "^21.1.2",
     "@nx/eslint": "^21.1.2",
     "@nx/eslint-plugin": "21.1.2",
@@ -77,5 +74,7 @@
     "apps/*",
     "libs/*"
   ],
-  "packageManager": "yarn@4.9.2"
+  "engines": {
+    "yarn": "please-use-npm"
+  }
 }
