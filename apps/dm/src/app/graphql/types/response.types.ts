@@ -1,4 +1,4 @@
-import { ObjectType, Field } from '@nestjs/graphql';
+import { ObjectType, Field, Int } from '@nestjs/graphql';
 import { Player } from '../models/player.model';
 import { Monster } from '../models/monster.model';
 import { CombatLog } from '../models/combat-log.model';
@@ -148,4 +148,59 @@ export class PlayerStats {
 
   @Field(() => [CombatLog])
   recentCombat!: CombatLog[];
+}
+
+@ObjectType()
+export class SurroundingTile {
+  @Field(() => Int)
+  x!: number;
+
+  @Field(() => Int)
+  y!: number;
+
+  @Field()
+  biomeName!: string;
+
+  @Field({ nullable: true })
+  description?: string;
+
+  @Field()
+  direction!: string;
+}
+
+@ObjectType()
+export class PlayerMovementData {
+  @Field(() => Player)
+  player!: Player;
+
+  @Field(() => TileInfo)
+  location!: TileInfo;
+
+  @Field(() => [Monster])
+  monsters!: Monster[];
+
+  @Field()
+  playerInfo!: string;
+
+  @Field(() => [SurroundingTile])
+  surroundingTiles!: SurroundingTile[];
+
+  @Field()
+  description!: string;
+
+  // Enhanced settlement and biome data (when available)
+  @Field(() => [String], { nullable: true })
+  nearbyBiomes?: string[];
+
+  @Field(() => [String], { nullable: true })
+  nearbySettlements?: string[];
+
+  @Field({ nullable: true })
+  currentSettlement?: string;
+}
+
+@ObjectType()
+export class PlayerMoveResponse extends SuccessResponse {
+  @Field(() => PlayerMovementData, { nullable: true })
+  data?: PlayerMovementData;
 }

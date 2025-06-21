@@ -10,6 +10,7 @@ import { PlayerService } from '../../player/player.service';
 import { MonsterService } from '../../monster/monster.service';
 import { CombatService } from '../../combat/combat.service';
 import { WorldService } from '../../world/world.service';
+import { OpenaiService } from '../../../openai/openai.service';
 import { Player } from '../models/player.model';
 import { Monster } from '../models/monster.model';
 import { TileInfo } from '../models/tile-info.model';
@@ -19,6 +20,9 @@ import {
   CombatResponse,
   PlayerStats,
   CombatResult,
+  PlayerMoveResponse,
+  PlayerMovementData,
+  SurroundingTile,
 } from '../types/response.types';
 import {
   CreatePlayerInput,
@@ -26,7 +30,6 @@ import {
   PlayerStatsInput,
   AttackInput,
   TargetType,
-  Direction,
 } from '../inputs/player.input';
 
 @Resolver(() => Player)
@@ -36,6 +39,7 @@ export class PlayerResolver {
     private monsterService: MonsterService,
     private combatService: CombatService,
     private worldService: WorldService,
+    private aiService: OpenaiService,
   ) {}
 
   @Mutation(() => PlayerResponse)
@@ -79,16 +83,143 @@ export class PlayerResolver {
     return players as Player[];
   }
 
-  @Mutation(() => PlayerResponse)
+  @Mutation(() => PlayerMoveResponse)
   async movePlayer(
     @Args('slackId') slackId: string,
     @Args('input') input: MovePlayerInput,
-  ): Promise<PlayerResponse> {
+  ): Promise<PlayerMoveResponse> {
     try {
       const player = await this.playerService.movePlayer(slackId, input);
+
+      // Batch all location-related data fetching in parallel
+      const [tileInfoWithNearby, monsters, nearbyPlayers, surroundingTiles] =
+        await Promise.all([
+          this.worldService.getTileInfoWithNearby(player.x, player.y),
+          this.monsterService.getMonstersAtLocation(player.x, player.y),
+          this.playerService.getNearbyPlayers(
+            player.x,
+            player.y,
+            slackId, // Exclude the current player
+            Infinity, // Infinite search radius
+            10, // Top 10 closest players
+          ),
+          this.worldService.getSurroundingTiles(
+            player.x,
+            player.y,
+            1, // 1 tile radius around the player
+          ),
+        ]);
+
+      // Map surrounding tiles with direction information
+      const surroundingTilesWithDirection: SurroundingTile[] =
+        surroundingTiles.map((tile) => ({
+          x: tile.x,
+          y: tile.y,
+          biomeName: tile.biomeName,
+          description: tile.description || '',
+          direction: this.calculateDirection(
+            player.x,
+            player.y,
+            tile.x,
+            tile.y,
+          ),
+        }));
+
+      // Prepare data for AI generation
+      const gptJson = {
+        ...tileInfoWithNearby.tile,
+        nearbyBiomes: tileInfoWithNearby.nearbyBiomes,
+        nearbySettlements: tileInfoWithNearby.nearbySettlements,
+        currentSettlement: tileInfoWithNearby.currentSettlement,
+        surroundingTiles: surroundingTilesWithDirection,
+      };
+
+      // Batch AI calls in parallel
+      const aiPromises: Promise<{ output_text: string }>[] = [];
+      const needsDescription =
+        !tileInfoWithNearby.tile.description ||
+        tileInfoWithNearby.tile.description.trim() === '';
+
+      if (needsDescription) {
+        aiPromises.push(
+          this.aiService.getText(
+            `Below is json information about the player's current position in the world. ` +
+              `if 'currentSettlement' exists, the player is INSIDE a settlement. The intensity property describes how dense the city is at this location on a scale of 0 to 1. ` +
+              `The surroundingTiles array contains information about the 8 tiles immediately surrounding the player's current position, including their biome, description, and direction from the player. ` +
+              `Use this information to create a cohesive description that considers the immediate surroundings and transitions between different areas. \n ${JSON.stringify(
+                gptJson,
+              )}`,
+          ),
+        );
+      }
+
+      // Always add player info generation
+      aiPromises.push(
+        this.aiService.getText(
+          `Below is a list of nearby players with their distance and direction from the player. Write a short paragraph describing the players relative to the current player. \n ${JSON.stringify(
+            nearbyPlayers,
+          )}`,
+        ),
+      );
+
+      // Execute all AI calls in parallel
+      const aiResults = await Promise.all(aiPromises);
+
+      // Process AI results
+      let description = tileInfoWithNearby.tile.description || '';
+      let playerInfo: string;
+
+      if (needsDescription) {
+        description = aiResults[0].output_text;
+        playerInfo = aiResults[1].output_text;
+
+        // Save the generated description back to the tile (don't await to avoid blocking)
+        this.worldService
+          .updateTileDescription(player.x, player.y, description || '')
+          .catch((error) => {
+            // Log the error but don't fail the request
+            console.warn(
+              `Failed to save tile description for (${player.x}, ${player.y}):`,
+              error instanceof Error ? error.message : 'Unknown error',
+            );
+          });
+      } else {
+        playerInfo = aiResults[0].output_text;
+      }
+
+      // Convert tile info to TileInfo format
+      const tileInfo: TileInfo = {
+        x: tileInfoWithNearby.tile.x,
+        y: tileInfoWithNearby.tile.y,
+        biomeName: tileInfoWithNearby.tile.biomeName,
+        description: description,
+        height: tileInfoWithNearby.tile.height,
+        temperature: tileInfoWithNearby.tile.temperature,
+        moisture: tileInfoWithNearby.tile.moisture,
+      };
+
+      const movementData: PlayerMovementData = {
+        player: player as Player,
+        location: tileInfo,
+        monsters: monsters as Monster[],
+        playerInfo,
+        surroundingTiles: surroundingTilesWithDirection,
+        description,
+        nearbyBiomes: tileInfoWithNearby.nearbyBiomes?.map(
+          (b) =>
+            `${b.biomeName} (${b.direction}, ${b.distance.toFixed(1)} units)`,
+        ),
+        nearbySettlements: tileInfoWithNearby.nearbySettlements?.map(
+          (s) => `${s.name} (${s.type}, ${s.distance.toFixed(1)} units away)`,
+        ),
+        currentSettlement: tileInfoWithNearby.currentSettlement
+          ? `${tileInfoWithNearby.currentSettlement.name} (${tileInfoWithNearby.currentSettlement.type}, intensity: ${tileInfoWithNearby.currentSettlement.intensity})`
+          : undefined,
+      };
+
       return {
         success: true,
-        data: player as Player,
+        data: movementData,
       };
     } catch (error) {
       return {
@@ -97,6 +228,33 @@ export class PlayerResolver {
           error instanceof Error ? error.message : 'Failed to move player',
       };
     }
+  }
+
+  // Helper method for direction calculation
+  private calculateDirection(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+  ): string {
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+
+    // Calculate angle in radians, then convert to degrees
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+    // Normalize angle to 0-360 range
+    const normalizedAngle = (angle + 360) % 360;
+
+    // Convert to compass direction
+    if (normalizedAngle >= 337.5 || normalizedAngle < 22.5) return 'east';
+    if (normalizedAngle >= 22.5 && normalizedAngle < 67.5) return 'northeast';
+    if (normalizedAngle >= 67.5 && normalizedAngle < 112.5) return 'north';
+    if (normalizedAngle >= 112.5 && normalizedAngle < 157.5) return 'northwest';
+    if (normalizedAngle >= 157.5 && normalizedAngle < 202.5) return 'west';
+    if (normalizedAngle >= 202.5 && normalizedAngle < 247.5) return 'southwest';
+    if (normalizedAngle >= 247.5 && normalizedAngle < 292.5) return 'south';
+    return 'southeast';
   }
 
   @Mutation(() => PlayerResponse)
