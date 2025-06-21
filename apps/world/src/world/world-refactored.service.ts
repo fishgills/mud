@@ -46,6 +46,9 @@ export class WorldService {
         // 50x50 = 2500
         const chunkData =
           this.tileService.reconstructChunkFromTiles(existingTiles);
+        this.logger.debug(
+          `Loaded existing chunk ${chunkX},${chunkY} from database.`,
+        );
         return chunkData;
       }
 
@@ -60,7 +63,7 @@ export class WorldService {
       await this.worldDatabase.saveChunkToDatabase(chunkData, this.currentSeed);
 
       const generationTime = Date.now() - startTime;
-      this.logger.log(
+      this.logger.debug(
         `Generated chunk ${chunkX},${chunkY} in ${generationTime}ms. Biomes: ${Object.keys(
           chunkData.stats.biomes,
         ).join(', ')}`,
@@ -180,12 +183,17 @@ export class WorldService {
     );
 
     if (existingTiles.length === 2500) {
+      this.logger.debug(
+        `Loaded existing chunk ${chunkX},${chunkY} from database.`,
+      );
       return existingTiles;
     }
 
-    // Generate chunk if not found and return tiles
-    const chunkData = await this.getChunk(chunkX, chunkY);
-    return chunkData.tiles;
+    // Generate chunk if not found
+    await this.getChunk(chunkX, chunkY);
+
+    // Re-fetch tiles from database to get the proper IDs
+    return await this.worldDatabase.getChunkFromDatabase(chunkX, chunkY);
   }
 
   async getChunkSettlements(
