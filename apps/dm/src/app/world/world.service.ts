@@ -1,6 +1,6 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { WorldTile } from '@prisma/client';
-import axios from 'axios';
+import { GraphQLClient, gql } from 'graphql-request';
 
 export interface Biome {
   id: number;
@@ -32,24 +32,60 @@ export interface Settlement {
   isCenter: boolean;
 }
 
+// GraphQL response types that match the World service schema
+interface TileWithNearbyBiomes {
+  id: number;
+  x: number;
+  y: number;
+  biomeId: number;
+  biomeName: string;
+  description?: string;
+  height: number;
+  temperature: number;
+  moisture: number;
+  seed: number;
+  chunkX: number;
+  chunkY: number;
+  createdAt: string;
+  updatedAt: string;
+  nearbyBiomes: NearbyBiome[];
+  nearbySettlements: NearbySettlement[];
+  currentSettlement?: Settlement;
+}
+
+interface ChunkData {
+  chunkX: number;
+  chunkY: number;
+  tiles: WorldTile[];
+}
+
+interface TileUpdateResult {
+  success: boolean;
+  message: string;
+}
+
 @Injectable()
 export class WorldService {
   private readonly logger = new Logger(WorldService.name);
   private readonly worldServiceUrl =
-    process.env.WORLD_SERVICE_URL || 'http://localhost:3001/api';
+    process.env.WORLD_SERVICE_URL || 'http://localhost:3000';
+  private readonly graphqlClient: GraphQLClient;
+
+  constructor() {
+    this.graphqlClient = new GraphQLClient(`${this.worldServiceUrl}/graphql`);
+  }
 
   /**
-   * Generic HTTP client wrapper with error handling
+   * Generic GraphQL request wrapper with error handling
    */
-  private async makeRequest<T>(
-    method: 'get' | 'post' | 'put' | 'delete',
-    url: string,
-    data?: Record<string, unknown>,
+  private async makeGraphQLRequest<T>(
+    query: string,
+    variables?: Record<string, unknown>,
     options: {
       logErrorMessage?: string;
       throwOnError?: boolean;
       defaultValue?: T;
-    } = {}
+    } = {},
   ): Promise<T | null> {
     const {
       logErrorMessage,
@@ -57,10 +93,10 @@ export class WorldService {
       defaultValue = null,
     } = options;
 
-    this.logger.log(`Making ${method.toUpperCase()} request to ${url}`);
+    this.logger.log(`Making GraphQL request: ${query.substring(0, 100)}...`);
     try {
-      const response = await axios[method](url, data);
-      return response.data;
+      const response = await this.graphqlClient.request<T>(query, variables);
+      return response;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
@@ -72,7 +108,7 @@ export class WorldService {
       if (throwOnError) {
         throw new HttpException(
           'World service unavailable',
-          HttpStatus.SERVICE_UNAVAILABLE
+          HttpStatus.SERVICE_UNAVAILABLE,
         );
       }
 
@@ -98,37 +134,124 @@ export class WorldService {
       updatedAt: new Date(),
     };
 
-    const result = await this.makeRequest<WorldTile>(
-      'get',
-      `${this.worldServiceUrl}world/tile/${x}/${y}`,
-      undefined,
+    const GET_TILE_QUERY = gql`
+      query GetTile($x: Int!, $y: Int!) {
+        getTile(x: $x, y: $y) {
+          id
+          x
+          y
+          biomeId
+          biomeName
+          description
+          height
+          temperature
+          moisture
+          seed
+          chunkX
+          chunkY
+          createdAt
+          updatedAt
+        }
+      }
+    `;
+
+    const result = await this.makeGraphQLRequest<{
+      getTile: TileWithNearbyBiomes;
+    }>(
+      GET_TILE_QUERY,
+      { x, y },
       {
         logErrorMessage: `Failed to fetch tile info for (${x}, ${y}):`,
-        defaultValue: defaultTile,
-      }
+        defaultValue: { getTile: defaultTile as any },
+      },
     );
 
-    return result || defaultTile;
+    if (result?.getTile) {
+      // Convert the GraphQL response to the expected WorldTile format
+      const tile = result.getTile;
+      return {
+        id: tile.id,
+        x: tile.x,
+        y: tile.y,
+        biomeId: tile.biomeId,
+        biomeName: tile.biomeName,
+        description: tile.description || defaultTile.description,
+        height: tile.height,
+        temperature: tile.temperature,
+        moisture: tile.moisture,
+        seed: tile.seed,
+        chunkX: tile.chunkX,
+        chunkY: tile.chunkY,
+        createdAt: new Date(tile.createdAt),
+        updatedAt: new Date(tile.updatedAt),
+      };
+    }
+
+    return defaultTile;
   }
 
   async getChunk(chunkX: number, chunkY: number): Promise<WorldTile[]> {
-    const result = await this.makeRequest<WorldTile[]>(
-      'get',
-      `${this.worldServiceUrl}/chunk/${chunkX}/${chunkY}`,
-      undefined,
+    const GET_CHUNK_QUERY = gql`
+      query GetChunk($chunkX: Float!, $chunkY: Float!) {
+        getChunk(chunkX: $chunkX, chunkY: $chunkY) {
+          chunkX
+          chunkY
+          tiles {
+            id
+            x
+            y
+            biomeId
+            biomeName
+            description
+            height
+            temperature
+            moisture
+            seed
+            chunkX
+            chunkY
+            createdAt
+            updatedAt
+          }
+        }
+      }
+    `;
+
+    const result = await this.makeGraphQLRequest<{ getChunk: ChunkData }>(
+      GET_CHUNK_QUERY,
+      { chunkX, chunkY },
       {
         logErrorMessage: `Failed to fetch chunk (${chunkX}, ${chunkY}):`,
         throwOnError: true,
-      }
+      },
     );
 
-    return result || [];
+    if (result?.getChunk?.tiles) {
+      // Convert GraphQL response to WorldTile format
+      return result.getChunk.tiles.map((tile) => ({
+        id: tile.id,
+        x: tile.x,
+        y: tile.y,
+        biomeId: tile.biomeId,
+        biomeName: tile.biomeName,
+        description: tile.description || '',
+        height: tile.height,
+        temperature: tile.temperature,
+        moisture: tile.moisture,
+        seed: tile.seed,
+        chunkX: tile.chunkX,
+        chunkY: tile.chunkY,
+        createdAt: new Date(tile.createdAt),
+        updatedAt: new Date(tile.updatedAt),
+      }));
+    }
+
+    return [];
   }
 
   async getSurroundingTiles(
     x: number,
     y: number,
-    radius = 1
+    radius = 1,
   ): Promise<WorldTile[]> {
     const tilePromises: Promise<WorldTile>[] = [];
 
@@ -147,30 +270,176 @@ export class WorldService {
   async updateTileDescription(
     x: number,
     y: number,
-    description: string
+    description: string,
   ): Promise<boolean> {
-    const result = await this.makeRequest<{ status: number }>(
-      'put',
-      `${this.worldServiceUrl}world/tile/${x}/${y}/description`,
-      { description },
+    const UPDATE_TILE_MUTATION = gql`
+      mutation UpdateTileDescription(
+        $x: Int!
+        $y: Int!
+        $description: String!
+      ) {
+        updateTileDescription(x: $x, y: $y, description: $description) {
+          success
+          message
+        }
+      }
+    `;
+
+    const result = await this.makeGraphQLRequest<{
+      updateTileDescription: TileUpdateResult;
+    }>(
+      UPDATE_TILE_MUTATION,
+      { x, y, description },
       {
         logErrorMessage: `Failed to update tile description for (${x}, ${y}):`,
-      }
+      },
     );
 
-    return result !== null;
+    return result?.updateTileDescription?.success || false;
   }
 
   async healthCheck(): Promise<boolean> {
-    const result = await this.makeRequest<{ status: number }>(
-      'get',
-      `${this.worldServiceUrl}/health`,
-      undefined,
-      {
-        // No logging for health check failures to avoid spam
+    try {
+      // Use a simple introspection query to check if the GraphQL service is available
+      const HEALTH_CHECK_QUERY = gql`
+        query HealthCheck {
+          __schema {
+            queryType {
+              name
+            }
+          }
+        }
+      `;
+
+      const result = await this.makeGraphQLRequest<any>(
+        HEALTH_CHECK_QUERY,
+        {},
+        {
+          // No logging for health check failures to avoid spam
+        },
+      );
+
+      return result !== null;
+    } catch {
+      return false;
+    }
+  }
+
+  async getTileInfoWithNearby(
+    x: number,
+    y: number,
+  ): Promise<{
+    tile: WorldTile;
+    nearbyBiomes: NearbyBiome[];
+    nearbySettlements: NearbySettlement[];
+    currentSettlement?: Settlement;
+  }> {
+    const GET_TILE_WITH_NEARBY_QUERY = gql`
+      query GetTileWithNearby($x: Int!, $y: Int!) {
+        getTile(x: $x, y: $y) {
+          id
+          x
+          y
+          biomeId
+          biomeName
+          description
+          height
+          temperature
+          moisture
+          seed
+          chunkX
+          chunkY
+          createdAt
+          updatedAt
+          nearbyBiomes {
+            biomeName
+            distance
+            direction
+          }
+          nearbySettlements {
+            name
+            type
+            size
+            population
+            x
+            y
+            description
+            distance
+          }
+          currentSettlement {
+            name
+            type
+            size
+            intensity
+            isCenter
+          }
+        }
       }
+    `;
+
+    const defaultTile: WorldTile = {
+      id: 0,
+      x,
+      y,
+      biomeId: 1,
+      biomeName: 'grassland',
+      description: 'A rolling grassland with scattered trees.',
+      height: 0.5,
+      temperature: 0.6,
+      moisture: 0.5,
+      seed: 12345,
+      chunkX: Math.floor(x / 16),
+      chunkY: Math.floor(y / 16),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await this.makeGraphQLRequest<{
+      getTile: TileWithNearbyBiomes;
+    }>(
+      GET_TILE_WITH_NEARBY_QUERY,
+      { x, y },
+      {
+        logErrorMessage: `Failed to fetch tile with nearby data for (${x}, ${y}):`,
+        defaultValue: {
+          getTile: {
+            ...defaultTile,
+            nearbyBiomes: [],
+            nearbySettlements: [],
+          } as any,
+        },
+      },
     );
 
-    return result !== null;
+    if (result?.getTile) {
+      const tile = result.getTile;
+      return {
+        tile: {
+          id: tile.id,
+          x: tile.x,
+          y: tile.y,
+          biomeId: tile.biomeId,
+          biomeName: tile.biomeName,
+          description: tile.description || defaultTile.description,
+          height: tile.height,
+          temperature: tile.temperature,
+          moisture: tile.moisture,
+          seed: tile.seed,
+          chunkX: tile.chunkX,
+          chunkY: tile.chunkY,
+          createdAt: new Date(tile.createdAt),
+          updatedAt: new Date(tile.updatedAt),
+        },
+        nearbyBiomes: tile.nearbyBiomes || [],
+        nearbySettlements: tile.nearbySettlements || [],
+        currentSettlement: tile.currentSettlement,
+      };
+    }
+
+    return {
+      tile: defaultTile,
+      nearbyBiomes: [],
+      nearbySettlements: [],
+    };
   }
 }
