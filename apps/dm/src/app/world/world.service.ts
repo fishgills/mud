@@ -72,7 +72,14 @@ export class WorldService {
   private readonly graphqlClient: GraphQLClient;
 
   constructor() {
-    this.graphqlClient = new GraphQLClient(`${this.worldServiceUrl}/graphql`);
+    // Ensure URL doesn't have double slashes
+    const baseUrl = this.worldServiceUrl.endsWith('/')
+      ? this.worldServiceUrl.slice(0, -1)
+      : this.worldServiceUrl;
+    const graphqlUrl = `${baseUrl}/graphql`;
+
+    this.logger.log(`Initializing GraphQL client with URL: ${graphqlUrl}`);
+    this.graphqlClient = new GraphQLClient(graphqlUrl);
   }
 
   /**
@@ -93,13 +100,20 @@ export class WorldService {
       defaultValue = null,
     } = options;
 
-    this.logger.log(`Making GraphQL request: ${query.substring(0, 100)}...`);
     try {
       const response = await this.graphqlClient.request<T>(query, variables);
+      this.logger.log(
+        `GraphQL request successful: ${JSON.stringify(response).substring(0, 200)}...`,
+      );
       return response;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
+
+      this.logger.error(`GraphQL request failed to ${this.worldServiceUrl}`);
+      this.logger.error(`Query: ${query}`);
+      this.logger.error(`Variables: ${JSON.stringify(variables)}`);
+      this.logger.error(`Error: ${errorMessage}`);
 
       if (logErrorMessage) {
         this.logger.error(logErrorMessage, errorMessage);
@@ -123,7 +137,7 @@ export class WorldService {
       y,
       biomeId: 1,
       biomeName: 'grassland',
-      description: 'A rolling grassland with scattered trees.',
+      description: '',
       height: 0.5,
       temperature: 0.6,
       moisture: 0.5,
@@ -383,7 +397,7 @@ export class WorldService {
       y,
       biomeId: 1,
       biomeName: 'grassland',
-      description: 'A rolling grassland with scattered trees.',
+      description: '',
       height: 0.5,
       temperature: 0.6,
       moisture: 0.5,
