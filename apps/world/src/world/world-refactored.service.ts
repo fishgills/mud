@@ -6,7 +6,7 @@ import { ChunkGeneratorService } from './chunk-generator.service';
 import { TileService, TileWithNearbyBiomes } from './tile.service';
 import { WorldUtilsService } from './world-utils.service';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
-import { Settlement } from '@mud/database';
+import { Settlement, WorldTile } from '@mud/database';
 
 @Injectable()
 export class WorldService {
@@ -168,6 +168,113 @@ export class WorldService {
         error,
       );
       throw error;
+    }
+  }
+
+  // GraphQL-friendly methods for field resolution
+  async getChunkTiles(chunkX: number, chunkY: number): Promise<WorldTile[]> {
+    // Check database for existing tiles first
+    const existingTiles = await this.worldDatabase.getChunkFromDatabase(
+      chunkX,
+      chunkY,
+    );
+
+    if (existingTiles.length === 2500) {
+      return existingTiles;
+    }
+
+    // Generate chunk if not found and return tiles
+    const chunkData = await this.getChunk(chunkX, chunkY);
+    return chunkData.tiles;
+  }
+
+  async getChunkSettlements(
+    chunkX: number,
+    chunkY: number,
+  ): Promise<Settlement[]> {
+    // Generate chunk if needed
+    await this.ensureChunkExists(chunkX, chunkY);
+
+    // Get settlements in the chunk bounds
+    const chunkSize = 50; // Assuming 50x50 chunks
+    const startX = chunkX * chunkSize;
+    const startY = chunkY * chunkSize;
+    const endX = startX + chunkSize - 1;
+    const endY = startY + chunkSize - 1;
+
+    // Get settlements within chunk bounds
+    return await this.worldDatabase.getSettlementsInBounds(
+      startX,
+      startY,
+      endX,
+      endY,
+    );
+  }
+
+  async getChunkStats(
+    chunkX: number,
+    chunkY: number,
+  ): Promise<{
+    averageHeight: number;
+    averageTemperature: number;
+    averageMoisture: number;
+  }> {
+    const tiles = await this.getChunkTiles(chunkX, chunkY);
+
+    let totalHeight = 0;
+    let totalTemperature = 0;
+    let totalMoisture = 0;
+
+    for (const tile of tiles) {
+      totalHeight += tile.height;
+      totalTemperature += tile.temperature;
+      totalMoisture += tile.moisture;
+    }
+
+    const count = tiles.length;
+    return {
+      averageHeight: totalHeight / count,
+      averageTemperature: totalTemperature / count,
+      averageMoisture: totalMoisture / count,
+    };
+  }
+
+  async getChunkBiomeStats(
+    chunkX: number,
+    chunkY: number,
+  ): Promise<
+    Array<{
+      biomeName: string;
+      count: number;
+    }>
+  > {
+    const tiles = await this.getChunkTiles(chunkX, chunkY);
+
+    const biomeCount: Record<string, number> = {};
+
+    for (const tile of tiles) {
+      if (tile.biomeName) {
+        biomeCount[tile.biomeName] = (biomeCount[tile.biomeName] || 0) + 1;
+      }
+    }
+
+    return Object.entries(biomeCount).map(([biomeName, count]) => ({
+      biomeName,
+      count,
+    }));
+  }
+
+  private async ensureChunkExists(
+    chunkX: number,
+    chunkY: number,
+  ): Promise<void> {
+    const existingTiles = await this.worldDatabase.getChunkFromDatabase(
+      chunkX,
+      chunkY,
+    );
+
+    if (existingTiles.length < 2500) {
+      await this.getChunk(chunkX, chunkY);
     }
   }
 }

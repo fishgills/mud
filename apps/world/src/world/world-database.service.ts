@@ -51,8 +51,8 @@ export class WorldDatabaseService {
   ): Promise<WorldTile[]> {
     return await this.prismaService.worldTile.findMany({
       where: {
-        x: chunkX,
-        y: chunkY,
+        chunkX: chunkX,
+        chunkY: chunkY,
       },
       include: { biome: true },
     });
@@ -118,6 +118,20 @@ export class WorldDatabaseService {
     });
   }
 
+  async getSettlementsInBounds(
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number,
+  ) {
+    return await this.prismaService.settlement.findMany({
+      where: {
+        x: { gte: minX, lte: maxX },
+        y: { gte: minY, lte: maxY },
+      },
+    });
+  }
+
   async updateTileDescription(
     x: number,
     y: number,
@@ -134,5 +148,23 @@ export class WorldDatabaseService {
     });
 
     return updatedTile;
+  }
+
+  async getBiomeById(biomeId: number) {
+    return await this.prismaService.biome.findUnique({
+      where: { id: biomeId },
+    });
+  }
+
+  async getMonstersAtTile(x: number, y: number) {
+    return await this.prismaService.monster.findMany({
+      where: { x, y },
+    });
+  }
+
+  async getPlayersAtTile(x: number, y: number) {
+    return await this.prismaService.player.findMany({
+      where: { x, y },
+    });
   }
 }
