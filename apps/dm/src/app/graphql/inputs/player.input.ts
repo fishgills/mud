@@ -9,6 +9,18 @@ registerEnumType(TargetType, {
   name: 'TargetType',
 });
 
+export enum Direction {
+  NORTH = 'n',
+  EAST = 'e',
+  SOUTH = 's',
+  WEST = 'w',
+}
+
+registerEnumType(Direction, {
+  name: 'Direction',
+  description: 'Cardinal directions for player movement',
+});
+
 @InputType()
 export class CreatePlayerInput {
   @Field()
@@ -26,8 +38,8 @@ export class CreatePlayerInput {
 
 @InputType()
 export class MovePlayerInput {
-  @Field()
-  direction!: string;
+  @Field(() => Direction)
+  direction!: Direction;
 }
 
 @InputType()

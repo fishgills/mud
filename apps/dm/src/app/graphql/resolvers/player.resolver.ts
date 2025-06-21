@@ -26,6 +26,7 @@ import {
   PlayerStatsInput,
   AttackInput,
   TargetType,
+  Direction,
 } from '../inputs/player.input';
 
 @Resolver(() => Player)
