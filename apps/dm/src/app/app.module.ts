@@ -1,29 +1,28 @@
 import { Module } from '@nestjs/common';
+import { GraphQLModule } from '@nestjs/graphql';
+import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import {
-  HealthController,
-  PlayerController,
-  GameStateController,
-  LocationController,
-  AdminController,
-} from './dm/controllers';
 import { PlayerService } from './player/player.service';
 import { MonsterService } from './monster/monster.service';
 import { CombatService } from './combat/combat.service';
 import { GameTickService } from './game-tick/game-tick.service';
 import { WorldService } from './world/world.service';
 import { OpenaiModule } from '../openai/openai.module';
+import { PlayerResolver, LocationResolver, SystemResolver } from './graphql';
 
 @Module({
-  imports: [OpenaiModule],
+  imports: [
+    GraphQLModule.forRoot<ApolloDriverConfig>({
+      driver: ApolloDriver,
+      autoSchemaFile: true,
+      playground: true,
+      introspection: true,
+    }),
+    OpenaiModule,
+  ],
   controllers: [
-    AppController,
-    HealthController,
-    PlayerController,
-    GameStateController,
-    LocationController,
-    AdminController,
+    AppController, // Keep only the basic app controller for the root endpoint
   ],
   providers: [
     AppService,
@@ -32,6 +31,9 @@ import { OpenaiModule } from '../openai/openai.module';
     CombatService,
     GameTickService,
     WorldService,
+    PlayerResolver,
+    LocationResolver,
+    SystemResolver,
   ],
 })
 export class AppModule {}
