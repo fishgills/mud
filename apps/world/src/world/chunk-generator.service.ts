@@ -1,14 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  ChunkData,
-  TileData,
-  WorldSeedConfig,
-  DEFAULT_WORLD_CONFIG,
-} from './types';
+import { ChunkData, WorldSeedConfig, DEFAULT_WORLD_CONFIG } from './types';
 import { NoiseGenerator } from '../noise-generator/noise-generator';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
 import { BiomeGenerator } from '../biome-generator/biome-generator';
 import { WorldUtilsService } from './world-utils.service';
+import { WorldTile } from '@prisma/client';
 
 @Injectable()
 export class ChunkGeneratorService {
@@ -97,7 +93,7 @@ export class ChunkGeneratorService {
     };
   }
 
-  private updateStats(stats: any, tile: TileData): void {
+  private updateStats(stats: any, tile: WorldTile): void {
     stats.biomes[tile.biome.name] = (stats.biomes[tile.biome.name] || 0) + 1;
     stats.totalHeight += tile.height;
     stats.totalTemperature += tile.temperature;

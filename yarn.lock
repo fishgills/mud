@@ -2847,6 +2847,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@mud/database@workspace:libs/database"
   dependencies:
+    prisma: "npm:^6.10.1"
     tslib: "npm:^2.3.0"
   languageName: unknown
   linkType: soft
@@ -2913,7 +2914,6 @@ __metadata:
     pino-pretty: "npm:^13.0.0"
     postgres: "npm:^3.4.7"
     prettier: "npm:^3.5.3"
-    prisma: "npm:^6.8.2"
     reflect-metadata: "npm:^0.1.13"
     run-script-webpack-plugin: "npm:^0.2.3"
     rxjs: "npm:^7.8.0"
@@ -12301,7 +12301,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prisma@npm:^6.8.2":
+"prisma@npm:^6.10.1":
   version: 6.10.1
   resolution: "prisma@npm:6.10.1"
   dependencies:

@@ -63,7 +63,6 @@
     "jsonc-eslint-parser": "^2.1.0",
     "nx": "21.1.2",
     "prettier": "^3.5.3",
-    "prisma": "^6.8.2",
     "run-script-webpack-plugin": "^0.2.3",
     "ts-jest": "^29.1.0",
     "ts-node": "10.9.1",
