@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   ChunkData,
   WorldSeedConfig,
@@ -12,8 +12,6 @@ import { WorldUtilsService } from './world-utils.service';
 import { Settlement, WorldTile } from '@mud/database';
 @Injectable()
 export class ChunkGeneratorService {
-  private readonly logger = new Logger(ChunkGeneratorService.name);
-
   constructor(private worldUtils: WorldUtilsService) {}
 
   generateChunk(chunkX: number, chunkY: number, seed: number): ChunkData {
