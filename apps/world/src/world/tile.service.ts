@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { WorldDatabaseService } from './world-database.service';
 import { WorldUtilsService } from './world-utils.service';
-import { WorldTile } from '@prisma/client';
+import { WorldTile } from '@mud/database';
 import { ChunkData } from './types';
 
 export interface TileWithNearbyBiomes extends WorldTile {

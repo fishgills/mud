@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createCanvas } from 'canvas';
 import { PrismaService } from '../prisma/prisma.service';
-import { CachedTile, SettlementData } from '../world/types';
 import { BIOMES } from '../constants';
 import { WorldService } from '../world/world-refactored.service';
+import { Settlement, WorldTile } from '@mud/database';
 
 @Injectable()
 export class RenderService {
@@ -154,13 +154,13 @@ export class RenderService {
   ): Promise<{
     width: number;
     height: number;
-    settlementMap: Map<string, SettlementData>;
+    settlementMap: Map<string, Settlement>;
     existingTileCount: number;
     tileData: Array<{
       x: number;
       y: number;
-      tile: CachedTile | null;
-      settlement: SettlementData | undefined;
+      tile: Partial<WorldTile> | null;
+      settlement: Settlement | undefined;
       biome: (typeof BIOMES)[keyof typeof BIOMES] | null;
       hasError: boolean;
     }>;
@@ -191,8 +191,8 @@ export class RenderService {
     const tileData: Array<{
       x: number;
       y: number;
-      tile: CachedTile | null;
-      settlement: SettlementData | undefined;
+      tile: Partial<WorldTile> | null;
+      settlement: Settlement | undefined;
       biome: (typeof BIOMES)[keyof typeof BIOMES] | null;
       hasError: boolean;
     }> = [];
@@ -201,7 +201,7 @@ export class RenderService {
     // Collect all tile data using the tileMap
     for (let y = minY; y < maxY; y++) {
       for (let x = minX; x < maxX; x++) {
-        let tile: CachedTile | null = null;
+        let tile: Partial<WorldTile> | null = null;
         let hasError = false;
 
         try {
@@ -230,7 +230,7 @@ export class RenderService {
         const settlement = settlementMap.get(`${x},${y}`);
 
         // Check if this coordinate is within any settlement footprint
-        let settlementFromFootprint: SettlementData | undefined;
+        let settlementFromFootprint: Settlement | undefined;
         if (!settlement && settlements.length > 0) {
           const settlementCheck = this.worldService.isCoordinateInSettlement(
             x,
@@ -244,11 +244,12 @@ export class RenderService {
 
         const finalSettlement = settlement || settlementFromFootprint;
 
-        const biome = tile
-          ? Object.values(BIOMES).find(
-              (b) => b.name.toLowerCase() === tile.biomeName.toLowerCase(),
-            ) || BIOMES.GRASSLAND
-          : null;
+        const biome =
+          tile && tile.biomeName
+            ? Object.values(BIOMES).find(
+                (b) => b.name.toLowerCase() === tile.biomeName!.toLowerCase(),
+              ) || BIOMES.GRASSLAND
+            : null;
 
         tileData.push({
           x,

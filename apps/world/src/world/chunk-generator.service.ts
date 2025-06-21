@@ -1,11 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ChunkData, WorldSeedConfig, DEFAULT_WORLD_CONFIG } from './types';
+import {
+  ChunkData,
+  WorldSeedConfig,
+  DEFAULT_WORLD_CONFIG,
+  TileData,
+} from './types';
 import { NoiseGenerator } from '../noise-generator/noise-generator';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
 import { BiomeGenerator } from '../biome-generator/biome-generator';
 import { WorldUtilsService } from './world-utils.service';
-import { WorldTile } from '@prisma/client';
-
+import { Settlement, WorldTile } from '@mud/database';
 @Injectable()
 export class ChunkGeneratorService {
   private readonly logger = new Logger(ChunkGeneratorService.name);
@@ -23,7 +27,7 @@ export class ChunkGeneratorService {
     const noiseGenerator = new NoiseGenerator(config);
     const settlementGenerator = new SettlementGenerator(seed);
 
-    const tiles: TileData[] = [];
+    const tiles: Partial<WorldTile>[] = [];
     const settlements: ChunkData['settlements'] = [];
     const stats = this.initializeStats();
 
@@ -36,16 +40,32 @@ export class ChunkGeneratorService {
         const worldX = startX + localX;
         const worldY = startY + localY;
 
-        const tile = this.generateTile(worldX, worldY, noiseGenerator);
-        tiles.push(tile);
+        const tileData = this.generateTile(worldX, worldY, noiseGenerator);
 
-        this.updateStats(stats, tile);
+        // Convert TileData to WorldTile format
+        const worldTile: Partial<WorldTile> = {
+          x: tileData.x,
+          y: tileData.y,
+          biomeId: tileData.biome.id,
+          biomeName: tileData.biome.name,
+          height: tileData.height,
+          temperature: tileData.temperature,
+          moisture: tileData.moisture,
+          seed: seed,
+          chunkX: Math.floor(tileData.x / 50),
+          chunkY: Math.floor(tileData.y / 50),
+          description: null,
+        };
+
+        tiles.push(worldTile);
+
+        this.updateStats(stats, tileData);
 
         // Check for settlement generation
         this.tryGenerateSettlement(
           worldX,
           worldY,
-          tile.biome,
+          tileData.biome,
           settlementGenerator,
           settlements,
         );
@@ -58,7 +78,7 @@ export class ChunkGeneratorService {
     );
 
     return {
-      tiles,
+      tiles: tiles as WorldTile[],
       settlements,
       stats: finalStats,
     };
@@ -93,7 +113,7 @@ export class ChunkGeneratorService {
     };
   }
 
-  private updateStats(stats: any, tile: WorldTile): void {
+  private updateStats(stats: any, tile: TileData): void {
     stats.biomes[tile.biome.name] = (stats.biomes[tile.biome.name] || 0) + 1;
     stats.totalHeight += tile.height;
     stats.totalTemperature += tile.temperature;
@@ -114,7 +134,7 @@ export class ChunkGeneratorService {
     y: number,
     biome: any,
     settlementGenerator: SettlementGenerator,
-    settlements: ChunkData['settlements'],
+    settlements: Settlement[],
   ): void {
     if (!settlementGenerator.shouldGenerateSettlement(x, y, biome)) {
       return;

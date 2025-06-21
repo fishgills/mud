@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-
+import { Settlement } from '@mud/database';
 @Injectable()
 export class WorldUtilsService {
   static readonly CHUNK_SIZE = 50;
@@ -86,7 +86,7 @@ export class WorldUtilsService {
     newX: number,
     newY: number,
     newSize: string,
-    existingSettlements: Array<{ x: number; y: number; size: string }>,
+    existingSettlements: Settlement[],
   ): boolean {
     return existingSettlements.some((settlement) => {
       const distance = this.calculateDistance(

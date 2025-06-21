@@ -3,7 +3,7 @@ import { BIOMES } from '../constants';
 import {
   BiomeInfo,
   SettlementFootprint,
-  SettlementInfo,
+  SettlementWithFootprint,
   SettlementTileInfo,
 } from '../world/types';
 import {
@@ -11,7 +11,7 @@ import {
   SETTLEMENT_ROOTS,
   SETTLEMENT_SUFFIXES,
 } from './settlement-naming';
-
+import { Settlement } from '@mud/database';
 export class SettlementGenerator {
   private seed: number;
 
@@ -69,7 +69,7 @@ export class SettlementGenerator {
    * @param biome - The biome information at the location.
    * @returns The generated settlement information.
    */
-  generateSettlement(x: number, y: number, biome: BiomeInfo): SettlementInfo {
+  generateSettlement(x: number, y: number, biome: BiomeInfo): Settlement {
     // Create deterministic randomness based on coordinates
     const coordSeed = x * 1000 + y + this.seed;
     const coordRng = seedrandom(coordSeed.toString());
@@ -85,10 +85,11 @@ export class SettlementGenerator {
       coordRng,
     );
 
-    // Generate settlement footprint
-    const footprint = this.generateSettlementFootprint(x, y, size, coordRng);
+    // Generate settlement footprint (not stored with the Settlement but used for generation)
+    // const footprint = this.generateSettlementFootprint(x, y, size, coordRng);
 
     return {
+      id: 0, // Will be assigned by database
       name,
       type,
       size,
@@ -96,7 +97,8 @@ export class SettlementGenerator {
       x,
       y,
       description,
-      footprint,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
   }
 
@@ -110,12 +112,13 @@ export class SettlementGenerator {
   static getSettlementAtCoordinate(
     x: number,
     y: number,
-    settlements: SettlementInfo[],
+    settlements: SettlementWithFootprint[],
   ): SettlementTileInfo {
     for (const settlement of settlements) {
       if (settlement.footprint) {
         const tile = settlement.footprint.tiles.find(
-          (t) => t.x === x && t.y === y,
+          (t: { x: number; y: number; intensity: number }) =>
+            t.x === x && t.y === y,
         );
         if (tile) {
           return {
@@ -179,8 +182,8 @@ export class SettlementGenerator {
     rng: () => number,
     biome: BiomeInfo,
   ): {
-    type: SettlementInfo['type'];
-    size: SettlementInfo['size'];
+    type: Settlement['type'];
+    size: Settlement['size'];
     population: number;
   } {
     const roll = rng();
@@ -227,7 +230,7 @@ export class SettlementGenerator {
   }
 
   private generateSettlementDescription(
-    type: SettlementInfo['type'],
+    type: Settlement['type'],
     biome: BiomeInfo,
     rng: () => number,
   ): string {
@@ -269,7 +272,12 @@ export class SettlementGenerator {
     };
 
     const baseDesc =
-      baseDescriptions[type][Math.floor(rng() * baseDescriptions[type].length)];
+      baseDescriptions[type as keyof typeof baseDescriptions][
+        Math.floor(
+          rng() *
+            baseDescriptions[type as keyof typeof baseDescriptions].length,
+        )
+      ];
     const biomeDesc = biomeDescriptions[biome.name] || 'in a remote location';
 
     return `${baseDesc} ${biomeDesc}.`;
@@ -286,7 +294,7 @@ export class SettlementGenerator {
   generateSettlementFootprint(
     centerX: number,
     centerY: number,
-    size: SettlementInfo['size'],
+    size: Settlement['size'],
     rng: () => number,
   ): SettlementFootprint {
     // Determine base radius based on settlement size
@@ -336,7 +344,7 @@ export class SettlementGenerator {
   /**
    * Get the base radius for a settlement based on its size
    */
-  private getSettlementRadius(size: SettlementInfo['size']): number {
+  private getSettlementRadius(size: Settlement['size']): number {
     switch (size) {
       case 'large':
         return 8; // Cities: ~8 tile radius
@@ -357,7 +365,7 @@ export class SettlementGenerator {
   private generateGrowthCenters(
     centerX: number,
     centerY: number,
-    size: SettlementInfo['size'],
+    size: Settlement['size'],
     rng: () => number,
   ): Array<{ x: number; y: number; weight: number }> {
     const centers: Array<{ x: number; y: number; weight: number }> = [];
@@ -386,7 +394,7 @@ export class SettlementGenerator {
   /**
    * Get number of additional growth centers based on settlement size
    */
-  private getAdditionalCenterCount(size: SettlementInfo['size']): number {
+  private getAdditionalCenterCount(size: Settlement['size']): number {
     switch (size) {
       case 'large':
         return 3; // Cities have multiple districts

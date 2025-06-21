@@ -1,13 +1,13 @@
-import { Settlement, WorldTile } from '@prisma/client';
+import { Settlement, WorldTile } from '@mud/database';
 
-// export interface TileData {
-//   x: number;
-//   y: number;
-//   height: number;
-//   temperature: number;
-//   moisture: number;
-//   biome: BiomeInfo;
-// }
+export interface TileData {
+  x: number;
+  y: number;
+  height: number;
+  temperature: number;
+  moisture: number;
+  biome: BiomeInfo;
+}
 
 export interface BiomeInfo {
   id: number;
@@ -57,18 +57,6 @@ export interface NoiseConfig {
   lacunarity: number;
 }
 
-export interface SettlementInfo {
-  name: string;
-  type: 'city' | 'town' | 'village' | 'hamlet' | 'farm';
-  size: 'large' | 'medium' | 'small' | 'tiny';
-  population: number;
-  x: number;
-  y: number;
-  description: string;
-  // New fields for settlement footprint
-  footprint?: SettlementFootprint;
-}
-
 export interface SettlementFootprint {
   centerX: number;
   centerY: number;
@@ -83,9 +71,14 @@ export interface SettlementTileInfo {
   intensity: number; // 0-1, how much of this tile is settlement
 }
 
+// Extended Settlement type for internal use with footprint
+export interface SettlementWithFootprint extends Settlement {
+  footprint?: SettlementFootprint;
+}
+
 export interface ChunkData {
   tiles: WorldTile[];
-  settlements: Array<Settlement>;
+  settlements: Settlement[];
   stats: {
     biomes: Record<string, number>;
     averageHeight: number;

@@ -2,7 +2,7 @@ import { Injectable, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BIOMES } from '../constants';
 import { ChunkData } from './types';
-import { WorldTile } from '@prisma/client';
+import { WorldTile } from '@mud/database';
 
 @Injectable()
 export class WorldDatabaseService {

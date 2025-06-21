@@ -6,7 +6,7 @@ import { ChunkGeneratorService } from './chunk-generator.service';
 import { TileService, TileWithNearbyBiomes } from './tile.service';
 import { WorldUtilsService } from './world-utils.service';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
-import { Settlement } from '@prisma/client';
+import { Settlement } from '@mud/database';
 
 @Injectable()
 export class WorldService {
