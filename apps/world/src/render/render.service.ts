@@ -146,7 +146,7 @@ export class RenderService {
     );
     return asciiMap;
   }
-  private async prepareMapData(
+  public async prepareMapData(
     minX: number,
     maxX: number,
     minY: number,
