@@ -16,10 +16,10 @@ export class ChunkResolver {
   constructor(private readonly worldService: WorldService) {}
 
   @Query(() => ChunkData)
-  async getChunk(
+  getChunk(
     @Args('chunkX') chunkX: number,
     @Args('chunkY') chunkY: number,
-  ): Promise<ChunkData> {
+  ): ChunkData {
     // Return basic chunk info - fields will be resolved on-demand
     return {
       chunkX,

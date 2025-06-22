@@ -48,8 +48,7 @@ export class OpenaiService {
             content: prompt,
           },
         ],
-        temperature: 0.7,
-        max_tokens: 300,
+        temperature: 0.9,
       });
 
       this.logger.log(`OpenAI response received`);
