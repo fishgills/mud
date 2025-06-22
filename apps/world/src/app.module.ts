@@ -5,12 +5,13 @@ import { RenderModule } from './render/render.module';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { WorldModule } from './world/world.module';
+import { join } from 'path';
 
 @Module({
   imports: [
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: true,
+      autoSchemaFile: join(process.cwd(), 'apps/world/src/schema.gql'),
     }),
     RenderModule,
     WorldModule,

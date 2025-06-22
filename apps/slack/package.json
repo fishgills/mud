@@ -1,0 +1,68 @@
+{
+  "name": "@mud/slack",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "slack",
+    "targets": {
+      "build": {
+        "executor": "@nx/esbuild:esbuild",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "defaultConfiguration": "production",
+        "options": {
+          "platform": "node",
+          "outputPath": "apps/slack/dist",
+          "format": [
+            "cjs"
+          ],
+          "bundle": false,
+          "main": "apps/slack/src/main.ts",
+          "tsConfig": "apps/slack/tsconfig.app.json",
+          "assets": [
+            "apps/slack/src/assets"
+          ],
+          "esbuildOptions": {
+            "sourcemap": true,
+            "outExtension": {
+              ".js": ".js"
+            }
+          }
+        },
+        "configurations": {
+          "development": {},
+          "production": {
+            "esbuildOptions": {
+              "sourcemap": false,
+              "outExtension": {
+                ".js": ".js"
+              }
+            }
+          }
+        }
+      },
+      "serve": {
+        "continuous": true,
+        "executor": "@nx/js:node",
+        "defaultConfiguration": "development",
+        "dependsOn": [
+          "build"
+        ],
+        "options": {
+          "buildTarget": "slack:build",
+          "runBuildTargetDependencies": false,
+          "port": 3005
+        },
+        "configurations": {
+          "development": {
+            "buildTarget": "slack:build:development"
+          },
+          "production": {
+            "buildTarget": "slack:build:production"
+          }
+        }
+      }
+    }
+  }
+}

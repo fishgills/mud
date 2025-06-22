@@ -10,20 +10,19 @@ import { GameTickService } from './game-tick/game-tick.service';
 import { WorldService } from './world/world.service';
 import { OpenaiModule } from '../openai/openai.module';
 import { PlayerResolver, LocationResolver, SystemResolver } from './graphql';
+import { join } from 'path';
 
 @Module({
   imports: [
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: true,
+      autoSchemaFile: join(process.cwd(), 'apps/dm/src/schema.gql'),
       playground: true,
       introspection: true,
     }),
     OpenaiModule,
   ],
-  controllers: [
-    AppController, // Keep only the basic app controller for the root endpoint
-  ],
+  controllers: [AppController],
   providers: [
     AppService,
     PlayerService,
