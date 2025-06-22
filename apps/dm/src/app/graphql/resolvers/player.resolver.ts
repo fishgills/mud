@@ -135,7 +135,6 @@ export class PlayerResolver {
         currentSettlement: tileInfoWithNearby.currentSettlement,
         surroundingTiles: surroundingTilesWithDirection,
       };
-      this.logger.debug(surroundingTilesWithDirection);
 
       // Batch AI calls in parallel
       const aiPromises: Promise<{ output_text: string }>[] = [];
