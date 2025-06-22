@@ -1,4 +1,5 @@
 import './tracer';
+import './env';
 
 import { Logger } from '@nestjs/common';
 

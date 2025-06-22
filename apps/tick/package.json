@@ -50,7 +50,8 @@
         ],
         "options": {
           "buildTarget": "@mud/tick:build",
-          "runBuildTargetDependencies": false
+          "runBuildTargetDependencies": false,
+          "port": 9231
         },
         "configurations": {
           "development": {
