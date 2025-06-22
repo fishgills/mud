@@ -62,6 +62,7 @@ export class OpenaiService {
     } catch (error) {
       if (error instanceof Error) {
         this.logger.error(`Error calling OpenAI: ${error.message}`);
+        this.logger.debug(error);
         // Return a fallback response instead of throwing
         return {
           output_text: this.generateMockResponse(prompt),

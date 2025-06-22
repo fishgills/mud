@@ -31,9 +31,11 @@ import {
   AttackInput,
   TargetType,
 } from '../inputs/player.input';
+import { Logger } from '@nestjs/common';
 
 @Resolver(() => Player)
 export class PlayerResolver {
+  private logger = new Logger(PlayerResolver.name);
   constructor(
     private playerService: PlayerService,
     private monsterService: MonsterService,
@@ -133,6 +135,7 @@ export class PlayerResolver {
         currentSettlement: tileInfoWithNearby.currentSettlement,
         surroundingTiles: surroundingTilesWithDirection,
       };
+      this.logger.debug(surroundingTilesWithDirection);
 
       // Batch AI calls in parallel
       const aiPromises: Promise<{ output_text: string }>[] = [];
@@ -146,7 +149,7 @@ export class PlayerResolver {
             `Below is json information about the player's current position in the world. ` +
               `if 'currentSettlement' exists, the player is INSIDE a settlement. The intensity property describes how dense the city is at this location on a scale of 0 to 1. ` +
               `The surroundingTiles array contains information about the 8 tiles immediately surrounding the player's current position, including their biome, description, and direction from the player. ` +
-              `Use this information to create a cohesive description that considers the immediate surroundings and transitions between different areas. \n ${JSON.stringify(
+              `Use this information to create a cohesive description that considers the immediate surroundings and transitions between different areas. Try to keep it under 150 words. Doesn't have to be exactly 150 words. \n ${JSON.stringify(
                 gptJson,
               )}`,
           ),
