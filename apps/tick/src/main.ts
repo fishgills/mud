@@ -2,7 +2,7 @@ import express from 'express';
 import axios from 'axios';
 
 const host = process.env.HOST ?? 'localhost';
-const port = process.env.PORT ? Number(process.env.PORT) : 3001;
+const port = process.env.PORT ? Number(process.env.PORT) : 3002;
 
 // Configure the game engine endpoint (adjust as needed)
 const GAME_ENGINE_URL =
