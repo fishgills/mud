@@ -211,7 +211,7 @@ export class PlayerResolver {
 
         const summary =
           `You are standing in a ${biome} biome. ` +
-          `Temperature: ${temp.toFixed(2)} (On a scale of 0 to 1), Height: ${height.toFixed(2)} (on a scale of 0 to 1), Moisture: ${moisture.toFixed(2)} (On a scale of 0 to 1). ` +
+          `Temperature: ${temp.toFixed(2)} (On a scale of 0 to 1. 0 being below freezing, 1 being 105 degrees F), Height: ${height.toFixed(2)} (on a scale of 0 to 1), Moisture: ${moisture.toFixed(2)} (On a scale of 0 to 1). ` +
           (settlement
             ? `You are inside a settlement: ${settlement.name} (${settlement.type}, intensity: ${settlement.intensity}). `
             : '') +
