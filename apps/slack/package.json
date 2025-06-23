@@ -33,6 +33,7 @@
         "configurations": {
           "development": {},
           "production": {
+            "generateLockfile": true,
             "esbuildOptions": {
               "sourcemap": false,
               "outExtension": {
@@ -51,8 +52,7 @@
         ],
         "options": {
           "buildTarget": "slack:build",
-          "runBuildTargetDependencies": false,
-          "port": 3005
+          "runBuildTargetDependencies": false
         },
         "configurations": {
           "development": {
@@ -62,6 +62,12 @@
             "buildTarget": "slack:build:production"
           }
         }
+      },
+      "docker-build": {
+        "dependsOn": [
+          "build"
+        ],
+        "command": "docker build -f apps/slack/Dockerfile . -t slack"
       }
     }
   }
