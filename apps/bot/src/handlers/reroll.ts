@@ -1,3 +1,5 @@
+import { registerHandler } from './handlerRegistry';
+import { EMOJI_REROLL } from './emojis';
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 
@@ -17,3 +19,6 @@ export const rerollHandler = async ({ userId, say }: HandlerContext) => {
     await say({ text: `Failed to reroll stats: ${err}` });
   }
 };
+
+// Register handler after all declarations
+registerHandler(EMOJI_REROLL, rerollHandler);

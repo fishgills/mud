@@ -1,6 +1,6 @@
+import { EMOJI_CREATE, EMOJI_REROLL, EMOJI_COMPLETE } from './handlers/emojis';
 import { App, LogLevel } from '@slack/bolt';
 import { env } from './env';
-import { dmSdk } from './gql-client';
 
 const app = new App({
   token: env.SLACK_BOT_TOKEN,
@@ -8,32 +8,12 @@ const app = new App({
   logLevel: LogLevel.INFO,
 });
 
-import { EMOJI_CREATE, EMOJI_REROLL, EMOJI_COMPLETE } from './handlers/emojis';
-import { createHandler } from './handlers/create';
-import { rerollHandler } from './handlers/reroll';
-import { completeHandler } from './handlers/complete';
-import { HandlerContext } from './handlers/types';
-import {
-  moveHandler,
-  EMOJI_NORTH,
-  EMOJI_EAST,
-  EMOJI_SOUTH,
-  EMOJI_WEST,
-} from './handlers/move';
-import { attackHandler, EMOJI_ATTACK } from './handlers/attack';
-
-type EmojiHandler = (ctx: HandlerContext) => Promise<void>;
-
-const handlers: Record<string, EmojiHandler> = {
-  [EMOJI_CREATE]: createHandler,
-  [EMOJI_REROLL]: rerollHandler,
-  [EMOJI_COMPLETE]: completeHandler,
-  [EMOJI_NORTH]: moveHandler,
-  [EMOJI_EAST]: moveHandler,
-  [EMOJI_SOUTH]: moveHandler,
-  [EMOJI_WEST]: moveHandler,
-  [EMOJI_ATTACK]: attackHandler,
-};
+import './handlers/move';
+import './handlers/attack';
+import './handlers/create';
+import './handlers/reroll';
+import './handlers/complete';
+import { getAllHandlers } from './handlers/handlerRegistry';
 
 app.event('app_mention', async ({ event, say }) => {
   await say(
@@ -65,7 +45,8 @@ app.message(async ({ message, say }) => {
   const sayVoid = async (msg: { text: string }) => {
     await say(msg);
   };
-  for (const [emoji, handler] of Object.entries(handlers)) {
+
+  for (const [emoji, handler] of Object.entries(getAllHandlers())) {
     if (text.includes(emoji)) {
       await handler({ userId, say: sayVoid, text });
       return;
@@ -75,35 +56,11 @@ app.message(async ({ message, say }) => {
   // Help message for unknown input
   await say(
     `Hi <@${userId}>! Use these commands:
-${Object.keys(handlers)
-  .map((e) => `${e} to ${handlerDescription(e)}`)
+${Object.keys(getAllHandlers())
+  .map((e) => `${e}`)
   .join('\n')}`,
   );
 });
-
-// Helper to describe each emoji command for help text
-function handlerDescription(emoji: string): string {
-  switch (emoji) {
-    case EMOJI_CREATE:
-      return 'create your character';
-    case EMOJI_REROLL:
-      return 'reroll your stats';
-    case EMOJI_COMPLETE:
-      return 'complete character creation';
-    case EMOJI_NORTH:
-      return 'move north';
-    case EMOJI_EAST:
-      return 'move east';
-    case EMOJI_SOUTH:
-      return 'move south';
-    case EMOJI_WEST:
-      return 'move west';
-    case EMOJI_ATTACK:
-      return 'attack a nearby monster';
-    default:
-      return 'unknown action';
-  }
-}
 
 async function start() {
   await app.start(Number(env.PORT));

@@ -1,6 +1,7 @@
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { Direction } from '../generated/dm-graphql';
+import { registerHandler } from './handlerRegistry';
 
 // Emoji directions
 export const EMOJI_NORTH = '⬆️';
@@ -51,7 +52,7 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
       }
     }
     if (data.monsters && data.monsters.length) {
-      msg += `Monsters nearby: ${data.monsters.map((m: any) => m.name).join(', ')}\n`;
+      msg += `Monsters nearby: ${data.monsters.map((m) => m.name).join(', ')}\n`;
     }
     if (data.playerInfo) {
       msg += data.playerInfo + '\n';
@@ -61,3 +62,9 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
     await say({ text: `Failed to move: ${err}` });
   }
 };
+
+// Register handlers after all declarations
+registerHandler(EMOJI_NORTH, moveHandler);
+registerHandler(EMOJI_EAST, moveHandler);
+registerHandler(EMOJI_SOUTH, moveHandler);
+registerHandler(EMOJI_WEST, moveHandler);

@@ -1,12 +1,14 @@
 import { TargetType } from '../generated/dm-graphql';
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
+import { registerHandler } from './handlerRegistry';
 
 // Emoji for attack
 export const EMOJI_ATTACK = '⚔️';
 
 export const attackHandlerHelp = `Attack the nearest monster using ⚔️. Example: Send ⚔️ to attack.`;
-export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
+export const attackHandler = async ({ userId, say }: HandlerContext) => {
+  registerHandler(EMOJI_ATTACK, attackHandler);
   // For demo: attack the first nearby monster (could be improved with more context)
   try {
     // Get player info to find nearby monsters

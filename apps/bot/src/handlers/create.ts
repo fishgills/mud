@@ -1,6 +1,7 @@
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
-import { EMOJI_REROLL, EMOJI_COMPLETE } from './emojis';
+import { EMOJI_REROLL, EMOJI_COMPLETE, EMOJI_CREATE } from './emojis';
+import { registerHandler } from './handlerRegistry';
 
 export const createHandlerHelp = `Create a new character with 🆕. Example: Send 🆕 to start character creation.`;
 export const createHandler = async ({ userId, say }: HandlerContext) => {
@@ -19,3 +20,6 @@ export const createHandler = async ({ userId, say }: HandlerContext) => {
     await say({ text: `Failed to create character: ${err}` });
   }
 };
+
+// Register handler after all declarations
+registerHandler(EMOJI_CREATE, createHandler);

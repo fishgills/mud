@@ -1,3 +1,5 @@
+import { registerHandler } from './handlerRegistry';
+import { EMOJI_COMPLETE } from './emojis';
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 
@@ -16,3 +18,6 @@ export const completeHandler = async ({ userId, say }: HandlerContext) => {
     await say({ text: `Failed to complete character: ${err}` });
   }
 };
+
+// Register handler after all declarations
+registerHandler(EMOJI_COMPLETE, completeHandler);
