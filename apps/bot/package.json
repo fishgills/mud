@@ -52,7 +52,8 @@
         ],
         "options": {
           "buildTarget": "slack-bot:build",
-          "runBuildTargetDependencies": false
+          "runBuildTargetDependencies": false,
+          "port": 9231
         },
         "configurations": {
           "development": {

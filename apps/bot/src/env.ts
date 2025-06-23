@@ -7,5 +7,5 @@ export const env = cleanEnv(process.env, {
   SLACK_SIGNING_SECRET: str(),
   DM_GQL_ENDPOINT: url({ default: 'http://localhost:3001/graphql' }),
   WORLD_GQL_ENDPOINT: url({ default: 'http://localhost:3000/graphql' }),
-  PORT: str({ default: '3000' }),
+  PORT: str({ default: '3002' }),
 });

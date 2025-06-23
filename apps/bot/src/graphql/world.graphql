@@ -1,0 +1,10 @@
+query RenderAscii {
+  renderMapTiles(x: 1, y: 1) {
+    x
+    y
+    biomeName
+    symbol
+    hasSettlement
+    isSettlementCenter
+  }
+}

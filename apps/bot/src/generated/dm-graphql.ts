@@ -25,43 +25,6 @@ export type AttackInput = {
   targetType: TargetType;
 };
 
-export type Biome = {
-  __typename?: 'Biome';
-  id: Scalars['Int']['output'];
-  name: Scalars['String']['output'];
-  tiles?: Maybe<Array<WorldTile>>;
-};
-
-export type BiomeCount = {
-  __typename?: 'BiomeCount';
-  biomeName: Scalars['String']['output'];
-  count: Scalars['Int']['output'];
-};
-
-export type ChunkData = {
-  __typename?: 'ChunkData';
-  biomeStats?: Maybe<Array<BiomeCount>>;
-  chunkX: Scalars['Int']['output'];
-  chunkY: Scalars['Int']['output'];
-  paginatedTiles?: Maybe<PaginatedTiles>;
-  settlements?: Maybe<Array<Settlement>>;
-  stats?: Maybe<ChunkStats>;
-  tiles?: Maybe<Array<WorldTile>>;
-};
-
-
-export type ChunkDataPaginatedTilesArgs = {
-  limit?: InputMaybe<Scalars['Int']['input']>;
-  offset?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type ChunkStats = {
-  __typename?: 'ChunkStats';
-  averageHeight: Scalars['Float']['output'];
-  averageMoisture: Scalars['Float']['output'];
-  averageTemperature: Scalars['Float']['output'];
-};
-
 export type CombatLog = {
   __typename?: 'CombatLog';
   attackerId: Scalars['Int']['output'];
@@ -100,15 +63,6 @@ export type CreatePlayerInput = {
   slackId: Scalars['String']['input'];
   x?: InputMaybe<Scalars['Int']['input']>;
   y?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type CurrentSettlement = {
-  __typename?: 'CurrentSettlement';
-  intensity: Scalars['Float']['output'];
-  isCenter: Scalars['Boolean']['output'];
-  name: Scalars['String']['output'];
-  size: Scalars['String']['output'];
-  type: Scalars['String']['output'];
 };
 
 /** Cardinal directions for player movement */
@@ -154,16 +108,6 @@ export type LocationResponse = {
   success: Scalars['Boolean']['output'];
 };
 
-export type MapTile = {
-  __typename?: 'MapTile';
-  biomeName?: Maybe<Scalars['String']['output']>;
-  hasSettlement: Scalars['Boolean']['output'];
-  isSettlementCenter: Scalars['Boolean']['output'];
-  symbol?: Maybe<Scalars['String']['output']>;
-  x: Scalars['Int']['output'];
-  y: Scalars['Int']['output'];
-};
-
 export type Monster = {
   __typename?: 'Monster';
   agility: Scalars['Int']['output'];
@@ -207,7 +151,6 @@ export type Mutation = {
   respawn: PlayerResponse;
   spawnMonster: MonsterResponse;
   updatePlayerStats: PlayerResponse;
-  updateTileDescription: TileUpdateResult;
 };
 
 
@@ -253,41 +196,6 @@ export type MutationSpawnMonsterArgs = {
 export type MutationUpdatePlayerStatsArgs = {
   input: PlayerStatsInput;
   slackId: Scalars['String']['input'];
-};
-
-
-export type MutationUpdateTileDescriptionArgs = {
-  description: Scalars['String']['input'];
-  x: Scalars['Int']['input'];
-  y: Scalars['Int']['input'];
-};
-
-export type NearbyBiome = {
-  __typename?: 'NearbyBiome';
-  biomeName: Scalars['String']['output'];
-  direction: Scalars['String']['output'];
-  distance: Scalars['Float']['output'];
-};
-
-export type NearbySettlement = {
-  __typename?: 'NearbySettlement';
-  description: Scalars['String']['output'];
-  distance: Scalars['Float']['output'];
-  name: Scalars['String']['output'];
-  population: Scalars['Int']['output'];
-  size: Scalars['String']['output'];
-  type: Scalars['String']['output'];
-  x: Scalars['Int']['output'];
-  y: Scalars['Int']['output'];
-};
-
-export type PaginatedTiles = {
-  __typename?: 'PaginatedTiles';
-  hasMore: Scalars['Boolean']['output'];
-  limit: Scalars['Int']['output'];
-  offset: Scalars['Int']['output'];
-  tiles: Array<WorldTile>;
-  totalCount: Scalars['Int']['output'];
 };
 
 export type Player = {
@@ -368,26 +276,12 @@ export type Query = {
   __typename?: 'Query';
   getAllMonsters: Array<Monster>;
   getAllPlayers: Array<Player>;
-  getChunk: ChunkData;
   getGameState: GameStateResponse;
   getLocationInfo: LocationResponse;
   getPlayer: PlayerResponse;
   getPlayerStats: PlayerStats;
   getPlayersAtLocation: Array<Player>;
-  getTile: TileWithNearbyBiomes;
   health: HealthCheck;
-  /** Returns an ASCII map centered on (x, y) with a 50x50 region. */
-  renderMapAscii: Scalars['String']['output'];
-  /** Returns a PNG map centered on (x, y) as a base64 string (50x50 region). */
-  renderMapPngBase64: Scalars['String']['output'];
-  /** Returns a 2D array of map tiles for a 50x50 region centered on (x, y). */
-  renderMapTiles: Array<Array<MapTile>>;
-};
-
-
-export type QueryGetChunkArgs = {
-  chunkX: Scalars['Float']['input'];
-  chunkY: Scalars['Float']['input'];
 };
 
 
@@ -410,44 +304,6 @@ export type QueryGetPlayerStatsArgs = {
 export type QueryGetPlayersAtLocationArgs = {
   x: Scalars['Float']['input'];
   y: Scalars['Float']['input'];
-};
-
-
-export type QueryGetTileArgs = {
-  x: Scalars['Int']['input'];
-  y: Scalars['Int']['input'];
-};
-
-
-export type QueryRenderMapAsciiArgs = {
-  x?: InputMaybe<Scalars['Int']['input']>;
-  y?: InputMaybe<Scalars['Int']['input']>;
-};
-
-
-export type QueryRenderMapPngBase64Args = {
-  x?: InputMaybe<Scalars['Int']['input']>;
-  y?: InputMaybe<Scalars['Int']['input']>;
-};
-
-
-export type QueryRenderMapTilesArgs = {
-  x?: InputMaybe<Scalars['Int']['input']>;
-  y?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type Settlement = {
-  __typename?: 'Settlement';
-  createdAt: Scalars['DateTime']['output'];
-  description: Scalars['String']['output'];
-  id: Scalars['Int']['output'];
-  name: Scalars['String']['output'];
-  population: Scalars['Int']['output'];
-  size: Scalars['String']['output'];
-  type: Scalars['String']['output'];
-  updatedAt: Scalars['DateTime']['output'];
-  x: Scalars['Int']['output'];
-  y: Scalars['Int']['output'];
 };
 
 export type SpawnMonsterInput = {
@@ -484,53 +340,6 @@ export type TileInfo = {
   temperature: Scalars['Float']['output'];
   x: Scalars['Float']['output'];
   y: Scalars['Float']['output'];
-};
-
-export type TileUpdateResult = {
-  __typename?: 'TileUpdateResult';
-  message: Scalars['String']['output'];
-  success: Scalars['Boolean']['output'];
-};
-
-export type TileWithNearbyBiomes = {
-  __typename?: 'TileWithNearbyBiomes';
-  biome?: Maybe<Biome>;
-  biomeId: Scalars['Int']['output'];
-  biomeName: Scalars['String']['output'];
-  chunkX: Scalars['Int']['output'];
-  chunkY: Scalars['Int']['output'];
-  createdAt: Scalars['DateTime']['output'];
-  currentSettlement?: Maybe<CurrentSettlement>;
-  description?: Maybe<Scalars['String']['output']>;
-  height: Scalars['Float']['output'];
-  id: Scalars['Int']['output'];
-  moisture: Scalars['Float']['output'];
-  nearbyBiomes: Array<NearbyBiome>;
-  nearbySettlements: Array<NearbySettlement>;
-  seed: Scalars['Int']['output'];
-  temperature: Scalars['Float']['output'];
-  updatedAt: Scalars['DateTime']['output'];
-  x: Scalars['Int']['output'];
-  y: Scalars['Int']['output'];
-};
-
-export type WorldTile = {
-  __typename?: 'WorldTile';
-  biome?: Maybe<Biome>;
-  biomeId: Scalars['Int']['output'];
-  biomeName: Scalars['String']['output'];
-  chunkX: Scalars['Int']['output'];
-  chunkY: Scalars['Int']['output'];
-  createdAt: Scalars['DateTime']['output'];
-  description?: Maybe<Scalars['String']['output']>;
-  height: Scalars['Float']['output'];
-  id: Scalars['Int']['output'];
-  moisture: Scalars['Float']['output'];
-  seed: Scalars['Int']['output'];
-  temperature: Scalars['Float']['output'];
-  updatedAt: Scalars['DateTime']['output'];
-  x: Scalars['Int']['output'];
-  y: Scalars['Int']['output'];
 };
 
 export type MovePlayerMutationVariables = Exact<{
