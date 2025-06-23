@@ -1,6 +1,7 @@
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 
+export const rerollHandlerHelp = `Reroll your character's stats with 🎲. Example: Send 🎲 to reroll stats during character creation.`;
 export const rerollHandler = async ({ userId, say }: HandlerContext) => {
   try {
     const result = await dmSdk.RerollPlayerStats({ slackId: userId });

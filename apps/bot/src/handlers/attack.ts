@@ -5,6 +5,7 @@ import { HandlerContext } from './types';
 // Emoji for attack
 export const EMOJI_ATTACK = '⚔️';
 
+export const attackHandlerHelp = `Attack the nearest monster using ⚔️. Example: Send ⚔️ to attack.`;
 export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
   // For demo: attack the first nearby monster (could be improved with more context)
   try {

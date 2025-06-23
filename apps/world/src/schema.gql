@@ -11,55 +11,6 @@ type MapTile {
   isSettlementCenter: Boolean!
 }
 
-type Monster {
-  id: Int!
-  name: String!
-  type: String!
-  hp: Int!
-  maxHp: Int!
-  strength: Int!
-  agility: Int!
-  health: Int!
-  x: Int!
-  y: Int!
-  isAlive: Boolean!
-  lastMove: DateTime!
-  spawnedAt: DateTime!
-  biomeId: Int!
-  worldTileId: Int
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  biome: Biome
-  worldTile: WorldTile
-}
-
-"""
-A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
-"""
-scalar DateTime
-
-type Player {
-  id: Int!
-  slackId: String!
-  name: String!
-  x: Int!
-  y: Int!
-  hp: Int!
-  maxHp: Int!
-  strength: Int!
-  agility: Int!
-  health: Int!
-  gold: Int!
-  xp: Int!
-  level: Int!
-  isAlive: Boolean!
-  lastAction: DateTime!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  worldTileId: Int
-  worldTile: WorldTile
-}
-
 type WorldTile {
   id: Int!
   x: Int!
@@ -76,15 +27,17 @@ type WorldTile {
   createdAt: DateTime!
   updatedAt: DateTime!
   biome: Biome
-  monsters: [Monster!]
-  players: [Player!]
 }
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
 
 type Biome {
   id: Int!
   name: String!
   tiles: [WorldTile!]
-  monsters: [Monster!]
 }
 
 type Settlement {
@@ -170,8 +123,6 @@ type TileWithNearbyBiomes {
   createdAt: DateTime!
   updatedAt: DateTime!
   biome: Biome
-  monsters: [Monster!]
-  players: [Player!]
   nearbyBiomes: [NearbyBiome!]!
   nearbySettlements: [NearbySettlement!]!
   currentSettlement: CurrentSettlement

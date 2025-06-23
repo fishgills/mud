@@ -15,6 +15,7 @@ const directionMap: Record<string, Direction> = {
   [EMOJI_WEST]: Direction.West,
 };
 
+export const moveHandlerHelp = `Move your character using direction emojis: ⬆️ ⬇️ ⬅️ ➡️. Example: Send ⬆️ to move north.`;
 export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
   const found = Object.entries(directionMap).find(([emoji]) =>
     text.includes(emoji),

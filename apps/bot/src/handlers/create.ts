@@ -2,6 +2,7 @@ import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { EMOJI_REROLL, EMOJI_COMPLETE } from './emojis';
 
+export const createHandlerHelp = `Create a new character with 🆕. Example: Send 🆕 to start character creation.`;
 export const createHandler = async ({ userId, say }: HandlerContext) => {
   const name = `Player_${userId}`;
   const input = { slackId: userId, name };
