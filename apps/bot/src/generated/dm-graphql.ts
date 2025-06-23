@@ -9,7 +9,7 @@ export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> =
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 type GraphQLClientRequestHeaders = RequestOptions['requestHeaders'];
 /** All built-in and custom scalars, mapped to their actual values */
-export type Scalars = {
+export interface Scalars {
   ID: { input: string; output: string; }
   String: { input: string; output: string; }
   Boolean: { input: boolean; output: boolean; }
@@ -17,15 +17,14 @@ export type Scalars = {
   Float: { input: number; output: number; }
   /** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
   DateTime: { input: any; output: any; }
-};
+}
 
-export type AttackInput = {
+export interface DMTAttackInput {
   targetId: Scalars['Int']['input'];
-  targetType: TargetType;
-};
+  targetType: DMTTargetType;
+}
 
-export type CombatLog = {
-  __typename?: 'CombatLog';
+export interface DMTCombatLog {
   attackerId: Scalars['Int']['output'];
   attackerType: Scalars['String']['output'];
   damage: Scalars['Int']['output'];
@@ -35,17 +34,15 @@ export type CombatLog = {
   timestamp: Scalars['DateTime']['output'];
   x: Scalars['Int']['output'];
   y: Scalars['Int']['output'];
-};
+}
 
-export type CombatResponse = {
-  __typename?: 'CombatResponse';
-  data?: Maybe<CombatResult>;
+export interface DMTCombatResponse {
+  data?: Maybe<DMTCombatResult>;
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
-};
+}
 
-export type CombatResult = {
-  __typename?: 'CombatResult';
+export interface DMTCombatResult {
   attackerName: Scalars['String']['output'];
   damage: Scalars['Float']['output'];
   defenderHp: Scalars['Float']['output'];
@@ -55,60 +52,54 @@ export type CombatResult = {
   message: Scalars['String']['output'];
   success: Scalars['Boolean']['output'];
   xpGained?: Maybe<Scalars['Float']['output']>;
-};
+}
 
-export type CreatePlayerInput = {
+export interface DMTCreatePlayerInput {
   name: Scalars['String']['input'];
   slackId: Scalars['String']['input'];
   x?: InputMaybe<Scalars['Int']['input']>;
   y?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
 /** Cardinal directions for player movement */
-export enum Direction {
+export enum DMTDirection {
   East = 'EAST',
   North = 'NORTH',
   South = 'SOUTH',
   West = 'WEST'
 }
 
-export type GameState = {
-  __typename?: 'GameState';
+export interface DMTGameState {
   currentTime: Scalars['String']['output'];
   totalMonsters: Scalars['Float']['output'];
   totalPlayers: Scalars['Float']['output'];
-};
+}
 
-export type GameStateResponse = {
-  __typename?: 'GameStateResponse';
-  data?: Maybe<GameState>;
+export interface DMTGameStateResponse {
+  data?: Maybe<DMTGameState>;
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
-};
+}
 
-export type HealthCheck = {
-  __typename?: 'HealthCheck';
+export interface DMTHealthCheck {
   status: Scalars['String']['output'];
   timestamp: Scalars['String']['output'];
-};
+}
 
-export type LocationInfo = {
-  __typename?: 'LocationInfo';
-  location: TileInfo;
-  monsters?: Maybe<Array<Monster>>;
-  players?: Maybe<Array<Player>>;
-  recentCombat?: Maybe<Array<CombatLog>>;
-};
+export interface DMTLocationInfo {
+  location: DMTTileInfo;
+  monsters?: Maybe<Array<DMTMonster>>;
+  players?: Maybe<Array<DMTPlayer>>;
+  recentCombat?: Maybe<Array<DMTCombatLog>>;
+}
 
-export type LocationResponse = {
-  __typename?: 'LocationResponse';
-  data?: Maybe<LocationInfo>;
+export interface DMTLocationResponse {
+  data?: Maybe<DMTLocationInfo>;
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
-};
+}
 
-export type Monster = {
-  __typename?: 'Monster';
+export interface DMTMonster {
   agility: Scalars['Int']['output'];
   biomeId: Scalars['Int']['output'];
   createdAt: Scalars['DateTime']['output'];
@@ -126,82 +117,79 @@ export type Monster = {
   worldTileId?: Maybe<Scalars['Int']['output']>;
   x: Scalars['Int']['output'];
   y: Scalars['Int']['output'];
-};
+}
 
-export type MonsterResponse = {
-  __typename?: 'MonsterResponse';
-  data?: Maybe<Monster>;
+export interface DMTMonsterResponse {
+  data?: Maybe<DMTMonster>;
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
-};
+}
 
-export type MovePlayerInput = {
-  direction: Direction;
-};
+export interface DMTMovePlayerInput {
+  direction: DMTDirection;
+}
 
-export type Mutation = {
-  __typename?: 'Mutation';
-  attack: CombatResponse;
-  createPlayer: PlayerResponse;
-  damagePlayer: PlayerResponse;
-  healPlayer: PlayerResponse;
-  movePlayer: PlayerMoveResponse;
-  processTick: SuccessResponse;
-  respawn: PlayerResponse;
-  spawnMonster: MonsterResponse;
-  updatePlayerStats: PlayerResponse;
-};
+export interface DMTMutation {
+  attack: DMTCombatResponse;
+  createPlayer: DMTPlayerResponse;
+  damagePlayer: DMTPlayerResponse;
+  healPlayer: DMTPlayerResponse;
+  movePlayer: DMTPlayerMoveResponse;
+  processTick: DMTSuccessResponse;
+  respawn: DMTPlayerResponse;
+  spawnMonster: DMTMonsterResponse;
+  updatePlayerStats: DMTPlayerResponse;
+}
 
 
-export type MutationAttackArgs = {
-  input: AttackInput;
+export interface DMTMutationAttackArgs {
+  input: DMTAttackInput;
   slackId: Scalars['String']['input'];
-};
+}
 
 
-export type MutationCreatePlayerArgs = {
-  input: CreatePlayerInput;
-};
+export interface DMTMutationCreatePlayerArgs {
+  input: DMTCreatePlayerInput;
+}
 
 
-export type MutationDamagePlayerArgs = {
+export interface DMTMutationDamagePlayerArgs {
   damage: Scalars['Float']['input'];
   slackId: Scalars['String']['input'];
-};
+}
 
 
-export type MutationHealPlayerArgs = {
+export interface DMTMutationHealPlayerArgs {
   amount: Scalars['Float']['input'];
   slackId: Scalars['String']['input'];
-};
+}
 
 
-export type MutationMovePlayerArgs = {
-  input: MovePlayerInput;
+export interface DMTMutationMovePlayerArgs {
+  input: DMTMovePlayerInput;
   slackId: Scalars['String']['input'];
-};
+}
 
 
-export type MutationRespawnArgs = {
+export interface DMTMutationRespawnArgs {
   slackId: Scalars['String']['input'];
-};
+}
 
 
-export type MutationSpawnMonsterArgs = {
-  input: SpawnMonsterInput;
-};
+export interface DMTMutationSpawnMonsterArgs {
+  input: DMTSpawnMonsterInput;
+}
 
 
-export type MutationUpdatePlayerStatsArgs = {
-  input: PlayerStatsInput;
+export interface DMTMutationUpdatePlayerStatsArgs {
+  input: DMTPlayerStatsInput;
   slackId: Scalars['String']['input'];
-};
+}
 
-export type Player = {
-  __typename?: 'Player';
+export interface DMTPlayer {
   agility: Scalars['Int']['output'];
   createdAt: Scalars['DateTime']['output'];
-  currentTile?: Maybe<TileInfo>;
+  currentTile?: Maybe<DMTTileInfo>;
   gold: Scalars['Int']['output'];
   health: Scalars['Int']['output'];
   hp: Scalars['Int']['output'];
@@ -211,8 +199,8 @@ export type Player = {
   level: Scalars['Int']['output'];
   maxHp: Scalars['Int']['output'];
   name: Scalars['String']['output'];
-  nearbyMonsters?: Maybe<Array<Monster>>;
-  nearbyPlayers?: Maybe<Array<Player>>;
+  nearbyMonsters?: Maybe<Array<DMTMonster>>;
+  nearbyPlayers?: Maybe<Array<DMTPlayer>>;
   slackId: Scalars['String']['output'];
   strength: Scalars['Int']['output'];
   updatedAt: Scalars['DateTime']['output'];
@@ -220,118 +208,110 @@ export type Player = {
   x: Scalars['Int']['output'];
   xp: Scalars['Int']['output'];
   y: Scalars['Int']['output'];
-};
+}
 
-export type PlayerMoveResponse = {
-  __typename?: 'PlayerMoveResponse';
-  data?: Maybe<PlayerMovementData>;
+export interface DMTPlayerMoveResponse {
+  data?: Maybe<DMTPlayerMovementData>;
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
-};
+}
 
-export type PlayerMovementData = {
-  __typename?: 'PlayerMovementData';
+export interface DMTPlayerMovementData {
   currentSettlement?: Maybe<Scalars['String']['output']>;
   description: Scalars['String']['output'];
-  location: TileInfo;
-  monsters: Array<Monster>;
+  location: DMTTileInfo;
+  monsters: Array<DMTMonster>;
   nearbyBiomes?: Maybe<Array<Scalars['String']['output']>>;
   nearbySettlements?: Maybe<Array<Scalars['String']['output']>>;
-  player: Player;
+  player: DMTPlayer;
   playerInfo: Scalars['String']['output'];
-  surroundingTiles: Array<SurroundingTile>;
-};
+  surroundingTiles: Array<DMTSurroundingTile>;
+}
 
-export type PlayerResponse = {
-  __typename?: 'PlayerResponse';
-  data?: Maybe<Player>;
+export interface DMTPlayerResponse {
+  data?: Maybe<DMTPlayer>;
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
-};
+}
 
-export type PlayerStats = {
-  __typename?: 'PlayerStats';
+export interface DMTPlayerStats {
   agilityModifier: Scalars['Float']['output'];
   armorClass: Scalars['Float']['output'];
   baseDamage: Scalars['String']['output'];
   dodgeChance: Scalars['Float']['output'];
   healthModifier: Scalars['Float']['output'];
-  player: Player;
-  recentCombat: Array<CombatLog>;
+  player: DMTPlayer;
+  recentCombat: Array<DMTCombatLog>;
   strengthModifier: Scalars['Float']['output'];
   xpForNextLevel: Scalars['Float']['output'];
   xpNeeded: Scalars['Float']['output'];
   xpProgress: Scalars['Float']['output'];
-};
+}
 
-export type PlayerStatsInput = {
+export interface DMTPlayerStatsInput {
   gold?: InputMaybe<Scalars['Int']['input']>;
   hp?: InputMaybe<Scalars['Int']['input']>;
   level?: InputMaybe<Scalars['Int']['input']>;
   xp?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
-export type Query = {
-  __typename?: 'Query';
-  getAllMonsters: Array<Monster>;
-  getAllPlayers: Array<Player>;
-  getGameState: GameStateResponse;
-  getLocationInfo: LocationResponse;
-  getPlayer: PlayerResponse;
-  getPlayerStats: PlayerStats;
-  getPlayersAtLocation: Array<Player>;
-  health: HealthCheck;
-};
+export interface DMTQuery {
+  getAllMonsters: Array<DMTMonster>;
+  getAllPlayers: Array<DMTPlayer>;
+  getGameState: DMTGameStateResponse;
+  getLocationInfo: DMTLocationResponse;
+  getPlayer: DMTPlayerResponse;
+  getPlayerStats: DMTPlayerStats;
+  getPlayersAtLocation: Array<DMTPlayer>;
+  health: DMTHealthCheck;
+}
 
 
-export type QueryGetLocationInfoArgs = {
+export interface DMTQueryGetLocationInfoArgs {
   x: Scalars['Int']['input'];
   y: Scalars['Int']['input'];
-};
+}
 
 
-export type QueryGetPlayerArgs = {
+export interface DMTQueryGetPlayerArgs {
   slackId: Scalars['String']['input'];
-};
+}
 
 
-export type QueryGetPlayerStatsArgs = {
+export interface DMTQueryGetPlayerStatsArgs {
   slackId: Scalars['String']['input'];
-};
+}
 
 
-export type QueryGetPlayersAtLocationArgs = {
+export interface DMTQueryGetPlayersAtLocationArgs {
   x: Scalars['Float']['input'];
   y: Scalars['Float']['input'];
-};
+}
 
-export type SpawnMonsterInput = {
+export interface DMTSpawnMonsterInput {
   x: Scalars['Int']['input'];
   y: Scalars['Int']['input'];
-};
+}
 
-export type SuccessResponse = {
-  __typename?: 'SuccessResponse';
+export interface DMTSuccessResponse {
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
-};
+}
 
-export type SurroundingTile = {
-  __typename?: 'SurroundingTile';
+export interface DMTSurroundingTile {
   biomeName: Scalars['String']['output'];
   description?: Maybe<Scalars['String']['output']>;
   direction: Scalars['String']['output'];
   x: Scalars['Int']['output'];
   y: Scalars['Int']['output'];
-};
+}
 
-export enum TargetType {
+export enum DMTTargetType {
   Monster = 'MONSTER',
   Player = 'PLAYER'
 }
 
-export type TileInfo = {
-  __typename?: 'TileInfo';
+export interface DMTTileInfo {
   biomeName: Scalars['String']['output'];
   description?: Maybe<Scalars['String']['output']>;
   height: Scalars['Float']['output'];
@@ -339,30 +319,132 @@ export type TileInfo = {
   temperature: Scalars['Float']['output'];
   x: Scalars['Float']['output'];
   y: Scalars['Float']['output'];
-};
+}
 
-export type CreatePlayerMutationVariables = Exact<{
-  input: CreatePlayerInput;
+export type DMTMovePlayerMutationVariables = Exact<{
+  slackId: Scalars['String']['input'];
+  input: DMTMovePlayerInput;
 }>;
 
 
-export type CreatePlayerMutation = { __typename?: 'Mutation', createPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean } | null } };
+export type DMTMovePlayerMutation = { movePlayer: { success: boolean, message?: string | null, data?: { playerInfo: string, description: string, player: { id: string, name: string, x: number, y: number, hp: number, isAlive: boolean }, location: { x: number, y: number, biomeName: string, description?: string | null }, surroundingTiles: Array<{ x: number, y: number, biomeName: string, description?: string | null, direction: string }>, monsters: Array<{ id: string, name: string, hp: number, isAlive: boolean }> } | null } };
 
-export type RerollPlayerStatsMutationVariables = Exact<{
+export type DMTAttackMutationVariables = Exact<{
+  slackId: Scalars['String']['input'];
+  input: DMTAttackInput;
+}>;
+
+
+export type DMTAttackMutation = { attack: { success: boolean, message?: string | null, data?: { attackerName: string, defenderName: string, damage: number, defenderHp: number, defenderMaxHp: number, isDead: boolean, message: string, xpGained?: number | null } | null } };
+
+export type DMTGetPlayerQueryVariables = Exact<{
   slackId: Scalars['String']['input'];
 }>;
 
 
-export type RerollPlayerStatsMutation = { __typename?: 'Mutation', updatePlayerStats: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, strength: number, agility: number, health: number } | null } };
+export type DMTGetPlayerQuery = { getPlayer: { success: boolean, message?: string | null, data?: { id: string, name: string, x: number, y: number, hp: number, isAlive: boolean, nearbyMonsters?: Array<{ id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
 
-export type CompletePlayerMutationVariables = Exact<{
+export type DMTCreatePlayerMutationVariables = Exact<{
+  input: DMTCreatePlayerInput;
+}>;
+
+
+export type DMTCreatePlayerMutation = { createPlayer: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean } | null } };
+
+export type DMTRerollPlayerStatsMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
 }>;
 
 
-export type CompletePlayerMutation = { __typename?: 'Mutation', updatePlayerStats: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, isAlive: boolean } | null } };
+export type DMTRerollPlayerStatsMutation = { updatePlayerStats: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string, strength: number, agility: number, health: number } | null } };
+
+export type DMTCompletePlayerMutationVariables = Exact<{
+  slackId: Scalars['String']['input'];
+}>;
 
 
+export type DMTCompletePlayerMutation = { updatePlayerStats: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string, isAlive: boolean } | null } };
+
+
+export const MovePlayerDocument = gql`
+    mutation MovePlayer($slackId: String!, $input: MovePlayerInput!) {
+  movePlayer(slackId: $slackId, input: $input) {
+    success
+    message
+    data {
+      player {
+        id
+        name
+        x
+        y
+        hp
+        isAlive
+      }
+      location {
+        x
+        y
+        biomeName
+        description
+      }
+      surroundingTiles {
+        x
+        y
+        biomeName
+        description
+        direction
+      }
+      monsters {
+        id
+        name
+        hp
+        isAlive
+      }
+      playerInfo
+      description
+    }
+  }
+}
+    `;
+export const AttackDocument = gql`
+    mutation Attack($slackId: String!, $input: AttackInput!) {
+  attack(slackId: $slackId, input: $input) {
+    success
+    message
+    data {
+      attackerName
+      defenderName
+      damage
+      defenderHp
+      defenderMaxHp
+      isDead
+      message
+      xpGained
+    }
+  }
+}
+    `;
+export const GetPlayerDocument = gql`
+    query GetPlayer($slackId: String!) {
+  getPlayer(slackId: $slackId) {
+    success
+    message
+    data {
+      id
+      name
+      x
+      y
+      hp
+      isAlive
+      nearbyMonsters {
+        id
+        name
+        hp
+        isAlive
+      }
+    }
+  }
+}
+    `;
 export const CreatePlayerDocument = gql`
     mutation CreatePlayer($input: CreatePlayerInput!) {
   createPlayer(input: $input) {
@@ -425,14 +507,23 @@ const defaultWrapper: SdkFunctionWrapper = (action, _operationName, _operationTy
 
 export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = defaultWrapper) {
   return {
-    CreatePlayer(variables: CreatePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<CreatePlayerMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<CreatePlayerMutation>({ document: CreatePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CreatePlayer', 'mutation', variables);
+    MovePlayer(variables: DMTMovePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<DMTMovePlayerMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<DMTMovePlayerMutation>({ document: MovePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'MovePlayer', 'mutation', variables);
     },
-    RerollPlayerStats(variables: RerollPlayerStatsMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RerollPlayerStatsMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<RerollPlayerStatsMutation>({ document: RerollPlayerStatsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RerollPlayerStats', 'mutation', variables);
+    Attack(variables: DMTAttackMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<DMTAttackMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<DMTAttackMutation>({ document: AttackDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'Attack', 'mutation', variables);
     },
-    CompletePlayer(variables: CompletePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<CompletePlayerMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<CompletePlayerMutation>({ document: CompletePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CompletePlayer', 'mutation', variables);
+    GetPlayer(variables: DMTGetPlayerQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<DMTGetPlayerQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<DMTGetPlayerQuery>({ document: GetPlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetPlayer', 'query', variables);
+    },
+    CreatePlayer(variables: DMTCreatePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<DMTCreatePlayerMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<DMTCreatePlayerMutation>({ document: CreatePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CreatePlayer', 'mutation', variables);
+    },
+    RerollPlayerStats(variables: DMTRerollPlayerStatsMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<DMTRerollPlayerStatsMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<DMTRerollPlayerStatsMutation>({ document: RerollPlayerStatsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RerollPlayerStats', 'mutation', variables);
+    },
+    CompletePlayer(variables: DMTCompletePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<DMTCompletePlayerMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<DMTCompletePlayerMutation>({ document: CompletePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CompletePlayer', 'mutation', variables);
     }
   };
 }

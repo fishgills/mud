@@ -1,8 +1,6 @@
 import 'reflect-metadata';
 import { ObjectType, Field, Int, Float } from '@nestjs/graphql';
 import { Biome } from './biome.model';
-import { Monster } from './monster.model';
-import { Player } from './player.model';
 
 @ObjectType()
 export class WorldTile {
@@ -51,10 +49,4 @@ export class WorldTile {
   // These fields will be resolved by @ResolveField decorators
   @Field(() => Biome, { nullable: true })
   biome?: Biome;
-
-  @Field(() => [Monster], { nullable: true })
-  monsters?: Monster[];
-
-  @Field(() => [Player], { nullable: true })
-  players?: Player[];
 }

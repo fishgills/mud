@@ -8,8 +8,6 @@ export {
 export { CombatLog } from './combat-log.model';
 export { GameState } from './game-state.model';
 export { Landmark } from './landmark.model';
-export { Monster } from './monster.model';
-export { Player } from './player.model';
 export { Settlement } from './settlement.model';
 export {
   TileWithNearbyBiomes,

@@ -1,5 +1,4 @@
 import { App, LogLevel } from '@slack/bolt';
-
 import { env } from './env';
 import { dmSdk } from './gql-client';
 
@@ -9,83 +8,102 @@ const app = new App({
   logLevel: LogLevel.INFO,
 });
 
+import { EMOJI_CREATE, EMOJI_REROLL, EMOJI_COMPLETE } from './handlers/emojis';
+import { createHandler } from './handlers/create';
+import { rerollHandler } from './handlers/reroll';
+import { completeHandler } from './handlers/complete';
+import { HandlerContext } from './handlers/types';
+import {
+  moveHandler,
+  EMOJI_NORTH,
+  EMOJI_EAST,
+  EMOJI_SOUTH,
+  EMOJI_WEST,
+} from './handlers/move';
+import { attackHandler, EMOJI_ATTACK } from './handlers/attack';
+
+type EmojiHandler = (ctx: HandlerContext) => Promise<void>;
+
+const handlers: Record<string, EmojiHandler> = {
+  [EMOJI_CREATE]: createHandler,
+  [EMOJI_REROLL]: rerollHandler,
+  [EMOJI_COMPLETE]: completeHandler,
+  [EMOJI_NORTH]: moveHandler,
+  [EMOJI_EAST]: moveHandler,
+  [EMOJI_SOUTH]: moveHandler,
+  [EMOJI_WEST]: moveHandler,
+  [EMOJI_ATTACK]: attackHandler,
+};
+
 app.event('app_mention', async ({ event, say }) => {
   await say(
-    `Hello <@${event.user}>! I am your MUD bot. Type /create to start your adventure!`,
+    `Hello <@${event.user}>! DM me:
+${EMOJI_CREATE} to create your character
+${EMOJI_REROLL} to reroll your stats
+${EMOJI_COMPLETE} to complete character creation`,
   );
 });
 
-app.command('/create', async ({ command, ack, respond }) => {
-  await ack();
-  try {
-    const name = command.user_name || `Player_${command.user_id}`;
-    const input = { slackId: command.user_id, name };
-    const result = await dmSdk.CreatePlayer({ input });
-    if (result.createPlayer.success) {
-      await respond({
-        text: `Welcome <@${command.user_id}>! Your character creation has started. Use /reroll to reroll your stats, and /complete when you are done.`,
-        response_type: 'ephemeral',
-      });
-    } else {
-      await respond({
-        text: `Error: ${result.createPlayer.message}`,
-        response_type: 'ephemeral',
-      });
-    }
-  } catch (err) {
-    await respond({
-      text: `Failed to create character: ${err}`,
-      response_type: 'ephemeral',
-    });
+app.message(async ({ message, say }) => {
+  // Only handle direct user messages (not message_changed, etc)
+  if (
+    message.type !== 'message' ||
+    ('subtype' in message && message.subtype !== undefined) ||
+    ('channel_type' in message ? message.channel_type !== 'im' : true)
+  ) {
+    return;
   }
+  const text =
+    'text' in message && typeof message.text === 'string'
+      ? message.text.trim()
+      : '';
+  const userId = 'user' in message ? message.user : undefined;
+  if (!text || !userId) return;
+
+  // Dispatch to the first matching emoji handler
+  // Wrap say so it matches the expected return type (Promise<void>)
+  const sayVoid = async (msg: { text: string }) => {
+    await say(msg);
+  };
+  for (const [emoji, handler] of Object.entries(handlers)) {
+    if (text.includes(emoji)) {
+      await handler({ userId, say: sayVoid, text });
+      return;
+    }
+  }
+
+  // Help message for unknown input
+  await say(
+    `Hi <@${userId}>! Use these commands:
+${Object.keys(handlers)
+  .map((e) => `${e} to ${handlerDescription(e)}`)
+  .join('\n')}`,
+  );
 });
 
-app.command('/reroll', async ({ command, ack, respond }) => {
-  await ack();
-  try {
-    const result = await dmSdk.RerollPlayerStats({ slackId: command.user_id });
-    if (result.updatePlayerStats.success) {
-      const stats = result.updatePlayerStats.data;
-      await respond({
-        text: `Rerolled stats for <@${command.user_id}>: Strength: ${stats?.strength}, Agility: ${stats?.agility}, Health: ${stats?.health}`,
-        response_type: 'ephemeral',
-      });
-    } else {
-      await respond({
-        text: `Error: ${result.updatePlayerStats.message}`,
-        response_type: 'ephemeral',
-      });
-    }
-  } catch (err) {
-    await respond({
-      text: `Failed to reroll stats: ${err}`,
-      response_type: 'ephemeral',
-    });
+// Helper to describe each emoji command for help text
+function handlerDescription(emoji: string): string {
+  switch (emoji) {
+    case EMOJI_CREATE:
+      return 'create your character';
+    case EMOJI_REROLL:
+      return 'reroll your stats';
+    case EMOJI_COMPLETE:
+      return 'complete character creation';
+    case EMOJI_NORTH:
+      return 'move north';
+    case EMOJI_EAST:
+      return 'move east';
+    case EMOJI_SOUTH:
+      return 'move south';
+    case EMOJI_WEST:
+      return 'move west';
+    case EMOJI_ATTACK:
+      return 'attack a nearby monster';
+    default:
+      return 'unknown action';
   }
-});
-
-app.command('/complete', async ({ command, ack, respond }) => {
-  await ack();
-  try {
-    const result = await dmSdk.CompletePlayer({ slackId: command.user_id });
-    if (result.updatePlayerStats.success) {
-      await respond({
-        text: `Character creation complete for <@${command.user_id}>! You can now move and attack.`,
-        response_type: 'ephemeral',
-      });
-    } else {
-      await respond({
-        text: `Error: ${result.updatePlayerStats.message}`,
-        response_type: 'ephemeral',
-      });
-    }
-  } catch (err) {
-    await respond({
-      text: `Failed to complete character: ${err}`,
-      response_type: 'ephemeral',
-    });
-  }
-});
+}
 
 async function start() {
   await app.start(Number(env.PORT));

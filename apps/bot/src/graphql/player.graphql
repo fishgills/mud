@@ -1,3 +1,78 @@
+mutation MovePlayer($slackId: String!, $input: MovePlayerInput!) {
+  movePlayer(slackId: $slackId, input: $input) {
+    success
+    message
+    data {
+      player {
+        id
+        name
+        x
+        y
+        hp
+        isAlive
+      }
+      location {
+        x
+        y
+        biomeName
+        description
+      }
+      surroundingTiles {
+        x
+        y
+        biomeName
+        description
+        direction
+      }
+      monsters {
+        id
+        name
+        hp
+        isAlive
+      }
+      playerInfo
+      description
+    }
+  }
+}
+
+mutation Attack($slackId: String!, $input: AttackInput!) {
+  attack(slackId: $slackId, input: $input) {
+    success
+    message
+    data {
+      attackerName
+      defenderName
+      damage
+      defenderHp
+      defenderMaxHp
+      isDead
+      message
+      xpGained
+    }
+  }
+}
+
+query GetPlayer($slackId: String!) {
+  getPlayer(slackId: $slackId) {
+    success
+    message
+    data {
+      id
+      name
+      x
+      y
+      hp
+      isAlive
+      nearbyMonsters {
+        id
+        name
+        hp
+        isAlive
+      }
+    }
+  }
+}
 mutation CreatePlayer($input: CreatePlayerInput!) {
   createPlayer(input: $input) {
     success

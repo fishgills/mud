@@ -169,16 +169,4 @@ export class WorldDatabaseService {
       where: { id: biomeId },
     });
   }
-
-  async getMonstersAtTile(x: number, y: number) {
-    return await this.prismaService.monster.findMany({
-      where: { x, y },
-    });
-  }
-
-  async getPlayersAtTile(x: number, y: number) {
-    return await this.prismaService.player.findMany({
-      where: { x, y },
-    });
-  }
 }
