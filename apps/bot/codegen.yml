@@ -1,0 +1,20 @@
+schema:
+documents: src/**/*.graphql
+generates:
+  src/generated/dm-graphql.ts:
+    schema: ../dm/src/schema.gql
+    documents:
+      - src/**/*.ts
+    plugins:
+      - typescript
+      - typescript-operations
+      - typescript-graphql-request
+      # - typescript-generic-sdk
+  # src/generated/world-graphql.ts:
+  #   schema: ../world/src/schema.gql
+  #   documents:
+  #     - src/**/*.ts
+  #   plugins:
+  #     - typescript
+  #     - typescript-operations
+  #     - typescript-graphql-request

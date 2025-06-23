@@ -1,0 +1,94 @@
+{
+  "name": "@mud/slack-bot",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "slack-bot",
+    "targets": {
+      "build": {
+        "executor": "@nx/esbuild:esbuild",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "defaultConfiguration": "production",
+        "options": {
+          "platform": "node",
+          "outputPath": "apps/bot/dist",
+          "format": [
+            "cjs"
+          ],
+          "bundle": false,
+          "main": "apps/bot/src/main.ts",
+          "tsConfig": "apps/bot/tsconfig.app.json",
+          "assets": [
+            "apps/bot/src/assets"
+          ],
+          "esbuildOptions": {
+            "sourcemap": true,
+            "outExtension": {
+              ".js": ".js"
+            }
+          }
+        },
+        "configurations": {
+          "development": {},
+          "production": {
+            "generateLockfile": true,
+            "esbuildOptions": {
+              "sourcemap": false,
+              "outExtension": {
+                ".js": ".js"
+              }
+            }
+          }
+        }
+      },
+      "serve": {
+        "continuous": true,
+        "executor": "@nx/js:node",
+        "defaultConfiguration": "development",
+        "dependsOn": [
+          "build"
+        ],
+        "options": {
+          "buildTarget": "slack-bot:build",
+          "runBuildTargetDependencies": false
+        },
+        "configurations": {
+          "development": {
+            "buildTarget": "slack-bot:build:development"
+          },
+          "production": {
+            "buildTarget": "slack-bot:build:production"
+          }
+        }
+      },
+      "test": {
+        "options": {
+          "passWithNoTests": true
+        }
+      },
+      "docker-build": {
+        "dependsOn": [
+          "build"
+        ],
+        "command": "docker build -f apps/bot/Dockerfile . -t slack-bot"
+      }
+    }
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.4.0",
+    "dotenv": "^16.5.0",
+    "envalid": "^8.0.0",
+    "graphql-request": "^5.2.0",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "@graphql-codegen/cli": "^5.0.7",
+    "@graphql-codegen/typescript": "^4.1.6",
+    "@graphql-codegen/typescript-generic-sdk": "^4.0.2",
+    "@graphql-codegen/typescript-graphql-request": "^6.3.0",
+    "@graphql-codegen/typescript-operations": "^4.6.1",
+    "@types/node-fetch": "^2.6.12"
+  }
+}

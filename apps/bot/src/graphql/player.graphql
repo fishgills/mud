@@ -1,0 +1,50 @@
+mutation CreatePlayer($input: CreatePlayerInput!) {
+  createPlayer(input: $input) {
+    success
+    message
+    data {
+      id
+      slackId
+      name
+      x
+      y
+      hp
+      maxHp
+      strength
+      agility
+      health
+      gold
+      xp
+      level
+      isAlive
+    }
+  }
+}
+
+mutation RerollPlayerStats($slackId: String!) {
+  updatePlayerStats(slackId: $slackId, input: {}) {
+    success
+    message
+    data {
+      id
+      slackId
+      name
+      strength
+      agility
+      health
+    }
+  }
+}
+
+mutation CompletePlayer($slackId: String!) {
+  updatePlayerStats(slackId: $slackId, input: { hp: 10 }) {
+    success
+    message
+    data {
+      id
+      slackId
+      name
+      isAlive
+    }
+  }
+}
