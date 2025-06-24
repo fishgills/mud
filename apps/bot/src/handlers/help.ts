@@ -1,12 +1,12 @@
 import { HandlerContext } from './types';
-import { EMOJI_HELP } from './emojis';
 import { moveHandlerHelp } from './move';
 import { attackHandlerHelp } from './attack';
 import { createHandlerHelp } from './create';
 import { rerollHandlerHelp } from './reroll';
 import { completeHandlerHelp } from './complete';
 
-export const helpHandlerHelp = `Show instructions for using the bot with ℹ️.`;
+const EMOJI_HELP = ':information_source:';
+export const helpHandlerHelp = `Show instructions for using the bot with ${EMOJI_HELP}.`;
 export const helpHandler = async ({ say }: HandlerContext) => {
   const helpMsg = [
     'Bot Instructions:',

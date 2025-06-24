@@ -1,15 +1,15 @@
 import { registerHandler } from './handlerRegistry';
-import { EMOJI_COMPLETE } from './emojis';
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 
-export const completeHandlerHelp = `Complete your character creation with ✅. Example: Send ✅ when you are done creating your character.`;
+export const EMOJI_COMPLETE = ':white_check_mark:';
+export const completeHandlerHelp = `Complete your character creation with ${EMOJI_COMPLETE}. Example: Send ${EMOJI_COMPLETE} when you are done creating your character.`;
 export const completeHandler = async ({ userId, say }: HandlerContext) => {
   try {
     const result = await dmSdk.CompletePlayer({ slackId: userId });
     if (result.updatePlayerStats.success) {
       await say({
-        text: `✅ Character creation complete! You can now move and attack.`,
+        text: `${EMOJI_COMPLETE} Character creation complete! You can now move and attack.`,
       });
     } else {
       await say({ text: `Error: ${result.updatePlayerStats.message}` });

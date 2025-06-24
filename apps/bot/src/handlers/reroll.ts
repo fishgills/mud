@@ -1,9 +1,10 @@
 import { registerHandler } from './handlerRegistry';
-import { EMOJI_REROLL } from './emojis';
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 
-export const rerollHandlerHelp = `Reroll your character's stats with 🎲. Example: Send 🎲 to reroll stats during character creation.`;
+export const EMOJI_REROLL = ':game_die:';
+
+export const rerollHandlerHelp = `Reroll your character's stats with ${EMOJI_REROLL}. Example: Send ${EMOJI_REROLL} to reroll stats during character creation.`;
 export const rerollHandler = async ({ userId, say }: HandlerContext) => {
   try {
     const result = await dmSdk.RerollPlayerStats({ slackId: userId });

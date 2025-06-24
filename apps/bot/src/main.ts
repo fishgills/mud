@@ -1,11 +1,10 @@
-import { EMOJI_CREATE, EMOJI_REROLL, EMOJI_COMPLETE } from './handlers/emojis';
 import { App, LogLevel } from '@slack/bolt';
 import { env } from './env';
 
 const app = new App({
   token: env.SLACK_BOT_TOKEN,
   signingSecret: env.SLACK_SIGNING_SECRET,
-  logLevel: LogLevel.INFO,
+  logLevel: LogLevel.DEBUG,
 });
 
 import './handlers/move';
@@ -14,6 +13,9 @@ import './handlers/create';
 import './handlers/reroll';
 import './handlers/complete';
 import { getAllHandlers } from './handlers/handlerRegistry';
+import { EMOJI_CREATE } from './handlers/create';
+import { EMOJI_REROLL } from './handlers/reroll';
+import { EMOJI_COMPLETE } from './handlers/complete';
 
 app.event('app_mention', async ({ event, say }) => {
   await say(
