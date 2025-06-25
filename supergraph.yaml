@@ -1,0 +1,9 @@
+subgraphs:
+  world:
+    routing_url: http://localhost:3000/graphql
+    schema:
+      file: apps/world/src/schema.gql
+  dm:
+    routing_url: http://localhost:3001/graphql
+    schema:
+      file: apps/dm/src/schema.gql

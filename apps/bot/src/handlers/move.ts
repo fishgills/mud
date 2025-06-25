@@ -4,10 +4,10 @@ import { Direction } from '../generated/dm-graphql';
 import { registerHandler } from './handlerRegistry';
 
 // Emoji directions
-export const EMOJI_NORTH = '⬆️';
-export const EMOJI_EAST = '➡️';
-export const EMOJI_SOUTH = '⬇️';
-export const EMOJI_WEST = '⬅️';
+export const EMOJI_NORTH = ':arrow_up:';
+export const EMOJI_EAST = ':arrow_right:';
+export const EMOJI_SOUTH = ':arrow_down:';
+export const EMOJI_WEST = ':arrow_left:';
 
 const directionMap: Record<string, Direction> = {
   [EMOJI_NORTH]: Direction.North,

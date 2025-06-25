@@ -5,6 +5,7 @@ import {
   MovePlayerDto,
   PlayerStatsDto,
 } from './dto/player.dto';
+import { GraphQLError } from 'graphql';
 
 @Injectable()
 export class PlayerService {
@@ -13,13 +14,18 @@ export class PlayerService {
   async createPlayer(createPlayerDto: CreatePlayerDto): Promise<Player> {
     const { slackId, name, x, y } = createPlayerDto;
 
-    // Check if player already exists
+    // // Check if player already exists
     const existingPlayer = await this.prisma.player.findUnique({
       where: { slackId },
     });
 
     if (existingPlayer) {
-      return existingPlayer;
+      throw new GraphQLError(`Player with slackId ${slackId} already exists`, {
+        extensions: {
+          code: 'PLAYER_EXISTS',
+          slackId,
+        },
+      });
     }
 
     // Find a spawn position that's at least 100 tiles away from existing players
@@ -134,7 +140,7 @@ export class PlayerService {
 
   async updatePlayerStats(
     slackId: string,
-    statsDto: PlayerStatsDto
+    statsDto: PlayerStatsDto,
   ): Promise<Player> {
     return this.prisma.player.update({
       where: { slackId },
@@ -204,7 +210,7 @@ export class PlayerService {
     currentY: number,
     excludeSlackId?: string,
     radius = Infinity,
-    limit = 10
+    limit = 10,
   ): Promise<
     Array<{ distance: number; direction: string; x: number; y: number }>
   > {
@@ -233,13 +239,13 @@ export class PlayerService {
     const playersWithDistance = players
       .map((player) => {
         const distance = Math.sqrt(
-          (player.x - currentX) ** 2 + (player.y - currentY) ** 2
+          (player.x - currentX) ** 2 + (player.y - currentY) ** 2,
         );
         const direction = this.calculateDirection(
           currentX,
           currentY,
           player.x,
-          player.y
+          player.y,
         );
         return {
           distance: Math.round(distance * 10) / 10,
@@ -259,7 +265,7 @@ export class PlayerService {
     fromX: number,
     fromY: number,
     toX: number,
-    toY: number
+    toY: number,
   ): string {
     const dx = toX - fromX;
     const dy = toY - fromY;
@@ -283,7 +289,7 @@ export class PlayerService {
 
   private async findValidSpawnPosition(
     preferredX?: number,
-    preferredY?: number
+    preferredY?: number,
   ): Promise<{ x: number; y: number }> {
     const MIN_DISTANCE = 100;
     const MAX_ATTEMPTS = 50;
@@ -328,7 +334,7 @@ export class PlayerService {
       const isValidPosition = existingPlayers.every((player) => {
         const distance = Math.sqrt(
           Math.pow(candidateX - player.x, 2) +
-            Math.pow(candidateY - player.y, 2)
+            Math.pow(candidateY - player.y, 2),
         );
         return distance >= MIN_DISTANCE;
       });
@@ -354,9 +360,9 @@ export class PlayerService {
         ...existingPlayers.map((player) =>
           Math.sqrt(
             Math.pow(candidateX - player.x, 2) +
-              Math.pow(candidateY - player.y, 2)
-          )
-        )
+              Math.pow(candidateY - player.y, 2),
+          ),
+        ),
       );
 
       if (minDistance > maxMinDistance) {
@@ -369,7 +375,7 @@ export class PlayerService {
   }
 
   private async findRespawnPositionNearPlayers(
-    respawningPlayerSlackId: string
+    respawningPlayerSlackId: string,
   ): Promise<{ x: number; y: number }> {
     const RESPAWN_DISTANCE = 100; // Distance from other players to respawn
     const MAX_ATTEMPTS = 50;
@@ -399,17 +405,17 @@ export class PlayerService {
       const distance = RESPAWN_DISTANCE + Math.random() * 50 - 25; // 75-125 tiles away
 
       const candidateX = Math.floor(
-        referencePlayer.x + Math.cos(angle) * distance
+        referencePlayer.x + Math.cos(angle) * distance,
       );
       const candidateY = Math.floor(
-        referencePlayer.y + Math.sin(angle) * distance
+        referencePlayer.y + Math.sin(angle) * distance,
       );
 
       // Check if this position is far enough from all living players
       const isValidPosition = livingPlayers.every((player) => {
         const distanceToPlayer = Math.sqrt(
           Math.pow(candidateX - player.x, 2) +
-            Math.pow(candidateY - player.y, 2)
+            Math.pow(candidateY - player.y, 2),
         );
         return distanceToPlayer >= 50; // At least 50 tiles from any other player
       });
@@ -426,10 +432,10 @@ export class PlayerService {
 
     return {
       x: Math.floor(
-        referencePlayer.x + Math.cos(fallbackAngle) * fallbackDistance
+        referencePlayer.x + Math.cos(fallbackAngle) * fallbackDistance,
       ),
       y: Math.floor(
-        referencePlayer.y + Math.sin(fallbackAngle) * fallbackDistance
+        referencePlayer.y + Math.sin(fallbackAngle) * fallbackDistance,
       ),
     };
   }

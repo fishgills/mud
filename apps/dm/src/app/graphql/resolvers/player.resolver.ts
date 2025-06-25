@@ -48,19 +48,11 @@ export class PlayerResolver {
   async createPlayer(
     @Args('input') input: CreatePlayerInput,
   ): Promise<PlayerResponse> {
-    try {
-      const player = await this.playerService.createPlayer(input);
-      return {
-        success: true,
-        data: player as Player,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message:
-          error instanceof Error ? error.message : 'Failed to create player',
-      };
-    }
+    const player = await this.playerService.createPlayer(input);
+    return {
+      success: true,
+      data: player as Player,
+    };
   }
 
   @Query(() => PlayerResponse)
