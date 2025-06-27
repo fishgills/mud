@@ -189,14 +189,14 @@ export type MutationupdatePlayerStatsArgs = {
 
 export type Player = {
   agility: Scalars['Int']['output'];
-  createdAt: Scalars['DateTime']['output'];
+  createdAt?: Maybe<Scalars['DateTime']['output']>;
   currentTile?: Maybe<TileInfo>;
   gold: Scalars['Int']['output'];
   health: Scalars['Int']['output'];
   hp: Scalars['Int']['output'];
   id: Scalars['ID']['output'];
   isAlive: Scalars['Boolean']['output'];
-  lastAction: Scalars['DateTime']['output'];
+  lastAction?: Maybe<Scalars['DateTime']['output']>;
   level: Scalars['Int']['output'];
   maxHp: Scalars['Int']['output'];
   name: Scalars['String']['output'];
@@ -350,7 +350,7 @@ export type CreatePlayerMutationVariables = Exact<{
 }>;
 
 
-export type CreatePlayerMutation = { createPlayer: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean, updatedAt: any, createdAt: any, lastAction: any } | null } };
+export type CreatePlayerMutation = { createPlayer: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean, updatedAt: any } | null } };
 
 export type RerollPlayerStatsMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -467,8 +467,6 @@ export const CreatePlayerDocument = gql`
       level
       isAlive
       updatedAt
-      createdAt
-      lastAction
     }
   }
 }

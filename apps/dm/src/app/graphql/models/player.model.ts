@@ -46,11 +46,11 @@ export class Player {
   @Field()
   isAlive!: boolean;
 
-  @Field()
-  lastAction!: Date;
+  @Field({ nullable: true })
+  lastAction?: Date;
 
-  @Field()
-  createdAt!: Date;
+  @Field({ nullable: true })
+  createdAt?: Date;
 
   @Field()
   updatedAt!: Date;

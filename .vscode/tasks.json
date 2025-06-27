@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "shell",
+      "label": "nx build slack-bot",
+      "command": "nx build slack-bot"
+    }
+  ]
+}

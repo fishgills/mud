@@ -34,7 +34,8 @@ export class OpenaiService {
         `Temperature is a scale between 0 and 1, where 0 is freezing and 1 is very hot. ` +
         `Height is a scale of 0 to 1, where 0 is sea level and 1 is the highest mountain peak. ` +
         `Moisture is a scale of 0 to 1, where 0 is desert and 1 is a rainforest. ` +
-        `Distance units are expressed in 100 meters but should be expressed in general terms like 'far' or 'near'. Never use specific numbers. Each tile of the map is equivalent to 100 square meters.`;
+        `Distance units are expressed in 100 meters but should be expressed in general terms like 'far' or 'near'. Never use specific numbers. Each tile of the map is equivalent to 100 square meters.` +
+        `All content will be displayed in Slack so make sure to use Slack Block Kit formatting. `;
 
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',

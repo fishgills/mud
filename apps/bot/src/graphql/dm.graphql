@@ -93,8 +93,6 @@ mutation CreatePlayer($input: CreatePlayerInput!) {
       level
       isAlive
       updatedAt
-      createdAt
-      lastAction
     }
   }
 }

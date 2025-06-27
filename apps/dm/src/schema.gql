@@ -52,8 +52,8 @@ type Player {
   xp: Int!
   level: Int!
   isAlive: Boolean!
-  lastAction: DateTime!
-  createdAt: DateTime!
+  lastAction: DateTime
+  createdAt: DateTime
   updatedAt: DateTime!
   worldTileId: Int
   currentTile: TileInfo
