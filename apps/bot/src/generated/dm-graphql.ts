@@ -26,7 +26,6 @@ export type AttackInput = {
 };
 
 export type CombatLog = {
-  __typename?: 'CombatLog';
   attackerId: Scalars['Int']['output'];
   attackerType: Scalars['String']['output'];
   damage: Scalars['Int']['output'];
@@ -39,14 +38,12 @@ export type CombatLog = {
 };
 
 export type CombatResponse = {
-  __typename?: 'CombatResponse';
   data?: Maybe<CombatResult>;
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
 };
 
 export type CombatResult = {
-  __typename?: 'CombatResult';
   attackerName: Scalars['String']['output'];
   damage: Scalars['Float']['output'];
   defenderHp: Scalars['Float']['output'];
@@ -67,34 +64,30 @@ export type CreatePlayerInput = {
 
 /** Cardinal directions for player movement */
 export enum Direction {
-  East = 'EAST',
-  North = 'NORTH',
-  South = 'SOUTH',
-  West = 'WEST'
+  EAST = 'EAST',
+  NORTH = 'NORTH',
+  SOUTH = 'SOUTH',
+  WEST = 'WEST'
 }
 
 export type GameState = {
-  __typename?: 'GameState';
   currentTime: Scalars['String']['output'];
   totalMonsters: Scalars['Float']['output'];
   totalPlayers: Scalars['Float']['output'];
 };
 
 export type GameStateResponse = {
-  __typename?: 'GameStateResponse';
   data?: Maybe<GameState>;
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
 };
 
 export type HealthCheck = {
-  __typename?: 'HealthCheck';
   status: Scalars['String']['output'];
   timestamp: Scalars['String']['output'];
 };
 
 export type LocationInfo = {
-  __typename?: 'LocationInfo';
   location: TileInfo;
   monsters?: Maybe<Array<Monster>>;
   players?: Maybe<Array<Player>>;
@@ -102,14 +95,12 @@ export type LocationInfo = {
 };
 
 export type LocationResponse = {
-  __typename?: 'LocationResponse';
   data?: Maybe<LocationInfo>;
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
 };
 
 export type Monster = {
-  __typename?: 'Monster';
   agility: Scalars['Int']['output'];
   biomeId: Scalars['Int']['output'];
   createdAt: Scalars['DateTime']['output'];
@@ -130,7 +121,6 @@ export type Monster = {
 };
 
 export type MonsterResponse = {
-  __typename?: 'MonsterResponse';
   data?: Maybe<Monster>;
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
@@ -141,7 +131,6 @@ export type MovePlayerInput = {
 };
 
 export type Mutation = {
-  __typename?: 'Mutation';
   attack: CombatResponse;
   createPlayer: PlayerResponse;
   damagePlayer: PlayerResponse;
@@ -154,52 +143,51 @@ export type Mutation = {
 };
 
 
-export type MutationAttackArgs = {
+export type MutationattackArgs = {
   input: AttackInput;
   slackId: Scalars['String']['input'];
 };
 
 
-export type MutationCreatePlayerArgs = {
+export type MutationcreatePlayerArgs = {
   input: CreatePlayerInput;
 };
 
 
-export type MutationDamagePlayerArgs = {
+export type MutationdamagePlayerArgs = {
   damage: Scalars['Float']['input'];
   slackId: Scalars['String']['input'];
 };
 
 
-export type MutationHealPlayerArgs = {
+export type MutationhealPlayerArgs = {
   amount: Scalars['Float']['input'];
   slackId: Scalars['String']['input'];
 };
 
 
-export type MutationMovePlayerArgs = {
+export type MutationmovePlayerArgs = {
   input: MovePlayerInput;
   slackId: Scalars['String']['input'];
 };
 
 
-export type MutationRespawnArgs = {
+export type MutationrespawnArgs = {
   slackId: Scalars['String']['input'];
 };
 
 
-export type MutationSpawnMonsterArgs = {
+export type MutationspawnMonsterArgs = {
   input: SpawnMonsterInput;
 };
 
 
-export type MutationUpdatePlayerStatsArgs = {
+export type MutationupdatePlayerStatsArgs = {
   input: PlayerStatsInput;
   slackId: Scalars['String']['input'];
 };
 
 export type Player = {
-  __typename?: 'Player';
   agility: Scalars['Int']['output'];
   createdAt: Scalars['DateTime']['output'];
   currentTile?: Maybe<TileInfo>;
@@ -224,14 +212,12 @@ export type Player = {
 };
 
 export type PlayerMoveResponse = {
-  __typename?: 'PlayerMoveResponse';
   data?: Maybe<PlayerMovementData>;
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
 };
 
 export type PlayerMovementData = {
-  __typename?: 'PlayerMovementData';
   currentSettlement?: Maybe<Scalars['String']['output']>;
   description: Scalars['String']['output'];
   location: TileInfo;
@@ -244,14 +230,12 @@ export type PlayerMovementData = {
 };
 
 export type PlayerResponse = {
-  __typename?: 'PlayerResponse';
   data?: Maybe<Player>;
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
 };
 
 export type PlayerStats = {
-  __typename?: 'PlayerStats';
   agilityModifier: Scalars['Float']['output'];
   armorClass: Scalars['Float']['output'];
   baseDamage: Scalars['String']['output'];
@@ -273,7 +257,6 @@ export type PlayerStatsInput = {
 };
 
 export type Query = {
-  __typename?: 'Query';
   getAllMonsters: Array<Monster>;
   getAllPlayers: Array<Player>;
   getGameState: GameStateResponse;
@@ -285,23 +268,23 @@ export type Query = {
 };
 
 
-export type QueryGetLocationInfoArgs = {
+export type QuerygetLocationInfoArgs = {
   x: Scalars['Int']['input'];
   y: Scalars['Int']['input'];
 };
 
 
-export type QueryGetPlayerArgs = {
+export type QuerygetPlayerArgs = {
   slackId: Scalars['String']['input'];
 };
 
 
-export type QueryGetPlayerStatsArgs = {
+export type QuerygetPlayerStatsArgs = {
   slackId: Scalars['String']['input'];
 };
 
 
-export type QueryGetPlayersAtLocationArgs = {
+export type QuerygetPlayersAtLocationArgs = {
   x: Scalars['Float']['input'];
   y: Scalars['Float']['input'];
 };
@@ -312,13 +295,11 @@ export type SpawnMonsterInput = {
 };
 
 export type SuccessResponse = {
-  __typename?: 'SuccessResponse';
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
 };
 
 export type SurroundingTile = {
-  __typename?: 'SurroundingTile';
   biomeName: Scalars['String']['output'];
   description?: Maybe<Scalars['String']['output']>;
   direction: Scalars['String']['output'];
@@ -327,12 +308,11 @@ export type SurroundingTile = {
 };
 
 export enum TargetType {
-  Monster = 'MONSTER',
-  Player = 'PLAYER'
+  MONSTER = 'MONSTER',
+  PLAYER = 'PLAYER'
 }
 
 export type TileInfo = {
-  __typename?: 'TileInfo';
   biomeName: Scalars['String']['output'];
   description?: Maybe<Scalars['String']['output']>;
   height: Scalars['Float']['output'];
@@ -348,7 +328,7 @@ export type MovePlayerMutationVariables = Exact<{
 }>;
 
 
-export type MovePlayerMutation = { __typename?: 'Mutation', movePlayer: { __typename?: 'PlayerMoveResponse', success: boolean, message?: string | null, data?: { __typename?: 'PlayerMovementData', playerInfo: string, description: string, player: { __typename?: 'Player', id: string, name: string, x: number, y: number, hp: number, isAlive: boolean }, location: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null }, surroundingTiles: Array<{ __typename?: 'SurroundingTile', x: number, y: number, biomeName: string, description?: string | null, direction: string }>, monsters: Array<{ __typename?: 'Monster', id: string, name: string, hp: number, isAlive: boolean }> } | null } };
+export type MovePlayerMutation = { movePlayer: { success: boolean, message?: string | null, data?: { playerInfo: string, description: string, player: { id: string, name: string, x: number, y: number, hp: number, isAlive: boolean }, location: { x: number, y: number, biomeName: string, description?: string | null }, surroundingTiles: Array<{ x: number, y: number, biomeName: string, description?: string | null, direction: string }>, monsters: Array<{ id: string, name: string, hp: number, isAlive: boolean }> } | null } };
 
 export type AttackMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -356,35 +336,35 @@ export type AttackMutationVariables = Exact<{
 }>;
 
 
-export type AttackMutation = { __typename?: 'Mutation', attack: { __typename?: 'CombatResponse', success: boolean, message?: string | null, data?: { __typename?: 'CombatResult', attackerName: string, defenderName: string, damage: number, defenderHp: number, defenderMaxHp: number, isDead: boolean, message: string, xpGained?: number | null } | null } };
+export type AttackMutation = { attack: { success: boolean, message?: string | null, data?: { attackerName: string, defenderName: string, damage: number, defenderHp: number, defenderMaxHp: number, isDead: boolean, message: string, xpGained?: number | null } | null } };
 
 export type GetPlayerQueryVariables = Exact<{
   slackId: Scalars['String']['input'];
 }>;
 
 
-export type GetPlayerQuery = { __typename?: 'Query', getPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, name: string, x: number, y: number, hp: number, isAlive: boolean, nearbyMonsters?: Array<{ __typename?: 'Monster', id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
+export type GetPlayerQuery = { getPlayer: { success: boolean, message?: string | null, data?: { id: string, name: string, x: number, y: number, hp: number, isAlive: boolean, nearbyMonsters?: Array<{ id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
 
 export type CreatePlayerMutationVariables = Exact<{
   input: CreatePlayerInput;
 }>;
 
 
-export type CreatePlayerMutation = { __typename?: 'Mutation', createPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean } | null } };
+export type CreatePlayerMutation = { createPlayer: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean, updatedAt: any, createdAt: any, lastAction: any } | null } };
 
 export type RerollPlayerStatsMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
 }>;
 
 
-export type RerollPlayerStatsMutation = { __typename?: 'Mutation', updatePlayerStats: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, strength: number, agility: number, health: number } | null } };
+export type RerollPlayerStatsMutation = { updatePlayerStats: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string, strength: number, agility: number, health: number } | null } };
 
 export type CompletePlayerMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
 }>;
 
 
-export type CompletePlayerMutation = { __typename?: 'Mutation', updatePlayerStats: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, isAlive: boolean } | null } };
+export type CompletePlayerMutation = { updatePlayerStats: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string, isAlive: boolean } | null } };
 
 
 export const MovePlayerDocument = gql`
@@ -486,6 +466,9 @@ export const CreatePlayerDocument = gql`
       xp
       level
       isAlive
+      updatedAt
+      createdAt
+      lastAction
     }
   }
 }

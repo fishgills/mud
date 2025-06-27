@@ -92,6 +92,9 @@ mutation CreatePlayer($input: CreatePlayerInput!) {
       xp
       level
       isAlive
+      updatedAt
+      createdAt
+      lastAction
     }
   }
 }

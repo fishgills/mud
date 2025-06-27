@@ -10,20 +10,30 @@ export const EMOJI_SOUTH = ':arrow_down:';
 export const EMOJI_WEST = ':arrow_left:';
 
 const directionMap: Record<string, Direction> = {
-  [EMOJI_NORTH]: Direction.North,
-  [EMOJI_EAST]: Direction.East,
-  [EMOJI_SOUTH]: Direction.South,
-  [EMOJI_WEST]: Direction.West,
+  [EMOJI_NORTH]: Direction.NORTH,
+  [EMOJI_EAST]: Direction.EAST,
+  [EMOJI_SOUTH]: Direction.SOUTH,
+  [EMOJI_WEST]: Direction.WEST,
+  up: Direction.NORTH,
+  north: Direction.NORTH,
+  down: Direction.SOUTH,
+  south: Direction.SOUTH,
+  left: Direction.WEST,
+  west: Direction.WEST,
+  right: Direction.EAST,
+  east: Direction.EAST,
 };
 
-export const moveHandlerHelp = `Move your character using direction emojis: ⬆️ ⬇️ ⬅️ ➡️. Example: Send ⬆️ to move north.`;
+export const moveHandlerHelp = `Move your character using direction emojis or words: ⬆️ ⬇️ ⬅️ ➡️, up, down, left, right, north, south, east, west. Example: Send ⬆️ or 'up' to move north.`;
 export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
-  const found = Object.entries(directionMap).find(([emoji]) =>
-    text.includes(emoji),
+  // Normalize input for matching
+  const lowerText = text.toLowerCase();
+  const found = Object.entries(directionMap).find(([key]) =>
+    lowerText.includes(key),
   );
   if (!found) {
     await say({
-      text: 'Please use one of the direction emojis to move: ⬆️ ⬇️ ⬅️ ➡️',
+      text: 'Please use a direction: ⬆️ ⬇️ ⬅️ ➡️, up, down, left, right, north, south, east, or west.',
     });
     return;
   }
@@ -63,8 +73,7 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
   }
 };
 
-// Register handlers after all declarations
-registerHandler(EMOJI_NORTH, moveHandler);
-registerHandler(EMOJI_EAST, moveHandler);
-registerHandler(EMOJI_SOUTH, moveHandler);
-registerHandler(EMOJI_WEST, moveHandler);
+// Register handlers for all direction keys (emojis and words)
+Object.keys(directionMap).forEach((key) => {
+  registerHandler(key, moveHandler);
+});

@@ -7,6 +7,12 @@ const config: CodegenConfig = {
   ignoreNoDocuments: true,
   generates: {
     'src/generated/dm-graphql.ts': {
+      config: {
+        namingConvention: 'keep',
+        resolvers: false,
+        skipTypename: true,
+        flattenGeneratedTypes: true,
+      },
       schema: '../dm/src/schema.gql',
       documents: 'src/graphql/dm.graphql',
       plugins: [
@@ -14,6 +20,7 @@ const config: CodegenConfig = {
         'typescript',
         'typescript-operations',
         'typescript-graphql-request',
+        // 'typescript-generic-sdk',
       ],
     },
     'src/generated/world-graphql.ts': {
@@ -24,6 +31,7 @@ const config: CodegenConfig = {
         'typescript',
         'typescript-operations',
         'typescript-graphql-request',
+        // 'typescript-generic-sdk',
       ],
     },
   },

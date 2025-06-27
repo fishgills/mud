@@ -12,6 +12,9 @@ import './handlers/attack';
 import './handlers/create';
 import './handlers/reroll';
 import './handlers/complete';
+import './handlers/help';
+import './handlers/map';
+import './handlers/stats';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { EMOJI_CREATE } from './handlers/create';
 import { EMOJI_REROLL } from './handlers/reroll';
@@ -42,14 +45,16 @@ app.message(async ({ message, say }) => {
   const userId = 'user' in message ? message.user : undefined;
   if (!text || !userId) return;
 
-  // Dispatch to the first matching emoji handler
+  // Dispatch to the first matching handler (emoji or word, case-insensitive)
   // Wrap say so it matches the expected return type (Promise<void>)
   const sayVoid = async (msg: { text: string }) => {
     await say(msg);
   };
 
-  for (const [emoji, handler] of Object.entries(getAllHandlers())) {
-    if (text.includes(emoji)) {
+  const lowerText = text.toLowerCase();
+  for (const [key, handler] of Object.entries(getAllHandlers())) {
+    console.log(`Checking handler for: ${key}`);
+    if (lowerText.includes(key.toLowerCase())) {
       await handler({ userId, say: sayVoid, text });
       return;
     }

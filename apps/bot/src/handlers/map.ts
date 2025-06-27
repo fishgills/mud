@@ -21,3 +21,4 @@ export const mapHandler = async ({ say }: HandlerContext) => {
 };
 
 registerHandler(EMOJI_MAP, mapHandler);
+registerHandler('map', mapHandler); // Also register for text "map" to allow natural language
