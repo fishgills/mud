@@ -1,12 +1,18 @@
 import './tracer';
 import './env';
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  // Validate env on startup
-  // env is imported for side effect; will throw if DATABASE_URL is missing
   const app = await NestFactory.create(AppModule);
-  await app.listen(process.env.PORT ?? 3000);
+  const globalPrefix = 'world';
+  app.setGlobalPrefix(globalPrefix);
+  const port = process.env.PORT || 3001;
+  await app.listen(port);
+  Logger.log(
+    `🚀 Application is running on: http://localhost:${port}/${globalPrefix}`,
+  );
 }
+
 bootstrap();
