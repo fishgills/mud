@@ -19,18 +19,24 @@ import './handlers/help';
 import './handlers/map';
 import './handlers/stats';
 import { getAllHandlers } from './handlers/handlerRegistry';
-import { EMOJI_CREATE } from './handlers/create';
-import { EMOJI_REROLL } from './handlers/reroll';
-import { EMOJI_COMPLETE } from './handlers/complete';
-import { EMOJI_DELETE } from './handlers/delete';
 
 app.event('app_mention', async ({ event, say }) => {
   await say(
-    `Hello <@${event.user}>! DM me:
-${EMOJI_CREATE} YourCharacterName to create your character
-${EMOJI_REROLL} to reroll your stats
-${EMOJI_COMPLETE} to complete character creation
-${EMOJI_DELETE} to delete character during creation`,
+    `Hello <@${event.user}>! Welcome to the MUD adventure! 🎮
+
+**Quick Start:**
+• DM me ":new: YourName" to create a character
+• Use ":game_die:" to reroll stats during creation  
+• Use ":white_check_mark:" to complete character creation
+• Use ":wastebasket:" to delete character during creation
+
+**Once you have a character:**
+• Move with ⬆️ ⬇️ ⬅️ ➡️ or "north", "south", etc.
+• Attack monsters with ⚔️
+• Check stats with ":bar_chart:"
+• View map with ":map:"
+
+💡 **Send me "help" for the full command list!**`,
   );
 });
 
@@ -67,10 +73,26 @@ app.message(async ({ message, say }) => {
 
   // Help message for unknown input
   await say(
-    `Hi <@${userId}>! Use these commands:
-${Object.keys(getAllHandlers())
-  .map((e) => `${e}`)
-  .join('\n')}`,
+    `Hi <@${userId}>! I didn't understand that command. Here are the main commands:
+
+🎮 **Character Creation:**
+• :new: CharacterName - Create a new character
+• :game_die: - Reroll your stats during creation
+• :white_check_mark: - Complete character creation
+
+🏃 **Movement:**
+• ⬆️ ⬇️ ⬅️ ➡️ - Move using arrow emojis
+• "north", "south", "east", "west" - Move using words
+
+⚔️ **Actions:**
+• ⚔️ - Attack nearby monsters  
+• :bar_chart: - View your character stats
+
+📋 **Other:**
+• "help" - Show full command list
+• "map" - View the world map
+
+💡 **New here?** Start with \`:new: YourName\` to create your character!`,
   );
 });
 
