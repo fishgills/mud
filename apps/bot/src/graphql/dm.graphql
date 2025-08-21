@@ -63,6 +63,13 @@ query GetPlayer($slackId: String!) {
       x
       y
       hp
+      maxHp
+      strength
+      agility
+      health
+      gold
+      xp
+      level
       isAlive
       nearbyMonsters {
         id

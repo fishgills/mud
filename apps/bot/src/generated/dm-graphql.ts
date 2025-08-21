@@ -343,7 +343,7 @@ export type GetPlayerQueryVariables = Exact<{
 }>;
 
 
-export type GetPlayerQuery = { getPlayer: { success: boolean, message?: string | null, data?: { id: string, name: string, x: number, y: number, hp: number, isAlive: boolean, nearbyMonsters?: Array<{ id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
+export type GetPlayerQuery = { getPlayer: { success: boolean, message?: string | null, data?: { id: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean, nearbyMonsters?: Array<{ id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
 
 export type CreatePlayerMutationVariables = Exact<{
   input: CreatePlayerInput;
@@ -435,6 +435,13 @@ export const GetPlayerDocument = gql`
       x
       y
       hp
+      maxHp
+      strength
+      agility
+      health
+      gold
+      xp
+      level
       isAlive
       nearbyMonsters {
         id

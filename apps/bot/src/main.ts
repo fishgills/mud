@@ -3,8 +3,10 @@ import { env } from './env';
 
 const app = new App({
   token: env.SLACK_BOT_TOKEN,
-  signingSecret: env.SLACK_SIGNING_SECRET,
+  // signingSecret: env.SLACK_SIGNING_SECRET,
   logLevel: LogLevel.DEBUG,
+  socketMode: true,
+  appToken: env.SLACK_APP_TOKEN,
 });
 
 import './handlers/move';
@@ -71,7 +73,9 @@ ${Object.keys(getAllHandlers())
 
 async function start() {
   await app.start(Number(env.PORT));
-  console.log('⚡️ Slack MUD bot is running!');
+  console.log(
+    `⚡️ Slack MUD bot is running! 🚀 On http://localhost:${env.PORT}`,
+  );
 }
 
 start();
