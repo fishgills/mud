@@ -2,6 +2,7 @@ import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { GetPlayerQuery } from '../generated/dm-graphql';
+import { getUserFriendlyErrorMessage } from './errorUtils';
 
 export const EMOJI_STATS = ':bar_chart:';
 export const statsHandlerHelp = `Show your character's stats with ${EMOJI_STATS}. Example: Send ${EMOJI_STATS} to see your stats.`;
@@ -36,10 +37,17 @@ export const statsHandler = async ({ userId, say }: HandlerContext) => {
       const statsMsg = formatPlayerStats(player);
       await say({ text: statsMsg });
     } else {
-      await say({ text: `Error: ${result.getPlayer.message}` });
+      // Handle the case where the player doesn't exist
+      await say({
+        text: `You don't have a character yet! Use :new: CharacterName to create one.`,
+      });
     }
-  } catch (err) {
-    await say({ text: `Failed to load stats: ${err}` });
+  } catch (err: unknown) {
+    const errorMessage = getUserFriendlyErrorMessage(
+      err,
+      'Failed to load stats',
+    );
+    await say({ text: errorMessage });
   }
 };
 

@@ -460,6 +460,26 @@ export class PlayerResolver {
     }
   }
 
+  @Mutation(() => PlayerResponse)
+  async deletePlayer(
+    @Args('slackId') slackId: string,
+  ): Promise<PlayerResponse> {
+    try {
+      const player = await this.playerService.deletePlayer(slackId);
+      return {
+        success: true,
+        data: player as Player,
+        message: 'Character has been successfully deleted.',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error ? error.message : 'Failed to delete character',
+      };
+    }
+  }
+
   @Query(() => PlayerStats)
   async getPlayerStats(@Args('slackId') slackId: string): Promise<PlayerStats> {
     const player = await this.playerService.getPlayer(slackId);

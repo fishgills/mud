@@ -2,6 +2,7 @@ import { TargetType } from '../generated/dm-graphql';
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
+import { getUserFriendlyErrorMessage } from './errorUtils';
 
 // Emoji for attack
 export const EMOJI_ATTACK = '⚔️';
@@ -42,7 +43,8 @@ export const attackHandler = async ({ userId, say }: HandlerContext) => {
       msg += `\nYou gained ${combat.xpGained} XP!`;
     }
     await say({ text: msg });
-  } catch (err) {
-    await say({ text: `Failed to attack: ${err}` });
+  } catch (err: unknown) {
+    const errorMessage = getUserFriendlyErrorMessage(err, 'Failed to attack');
+    await say({ text: errorMessage });
   }
 };

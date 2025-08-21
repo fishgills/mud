@@ -131,3 +131,15 @@ mutation CompletePlayer($slackId: String!) {
     }
   }
 }
+
+mutation DeletePlayer($slackId: String!) {
+  deletePlayer(slackId: $slackId) {
+    success
+    message
+    data {
+      id
+      slackId
+      name
+    }
+  }
+}

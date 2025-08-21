@@ -1,6 +1,7 @@
 import { registerHandler } from './handlerRegistry';
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
+import { getUserFriendlyErrorMessage } from './errorUtils';
 
 export const EMOJI_REROLL = ':game_die:';
 
@@ -16,8 +17,12 @@ export const rerollHandler = async ({ userId, say }: HandlerContext) => {
     } else {
       await say({ text: `Error: ${result.updatePlayerStats.message}` });
     }
-  } catch (err) {
-    await say({ text: `Failed to reroll stats: ${err}` });
+  } catch (err: unknown) {
+    const errorMessage = getUserFriendlyErrorMessage(
+      err,
+      'Failed to reroll stats',
+    );
+    await say({ text: errorMessage });
   }
 };
 

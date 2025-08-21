@@ -2,14 +2,39 @@ import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { formatPlayerStats } from './stats';
+import { getUserFriendlyErrorMessage } from './errorUtils';
 
 export const EMOJI_CREATE = ':new:';
 export const EMOJI_REROLL = ':game_die:';
 export const EMOJI_COMPLETE = ':white_check_mark:';
 
-export const createHandlerHelp = `Create a new character with ${EMOJI_CREATE}. Example: Send ${EMOJI_CREATE} to start character creation.`;
-export const createHandler = async ({ userId, say }: HandlerContext) => {
-  const name = `Player_${userId}`;
+export const createHandlerHelp = `Create a new character with ${EMOJI_CREATE}. Example: Send "${EMOJI_CREATE} AwesomeDude" to create a character named AwesomeDude.`;
+export const createHandler = async ({ userId, say, text }: HandlerContext) => {
+  // Parse the character name from the message
+  const trimmedText = text.trim();
+  const parts = trimmedText.split(/\s+/);
+
+  // Find the emoji/command part and extract everything after it as the name
+  let name = '';
+  const emojiIndex = parts.findIndex((part) =>
+    part.toLowerCase().includes(EMOJI_CREATE.toLowerCase().replace(/:/g, '')),
+  );
+  if (emojiIndex !== -1 && parts.length > emojiIndex + 1) {
+    // Join all parts after the emoji as the character name
+    name = parts
+      .slice(emojiIndex + 1)
+      .join(' ')
+      .trim();
+  }
+
+  // Check if name was provided
+  if (!name) {
+    await say({
+      text: `Please provide a name for your character! Example: "${EMOJI_CREATE} AwesomeDude"`,
+    });
+    return;
+  }
+
   const input = { slackId: userId, name };
   try {
     const result = await dmSdk.CreatePlayer({ input });
@@ -22,23 +47,40 @@ export const createHandler = async ({ userId, say }: HandlerContext) => {
       console.log('CreatePlayer error:', result.createPlayer);
       await say({ text: `Error: ${result.createPlayer.message}` });
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Check for GraphQL errors from graphql-request
-    if (err?.response?.errors) {
-      const playerExists = err.response.errors.find(
-        (e: any) => e.extensions?.code === 'PLAYER_EXISTS',
+    if (
+      err &&
+      typeof err === 'object' &&
+      'response' in err &&
+      err.response &&
+      typeof err.response === 'object' &&
+      'errors' in err.response
+    ) {
+      const errors = err.response.errors as Array<{
+        extensions?: { code?: string };
+        message: string;
+      }>;
+      const playerExists = errors.find(
+        (e) => e.extensions?.code === 'PLAYER_EXISTS',
       );
       if (playerExists) {
         await say({ text: `You already have a character!` });
         return;
       }
       // Handle other GraphQL errors
-      await say({
-        text: `Failed to create character: ${err.response.errors[0].message}`,
-      });
+      const errorMessage = getUserFriendlyErrorMessage(
+        err,
+        'Failed to create character',
+      );
+      await say({ text: errorMessage });
     } else {
       // Handle network or unexpected errors
-      await say({ text: `Failed to create character: ${err.message || err}` });
+      const errorMessage = getUserFriendlyErrorMessage(
+        err,
+        'Failed to create character',
+      );
+      await say({ text: errorMessage });
     }
   }
 };

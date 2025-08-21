@@ -14,6 +14,7 @@ import './handlers/attack';
 import './handlers/create';
 import './handlers/reroll';
 import './handlers/complete';
+import './handlers/delete';
 import './handlers/help';
 import './handlers/map';
 import './handlers/stats';
@@ -21,13 +22,15 @@ import { getAllHandlers } from './handlers/handlerRegistry';
 import { EMOJI_CREATE } from './handlers/create';
 import { EMOJI_REROLL } from './handlers/reroll';
 import { EMOJI_COMPLETE } from './handlers/complete';
+import { EMOJI_DELETE } from './handlers/delete';
 
 app.event('app_mention', async ({ event, say }) => {
   await say(
     `Hello <@${event.user}>! DM me:
-${EMOJI_CREATE} to create your character
+${EMOJI_CREATE} YourCharacterName to create your character
 ${EMOJI_REROLL} to reroll your stats
-${EMOJI_COMPLETE} to complete character creation`,
+${EMOJI_COMPLETE} to complete character creation
+${EMOJI_DELETE} to delete character during creation`,
   );
 });
 

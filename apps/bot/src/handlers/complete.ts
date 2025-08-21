@@ -1,6 +1,7 @@
 import { registerHandler } from './handlerRegistry';
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
+import { getUserFriendlyErrorMessage } from './errorUtils';
 
 export const EMOJI_COMPLETE = ':white_check_mark:';
 export const completeHandlerHelp = `Complete your character creation with ${EMOJI_COMPLETE}. Example: Send ${EMOJI_COMPLETE} when you are done creating your character.`;
@@ -14,8 +15,12 @@ export const completeHandler = async ({ userId, say }: HandlerContext) => {
     } else {
       await say({ text: `Error: ${result.updatePlayerStats.message}` });
     }
-  } catch (err) {
-    await say({ text: `Failed to complete character: ${err}` });
+  } catch (err: unknown) {
+    const errorMessage = getUserFriendlyErrorMessage(
+      err,
+      'Failed to complete character',
+    );
+    await say({ text: errorMessage });
   }
 };
 

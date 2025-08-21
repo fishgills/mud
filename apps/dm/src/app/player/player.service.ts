@@ -20,7 +20,7 @@ export class PlayerService {
     });
 
     if (existingPlayer) {
-      throw new GraphQLError(`Player with slackId ${slackId} already exists`, {
+      throw new GraphQLError(`Player already exists`, {
         extensions: {
           code: 'PLAYER_EXISTS',
           slackId,
@@ -72,7 +72,7 @@ export class PlayerService {
     });
 
     if (!player) {
-      throw new NotFoundException(`Player with slackId ${slackId} not found`);
+      throw new NotFoundException(`Player not found`);
     }
 
     return player;
@@ -192,6 +192,16 @@ export class PlayerService {
         x: respawnPosition.x,
         y: respawnPosition.y,
       },
+    });
+  }
+
+  async deletePlayer(slackId: string): Promise<Player> {
+    // First check if player exists (will throw NotFoundException if not found)
+    await this.getPlayer(slackId);
+
+    // Delete the player from the database
+    return this.prisma.player.delete({
+      where: { slackId },
     });
   }
 

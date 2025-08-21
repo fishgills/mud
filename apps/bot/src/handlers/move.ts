@@ -2,6 +2,7 @@ import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { Direction } from '../generated/dm-graphql';
 import { registerHandler } from './handlerRegistry';
+import { getUserFriendlyErrorMessage } from './errorUtils';
 
 // Emoji directions
 export const EMOJI_NORTH = ':arrow_up:';
@@ -68,8 +69,9 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
       msg += data.playerInfo + '\n';
     }
     await say({ text: msg });
-  } catch (err) {
-    await say({ text: `Failed to move: ${err}` });
+  } catch (err: unknown) {
+    const errorMessage = getUserFriendlyErrorMessage(err, 'Failed to move');
+    await say({ text: errorMessage });
   }
 };
 

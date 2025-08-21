@@ -134,6 +134,7 @@ export type Mutation = {
   attack: CombatResponse;
   createPlayer: PlayerResponse;
   damagePlayer: PlayerResponse;
+  deletePlayer: PlayerResponse;
   healPlayer: PlayerResponse;
   movePlayer: PlayerMoveResponse;
   processTick: SuccessResponse;
@@ -156,6 +157,11 @@ export type MutationcreatePlayerArgs = {
 
 export type MutationdamagePlayerArgs = {
   damage: Scalars['Float']['input'];
+  slackId: Scalars['String']['input'];
+};
+
+
+export type MutationdeletePlayerArgs = {
   slackId: Scalars['String']['input'];
 };
 
@@ -366,6 +372,13 @@ export type CompletePlayerMutationVariables = Exact<{
 
 export type CompletePlayerMutation = { updatePlayerStats: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string, isAlive: boolean } | null } };
 
+export type DeletePlayerMutationVariables = Exact<{
+  slackId: Scalars['String']['input'];
+}>;
+
+
+export type DeletePlayerMutation = { deletePlayer: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string } | null } };
+
 
 export const MovePlayerDocument = gql`
     mutation MovePlayer($slackId: String!, $input: MovePlayerInput!) {
@@ -508,6 +521,19 @@ export const CompletePlayerDocument = gql`
   }
 }
     `;
+export const DeletePlayerDocument = gql`
+    mutation DeletePlayer($slackId: String!) {
+  deletePlayer(slackId: $slackId) {
+    success
+    message
+    data {
+      id
+      slackId
+      name
+    }
+  }
+}
+    `;
 
 export type SdkFunctionWrapper = <T>(action: (requestHeaders?:Record<string, string>) => Promise<T>, operationName: string, operationType?: string, variables?: any) => Promise<T>;
 
@@ -533,6 +559,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     CompletePlayer(variables: CompletePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<CompletePlayerMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<CompletePlayerMutation>({ document: CompletePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CompletePlayer', 'mutation', variables);
+    },
+    DeletePlayer(variables: DeletePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<DeletePlayerMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<DeletePlayerMutation>({ document: DeletePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'DeletePlayer', 'mutation', variables);
     }
   };
 }
