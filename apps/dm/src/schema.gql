@@ -193,6 +193,7 @@ type Mutation {
   createPlayer(input: CreatePlayerInput!): PlayerResponse!
   movePlayer(slackId: String!, input: MovePlayerInput!): PlayerMoveResponse!
   updatePlayerStats(slackId: String!, input: PlayerStatsInput!): PlayerResponse!
+  rerollPlayerStats(slackId: String!): PlayerResponse!
   healPlayer(slackId: String!, amount: Float!): PlayerResponse!
   damagePlayer(slackId: String!, damage: Float!): PlayerResponse!
   attack(slackId: String!, input: AttackInput!): CombatResponse!

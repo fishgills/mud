@@ -31,13 +31,8 @@ export class PlayerService {
     // Find a spawn position that's at least 100 tiles away from existing players
     const spawnPosition = await this.findValidSpawnPosition(x, y);
 
-    // Generate random starting stats (8-15 range)
-    const strength = Math.floor(Math.random() * 8) + 8;
-    const agility = Math.floor(Math.random() * 8) + 8;
-    const health = Math.floor(Math.random() * 8) + 8;
-
-    // Calculate max HP based on health attribute
-    const maxHp = 80 + health * 2;
+    // Generate random starting stats and calculate maxHP
+    const { strength, agility, health, maxHp } = this.generateRandomStats();
 
     return this.prisma.player.create({
       data: {
@@ -151,6 +146,34 @@ export class PlayerService {
         level: statsDto.level,
         updatedAt: new Date(),
       },
+    });
+  }
+
+  async rerollPlayerStats(slackId: string): Promise<Player> {
+    // Get the current player to check their state
+    const currentPlayer = await this.getPlayer(slackId);
+
+    // Generate new random starting stats and calculate maxHP
+    const { strength, agility, health, maxHp } = this.generateRandomStats();
+
+    // Only update HP if character is still in creation phase (HP <= 1)
+    // If they've completed creation (HP > 1), preserve current HP but update maxHp
+    const updateData: any = {
+      strength,
+      agility,
+      health,
+      maxHp,
+      updatedAt: new Date(),
+    };
+
+    // If player is still in creation phase, set HP to maxHp
+    if (currentPlayer.hp <= 1) {
+      updateData.hp = maxHp;
+    }
+
+    return this.prisma.player.update({
+      where: { slackId },
+      data: updateData,
     });
   }
 
@@ -382,6 +405,27 @@ export class PlayerService {
     }
 
     return bestPosition;
+  }
+
+  /**
+   * Generates random character stats and calculates maxHP
+   * Used by both createPlayer and rerollPlayerStats to maintain consistency
+   */
+  private generateRandomStats(): {
+    strength: number;
+    agility: number;
+    health: number;
+    maxHp: number;
+  } {
+    // Generate random starting stats (8-15 range)
+    const strength = Math.floor(Math.random() * 8) + 8;
+    const agility = Math.floor(Math.random() * 8) + 8;
+    const health = Math.floor(Math.random() * 8) + 8;
+
+    // Calculate max HP based on health attribute
+    const maxHp = 80 + health * 2;
+
+    return { strength, agility, health, maxHp };
   }
 
   private async findRespawnPositionNearPlayers(

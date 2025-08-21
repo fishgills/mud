@@ -353,6 +353,27 @@ export class PlayerResolver {
   }
 
   @Mutation(() => PlayerResponse)
+  async rerollPlayerStats(
+    @Args('slackId') slackId: string,
+  ): Promise<PlayerResponse> {
+    try {
+      const player = await this.playerService.rerollPlayerStats(slackId);
+      return {
+        success: true,
+        data: player as Player,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to reroll player stats',
+      };
+    }
+  }
+
+  @Mutation(() => PlayerResponse)
   async healPlayer(
     @Args('slackId') slackId: string,
     @Args('amount') amount: number,

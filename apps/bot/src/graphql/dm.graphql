@@ -105,7 +105,7 @@ mutation CreatePlayer($input: CreatePlayerInput!) {
 }
 
 mutation RerollPlayerStats($slackId: String!) {
-  updatePlayerStats(slackId: $slackId, input: {}) {
+  rerollPlayerStats(slackId: $slackId) {
     success
     message
     data {

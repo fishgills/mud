@@ -9,13 +9,13 @@ export const rerollHandlerHelp = `Reroll your character's stats with ${EMOJI_RER
 export const rerollHandler = async ({ userId, say }: HandlerContext) => {
   try {
     const result = await dmSdk.RerollPlayerStats({ slackId: userId });
-    if (result.updatePlayerStats.success) {
-      const stats = result.updatePlayerStats.data;
+    if (result.rerollPlayerStats.success) {
+      const stats = result.rerollPlayerStats.data;
       await say({
         text: `🎲 Rerolled stats: Strength: ${stats?.strength}, Agility: ${stats?.agility}, Health: ${stats?.health}`,
       });
     } else {
-      await say({ text: `Error: ${result.updatePlayerStats.message}` });
+      await say({ text: `Error: ${result.rerollPlayerStats.message}` });
     }
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(

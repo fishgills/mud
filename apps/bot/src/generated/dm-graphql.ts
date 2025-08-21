@@ -138,6 +138,7 @@ export type Mutation = {
   healPlayer: PlayerResponse;
   movePlayer: PlayerMoveResponse;
   processTick: SuccessResponse;
+  rerollPlayerStats: PlayerResponse;
   respawn: PlayerResponse;
   spawnMonster: MonsterResponse;
   updatePlayerStats: PlayerResponse;
@@ -174,6 +175,11 @@ export type MutationhealPlayerArgs = {
 
 export type MutationmovePlayerArgs = {
   input: MovePlayerInput;
+  slackId: Scalars['String']['input'];
+};
+
+
+export type MutationrerollPlayerStatsArgs = {
   slackId: Scalars['String']['input'];
 };
 
@@ -363,7 +369,7 @@ export type RerollPlayerStatsMutationVariables = Exact<{
 }>;
 
 
-export type RerollPlayerStatsMutation = { updatePlayerStats: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string, strength: number, agility: number, health: number } | null } };
+export type RerollPlayerStatsMutation = { rerollPlayerStats: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string, strength: number, agility: number, health: number } | null } };
 
 export type CompletePlayerMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -493,7 +499,7 @@ export const CreatePlayerDocument = gql`
     `;
 export const RerollPlayerStatsDocument = gql`
     mutation RerollPlayerStats($slackId: String!) {
-  updatePlayerStats(slackId: $slackId, input: {}) {
+  rerollPlayerStats(slackId: $slackId) {
     success
     message
     data {
