@@ -32,9 +32,9 @@ export const helpHandler = async ({ say }: HandlerContext) => {
     `• Send "help" or ${EMOJI_HELP} to see these instructions`,
     '',
     '💡 **Getting Started:**',
-    '1. Create a character with :new: YourName',
-    '2. Reroll stats if needed with :game_die:',
-    '3. Complete creation with :white_check_mark:',
+    '1. Create a character with \`:new: YourName\`',
+    '2. Reroll stats if needed with \`:game_die:\`',
+    '3. Complete creation with \`:white_check_mark:\`',
     '4. Start exploring with arrow emojis or directions!',
   ].join('\n');
   await say({ text: helpMsg });
