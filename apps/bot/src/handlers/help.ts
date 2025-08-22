@@ -10,8 +10,7 @@ import { statsHandlerHelp } from './stats';
 import { mapHandlerHelp } from './map';
 import { registerHandler } from './handlerRegistry';
 
-const EMOJI_HELP = ':information_source:';
-export const helpHandlerHelp = `Show instructions for using the bot with ${EMOJI_HELP} or "help".`;
+export const helpHandlerHelp = `Show instructions for using the bot with "help".`;
 
 export const helpHandler = async ({ say }: HandlerContext) => {
   const helpMsg = [
@@ -31,17 +30,16 @@ export const helpHandler = async ({ say }: HandlerContext) => {
     '',
     '**Other Commands:**',
     `• ${mapHandlerHelp}`,
-    `• Send "help" or ${EMOJI_HELP} to see these instructions`,
+    `• Send "help" to see these instructions`,
     '',
     '💡 **Getting Started:**',
-    '1. Create a character with `:new: YourName`',
-    '2. Reroll stats if needed with `:game_die:`',
-    '3. Complete creation with `:white_check_mark:`',
-    '4. Start exploring with arrow emojis or directions!',
+    '1. Create a character with "new YourName"',
+    '2. Reroll stats if needed with "reroll"',
+    '3. Complete creation with "complete"',
+    '4. Start exploring with direction words like "north" or "up"!',
   ].join('\n');
   await say({ text: helpMsg });
 };
 
-// Register help handlers
-registerHandler(EMOJI_HELP, helpHandler);
+// Register help handler for text command only
 registerHandler('help', helpHandler);

@@ -4,8 +4,7 @@ import { registerHandler } from './handlerRegistry';
 import { GetPlayerQuery } from '../generated/dm-graphql';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 
-export const EMOJI_STATS = ':bar_chart:';
-export const statsHandlerHelp = `Show your character's stats with ${EMOJI_STATS}. Example: Send ${EMOJI_STATS} to see your stats.`;
+export const statsHandlerHelp = `Show your character's stats with "stats". Example: Send "stats" to see your character information.`;
 
 type PlayerStats = NonNullable<GetPlayerQuery['getPlayer']['data']>;
 
@@ -19,7 +18,7 @@ export function formatPlayerStats(player: PlayerStats): string {
     player.health,
     player.maxHp,
   ].some((v) => v == null || v === 0)
-    ? '_Character creation not complete! Use :game_die: to reroll, :white_check_mark: to finish._\n'
+    ? '_Character creation not complete! Use "reroll" to reroll stats, "complete" to finish._\n'
     : '';
 
   return (
@@ -39,7 +38,7 @@ export const statsHandler = async ({ userId, say }: HandlerContext) => {
     } else {
       // Handle the case where the player doesn't exist
       await say({
-        text: `You don't have a character yet! Use \`:new: CharacterName\` to create one.`,
+        text: `You don't have a character yet! Use "new CharacterName" to create one.`,
       });
     }
   } catch (err: unknown) {
@@ -51,5 +50,4 @@ export const statsHandler = async ({ userId, say }: HandlerContext) => {
   }
 };
 
-registerHandler(EMOJI_STATS, statsHandler);
-registerHandler('stats', statsHandler); // Also register for text "stats" to allow natural language
+registerHandler('stats', statsHandler);

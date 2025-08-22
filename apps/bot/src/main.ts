@@ -26,16 +26,16 @@ app.event('app_mention', async ({ event, say }) => {
     `Hello <@${event.user}>! Welcome to the MUD adventure! 🎮
 
 **Quick Start:**
-• DM me ":new: YourName" to create a character
-• Use ":game_die:" to reroll stats during creation  
-• Use ":white_check_mark:" to complete character creation
-• Use ":wastebasket:" to delete character during creation
+• DM me "new YourName" to create a character
+• Use "reroll" to reroll stats during creation  
+• Use "complete" to complete character creation
+• Use "delete" to delete character during creation
 
 **Once you have a character:**
-• Move with ⬆️ ⬇️ ⬅️ ➡️ or "north", "south", etc.
-• Attack monsters with ⚔️
-• Check stats with ":bar_chart:"
-• View map with ":map:"
+• Move with "north", "south", "east", "west", "up", "down", "left", "right"
+• Attack monsters with "attack"
+• Check stats with "stats"
+• View map with "map"
 
 💡 **Send me "help" for the full command list!**`,
   );
@@ -66,7 +66,13 @@ app.message(async ({ message, say }) => {
   const lowerText = text.toLowerCase();
   for (const [key, handler] of Object.entries(getAllHandlers())) {
     console.log(`Checking handler for: ${key}`);
-    if (lowerText.includes(key.toLowerCase())) {
+    // Check if the message starts with the command or contains it as a whole word
+    if (
+      lowerText === key.toLowerCase() ||
+      lowerText.startsWith(key.toLowerCase() + ' ') ||
+      lowerText.includes(' ' + key.toLowerCase() + ' ') ||
+      lowerText.endsWith(' ' + key.toLowerCase())
+    ) {
       await handler({ userId, say: sayVoid, text });
       return;
     }
@@ -77,23 +83,23 @@ app.message(async ({ message, say }) => {
     `Hi <@${userId}>! I didn't understand that command. Here are the main commands:
 
 🎮 **Character Creation:**
-• :new: CharacterName - Create a new character
-• :game_die: - Reroll your stats during creation
-• :white_check_mark: - Complete character creation
+• "new CharacterName" - Create a new character
+• "reroll" - Reroll your stats during creation
+• "complete" - Complete character creation
 
 🏃 **Movement:**
-• ⬆️ ⬇️ ⬅️ ➡️ - Move using arrow emojis
-• "north", "south", "east", "west" - Move using words
+• "north", "south", "east", "west" - Move using directions
+• "up", "down", "left", "right" - Alternative direction words
 
 ⚔️ **Actions:**
-• ⚔️ - Attack nearby monsters  
-• :bar_chart: - View your character stats
+• "attack" - Attack nearby monsters  
+• "stats" - View your character stats
 
 📋 **Other:**
 • "help" - Show full command list
 • "map" - View the world map
 
-💡 **New here?** Start with \`:new: YourName\` to create your character!`,
+💡 **New here?** Start with "new YourName" to create your character!`,
   );
 });
 

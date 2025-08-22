@@ -2,9 +2,7 @@ import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { worldSdk } from '../gql-client';
 
-const EMOJI_MAP = ':map:';
-
-export const mapHandlerHelp = `Display the ASCII map with ${EMOJI_MAP}. Example: Send ${EMOJI_MAP} to see the world map.`;
+export const mapHandlerHelp = `Display the ASCII map with "map". Example: Send "map" to see the world map.`;
 
 export const mapHandler = async ({ say }: HandlerContext) => {
   try {
@@ -20,5 +18,4 @@ export const mapHandler = async ({ say }: HandlerContext) => {
   }
 };
 
-registerHandler(EMOJI_MAP, mapHandler);
-registerHandler('map', mapHandler); // Also register for text "map" to allow natural language
+registerHandler('map', mapHandler);

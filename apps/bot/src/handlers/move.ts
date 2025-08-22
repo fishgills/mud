@@ -5,17 +5,7 @@ import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { formatLocationMessage, LocationData } from './locationUtils';
 
-// Emoji directions
-export const EMOJI_NORTH = ':arrow_up:';
-export const EMOJI_EAST = ':arrow_right:';
-export const EMOJI_SOUTH = ':arrow_down:';
-export const EMOJI_WEST = ':arrow_left:';
-
 const directionMap: Record<string, Direction> = {
-  [EMOJI_NORTH]: Direction.NORTH,
-  [EMOJI_EAST]: Direction.EAST,
-  [EMOJI_SOUTH]: Direction.SOUTH,
-  [EMOJI_WEST]: Direction.WEST,
   up: Direction.NORTH,
   north: Direction.NORTH,
   down: Direction.SOUTH,
@@ -26,7 +16,7 @@ const directionMap: Record<string, Direction> = {
   east: Direction.EAST,
 };
 
-export const moveHandlerHelp = `Move your character using direction emojis or words: ⬆️ ⬇️ ⬅️ ➡️, up, down, left, right, north, south, east, west. Example: Send ⬆️ or 'up' to move north.`;
+export const moveHandlerHelp = `Move your character using direction words: up, down, left, right, north, south, east, west. Example: Send "up" or "north" to move north.`;
 export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
   // Normalize input for matching
   const lowerText = text.toLowerCase();
@@ -35,7 +25,7 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
   );
   if (!found) {
     await say({
-      text: 'Please use a direction: ⬆️ ⬇️ ⬅️ ➡️, up, down, left, right, north, south, east, or west.',
+      text: 'Please use a direction: up, down, left, right, north, south, east, or west.',
     });
     return;
   }

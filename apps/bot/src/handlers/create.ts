@@ -4,25 +4,20 @@ import { registerHandler } from './handlerRegistry';
 import { formatPlayerStats } from './stats';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 
-export const EMOJI_CREATE = ':new:';
-export const EMOJI_REROLL = ':game_die:';
-export const EMOJI_COMPLETE = ':white_check_mark:';
+export const createHandlerHelp = `Create a new character with "new". Example: Send "new AwesomeDude" to create a character named AwesomeDude.`;
 
-export const createHandlerHelp = `Create a new character with ${EMOJI_CREATE}. Example: Send "${EMOJI_CREATE} AwesomeDude" to create a character named AwesomeDude.`;
 export const createHandler = async ({ userId, say, text }: HandlerContext) => {
   // Parse the character name from the message
   const trimmedText = text.trim();
   const parts = trimmedText.split(/\s+/);
 
-  // Find the emoji/command part and extract everything after it as the name
+  // Find the "new" command and extract everything after it as the name
   let name = '';
-  const emojiIndex = parts.findIndex((part) =>
-    part.toLowerCase().includes(EMOJI_CREATE.toLowerCase().replace(/:/g, '')),
-  );
-  if (emojiIndex !== -1 && parts.length > emojiIndex + 1) {
-    // Join all parts after the emoji as the character name
+  const newIndex = parts.findIndex((part) => part.toLowerCase() === 'new');
+  if (newIndex !== -1 && parts.length > newIndex + 1) {
+    // Join all parts after "new" as the character name
     name = parts
-      .slice(emojiIndex + 1)
+      .slice(newIndex + 1)
       .join(' ')
       .trim();
   }
@@ -30,7 +25,7 @@ export const createHandler = async ({ userId, say, text }: HandlerContext) => {
   // Check if name was provided
   if (!name) {
     await say({
-      text: `Please provide a name for your character! Example: "${EMOJI_CREATE} AwesomeDude"`,
+      text: `Please provide a name for your character! Example: "new AwesomeDude"`,
     });
     return;
   }
@@ -41,7 +36,7 @@ export const createHandler = async ({ userId, say, text }: HandlerContext) => {
     if (result.createPlayer.success && result.createPlayer.data) {
       const statsMsg = formatPlayerStats(result.createPlayer.data);
       await say({
-        text: `Welcome <@${userId}>! Your character creation has started.\n${statsMsg}\nSend ${EMOJI_REROLL} to reroll your stats, and ${EMOJI_COMPLETE} when you are done.`,
+        text: `Welcome <@${userId}>! Your character creation has started.\n${statsMsg}\nSend "reroll" to reroll your stats, and "complete" when you are done.`,
       });
     } else {
       console.log('CreatePlayer error:', result.createPlayer);
@@ -85,5 +80,5 @@ export const createHandler = async ({ userId, say, text }: HandlerContext) => {
   }
 };
 
-// Register handler after all declarations
-registerHandler(EMOJI_CREATE, createHandler);
+// Register handler for text command only
+registerHandler('new', createHandler);

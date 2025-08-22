@@ -1,18 +1,18 @@
 import { HandlerContext } from './types';
 
-export type EmojiHandler = (ctx: HandlerContext) => Promise<void>;
+export type CommandHandler = (ctx: HandlerContext) => Promise<void>;
 
-const registry: Record<string, EmojiHandler> = {};
+const registry: Record<string, CommandHandler> = {};
 
-export function registerHandler(emoji: string, handler: EmojiHandler) {
-  console.log(`Registering handler for emoji: ${emoji}`);
-  registry[emoji] = handler;
+export function registerHandler(command: string, handler: CommandHandler) {
+  console.log(`Registering handler for command: ${command}`);
+  registry[command] = handler;
 }
 
-export function getHandler(emoji: string): EmojiHandler | undefined {
-  return registry[emoji];
+export function getHandler(command: string): CommandHandler | undefined {
+  return registry[command];
 }
 
-export function getAllHandlers(): Record<string, EmojiHandler> {
+export function getAllHandlers(): Record<string, CommandHandler> {
   return registry;
 }

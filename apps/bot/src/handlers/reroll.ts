@@ -3,9 +3,8 @@ import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 
-export const EMOJI_REROLL = ':game_die:';
+export const rerollHandlerHelp = `Reroll your character's stats with "reroll". Example: Send "reroll" to reroll stats during character creation.`;
 
-export const rerollHandlerHelp = `Reroll your character's stats with ${EMOJI_REROLL}. Example: Send ${EMOJI_REROLL} to reroll stats during character creation.`;
 export const rerollHandler = async ({ userId, say }: HandlerContext) => {
   try {
     const result = await dmSdk.RerollPlayerStats({ slackId: userId });
@@ -26,5 +25,5 @@ export const rerollHandler = async ({ userId, say }: HandlerContext) => {
   }
 };
 
-// Register handler after all declarations
-registerHandler(EMOJI_REROLL, rerollHandler);
+// Register handler for text command only
+registerHandler('reroll', rerollHandler);

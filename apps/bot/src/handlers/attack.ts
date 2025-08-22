@@ -4,12 +4,9 @@ import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 
-// Emoji for attack
-export const EMOJI_ATTACK = '⚔️';
+export const attackHandlerHelp = `Attack the nearest monster using "attack". Example: Send "attack" to fight nearby enemies.`;
 
-export const attackHandlerHelp = `Attack the nearest monster using ⚔️. Example: Send ⚔️ to attack.`;
 export const attackHandler = async ({ userId, say }: HandlerContext) => {
-  registerHandler(EMOJI_ATTACK, attackHandler);
   // For demo: attack the first nearby monster (could be improved with more context)
   try {
     // Get player info to find nearby monsters
@@ -48,3 +45,5 @@ export const attackHandler = async ({ userId, say }: HandlerContext) => {
     await say({ text: errorMessage });
   }
 };
+
+registerHandler('attack', attackHandler);

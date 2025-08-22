@@ -3,9 +3,7 @@ import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 
-export const EMOJI_DELETE = ':wastebasket:';
-
-export const deleteHandlerHelp = `Delete your character during creation with ${EMOJI_DELETE}. Example: Send ${EMOJI_DELETE} to delete your character if it's still in creation phase (before completion).`;
+export const deleteHandlerHelp = `Delete your character during creation with "delete". Example: Send "delete" to delete your character if it's still in creation phase (before completion).`;
 
 export const deleteHandler = async ({ userId, say }: HandlerContext) => {
   try {
@@ -14,7 +12,7 @@ export const deleteHandler = async ({ userId, say }: HandlerContext) => {
 
     if (!playerResult.getPlayer.success || !playerResult.getPlayer.data) {
       await say({
-        text: `You don't have a character to delete! Use :new: CharacterName to create one.`,
+        text: `You don't have a character to delete! Use "new CharacterName" to create one.`,
       });
       return;
     }
@@ -39,7 +37,7 @@ export const deleteHandler = async ({ userId, say }: HandlerContext) => {
 
     if (deleteResult.deletePlayer.success) {
       await say({
-        text: `${EMOJI_DELETE} Character "${player.name}" has been successfully deleted during creation phase. You can create a new character with :new: CharacterName`,
+        text: `✅ Character "${player.name}" has been successfully deleted during creation phase. You can create a new character with "new CharacterName"`,
       });
     } else {
       await say({
@@ -55,5 +53,5 @@ export const deleteHandler = async ({ userId, say }: HandlerContext) => {
   }
 };
 
-// Register handler after all declarations
-registerHandler(EMOJI_DELETE, deleteHandler);
+// Register handler for text command only
+registerHandler('delete', deleteHandler);
