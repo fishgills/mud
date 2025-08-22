@@ -41,3 +41,11 @@ export const HELP_ACTIONS = {
   STATS: 'help_action_stats',
   MAP: 'help_action_map',
 } as const;
+
+// Action IDs for movement quick buttons in Block Kit
+export const MOVE_ACTIONS = {
+  NORTH: 'move_action_north',
+  SOUTH: 'move_action_south',
+  EAST: 'move_action_east',
+  WEST: 'move_action_west',
+} as const;

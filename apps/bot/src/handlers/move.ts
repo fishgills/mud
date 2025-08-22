@@ -3,8 +3,12 @@ import { HandlerContext } from './types';
 import { Direction } from '../generated/dm-graphql';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
-import { formatLocationMessage, LocationData } from './locationUtils';
-import { COMMANDS } from '../commands';
+import {
+  buildLocationBlocks,
+  formatLocationMessage,
+  LocationData,
+} from './locationUtils';
+import { COMMANDS, MOVE_ACTIONS } from '../commands';
 
 const directionMap: Record<string, Direction> = {
   [COMMANDS.UP]: Direction.NORTH,
@@ -54,8 +58,37 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
       description: data.description,
     };
 
-    const msg = formatLocationMessage(locationData, direction);
-    await say({ text: msg });
+    // Send a polished Block Kit message with quick movement actions and debug info
+    const blocks = buildLocationBlocks(locationData, direction, {
+      includeDebug: true,
+    });
+    blocks.push({ type: 'divider' });
+    blocks.push({
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '⬆️ North' },
+          action_id: MOVE_ACTIONS.NORTH,
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '⬇️ South' },
+          action_id: MOVE_ACTIONS.SOUTH,
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '⬅️ West' },
+          action_id: MOVE_ACTIONS.WEST,
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '➡️ East' },
+          action_id: MOVE_ACTIONS.EAST,
+        },
+      ],
+    });
+    await say({ text: formatLocationMessage(locationData, direction), blocks });
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(err, 'Failed to move');
     await say({ text: errorMessage });
