@@ -4,16 +4,17 @@ import { Direction } from '../generated/dm-graphql';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { formatLocationMessage, LocationData } from './locationUtils';
+import { COMMANDS } from '../commands';
 
 const directionMap: Record<string, Direction> = {
-  up: Direction.NORTH,
-  north: Direction.NORTH,
-  down: Direction.SOUTH,
-  south: Direction.SOUTH,
-  left: Direction.WEST,
-  west: Direction.WEST,
-  right: Direction.EAST,
-  east: Direction.EAST,
+  [COMMANDS.UP]: Direction.NORTH,
+  [COMMANDS.NORTH]: Direction.NORTH,
+  [COMMANDS.DOWN]: Direction.SOUTH,
+  [COMMANDS.SOUTH]: Direction.SOUTH,
+  [COMMANDS.LEFT]: Direction.WEST,
+  [COMMANDS.WEST]: Direction.WEST,
+  [COMMANDS.RIGHT]: Direction.EAST,
+  [COMMANDS.EAST]: Direction.EAST,
 };
 
 export const moveHandlerHelp = `Move your character using direction words: up, down, left, right, north, south, east, west. Example: Send "up" or "north" to move north.`;

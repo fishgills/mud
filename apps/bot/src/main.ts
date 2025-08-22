@@ -20,24 +20,25 @@ import './handlers/help';
 import './handlers/map';
 import './handlers/stats';
 import { getAllHandlers } from './handlers/handlerRegistry';
+import { COMMANDS, HELP_ACTIONS } from './commands';
 
 app.event('app_mention', async ({ event, say }) => {
   await say(
     `Hello <@${event.user}>! Welcome to the MUD adventure! 🎮
 
 **Quick Start:**
-• DM me "new YourName" to create a character
-• Use "reroll" to reroll stats during creation  
-• Use "complete" to complete character creation
-• Use "delete" to delete character during creation
+• DM me "${COMMANDS.NEW} YourName" to create a character
+• Use "${COMMANDS.REROLL}" to reroll stats during creation  
+• Use "${COMMANDS.COMPLETE}" to complete character creation
+• Use "${COMMANDS.DELETE}" to delete character during creation
 
 **Once you have a character:**
-• Move with "north", "south", "east", "west", "up", "down", "left", "right"
-• Attack monsters with "attack"
-• Check stats with "stats"
-• View map with "map"
+• Move with "${COMMANDS.NORTH}", "${COMMANDS.SOUTH}", "${COMMANDS.EAST}", "${COMMANDS.WEST}", "${COMMANDS.UP}", "${COMMANDS.DOWN}", "${COMMANDS.LEFT}", "${COMMANDS.RIGHT}"
+• Attack monsters with "${COMMANDS.ATTACK}"
+• Check stats with "${COMMANDS.STATS}"
+• View map with "${COMMANDS.MAP}"
 
-💡 **Send me "help" for the full command list!**`,
+💡 **Send me "${COMMANDS.HELP}" for the full command list!**`,
   );
 });
 
@@ -83,23 +84,23 @@ app.message(async ({ message, say }) => {
     `Hi <@${userId}>! I didn't understand that command. Here are the main commands:
 
 🎮 **Character Creation:**
-• "new CharacterName" - Create a new character
-• "reroll" - Reroll your stats during creation
-• "complete" - Complete character creation
+• "${COMMANDS.NEW} CharacterName" - Create a new character
+• "${COMMANDS.REROLL}" - Reroll your stats during creation
+• "${COMMANDS.COMPLETE}" - Complete character creation
 
 🏃 **Movement:**
-• "north", "south", "east", "west" - Move using directions
-• "up", "down", "left", "right" - Alternative direction words
+• "${COMMANDS.NORTH}", "${COMMANDS.SOUTH}", "${COMMANDS.EAST}", "${COMMANDS.WEST}" - Move using directions
+• "${COMMANDS.UP}", "${COMMANDS.DOWN}", "${COMMANDS.LEFT}", "${COMMANDS.RIGHT}" - Alternative direction words
 
 ⚔️ **Actions:**
-• "attack" - Attack nearby monsters  
-• "stats" - View your character stats
+• "${COMMANDS.ATTACK}" - Attack nearby monsters  
+• "${COMMANDS.STATS}" - View your character stats
 
 📋 **Other:**
-• "help" - Show full command list
-• "map" - View the world map
+• "${COMMANDS.HELP}" - Show full command list
+• "${COMMANDS.MAP}" - View the world map
 
-💡 **New here?** Start with "new YourName" to create your character!`,
+💡 **New here?** Start with "${COMMANDS.NEW} YourName" to create your character!`,
   );
 });
 
@@ -120,29 +121,29 @@ async function dispatchCommandViaDM(
 }
 
 // Handle interactive actions from Block Kit (e.g., help buttons)
-app.action('help_action_look', async ({ ack, body, client }) => {
+app.action(HELP_ACTIONS.LOOK, async ({ ack, body, client }) => {
   await ack();
   const userId = (body as any).user?.id as string;
   if (!userId) return;
-  await dispatchCommandViaDM(client, userId, 'look');
+  await dispatchCommandViaDM(client, userId, COMMANDS.LOOK);
 });
 
-app.action('help_action_stats', async ({ ack, body, client }) => {
+app.action(HELP_ACTIONS.STATS, async ({ ack, body, client }) => {
   await ack();
   const userId = (body as any).user?.id as string;
   if (!userId) return;
-  await dispatchCommandViaDM(client, userId, 'stats');
+  await dispatchCommandViaDM(client, userId, COMMANDS.STATS);
 });
 
-app.action('help_action_map', async ({ ack, body, client }) => {
+app.action(HELP_ACTIONS.MAP, async ({ ack, body, client }) => {
   await ack();
   const userId = (body as any).user?.id as string;
   if (!userId) return;
-  await dispatchCommandViaDM(client, userId, 'map');
+  await dispatchCommandViaDM(client, userId, COMMANDS.MAP);
 });
 
 // Create button: open a modal to capture character name
-app.action('help_action_create', async ({ ack, body, client }) => {
+app.action(HELP_ACTIONS.CREATE, async ({ ack, body, client }) => {
   await ack();
   const trigger_id = (body as any).trigger_id as string;
   try {
@@ -199,7 +200,7 @@ app.view('create_character_view', async ({ ack, body, client }) => {
 
   const userId = (body as any).user?.id as string;
   if (!userId) return;
-  const handler = getAllHandlers()['new'];
+  const handler = getAllHandlers()[COMMANDS.NEW];
   if (!handler) return;
   const dm = await client.conversations.open({ users: userId });
   const channel = dm.channel?.id as string;
@@ -207,7 +208,7 @@ app.view('create_character_view', async ({ ack, body, client }) => {
   const say = (msg: { text?: string; blocks?: any[] }) =>
     client.chat.postMessage({ channel, ...(msg as any) } as any) as any;
   // Invoke existing create flow with text command shape
-  await handler({ userId, text: `new ${name}`, say });
+  await handler({ userId, text: `${COMMANDS.NEW} ${name}`, say });
 });
 
 async function start() {

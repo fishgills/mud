@@ -1,3 +1,4 @@
+import { COMMANDS } from '../commands';
 /**
  * Utility functions for handling errors in a user-friendly way
  */
@@ -35,14 +36,14 @@ export function handlePlayerNotFoundError(err: unknown): string | null {
       );
 
       if (notFoundError) {
-        return `You don't have a character yet! Use "new CharacterName" to create one.`;
+        return `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`;
       }
     }
   }
 
   // Check for simple error messages
   if (err instanceof Error && err.message.toLowerCase().includes('not found')) {
-    return `You don't have a character yet! Use "new CharacterName" to create one.`;
+    return `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`;
   }
 
   return null; // Not a player not found error

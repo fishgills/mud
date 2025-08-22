@@ -1,5 +1,6 @@
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
+import { COMMANDS, HELP_ACTIONS } from '../commands';
 
 export const helpHandlerHelp = `Show instructions for using the bot with "help".`;
 
@@ -25,22 +26,22 @@ export const helpHandler = async ({ say }: HandlerContext) => {
             type: 'button',
             text: { type: 'plain_text', text: 'Create', emoji: true },
             style: 'primary',
-            action_id: 'help_action_create',
+            action_id: HELP_ACTIONS.CREATE,
           },
           {
             type: 'button',
             text: { type: 'plain_text', text: 'Look', emoji: true },
-            action_id: 'help_action_look',
+            action_id: HELP_ACTIONS.LOOK,
           },
           {
             type: 'button',
             text: { type: 'plain_text', text: 'Stats', emoji: true },
-            action_id: 'help_action_stats',
+            action_id: HELP_ACTIONS.STATS,
           },
           {
             type: 'button',
             text: { type: 'plain_text', text: 'Map', emoji: true },
-            action_id: 'help_action_map',
+            action_id: HELP_ACTIONS.MAP,
           },
         ],
       },
@@ -50,21 +51,24 @@ export const helpHandler = async ({ say }: HandlerContext) => {
         fields: [
           {
             type: 'mrkdwn',
-            text: '*Character Setup*\n• `new Name`\n• `reroll`\n• `complete`\n• `delete`',
+            text: `*Character Setup*\n• \`${COMMANDS.NEW} Name\`\n• \`${COMMANDS.REROLL}\`\n• \`${COMMANDS.COMPLETE}\`\n• \`${COMMANDS.DELETE}\``,
           },
           {
             type: 'mrkdwn',
-            text: '*Explore & Fight*\n• `north`/`south`/`east`/`west`\n• `look`\n• `attack`\n• `stats`',
+            text: `*Explore & Fight*\n• \`${COMMANDS.NORTH}\`/\`${COMMANDS.SOUTH}\`/\`${COMMANDS.EAST}\`/\`${COMMANDS.WEST}\`\n• \`${COMMANDS.LOOK}\`\n• \`${COMMANDS.ATTACK}\`\n• \`${COMMANDS.STATS}\``,
           },
         ],
       },
       {
         type: 'section',
         fields: [
-          { type: 'mrkdwn', text: '*Other*\n• `map`\n• `help`' },
           {
             type: 'mrkdwn',
-            text: '*Tips*\nDM me commands. Case-insensitive. Try `look` to inspect your tile.',
+            text: `*Other*\n• \`${COMMANDS.MAP}\`\n• \`${COMMANDS.HELP}\``,
+          },
+          {
+            type: 'mrkdwn',
+            text: `*Tips*\nDM me commands. Case-insensitive. Try \`${COMMANDS.LOOK}\` to inspect your tile.`,
           },
         ],
       },
@@ -77,4 +81,4 @@ export const helpHandler = async ({ say }: HandlerContext) => {
 };
 
 // Register help handler for text command only
-registerHandler('help', helpHandler);
+registerHandler(COMMANDS.HELP, helpHandler);

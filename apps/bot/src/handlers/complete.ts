@@ -1,4 +1,5 @@
 import { registerHandler } from './handlerRegistry';
+import { COMMANDS } from '../commands';
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { getUserFriendlyErrorMessage } from './errorUtils';
@@ -25,4 +26,4 @@ export const completeHandler = async ({ userId, say }: HandlerContext) => {
 };
 
 // Register handler for text command only
-registerHandler('complete', completeHandler);
+registerHandler(COMMANDS.COMPLETE, completeHandler);

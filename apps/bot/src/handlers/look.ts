@@ -3,6 +3,7 @@ import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { formatLocationMessage, LocationData } from './locationUtils';
+import { COMMANDS } from '../commands';
 
 export const lookHandlerHelp = `Look around at your current location to see the area description, nearby tiles, monsters, and other players. Example: Send 'look' or 'l' to examine your surroundings.`;
 
@@ -49,5 +50,5 @@ export const lookHandler = async ({ userId, say }: HandlerContext) => {
 };
 
 // Register handlers for look commands
-registerHandler('look', lookHandler);
-registerHandler('l', lookHandler);
+registerHandler(COMMANDS.LOOK, lookHandler);
+registerHandler(COMMANDS.LOOK_SHORT, lookHandler);

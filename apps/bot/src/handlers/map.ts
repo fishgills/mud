@@ -1,6 +1,7 @@
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { worldSdk } from '../gql-client';
+import { COMMANDS } from '../commands';
 
 export const mapHandlerHelp = `Display the ASCII map with "map". Example: Send "map" to see the world map.`;
 
@@ -18,4 +19,4 @@ export const mapHandler = async ({ say }: HandlerContext) => {
   }
 };
 
-registerHandler('map', mapHandler);
+registerHandler(COMMANDS.MAP, mapHandler);

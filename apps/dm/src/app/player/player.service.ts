@@ -417,12 +417,23 @@ export class PlayerService {
     health: number;
     maxHp: number;
   } {
-    // Generate random starting stats (8-15 range)
-    const strength = Math.floor(Math.random() * 8) + 8;
-    const agility = Math.floor(Math.random() * 8) + 8;
-    const health = Math.floor(Math.random() * 8) + 8;
+    // D&D-style generation: Roll 4d6, drop the lowest, sum the rest
+    const roll4d6DropLowest = (): number => {
+      const rolls = [
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1,
+      ];
+      rolls.sort((a, b) => a - b); // ascending
+      return rolls[1] + rolls[2] + rolls[3];
+    };
 
-    // Calculate max HP based on health attribute
+    const strength = roll4d6DropLowest();
+    const agility = roll4d6DropLowest();
+    const health = roll4d6DropLowest();
+
+    // Calculate max HP based on health attribute (existing formula)
     const maxHp = 80 + health * 2;
 
     return { strength, agility, health, maxHp };

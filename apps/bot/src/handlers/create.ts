@@ -3,6 +3,7 @@ import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { formatPlayerStats } from './stats';
 import { getUserFriendlyErrorMessage } from './errorUtils';
+import { COMMANDS } from '../commands';
 
 export const createHandlerHelp = `Create a new character with "new". Example: Send "new AwesomeDude" to create a character named AwesomeDude.`;
 
@@ -13,7 +14,9 @@ export const createHandler = async ({ userId, say, text }: HandlerContext) => {
 
   // Find the "new" command and extract everything after it as the name
   let name = '';
-  const newIndex = parts.findIndex((part) => part.toLowerCase() === 'new');
+  const newIndex = parts.findIndex(
+    (part) => part.toLowerCase() === COMMANDS.NEW,
+  );
   if (newIndex !== -1 && parts.length > newIndex + 1) {
     // Join all parts after "new" as the character name
     name = parts
@@ -81,4 +84,4 @@ export const createHandler = async ({ userId, say, text }: HandlerContext) => {
 };
 
 // Register handler for text command only
-registerHandler('new', createHandler);
+registerHandler(COMMANDS.NEW, createHandler);

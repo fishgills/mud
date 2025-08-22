@@ -2,6 +2,7 @@ import { registerHandler } from './handlerRegistry';
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { getUserFriendlyErrorMessage } from './errorUtils';
+import { COMMANDS } from '../commands';
 
 export const deleteHandlerHelp = `Delete your character during creation with "delete". Example: Send "delete" to delete your character if it's still in creation phase (before completion).`;
 
@@ -54,4 +55,4 @@ export const deleteHandler = async ({ userId, say }: HandlerContext) => {
 };
 
 // Register handler for text command only
-registerHandler('delete', deleteHandler);
+registerHandler(COMMANDS.DELETE, deleteHandler);

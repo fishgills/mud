@@ -2,6 +2,7 @@ import { registerHandler } from './handlerRegistry';
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { getUserFriendlyErrorMessage } from './errorUtils';
+import { COMMANDS } from '../commands';
 
 export const rerollHandlerHelp = `Reroll your character's stats with "reroll". Example: Send "reroll" to reroll stats during character creation.`;
 
@@ -26,4 +27,4 @@ export const rerollHandler = async ({ userId, say }: HandlerContext) => {
 };
 
 // Register handler for text command only
-registerHandler('reroll', rerollHandler);
+registerHandler(COMMANDS.REROLL, rerollHandler);

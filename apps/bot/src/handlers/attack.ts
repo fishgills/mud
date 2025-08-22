@@ -3,6 +3,7 @@ import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
+import { COMMANDS } from '../commands';
 
 export const attackHandlerHelp = `Attack the nearest monster using "attack". Example: Send "attack" to fight nearby enemies.`;
 
@@ -46,4 +47,4 @@ export const attackHandler = async ({ userId, say }: HandlerContext) => {
   }
 };
 
-registerHandler('attack', attackHandler);
+registerHandler(COMMANDS.ATTACK, attackHandler);

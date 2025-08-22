@@ -3,6 +3,7 @@ import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { GetPlayerQuery } from '../generated/dm-graphql';
 import { getUserFriendlyErrorMessage } from './errorUtils';
+import { COMMANDS } from '../commands';
 
 export const statsHandlerHelp = `Show your character's stats with "stats". Example: Send "stats" to see your character information.`;
 
@@ -50,4 +51,4 @@ export const statsHandler = async ({ userId, say }: HandlerContext) => {
   }
 };
 
-registerHandler('stats', statsHandler);
+registerHandler(COMMANDS.STATS, statsHandler);
