@@ -57,10 +57,10 @@ app.message(async ({ message, say }) => {
   const userId = 'user' in message ? message.user : undefined;
   if (!text || !userId) return;
 
-  // Dispatch to the first matching handler (emoji or word, case-insensitive)
-  // Wrap say so it matches the expected return type (Promise<void>)
-  const sayVoid = async (msg: { text: string }) => {
-    await say(msg);
+  // Dispatch to the first matching handler (case-insensitive)
+  // Wrap say so handlers can send text or Block Kit messages
+  const sayVoid = async (msg: { text?: string; blocks?: any[] }) => {
+    await say(msg as any);
   };
 
   const lowerText = text.toLowerCase();

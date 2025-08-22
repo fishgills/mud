@@ -1,5 +1,6 @@
 export type HandlerContext = {
   userId: string;
-  say: (msg: { text: string }) => Promise<void>;
+  // Allow plain text or Slack Block Kit messages
+  say: (msg: { text?: string; blocks?: any[] }) => Promise<void>;
   text: string;
 };
