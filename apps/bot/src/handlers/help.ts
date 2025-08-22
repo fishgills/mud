@@ -18,6 +18,32 @@ export const helpHandler = async ({ say }: HandlerContext) => {
           text: '🚀 *Quick Start*\n`new YourName` → `complete` → start exploring',
         },
       },
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'Create', emoji: true },
+            style: 'primary',
+            action_id: 'help_action_create',
+          },
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'Look', emoji: true },
+            action_id: 'help_action_look',
+          },
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'Stats', emoji: true },
+            action_id: 'help_action_stats',
+          },
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'Map', emoji: true },
+            action_id: 'help_action_map',
+          },
+        ],
+      },
       { type: 'divider' },
       {
         type: 'section',
