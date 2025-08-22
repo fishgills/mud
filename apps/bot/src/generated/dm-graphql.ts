@@ -384,7 +384,7 @@ export type RerollPlayerStatsMutationVariables = Exact<{
 }>;
 
 
-export type RerollPlayerStatsMutation = { rerollPlayerStats: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string, strength: number, agility: number, health: number } | null } };
+export type RerollPlayerStatsMutation = { rerollPlayerStats: { success: boolean, message?: string | null, data?: { id: string, slackId: string, name: string, strength: number, agility: number, health: number, maxHp: number } | null } };
 
 export type CompletePlayerMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -608,6 +608,7 @@ export const RerollPlayerStatsDocument = gql`
       strength
       agility
       health
+      maxHp
     }
   }
 }

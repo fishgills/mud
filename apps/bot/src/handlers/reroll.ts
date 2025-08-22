@@ -12,7 +12,7 @@ export const rerollHandler = async ({ userId, say }: HandlerContext) => {
     if (result.rerollPlayerStats.success) {
       const stats = result.rerollPlayerStats.data;
       await say({
-        text: `🎲 Rerolled stats: Strength: ${stats?.strength}, Agility: ${stats?.agility}, Health: ${stats?.health}`,
+        text: `🎲 Rerolled stats: Strength: ${stats?.strength}, Agility: ${stats?.agility}, Vitality: ${stats?.health}, Health Points: ${stats?.maxHp}`,
       });
     } else {
       await say({ text: `Error: ${result.rerollPlayerStats.message}` });

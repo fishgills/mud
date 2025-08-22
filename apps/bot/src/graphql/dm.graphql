@@ -197,6 +197,7 @@ mutation RerollPlayerStats($slackId: String!) {
       strength
       agility
       health
+      maxHp
     }
   }
 }
