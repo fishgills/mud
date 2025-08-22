@@ -1,5 +1,6 @@
 import { HandlerContext } from './types';
 import { moveHandlerHelp } from './move';
+import { lookHandlerHelp } from './look';
 import { attackHandlerHelp } from './attack';
 import { createHandlerHelp } from './create';
 import { rerollHandlerHelp } from './reroll';
@@ -24,6 +25,7 @@ export const helpHandler = async ({ say }: HandlerContext) => {
     '',
     '**Game Actions:**',
     `• ${moveHandlerHelp}`,
+    `• ${lookHandlerHelp}`,
     `• ${attackHandlerHelp}`,
     `• ${statsHandlerHelp}`,
     '',

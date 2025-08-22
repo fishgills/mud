@@ -3,6 +3,7 @@ import { HandlerContext } from './types';
 import { Direction } from '../generated/dm-graphql';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
+import { formatLocationMessage, LocationData } from './locationUtils';
 
 // Emoji directions
 export const EMOJI_NORTH = ':arrow_up:';
@@ -53,21 +54,16 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
       await say({ text: 'Move succeeded but no data returned.' });
       return;
     }
-    let msg = `You moved ${direction}.\n`;
-    msg += `You are now at (${data.location.x}, ${data.location.y}) in a ${data.location.biomeName} biome.\n`;
-    msg += data.location.description ? `${data.location.description}\n` : '';
-    if (data.surroundingTiles && data.surroundingTiles.length) {
-      msg += 'Nearby tiles:\n';
-      for (const tile of data.surroundingTiles) {
-        msg += `- ${tile.direction}: ${tile.biomeName} (${tile.description || 'no description'})\n`;
-      }
-    }
-    if (data.monsters && data.monsters.length) {
-      msg += `Monsters nearby: ${data.monsters.map((m) => m.name).join(', ')}\n`;
-    }
-    if (data.playerInfo) {
-      msg += data.playerInfo + '\n';
-    }
+
+    const locationData: LocationData = {
+      location: data.location,
+      surroundingTiles: data.surroundingTiles,
+      monsters: data.monsters,
+      playerInfo: data.playerInfo,
+      description: data.description,
+    };
+
+    const msg = formatLocationMessage(locationData, direction);
     await say({ text: msg });
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(err, 'Failed to move');

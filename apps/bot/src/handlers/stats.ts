@@ -39,7 +39,7 @@ export const statsHandler = async ({ userId, say }: HandlerContext) => {
     } else {
       // Handle the case where the player doesn't exist
       await say({
-        text: `You don't have a character yet! Use :new: CharacterName to create one.`,
+        text: `You don't have a character yet! Use \`:new: CharacterName\` to create one.`,
       });
     }
   } catch (err: unknown) {

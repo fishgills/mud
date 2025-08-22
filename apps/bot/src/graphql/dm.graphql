@@ -80,6 +80,88 @@ query GetPlayer($slackId: String!) {
     }
   }
 }
+
+query GetLocationInfo($x: Int!, $y: Int!) {
+  getLocationInfo(x: $x, y: $y) {
+    success
+    message
+    data {
+      location {
+        x
+        y
+        biomeName
+        description
+        height
+        temperature
+        moisture
+      }
+      monsters {
+        id
+        name
+        hp
+        isAlive
+      }
+      players {
+        id
+        name
+        hp
+        isAlive
+      }
+      recentCombat {
+        id
+        attackerId
+        attackerType
+        defenderId
+        defenderType
+        damage
+        timestamp
+      }
+    }
+  }
+}
+
+query GetPlayerWithLocation($slackId: String!) {
+  getPlayer(slackId: $slackId) {
+    success
+    message
+    data {
+      id
+      name
+      x
+      y
+      hp
+      maxHp
+      strength
+      agility
+      health
+      gold
+      xp
+      level
+      isAlive
+      nearbyMonsters {
+        id
+        name
+        hp
+        isAlive
+      }
+      currentTile {
+        x
+        y
+        biomeName
+        description
+        height
+        temperature
+        moisture
+      }
+      nearbyPlayers {
+        id
+        name
+        hp
+        isAlive
+      }
+    }
+  }
+}
 mutation CreatePlayer($input: CreatePlayerInput!) {
   createPlayer(input: $input) {
     success

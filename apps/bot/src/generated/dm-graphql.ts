@@ -357,6 +357,21 @@ export type GetPlayerQueryVariables = Exact<{
 
 export type GetPlayerQuery = { getPlayer: { success: boolean, message?: string | null, data?: { id: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean, nearbyMonsters?: Array<{ id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
 
+export type GetLocationInfoQueryVariables = Exact<{
+  x: Scalars['Int']['input'];
+  y: Scalars['Int']['input'];
+}>;
+
+
+export type GetLocationInfoQuery = { getLocationInfo: { success: boolean, message?: string | null, data?: { location: { x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number }, monsters?: Array<{ id: string, name: string, hp: number, isAlive: boolean }> | null, players?: Array<{ id: string, name: string, hp: number, isAlive: boolean }> | null, recentCombat?: Array<{ id: string, attackerId: number, attackerType: string, defenderId: number, defenderType: string, damage: number, timestamp: any }> | null } | null } };
+
+export type GetPlayerWithLocationQueryVariables = Exact<{
+  slackId: Scalars['String']['input'];
+}>;
+
+
+export type GetPlayerWithLocationQuery = { getPlayer: { success: boolean, message?: string | null, data?: { id: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean, nearbyMonsters?: Array<{ id: string, name: string, hp: number, isAlive: boolean }> | null, currentTile?: { x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number } | null, nearbyPlayers?: Array<{ id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
+
 export type CreatePlayerMutationVariables = Exact<{
   input: CreatePlayerInput;
 }>;
@@ -472,6 +487,90 @@ export const GetPlayerDocument = gql`
   }
 }
     `;
+export const GetLocationInfoDocument = gql`
+    query GetLocationInfo($x: Int!, $y: Int!) {
+  getLocationInfo(x: $x, y: $y) {
+    success
+    message
+    data {
+      location {
+        x
+        y
+        biomeName
+        description
+        height
+        temperature
+        moisture
+      }
+      monsters {
+        id
+        name
+        hp
+        isAlive
+      }
+      players {
+        id
+        name
+        hp
+        isAlive
+      }
+      recentCombat {
+        id
+        attackerId
+        attackerType
+        defenderId
+        defenderType
+        damage
+        timestamp
+      }
+    }
+  }
+}
+    `;
+export const GetPlayerWithLocationDocument = gql`
+    query GetPlayerWithLocation($slackId: String!) {
+  getPlayer(slackId: $slackId) {
+    success
+    message
+    data {
+      id
+      name
+      x
+      y
+      hp
+      maxHp
+      strength
+      agility
+      health
+      gold
+      xp
+      level
+      isAlive
+      nearbyMonsters {
+        id
+        name
+        hp
+        isAlive
+      }
+      currentTile {
+        x
+        y
+        biomeName
+        description
+        height
+        temperature
+        moisture
+      }
+      nearbyPlayers {
+        id
+        name
+        hp
+        isAlive
+      }
+    }
+  }
+}
+    `;
 export const CreatePlayerDocument = gql`
     mutation CreatePlayer($input: CreatePlayerInput!) {
   createPlayer(input: $input) {
@@ -556,6 +655,12 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     GetPlayer(variables: GetPlayerQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetPlayerQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<GetPlayerQuery>({ document: GetPlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetPlayer', 'query', variables);
+    },
+    GetLocationInfo(variables: GetLocationInfoQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetLocationInfoQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<GetLocationInfoQuery>({ document: GetLocationInfoDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetLocationInfo', 'query', variables);
+    },
+    GetPlayerWithLocation(variables: GetPlayerWithLocationQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetPlayerWithLocationQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<GetPlayerWithLocationQuery>({ document: GetPlayerWithLocationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetPlayerWithLocation', 'query', variables);
     },
     CreatePlayer(variables: CreatePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<CreatePlayerMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<CreatePlayerMutation>({ document: CreatePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CreatePlayer', 'mutation', variables);

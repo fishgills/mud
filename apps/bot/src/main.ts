@@ -10,6 +10,7 @@ const app = new App({
 });
 
 import './handlers/move';
+import './handlers/look';
 import './handlers/attack';
 import './handlers/create';
 import './handlers/reroll';
