@@ -219,15 +219,26 @@ export type WorldTile = {
   y: Scalars['Int']['output'];
 };
 
-export type RenderAsciiQueryVariables = Exact<{ [key: string]: never; }>;
+export type RenderAsciiQueryVariables = Exact<{
+  x?: InputMaybe<Scalars['Int']['input']>;
+  y?: InputMaybe<Scalars['Int']['input']>;
+}>;
 
 
 export type RenderAsciiQuery = { __typename?: 'Query', renderMapTiles: Array<Array<{ __typename?: 'MapTile', x: number, y: number, biomeName?: string | null, symbol?: string | null, hasSettlement: boolean, isSettlementCenter: boolean }>> };
 
+export type RenderPngMapQueryVariables = Exact<{
+  x?: InputMaybe<Scalars['Int']['input']>;
+  y?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type RenderPngMapQuery = { __typename?: 'Query', renderMapPngBase64: string };
+
 
 export const RenderAsciiDocument = gql`
-    query RenderAscii {
-  renderMapTiles(x: 1, y: 1) {
+    query RenderAscii($x: Int, $y: Int) {
+  renderMapTiles(x: $x, y: $y) {
     x
     y
     biomeName
@@ -235,6 +246,11 @@ export const RenderAsciiDocument = gql`
     hasSettlement
     isSettlementCenter
   }
+}
+    `;
+export const RenderPngMapDocument = gql`
+    query RenderPNGMap($x: Int, $y: Int) {
+  renderMapPngBase64(x: $x, y: $y)
 }
     `;
 
@@ -247,6 +263,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
   return {
     RenderAscii(variables?: RenderAsciiQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RenderAsciiQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<RenderAsciiQuery>({ document: RenderAsciiDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RenderAscii', 'query', variables);
+    },
+    RenderPNGMap(variables?: RenderPngMapQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RenderPngMapQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<RenderPngMapQuery>({ document: RenderPngMapDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RenderPNGMap', 'query', variables);
     }
   };
 }

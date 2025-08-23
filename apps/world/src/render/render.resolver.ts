@@ -1,11 +1,13 @@
 import { Args, Query, Resolver, Int } from '@nestjs/graphql';
 import { RenderService } from './render.service';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { MapTile } from './map-tile.model';
 
 @Resolver()
 @Injectable()
 export class RenderResolver {
+  private logger = new Logger(RenderResolver.name);
+
   constructor(private readonly renderService: RenderService) {}
 
   @Query(() => [[MapTile]], {
@@ -16,6 +18,7 @@ export class RenderResolver {
     @Args('x', { type: () => Int, nullable: true }) x?: number,
     @Args('y', { type: () => Int, nullable: true }) y?: number,
   ): Promise<MapTile[][]> {
+    this.logger.debug(`Rendering map tiles centered at (${x}, ${y})`);
     const centerX = x ?? 0;
     const centerY = y ?? 0;
     const half = 25;

@@ -24,7 +24,7 @@ export function formatPlayerStats(player: PlayerStats): string {
 
   return (
     `${incomplete}` +
-    `*Stats*\n- Name: ${stat(player.name)}\n- Strength: ${stat(player.strength)}\n- Agility: ${stat(player.agility)}\n- Health: ${stat(player.health)}\n- HP: ${stat(player.hp)}/${stat(player.maxHp)}\n- Gold: ${stat(player.gold)}\n- XP: ${stat(player.xp)}\n- Level: ${stat(player.level)}`
+    `*Stats*\n- Name: ${stat(player.name)}\n- Strength: ${stat(player.strength)}\n- Agility: ${stat(player.agility)}\n- Health: ${stat(player.health)}\n- HP: ${stat(player.hp)}/${stat(player.maxHp)}\n- Gold: ${stat(player.gold)}\n- XP: ${stat(player.xp)}\n- Level: ${stat(player.level)}\n- Position: ${player.x}/${player.y}`
   );
 }
 

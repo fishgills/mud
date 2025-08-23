@@ -1,5 +1,5 @@
-query RenderAscii {
-  renderMapTiles(x: 1, y: 1) {
+query RenderAscii($x: Int, $y: Int) {
+  renderMapTiles(x: $x, y: $y) {
     x
     y
     biomeName
@@ -7,4 +7,8 @@ query RenderAscii {
     hasSettlement
     isSettlementCenter
   }
+}
+
+query RenderPNGMap($x: Int, $y: Int) {
+  renderMapPngBase64(x: $x, y: $y)
 }

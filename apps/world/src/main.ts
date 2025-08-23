@@ -8,10 +8,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const globalPrefix = 'world';
   app.setGlobalPrefix(globalPrefix);
-  const port = process.env.PORT || 3001;
-  await app.listen(port);
+  const port = 3001;
+  await app.listen(port, '0.0.0.0');
   Logger.log(
-    `🚀 World Service is running on: http://localhost:${port}/${globalPrefix}`,
+    `🚀 World Service is running on: http://0.0.0.0:${port}/${globalPrefix}`,
   );
 }
 

@@ -1,33 +1,69 @@
-import express from 'express';
 import axios from 'axios';
 
-const host = process.env.HOST ?? 'localhost';
-const port = process.env.PORT ? Number(process.env.PORT) : 3002;
+// DM GraphQL endpoint for processTick mutation
+const DM_GRAPHQL_URL =
+  process.env.DM_GRAPHQL_URL || 'http://localhost:3000/graphql';
 
-// Configure the game engine endpoint (adjust as needed)
-const GAME_ENGINE_URL =
-  process.env.GAME_ENGINE_URL || 'http://localhost:3002/tick';
+// GraphQL mutation for processing a tick
+const PROCESS_TICK_MUTATION = `mutation { processTick { success message } }`;
 
-const app = express();
-
-app.get('/', (req, res) => {
-  res.send({ message: 'Tick service running' });
-});
-
-// Tick loop: every 30 seconds, send a POST to the game engine
-setInterval(async () => {
+async function sendProcessTick() {
   try {
-    const response = await axios.post(GAME_ENGINE_URL);
-    console.log(`[tick] Sent tick to game engine:`, response.data);
-  } catch (err) {
-    if (err instanceof Error) {
-      console.error('[tick] Error sending tick:', err.message);
+    const response = await axios.post(
+      DM_GRAPHQL_URL,
+      { query: PROCESS_TICK_MUTATION, variables: {} },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      },
+    );
+    const payload = response.data;
+    const result = payload?.data?.processTick;
+    if (result?.success) {
+      console.log(`[tick] DM processTick OK: ${result.message ?? 'success'}`);
     } else {
-      console.error('[tick] Error sending tick:', err);
+      console.warn(
+        `[tick] DM processTick returned failure: ${result?.message ?? 'unknown error'}`,
+      );
+    }
+  } catch (err) {
+    if (axios.isAxiosError(err)) {
+      console.error(
+        '[tick] Error calling DM GraphQL:',
+        err.message,
+        err.response?.data ?? '',
+      );
+    } else if (err instanceof Error) {
+      console.error('[tick] Error calling DM GraphQL:', err.message);
+    } else {
+      console.error('[tick] Error calling DM GraphQL:', err);
     }
   }
-}, 30 * 1000);
+}
 
-app.listen(port, host, () => {
-  console.log(`[ ready ] http://${host}:${port}`);
+// Start loop
+console.log('[tick] service starting — targeting DM at', DM_GRAPHQL_URL);
+// Kick one immediately on startup (optional)
+sendProcessTick().catch(() => void 0);
+// Then every 30 seconds
+const interval: NodeJS.Timeout = setInterval(sendProcessTick, 30 * 1000);
+
+// Graceful shutdown
+function cleanup(code?: number) {
+  try {
+    clearInterval(interval);
+  } finally {
+    if (typeof code === 'number') process.exit(code);
+  }
+}
+
+process.on('SIGINT', () => {
+  console.log('[tick] received SIGINT — shutting down');
+  cleanup(0);
+});
+process.on('SIGTERM', () => {
+  console.log('[tick] received SIGTERM — shutting down');
+  cleanup(0);
 });
