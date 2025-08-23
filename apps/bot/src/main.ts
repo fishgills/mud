@@ -91,7 +91,6 @@ app.message(async ({ message, say }) => {
 
   const lowerText = text.toLowerCase();
   for (const [key, handler] of Object.entries(getAllHandlers())) {
-    console.log(`Checking handler for: ${key}`);
     // Check if the message starts with the command or contains it as a whole word
     if (
       lowerText === key.toLowerCase() ||
@@ -99,10 +98,12 @@ app.message(async ({ message, say }) => {
       lowerText.includes(' ' + key.toLowerCase() + ' ') ||
       lowerText.endsWith(' ' + key.toLowerCase())
     ) {
+      console.log(`Dispatching to handler for: ${key}`);
       await handler({ userId, say: sayVoid, text });
       return;
     }
   }
+  console.log(`No handler found for message: "${text}" from user ${userId}`);
 
   // Help message for unknown input
   await say(
