@@ -160,10 +160,18 @@ type SurroundingTile {
   direction: String!
 }
 
+type NearbyPlayerInfo {
+  distance: Float!
+  direction: String!
+  x: Int!
+  y: Int!
+}
+
 type PlayerMovementData {
   player: Player!
   location: TileInfo!
   monsters: [Monster!]!
+  nearbyPlayers: [NearbyPlayerInfo!]
   playerInfo: String!
   surroundingTiles: [SurroundingTile!]!
   description: String!

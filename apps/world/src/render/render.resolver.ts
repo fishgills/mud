@@ -119,7 +119,8 @@ export class RenderResolver {
   }
 
   @Mutation(() => Int, {
-    description: 'Clears the render cache in Redis. Returns number of keys removed.',
+    description:
+      'Clears the render cache in Redis. Returns number of keys removed.',
   })
   async clearRenderCache(
     @Args('pattern', {

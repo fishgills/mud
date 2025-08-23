@@ -10,7 +10,6 @@ import { PlayerService } from '../../player/player.service';
 import { MonsterService } from '../../monster/monster.service';
 import { CombatService } from '../../combat/combat.service';
 import { WorldService } from '../../world/world.service';
-import { OpenaiService } from '../../../openai/openai.service';
 import { Player } from '../models/player.model';
 import { Monster } from '../models/monster.model';
 import { TileInfo } from '../models/tile-info.model';
@@ -23,6 +22,7 @@ import {
   PlayerMoveResponse,
   PlayerMovementData,
   SurroundingTile,
+  NearbyPlayerInfo,
 } from '../types/response.types';
 import {
   CreatePlayerInput,
@@ -41,7 +41,6 @@ export class PlayerResolver {
     private monsterService: MonsterService,
     private combatService: CombatService,
     private worldService: WorldService,
-    private aiService: OpenaiService,
   ) {}
 
   @Mutation(() => PlayerResponse)
@@ -85,7 +84,7 @@ export class PlayerResolver {
     try {
       const player = await this.playerService.movePlayer(slackId, input);
 
-      // Batch all location-related data fetching in parallel
+      // Fetch location-related data in parallel
       const [tileInfoWithNearby, monsters, nearbyPlayers, surroundingTiles] =
         await Promise.all([
           this.worldService.getTileInfoWithNearby(player.x, player.y),
@@ -93,33 +92,14 @@ export class PlayerResolver {
           this.playerService.getNearbyPlayers(
             player.x,
             player.y,
-            slackId, // Exclude the current player
-            Infinity, // Infinite search radius
-            10, // Top 10 closest players
+            slackId,
+            Infinity,
+            10,
           ),
-          this.worldService.getSurroundingTiles(
-            player.x,
-            player.y,
-            1, // 1 tile radius around the player
-          ),
+          this.worldService.getSurroundingTiles(player.x, player.y, 1),
         ]);
 
-      // Determine movement direction (if available)
-      // For first move, or if not tracked, fallback to undefined
-      // You may want to persist last position in player state for more accuracy
-      const lastX = (player as any)._lastX ?? player.x;
-      const lastY = (player as any)._lastY ?? player.y;
-      let movementDirection: string | undefined = undefined;
-      if (lastX !== player.x || lastY !== player.y) {
-        movementDirection = this.calculateDirection(
-          lastX,
-          lastY,
-          player.x,
-          player.y,
-        );
-      }
-
-      // Map surrounding tiles with direction information
+      // Map surrounding tiles with direction information (no LLM)
       const surroundingTilesWithDirection: SurroundingTile[] =
         surroundingTiles.map((tile) => ({
           x: tile.x,
@@ -134,150 +114,35 @@ export class PlayerResolver {
           ),
         }));
 
-      // Preprocess: If a feature (description) is present in the tile in the direction the player just moved from,
-      // move that feature into the current tile and clear it from the old direction.
-      if (movementDirection) {
-        const prevTile = surroundingTilesWithDirection.find(
-          (t) => t.direction === movementDirection,
-        );
-        if (
-          prevTile &&
-          prevTile.description &&
-          prevTile.description.trim().length > 0
-        ) {
-          // Add the feature to the current tile's description if not already present
-          if (
-            !tileInfoWithNearby.tile.description ||
-            tileInfoWithNearby.tile.description.trim() === ''
-          ) {
-            tileInfoWithNearby.tile.description = prevTile.description;
-          }
-          // Remove the feature from the previous tile's description
-          prevTile.description = '';
-        }
-      }
-
-      // Prepare data for AI generation
-      const gptJson = {
-        ...tileInfoWithNearby.tile,
-        nearbyBiomes: tileInfoWithNearby.nearbyBiomes,
-        nearbySettlements: tileInfoWithNearby.nearbySettlements,
-        currentSettlement: tileInfoWithNearby.currentSettlement,
-        surroundingTiles: surroundingTilesWithDirection,
-      };
-
-      // Batch AI calls in parallel
-      const aiPromises: Promise<{ output_text: string }>[] = [];
-      const needsDescription =
-        !tileInfoWithNearby.tile.description ||
-        tileInfoWithNearby.tile.description.trim() === '';
-
-      if (needsDescription) {
-        // Summarize the JSON for the prompt
-        const tile = tileInfoWithNearby.tile;
-        const biome = tile.biomeName;
-        const temp = tile.temperature;
-        const height = tile.height;
-        const moisture = tile.moisture;
-        const settlement = tileInfoWithNearby.currentSettlement;
-        const biomes =
-          tileInfoWithNearby.nearbyBiomes
-            ?.map(
-              (b) =>
-                `${b.biomeName} (${b.direction}, ${b.distance.toFixed(1)} units)`,
-            )
-            .join('; ') || 'None';
-        const settlements =
-          tileInfoWithNearby.nearbySettlements
-            ?.map(
-              (s) =>
-                `${s.name} (${s.type}, ${s.distance.toFixed(1)} units away)`,
-            )
-            .join('; ') || 'None';
-        const surroundings = surroundingTilesWithDirection
-          .map(
-            (t) =>
-              `${t.direction}: ${t.biomeName}${t.description ? ' - ' + t.description : ''}`,
-          )
-          .join('\n');
-
-        const summary =
-          `You are standing in a ${biome} biome. ` +
-          `Temperature: ${temp.toFixed(2)} (On a scale of 0 to 1. 0 being below freezing, 1 being 105 degrees F), Height: ${height.toFixed(2)} (on a scale of 0 to 1), Moisture: ${moisture.toFixed(2)} (On a scale of 0 to 1). ` +
-          (settlement
-            ? `You are inside a settlement: ${settlement.name} (${settlement.type}, intensity: ${settlement.intensity}). `
-            : '') +
-          `Nearby biomes: ${biomes}. Nearby settlements: ${settlements}.\n` +
-          `Surrounding tiles:\n${surroundings}`;
-
-        const movementInstruction = movementDirection
-          ? `The player just moved ${movementDirection}. If a feature (such as a pond) was described in that direction in the previous tile, it should now be described as part of the current location, and not repeated as being in that direction. Remove such features from the old direction and incorporate them into the current tile's description. `
-          : '';
-
-        const prompt =
-          `Given the following summary of the player's current location and its surroundings, write a vivid, immersive, and unique description of the area. ` +
-          `Focus on transitions between the current tile and its neighbors, and highlight any unique features or contrasts. ` +
-          `If a surrounding tile has a description, incorporate its details. Avoid repeating previous descriptions verbatim. ` +
-          movementInstruction +
-          `Keep the description under 150 words.\n\n` +
-          summary;
-
-        console.log(prompt);
-        aiPromises.push(this.aiService.getText(prompt));
-      }
-
-      // Always add player info generation
-      aiPromises.push(
-        this.aiService.getText(
-          `Below is a list of nearby players with their distance and direction from the player. Write a short paragraph describing the players relative to the current player. \n ${JSON.stringify(
-            nearbyPlayers,
-          )}`,
-        ),
-      );
-
-      // Execute all AI calls in parallel
-      const aiResults = await Promise.all(aiPromises);
-
-      // Process AI results
-      let description = tileInfoWithNearby.tile.description || '';
-      let playerInfo: string;
-
-      if (needsDescription) {
-        description = aiResults[0].output_text;
-        playerInfo = aiResults[1].output_text;
-
-        // Save the generated description back to the tile (don't await to avoid blocking)
-        this.worldService
-          .updateTileDescription(player.x, player.y, description || '')
-          .catch((error) => {
-            // Log the error but don't fail the request
-            console.warn(
-              `Failed to save tile description for (${player.x}, ${player.y}):`,
-              error instanceof Error ? error.message : 'Unknown error',
-            );
-          });
-      } else {
-        playerInfo = aiResults[0].output_text;
-      }
-
-      // Convert tile info to TileInfo format
+      // Basic tile info (use existing description if present)
       const tileInfo: TileInfo = {
         x: tileInfoWithNearby.tile.x,
         y: tileInfoWithNearby.tile.y,
         biomeName: tileInfoWithNearby.tile.biomeName,
-        description: description,
+        description: tileInfoWithNearby.tile.description || '',
         height: tileInfoWithNearby.tile.height,
         temperature: tileInfoWithNearby.tile.temperature,
         moisture: tileInfoWithNearby.tile.moisture,
       };
 
+      this.logger.debug(
+        `Moved to (${player.x}, ${player.y}) with ${monsters.length} monster(s) nearby.`,
+      );
+
       const movementData: PlayerMovementData = {
         player: player as Player,
         location: tileInfo,
         monsters: monsters as Monster[],
-        playerInfo,
+        nearbyPlayers: (nearbyPlayers || []).map((p) => ({
+          distance: p.distance,
+          direction: p.direction,
+          x: p.x,
+          y: p.y,
+        })) as NearbyPlayerInfo[],
+        // Keep textual fields minimal/non-LLM for now
+        playerInfo: '',
         surroundingTiles: surroundingTilesWithDirection,
-        description,
+        description: tileInfo.description ?? '',
         nearbyBiomes: tileInfoWithNearby.nearbyBiomes?.map(
           (b) =>
             `${b.biomeName} (${b.direction}, ${b.distance.toFixed(1)} units)`,

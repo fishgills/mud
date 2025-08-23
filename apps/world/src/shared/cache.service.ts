@@ -70,7 +70,8 @@ export class CacheService implements OnModuleDestroy {
 
   /** Delete keys under the configured prefix matching the provided suffix glob pattern. */
   async clearPattern(suffixPattern: string): Promise<number> {
-    const pat = suffixPattern && suffixPattern.trim().length > 0 ? suffixPattern : '*';
+    const pat =
+      suffixPattern && suffixPattern.trim().length > 0 ? suffixPattern : '*';
     return this.deleteByPattern(pat);
   }
 
@@ -86,13 +87,18 @@ export class CacheService implements OnModuleDestroy {
         deleted += n;
       } catch (err) {
         const e: any = err as any;
-        this.logger.warn(`Cache delete failed for batch: ${e?.message ?? String(err)}`);
+        this.logger.warn(
+          `Cache delete failed for batch: ${e?.message ?? String(err)}`,
+        );
       } finally {
         batch.length = 0;
       }
     };
     try {
-      for await (const key of this.client.scanIterator({ MATCH: match, COUNT: 1000 })) {
+      for await (const key of this.client.scanIterator({
+        MATCH: match,
+        COUNT: 1000,
+      })) {
         batch.push(key as string);
         if (batch.length >= 500) {
           await flush();
@@ -101,7 +107,9 @@ export class CacheService implements OnModuleDestroy {
       await flush();
     } catch (err) {
       const e: any = err as any;
-      this.logger.warn(`Cache scan/delete failed: ${e?.message ?? String(err)}`);
+      this.logger.warn(
+        `Cache scan/delete failed: ${e?.message ?? String(err)}`,
+      );
     }
     return deleted;
   }

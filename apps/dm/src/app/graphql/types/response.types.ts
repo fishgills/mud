@@ -1,4 +1,4 @@
-import { ObjectType, Field, Int } from '@nestjs/graphql';
+import { ObjectType, Field, Int, Float } from '@nestjs/graphql';
 import { Player } from '../models/player.model';
 import { Monster } from '../models/monster.model';
 import { CombatLog } from '../models/combat-log.model';
@@ -169,6 +169,21 @@ export class SurroundingTile {
 }
 
 @ObjectType()
+export class NearbyPlayerInfo {
+  @Field(() => Float)
+  distance!: number;
+
+  @Field()
+  direction!: string;
+
+  @Field(() => Int)
+  x!: number;
+
+  @Field(() => Int)
+  y!: number;
+}
+
+@ObjectType()
 export class PlayerMovementData {
   @Field(() => Player)
   player!: Player;
@@ -178,6 +193,9 @@ export class PlayerMovementData {
 
   @Field(() => [Monster])
   monsters!: Monster[];
+
+  @Field(() => [NearbyPlayerInfo], { nullable: true })
+  nearbyPlayers?: NearbyPlayerInfo[];
 
   @Field()
   playerInfo!: string;
