@@ -199,6 +199,13 @@ export type MutationupdatePlayerStatsArgs = {
   slackId: Scalars['String']['input'];
 };
 
+export type NearbyPlayerInfo = {
+  direction: Scalars['String']['output'];
+  distance: Scalars['Float']['output'];
+  x: Scalars['Int']['output'];
+  y: Scalars['Int']['output'];
+};
+
 export type Player = {
   agility: Scalars['Int']['output'];
   createdAt?: Maybe<Scalars['DateTime']['output']>;
@@ -235,6 +242,7 @@ export type PlayerMovementData = {
   location: TileInfo;
   monsters: Array<Monster>;
   nearbyBiomes?: Maybe<Array<Scalars['String']['output']>>;
+  nearbyPlayers?: Maybe<Array<NearbyPlayerInfo>>;
   nearbySettlements?: Maybe<Array<Scalars['String']['output']>>;
   player: Player;
   playerInfo: Scalars['String']['output'];

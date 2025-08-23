@@ -78,7 +78,16 @@ export type MapTile = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  /** Clears the render cache in Redis. Returns number of keys removed. */
+  clearRenderCache: Scalars['Int']['output'];
+  /** DEBUG: Deletes all world tiles from the database. Use with caution. */
+  deleteAllWorldTiles: TileUpdateResult;
   updateTileDescription: TileUpdateResult;
+};
+
+
+export type MutationClearRenderCacheArgs = {
+  pattern?: InputMaybe<Scalars['String']['input']>;
 };
 
 
