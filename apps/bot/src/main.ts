@@ -1,10 +1,10 @@
-import { App, LogLevel } from '@slack/bolt';
+import { App } from '@slack/bolt';
 import { env } from './env';
 
 const app = new App({
   token: env.SLACK_BOT_TOKEN,
   // signingSecret: env.SLACK_SIGNING_SECRET,
-  logLevel: LogLevel.DEBUG,
+  // logLevel: LogLevel.,
   socketMode: true,
   appToken: env.SLACK_APP_TOKEN,
 });
@@ -60,8 +60,32 @@ app.message(async ({ message, say }) => {
   if (!text || !userId) return;
 
   // Dispatch to the first matching handler (case-insensitive)
-  // Wrap say so handlers can send text or Block Kit messages
-  const sayVoid = async (msg: { text?: string; blocks?: any[] }) => {
+  // Wrap say so handlers can send text, Block Kit, or upload a file
+  const sayVoid = async (msg: {
+    text?: string;
+    blocks?: any[];
+    fileUpload?: {
+      filename: string;
+      contentBase64: string;
+      title?: string;
+      filetype?: string;
+    };
+  }) => {
+    if ('fileUpload' in msg && msg.fileUpload) {
+      const dm = await app.client.conversations.open({ users: userId });
+      const channelId = dm.channel?.id as string | undefined;
+      if (!channelId) return;
+      const buffer = Buffer.from(msg.fileUpload.contentBase64, 'base64');
+      await app.client.files.uploadV2({
+        channel_id: channelId,
+        filename: msg.fileUpload.filename,
+        title: msg.fileUpload.title ?? msg.fileUpload.filename,
+        filetype: msg.fileUpload.filetype ?? 'png',
+        file: buffer,
+        initial_comment: msg.text,
+      } as any);
+      return;
+    }
     await say(msg as any);
   };
 
