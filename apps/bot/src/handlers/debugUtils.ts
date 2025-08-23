@@ -15,8 +15,6 @@ export async function sendDebugJson(
       text: `${title} attached as JSON for debugging.`,
       fileUpload: {
         filename,
-        title,
-        filetype: 'json',
         contentBase64: Buffer.from(debugJson, 'utf-8').toString('base64'),
       },
     });

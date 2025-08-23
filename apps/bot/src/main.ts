@@ -22,6 +22,7 @@ import './handlers/stats';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { COMMANDS } from './commands';
 import { registerActions } from './actions';
+import { SayMessage } from './handlers/types';
 
 app.event('app_mention', async ({ event, say }) => {
   await say(
@@ -61,16 +62,7 @@ app.message(async ({ message, say }) => {
 
   // Dispatch to the first matching handler (case-insensitive)
   // Wrap say so handlers can send text, Block Kit, or upload a file
-  const sayVoid = async (msg: {
-    text?: string;
-    blocks?: any[];
-    fileUpload?: {
-      filename: string;
-      contentBase64: string;
-      title?: string;
-      filetype?: string;
-    };
-  }) => {
+  const sayVoid = async (msg: SayMessage) => {
     if ('fileUpload' in msg && msg.fileUpload) {
       const dm = await app.client.conversations.open({ users: userId });
       const channelId = dm.channel?.id as string | undefined;
@@ -79,8 +71,6 @@ app.message(async ({ message, say }) => {
       await app.client.files.uploadV2({
         channel_id: channelId,
         filename: msg.fileUpload.filename,
-        title: msg.fileUpload.title ?? msg.fileUpload.filename,
-        filetype: msg.fileUpload.filetype ?? 'png',
         file: buffer,
         initial_comment: msg.text,
       } as any);

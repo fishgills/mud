@@ -17,13 +17,13 @@ export const mapHandler = async ({ say, userId }: HandlerContext) => {
         const pngRes = await worldSdk.RenderPNGMap({ x, y, pixelsPerTile: 8 });
         const base64 = pngRes.renderMapPngBase64;
         if (base64 && base64.length > 0) {
+          const { randomUUID } = await import('crypto');
+          const filename = `${randomUUID()}.png`;
           await say({
-            text: `Map centered at (${x}, ${y})`,
+            text: `Map`,
             fileUpload: {
-              filename: `map_${x}_${y}.png`,
+              filename,
               contentBase64: base64,
-              title: 'World Map',
-              filetype: 'png',
             },
           });
           return;

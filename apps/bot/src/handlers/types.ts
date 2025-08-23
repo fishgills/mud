@@ -4,8 +4,6 @@ export type SayMessage = {
   fileUpload?: {
     filename: string;
     contentBase64: string;
-    title?: string;
-    filetype?: string; // e.g., 'png'
   };
 };
 
