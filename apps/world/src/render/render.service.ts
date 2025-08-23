@@ -13,25 +13,36 @@ export class RenderService {
     private readonly worldService: WorldService,
   ) {}
 
-  async renderMap(minX: number, maxX: number, minY: number, maxY: number) {
+  async renderMap(
+    minX: number,
+    maxX: number,
+    minY: number,
+    maxY: number,
+    pixelsPerTile = 4,
+  ) {
     const { width, height, existingTileCount, tileData } =
       await this.prepareMapData(minX, maxX, minY, maxY);
 
-    const canvas = createCanvas(width * 4, height * 4); // 4 pixels per tile
+    const p = Math.max(1, Math.floor(pixelsPerTile));
+    const canvas = createCanvas(width * p, height * p); // pixels per tile
     const ctx = canvas.getContext('2d');
 
     // Background - use a neutral color to show ungenerated areas
     ctx.fillStyle = '#2c2c2c'; // Dark gray for ungenerated areas
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Precompute center tile coordinates of the region
+    const centerTileX = Math.floor((minX + maxX - 1) / 2);
+    const centerTileY = Math.floor((minY + maxY - 1) / 2);
+
     // Render each tile
     for (const { x, y, tile, settlement, biome } of tileData) {
-      const pixelX = (x - minX) * 4;
-      const pixelY = (y - minY) * 4;
+      const pixelX = (x - minX) * p;
+      const pixelY = (y - minY) * p;
 
       if (tile && biome) {
         ctx.fillStyle = biome.color;
-        ctx.fillRect(pixelX, pixelY, 4, 4);
+        ctx.fillRect(pixelX, pixelY, p, p);
       }
 
       // Overlay settlement if present
@@ -40,7 +51,7 @@ export class RenderService {
         if (isCenter) {
           // Settlement center - bright red
           ctx.fillStyle = '#ff0000';
-          ctx.fillRect(pixelX, pixelY, 4, 4);
+          ctx.fillRect(pixelX, pixelY, p, p);
         } else {
           // Check settlement intensity for footprint areas
           const settlementCheck = this.worldService.isCoordinateInSettlement(
@@ -56,7 +67,29 @@ export class RenderService {
           } else {
             // Fallback - small red dot
             ctx.fillStyle = '#ff3333';
-            ctx.fillRect(pixelX + 1, pixelY + 1, 2, 2);
+            const dotSize = Math.max(1, Math.floor(p / 2));
+            const offset = Math.max(0, Math.floor((p - dotSize) / 2));
+            ctx.fillRect(pixelX + offset, pixelY + offset, dotSize, dotSize);
+          }
+        }
+      }
+
+      // Draw a small 'X' marker on the exact center tile of the map
+      if (x === centerTileX && y === centerTileY) {
+        // Choose a contrasting color; white stands out on most biomes
+        ctx.fillStyle = '#ffffff';
+        for (let i = 0; i < p; i++) {
+          // Primary diagonal
+          ctx.fillRect(pixelX + i, pixelY + i, 1, 1);
+          // Secondary diagonal
+          ctx.fillRect(pixelX + (p - 1 - i), pixelY + i, 1, 1);
+        }
+        // Thicken lines for higher resolutions
+        if (p >= 6) {
+          ctx.fillStyle = '#000000';
+          for (let i = 0; i < p; i++) {
+            ctx.fillRect(pixelX + i, pixelY + i + 1, 1, 1);
+            ctx.fillRect(pixelX + (p - 1 - i), pixelY + i + 1, 1, 1);
           }
         }
       }

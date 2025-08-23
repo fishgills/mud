@@ -9,6 +9,6 @@ query RenderAscii($x: Int, $y: Int) {
   }
 }
 
-query RenderPNGMap($x: Int, $y: Int) {
-  renderMapPngBase64(x: $x, y: $y)
+query RenderPNGMap($x: Int, $y: Int, $pixelsPerTile: Int) {
+  renderMapPngBase64(x: $x, y: $y, pixelsPerTile: $pixelsPerTile)
 }

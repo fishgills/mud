@@ -1,6 +1,17 @@
+export type SayMessage = {
+  text?: string;
+  blocks?: any[];
+  fileUpload?: {
+    filename: string;
+    contentBase64: string;
+    title?: string;
+    filetype?: string; // e.g., 'png'
+  };
+};
+
 export type HandlerContext = {
   userId: string;
-  // Allow plain text or Slack Block Kit messages
-  say: (msg: { text?: string; blocks?: any[] }) => Promise<void>;
+  // Allow plain text, Block Kit, or request a file upload
+  say: (msg: SayMessage) => Promise<void>;
   text: string;
 };

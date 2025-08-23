@@ -81,6 +81,12 @@ export class RenderResolver {
   async renderMapPngBase64(
     @Args('x', { type: () => Int, nullable: true }) x?: number,
     @Args('y', { type: () => Int, nullable: true }) y?: number,
+    @Args('pixelsPerTile', {
+      type: () => Int,
+      nullable: true,
+      description: 'Pixels per tile (resolution scalar), default 4',
+    })
+    pixelsPerTile?: number,
   ): Promise<string> {
     const centerX = x ?? 0;
     const centerY = y ?? 0;
@@ -89,7 +95,13 @@ export class RenderResolver {
     const maxX = centerX + half;
     const minY = centerY - half;
     const maxY = centerY + half;
-    const canvas = await this.renderService.renderMap(minX, maxX, minY, maxY);
+    const canvas = await this.renderService.renderMap(
+      minX,
+      maxX,
+      minY,
+      maxY,
+      pixelsPerTile ?? 4,
+    );
     return canvas.toBuffer('image/png').toString('base64');
   }
 }

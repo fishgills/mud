@@ -148,6 +148,7 @@ export type QueryRenderMapAsciiArgs = {
 
 
 export type QueryRenderMapPngBase64Args = {
+  pixelsPerTile?: InputMaybe<Scalars['Int']['input']>;
   x?: InputMaybe<Scalars['Int']['input']>;
   y?: InputMaybe<Scalars['Int']['input']>;
 };
@@ -230,6 +231,7 @@ export type RenderAsciiQuery = { __typename?: 'Query', renderMapTiles: Array<Arr
 export type RenderPngMapQueryVariables = Exact<{
   x?: InputMaybe<Scalars['Int']['input']>;
   y?: InputMaybe<Scalars['Int']['input']>;
+  pixelsPerTile?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
@@ -249,8 +251,8 @@ export const RenderAsciiDocument = gql`
 }
     `;
 export const RenderPngMapDocument = gql`
-    query RenderPNGMap($x: Int, $y: Int) {
-  renderMapPngBase64(x: $x, y: $y)
+    query RenderPNGMap($x: Int, $y: Int, $pixelsPerTile: Int) {
+  renderMapPngBase64(x: $x, y: $y, pixelsPerTile: $pixelsPerTile)
 }
     `;
 

@@ -9,20 +9,36 @@ export const mapHandler = async ({ say, userId }: HandlerContext) => {
   try {
     const result = await dmSdk.GetPlayer({ slackId: userId });
     if (result.getPlayer.success && result.getPlayer.data) {
-      // Call the generated SDK for the world service
-      const data = await worldSdk.RenderAscii({
-        x: result.getPlayer.data?.x,
-        y: result.getPlayer.data?.y,
-      });
+      const x = result.getPlayer.data.x;
+      const y = result.getPlayer.data.y;
 
-      // Determine center indices
-      const totalRows = data.renderMapTiles.length;
-      const totalCols = data.renderMapTiles[0]?.length ?? 0;
+      // Try to fetch PNG map and upload to Slack
+      try {
+        const pngRes = await worldSdk.RenderPNGMap({ x, y, pixelsPerTile: 8 });
+        const base64 = pngRes.renderMapPngBase64;
+        if (base64 && base64.length > 0) {
+          await say({
+            text: `Map centered at (${x}, ${y})`,
+            fileUpload: {
+              filename: `map_${x}_${y}.png`,
+              contentBase64: base64,
+              title: 'World Map',
+              filetype: 'png',
+            },
+          });
+          return;
+        }
+      } catch (_e) {
+        console.info('Failed to render PNG map:', _e);
+      }
+
+      // Fallback: ASCII map with center marked as 'X'
+      const ascii = await worldSdk.RenderAscii({ x, y });
+      const totalRows = ascii.renderMapTiles.length;
+      const totalCols = ascii.renderMapTiles[0]?.length ?? 0;
       const centerRow = Math.floor(totalRows / 2);
       const centerCol = Math.floor(totalCols / 2);
-
-      // Render a simple ASCII map from the tile symbols, placing an 'X' at the center
-      const rows = data.renderMapTiles
+      const rows = ascii.renderMapTiles
         .map((row, rIdx) =>
           row
             .map((tile, cIdx) =>

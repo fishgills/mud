@@ -143,7 +143,13 @@ type Query {
   """
   Returns a PNG map centered on (x, y) as a base64 string (50x50 region).
   """
-  renderMapPngBase64(x: Int, y: Int): String!
+  renderMapPngBase64(
+    x: Int
+    y: Int
+
+    """Pixels per tile (resolution scalar), default 4"""
+    pixelsPerTile: Int
+  ): String!
   getChunk(chunkX: Float!, chunkY: Float!): ChunkData!
   getTile(x: Int!, y: Int!): TileWithNearbyBiomes!
 }
