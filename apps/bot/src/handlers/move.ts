@@ -5,6 +5,7 @@ import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { sendDebugJson } from './debugUtils';
 import { COMMANDS } from '../commands';
+import { sendPngMap } from './mapUtils';
 
 const directionMap: Record<string, Direction> = {
   [COMMANDS.UP]: Direction.NORTH,
@@ -30,8 +31,11 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
     });
     return;
   }
-  const [, direction] = found;
+  const [dirstring, direction] = found;
   try {
+    await say({
+      text: `Moving ${dirstring}...`,
+    });
     const result = await dmSdk.MovePlayer({
       slackId: userId,
       input: { direction },
@@ -49,6 +53,8 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
       filename: 'move-result.json',
       title: 'MovePlayer result',
     });
+
+    await sendPngMap(say, data.location.x, data.location.y, 8);
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(err, 'Failed to move');
     await say({ text: errorMessage });
