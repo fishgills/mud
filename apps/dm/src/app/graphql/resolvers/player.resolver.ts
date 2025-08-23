@@ -83,87 +83,35 @@ export class PlayerResolver {
   ): Promise<PlayerMoveResponse> {
     try {
       const player = await this.playerService.movePlayer(slackId, input);
-
-      // Fetch location-related data in parallel
-      const [tileInfoWithNearby, monsters, nearbyPlayers, surroundingTiles] =
-        await Promise.all([
-          this.worldService.getTileInfoWithNearby(player.x, player.y),
-          this.monsterService.getMonstersAtLocation(player.x, player.y),
-          this.playerService.getNearbyPlayers(
-            player.x,
-            player.y,
-            slackId,
-            Infinity,
-            10,
-          ),
-          this.worldService.getSurroundingTiles(player.x, player.y, 1),
-        ]);
-
-      // Map surrounding tiles with direction information (no LLM)
-      const surroundingTilesWithDirection: SurroundingTile[] =
-        surroundingTiles.map((tile) => ({
-          x: tile.x,
-          y: tile.y,
-          biomeName: tile.biomeName,
-          description: tile.description || '',
-          direction: this.calculateDirection(
-            player.x,
-            player.y,
-            tile.x,
-            tile.y,
-          ),
-        }));
-
-      // Basic tile info (use existing description if present)
-      const tileInfo: TileInfo = {
-        x: tileInfoWithNearby.tile.x,
-        y: tileInfoWithNearby.tile.y,
-        biomeName: tileInfoWithNearby.tile.biomeName,
-        description: tileInfoWithNearby.tile.description || '',
-        height: tileInfoWithNearby.tile.height,
-        temperature: tileInfoWithNearby.tile.temperature,
-        moisture: tileInfoWithNearby.tile.moisture,
-      };
-
+      const movementData = await this.buildMovementData(player, slackId);
       this.logger.debug(
-        `Moved to (${player.x}, ${player.y}) with ${monsters.length} monster(s) nearby.`,
+        `Moved to (${player.x}, ${player.y}) with ${movementData.monsters.length} monster(s) nearby.`,
       );
-
-      const movementData: PlayerMovementData = {
-        player: player as Player,
-        location: tileInfo,
-        monsters: monsters as Monster[],
-        nearbyPlayers: (nearbyPlayers || []).map((p) => ({
-          distance: p.distance,
-          direction: p.direction,
-          x: p.x,
-          y: p.y,
-        })) as NearbyPlayerInfo[],
-        // Keep textual fields minimal/non-LLM for now
-        playerInfo: '',
-        surroundingTiles: surroundingTilesWithDirection,
-        description: tileInfo.description ?? '',
-        nearbyBiomes: tileInfoWithNearby.nearbyBiomes?.map(
-          (b) =>
-            `${b.biomeName} (${b.direction}, ${b.distance.toFixed(1)} units)`,
-        ),
-        nearbySettlements: tileInfoWithNearby.nearbySettlements?.map(
-          (s) => `${s.name} (${s.type}, ${s.distance.toFixed(1)} units away)`,
-        ),
-        currentSettlement: tileInfoWithNearby.currentSettlement
-          ? `${tileInfoWithNearby.currentSettlement.name} (${tileInfoWithNearby.currentSettlement.type}, intensity: ${tileInfoWithNearby.currentSettlement.intensity})`
-          : undefined,
-      };
-
-      return {
-        success: true,
-        data: movementData,
-      };
+      return { success: true, data: movementData };
     } catch (error) {
       return {
         success: false,
         message:
           error instanceof Error ? error.message : 'Failed to move player',
+      };
+    }
+  }
+
+  @Query(() => PlayerMoveResponse)
+  async getMovementView(
+    @Args('slackId') slackId: string,
+  ): Promise<PlayerMoveResponse> {
+    try {
+      const player = await this.playerService.getPlayer(slackId);
+      const movementData = await this.buildMovementData(player, slackId);
+      return { success: true, data: movementData };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to fetch movement view',
       };
     }
   }
@@ -193,6 +141,72 @@ export class PlayerResolver {
     if (normalizedAngle >= 202.5 && normalizedAngle < 247.5) return 'southwest';
     if (normalizedAngle >= 247.5 && normalizedAngle < 292.5) return 'south';
     return 'southeast';
+  }
+
+  // Shared builder for PlayerMovementData used by both movePlayer and getMovementView
+  private async buildMovementData(
+    player: Player,
+    slackId: string,
+  ): Promise<PlayerMovementData> {
+    const [tileInfoWithNearby, monsters, nearbyPlayers, surroundingTiles] =
+      await Promise.all([
+        this.worldService.getTileInfoWithNearby(player.x, player.y),
+        this.monsterService.getMonstersAtLocation(player.x, player.y),
+        this.playerService.getNearbyPlayers(
+          player.x,
+          player.y,
+          slackId,
+          Infinity,
+          10,
+        ),
+        this.worldService.getSurroundingTiles(player.x, player.y, 1),
+      ]);
+
+    const surroundingTilesWithDirection: SurroundingTile[] =
+      surroundingTiles.map((tile) => ({
+        x: tile.x,
+        y: tile.y,
+        biomeName: tile.biomeName,
+        description: tile.description || '',
+        direction: this.calculateDirection(player.x, player.y, tile.x, tile.y),
+      }));
+
+    const tileInfo: TileInfo = {
+      x: tileInfoWithNearby.tile.x,
+      y: tileInfoWithNearby.tile.y,
+      biomeName: tileInfoWithNearby.tile.biomeName,
+      description: tileInfoWithNearby.tile.description || '',
+      height: tileInfoWithNearby.tile.height,
+      temperature: tileInfoWithNearby.tile.temperature,
+      moisture: tileInfoWithNearby.tile.moisture,
+    };
+
+    const movementData: PlayerMovementData = {
+      player: player as Player,
+      location: tileInfo,
+      monsters: monsters as Monster[],
+      nearbyPlayers: (nearbyPlayers || []).map((p) => ({
+        distance: p.distance,
+        direction: p.direction,
+        x: p.x,
+        y: p.y,
+      })) as NearbyPlayerInfo[],
+      playerInfo: '',
+      surroundingTiles: surroundingTilesWithDirection,
+      description: tileInfo.description ?? '',
+      nearbyBiomes: tileInfoWithNearby.nearbyBiomes?.map(
+        (b) =>
+          `${b.biomeName} (${b.direction}, ${b.distance.toFixed(1)} units)`,
+      ),
+      nearbySettlements: tileInfoWithNearby.nearbySettlements?.map(
+        (s) => `${s.name} (${s.type}, ${s.distance.toFixed(1)} units away)`,
+      ),
+      currentSettlement: tileInfoWithNearby.currentSettlement
+        ? `${tileInfoWithNearby.currentSettlement.name} (${tileInfoWithNearby.currentSettlement.type}, intensity: ${tileInfoWithNearby.currentSettlement.intensity})`
+        : undefined,
+    };
+
+    return movementData;
   }
 
   @Mutation(() => PlayerResponse)

@@ -189,6 +189,7 @@ type PlayerMoveResponse {
 type Query {
   getPlayer(slackId: String!): PlayerResponse!
   getAllPlayers: [Player!]!
+  getMovementView(slackId: String!): PlayerMoveResponse!
   getPlayersAtLocation(x: Float!, y: Float!): [Player!]!
   getPlayerStats(slackId: String!): PlayerStats!
   getLocationInfo(x: Int!, y: Int!): LocationResponse!

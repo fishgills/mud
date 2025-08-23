@@ -162,6 +162,45 @@ query GetPlayerWithLocation($slackId: String!) {
     }
   }
 }
+
+# Returns the same shape as MovePlayer.data without moving the player
+query GetMovementView($slackId: String!) {
+  getMovementView(slackId: $slackId) {
+    success
+    message
+    data {
+      player {
+        id
+        name
+        x
+        y
+        hp
+        isAlive
+      }
+      location {
+        x
+        y
+        biomeName
+        description
+      }
+      surroundingTiles {
+        x
+        y
+        biomeName
+        description
+        direction
+      }
+      monsters {
+        id
+        name
+        hp
+        isAlive
+      }
+      playerInfo
+      description
+    }
+  }
+}
 mutation CreatePlayer($input: CreatePlayerInput!) {
   createPlayer(input: $input) {
     success

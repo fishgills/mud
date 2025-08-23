@@ -246,6 +246,14 @@ export type RenderPngMapQueryVariables = Exact<{
 
 export type RenderPngMapQuery = { __typename?: 'Query', renderMapPngBase64: string };
 
+export type GetTileQueryVariables = Exact<{
+  x: Scalars['Int']['input'];
+  y: Scalars['Int']['input'];
+}>;
+
+
+export type GetTileQuery = { __typename?: 'Query', getTile: { __typename?: 'TileWithNearbyBiomes', x: number, y: number, biomeName: string, description?: string | null } };
+
 
 export const RenderAsciiDocument = gql`
     query RenderAscii($x: Int, $y: Int) {
@@ -264,6 +272,16 @@ export const RenderPngMapDocument = gql`
   renderMapPngBase64(x: $x, y: $y, pixelsPerTile: $pixelsPerTile)
 }
     `;
+export const GetTileDocument = gql`
+    query GetTile($x: Int!, $y: Int!) {
+  getTile(x: $x, y: $y) {
+    x
+    y
+    biomeName
+    description
+  }
+}
+    `;
 
 export type SdkFunctionWrapper = <T>(action: (requestHeaders?:Record<string, string>) => Promise<T>, operationName: string, operationType?: string, variables?: any) => Promise<T>;
 
@@ -277,6 +295,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     RenderPNGMap(variables?: RenderPngMapQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RenderPngMapQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<RenderPngMapQuery>({ document: RenderPngMapDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RenderPNGMap', 'query', variables);
+    },
+    GetTile(variables: GetTileQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetTileQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<GetTileQuery>({ document: GetTileDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetTile', 'query', variables);
     }
   };
 }

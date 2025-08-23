@@ -2,44 +2,25 @@ import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
-import { formatLocationMessage, LocationData } from './locationUtils';
 import { COMMANDS } from '../commands';
+import { sendDebugJson } from './debugUtils';
 
 export const lookHandlerHelp = `Look around at your current location to see the area description, nearby tiles, monsters, and other players. Example: Send 'look' or 'l' to examine your surroundings.`;
 
 export const lookHandler = async ({ userId, say }: HandlerContext) => {
   try {
-    // Get the player with enhanced location information
-    const playerResult = await dmSdk.GetPlayerWithLocation({ slackId: userId });
-
-    if (!playerResult.getPlayer.success) {
+    // Ask DM for the movement view (same shape as MovePlayer.data)
+    const res = await dmSdk.GetMovementView({ slackId: userId });
+    if (!res.getMovementView.success || !res.getMovementView.data) {
       await say({
-        text: `Failed to get player info: ${playerResult.getPlayer.message}`,
+        text: `Failed to look: ${res.getMovementView.message ?? 'unknown error'}`,
       });
       return;
     }
-
-    const player = playerResult.getPlayer.data;
-    if (!player) {
-      await say({ text: 'Player data not found.' });
-      return;
-    }
-
-    // Format the response using the shared utility (without move direction)
-    const formattedData: LocationData = {
-      location: {
-        x: player.x,
-        y: player.y,
-        biomeName: player.currentTile?.biomeName || 'unknown',
-        description: player.currentTile?.description,
-      },
-      monsters: player.nearbyMonsters || undefined,
-      // Note: We still don't have surroundingTiles and playerInfo in this query
-      // but we have the basic location info and nearby monsters
-    };
-
-    const msg = formatLocationMessage(formattedData);
-    await say({ text: msg });
+    await sendDebugJson(say, res.getMovementView.data, {
+      filename: 'look-result.json',
+      title: 'Look result',
+    });
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(
       err,

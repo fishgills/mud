@@ -281,6 +281,7 @@ export type Query = {
   getAllPlayers: Array<Player>;
   getGameState: GameStateResponse;
   getLocationInfo: LocationResponse;
+  getMovementView: PlayerMoveResponse;
   getPlayer: PlayerResponse;
   getPlayerStats: PlayerStats;
   getPlayersAtLocation: Array<Player>;
@@ -291,6 +292,11 @@ export type Query = {
 export type QuerygetLocationInfoArgs = {
   x: Scalars['Int']['input'];
   y: Scalars['Int']['input'];
+};
+
+
+export type QuerygetMovementViewArgs = {
+  slackId: Scalars['String']['input'];
 };
 
 
@@ -379,6 +385,13 @@ export type GetPlayerWithLocationQueryVariables = Exact<{
 
 
 export type GetPlayerWithLocationQuery = { getPlayer: { success: boolean, message?: string | null, data?: { id: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean, nearbyMonsters?: Array<{ id: string, name: string, hp: number, isAlive: boolean }> | null, currentTile?: { x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number } | null, nearbyPlayers?: Array<{ id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
+
+export type GetMovementViewQueryVariables = Exact<{
+  slackId: Scalars['String']['input'];
+}>;
+
+
+export type GetMovementViewQuery = { getMovementView: { success: boolean, message?: string | null, data?: { playerInfo: string, description: string, player: { id: string, name: string, x: number, y: number, hp: number, isAlive: boolean }, location: { x: number, y: number, biomeName: string, description?: string | null }, surroundingTiles: Array<{ x: number, y: number, biomeName: string, description?: string | null, direction: string }>, monsters: Array<{ id: string, name: string, hp: number, isAlive: boolean }> } | null } };
 
 export type CreatePlayerMutationVariables = Exact<{
   input: CreatePlayerInput;
@@ -579,6 +592,45 @@ export const GetPlayerWithLocationDocument = gql`
   }
 }
     `;
+export const GetMovementViewDocument = gql`
+    query GetMovementView($slackId: String!) {
+  getMovementView(slackId: $slackId) {
+    success
+    message
+    data {
+      player {
+        id
+        name
+        x
+        y
+        hp
+        isAlive
+      }
+      location {
+        x
+        y
+        biomeName
+        description
+      }
+      surroundingTiles {
+        x
+        y
+        biomeName
+        description
+        direction
+      }
+      monsters {
+        id
+        name
+        hp
+        isAlive
+      }
+      playerInfo
+      description
+    }
+  }
+}
+    `;
 export const CreatePlayerDocument = gql`
     mutation CreatePlayer($input: CreatePlayerInput!) {
   createPlayer(input: $input) {
@@ -670,6 +722,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     GetPlayerWithLocation(variables: GetPlayerWithLocationQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetPlayerWithLocationQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<GetPlayerWithLocationQuery>({ document: GetPlayerWithLocationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetPlayerWithLocation', 'query', variables);
+    },
+    GetMovementView(variables: GetMovementViewQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetMovementViewQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<GetMovementViewQuery>({ document: GetMovementViewDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetMovementView', 'query', variables);
     },
     CreatePlayer(variables: CreatePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<CreatePlayerMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<CreatePlayerMutation>({ document: CreatePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CreatePlayer', 'mutation', variables);

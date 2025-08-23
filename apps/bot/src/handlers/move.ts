@@ -3,6 +3,7 @@ import { HandlerContext } from './types';
 import { Direction } from '../generated/dm-graphql';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
+import { sendDebugJson } from './debugUtils';
 import { COMMANDS } from '../commands';
 
 const directionMap: Record<string, Direction> = {
@@ -44,22 +45,10 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
       await say({ text: 'Move succeeded but no data returned.' });
       return;
     }
-
-    // Debug: send raw data structure as JSON (code block or file if large)
-    const debugJson = JSON.stringify(data, null, 2);
-    if (debugJson.length > 2500) {
-      await say({
-        text: 'Move result attached as JSON for debugging.',
-        fileUpload: {
-          filename: 'move-result.json',
-          title: 'MovePlayer result',
-          filetype: 'json',
-          contentBase64: Buffer.from(debugJson, 'utf-8').toString('base64'),
-        },
-      });
-    } else {
-      await say({ text: '```' + debugJson + '```' });
-    }
+    await sendDebugJson(say, data, {
+      filename: 'move-result.json',
+      title: 'MovePlayer result',
+    });
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(err, 'Failed to move');
     await say({ text: errorMessage });
