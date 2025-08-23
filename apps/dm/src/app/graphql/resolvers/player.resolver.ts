@@ -32,15 +32,23 @@ import {
   TargetType,
 } from '../inputs/player.input';
 import { Logger } from '@nestjs/common';
+import { OpenaiService } from '../../../openai/openai.service';
+import { CoordinationService } from '../../../shared/coordination.service';
+import { env } from '../../../env';
 
 @Resolver(() => Player)
 export class PlayerResolver {
   private logger = new Logger(PlayerResolver.name);
+  // TTLs sourced from env for distributed cooldown/lock
+  private readonly TILE_DESC_COOLDOWN_MS = env.TILE_DESC_COOLDOWN_MS;
+  private readonly TILE_DESC_MIN_RETRY_MS = env.TILE_DESC_MIN_RETRY_MS;
   constructor(
     private playerService: PlayerService,
     private monsterService: MonsterService,
     private combatService: CombatService,
     private worldService: WorldService,
+    private openaiService: OpenaiService,
+    private coord: CoordinationService,
   ) {}
 
   @Mutation(() => PlayerResponse)
@@ -205,6 +213,97 @@ export class PlayerResolver {
         ? `${tileInfoWithNearby.currentSettlement.name} (${tileInfoWithNearby.currentSettlement.type}, intensity: ${tileInfoWithNearby.currentSettlement.intensity})`
         : undefined,
     };
+
+    // If there's no description, generate one using OpenAI with non-dynamic context, persist to World, and return it
+    if (!movementData.description || movementData.description.trim() === '') {
+      try {
+        const context = {
+          player: {
+            id: player.id,
+            name: player.name,
+            x: player.x,
+            y: player.y,
+          },
+          location: {
+            x: tileInfo.x,
+            y: tileInfo.y,
+            biomeName: tileInfo.biomeName,
+            temperature: tileInfo.temperature,
+            moisture: tileInfo.moisture,
+          },
+          surroundingTiles: surroundingTilesWithDirection.map((t) => ({
+            x: t.x,
+            y: t.y,
+            biomeName: t.biomeName,
+            direction: t.direction,
+          })),
+          nearbyBiomes: movementData.nearbyBiomes ?? [],
+          nearbySettlements: movementData.nearbySettlements ?? [],
+          currentSettlement: movementData.currentSettlement ?? undefined,
+        };
+
+        const prompt = [
+          'Describe ONLY the environment for this single map tile in plain text (no code blocks or Slack formatting).',
+          'Use the JSON context for cohesion with surrounding tiles. Do NOT mention players or monsters.',
+          'Keep it concise but vivid (1-3 sentences).',
+          'Context:',
+          JSON.stringify(context, null, 2),
+        ].join('\n');
+
+        const tileKey = `${tileInfo.x},${tileInfo.y}`;
+        const cdKey = `tile-desc-cooldown:${tileKey}`;
+        const lockKey = `tile-desc-lock:${tileKey}`;
+        // Distributed cooldown: skip if cooldown key exists
+        if (await this.coord.exists(cdKey)) {
+          return movementData;
+        }
+
+        // Acquire distributed lock
+        const token = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const gotLock = await this.coord.acquireLock(
+          lockKey,
+          token,
+          env.TILE_DESC_LOCK_TTL_MS,
+        );
+        if (!gotLock) {
+          // Another instance is generating; quick exit. Optionally we could poll once later.
+          return movementData;
+        }
+        try {
+          // Re-check DB description after acquiring the lock (another instance may have filled it)
+          const fresh = await this.worldService.getTileInfo(player.x, player.y);
+          const already =
+            fresh.description && fresh.description.trim().length > 0;
+          if (already) {
+            movementData.description = fresh.description || '';
+            movementData.location.description = fresh.description || '';
+            return movementData;
+          }
+
+          const ai = await this.openaiService.getText(prompt);
+          const generated = (ai?.output_text ?? '').trim();
+          if (generated) {
+            await this.worldService.updateTileDescription(
+              tileInfo.x,
+              tileInfo.y,
+              generated,
+            );
+            await this.coord.setCooldown(cdKey, this.TILE_DESC_COOLDOWN_MS);
+            movementData.description = generated;
+            movementData.location.description = generated;
+          } else {
+            // Empty output: set a short retry window
+            await this.coord.setCooldown(cdKey, this.TILE_DESC_MIN_RETRY_MS);
+          }
+        } finally {
+          await this.coord.releaseLock(lockKey, token);
+        }
+      } catch (e) {
+        this.logger.warn(
+          `AI description generation failed for (${tileInfo.x},${tileInfo.y}): ${e instanceof Error ? e.message : e}`,
+        );
+      }
+    }
 
     return movementData;
   }

@@ -354,7 +354,7 @@ export type MovePlayerMutationVariables = Exact<{
 }>;
 
 
-export type MovePlayerMutation = { movePlayer: { success: boolean, message?: string | null, data?: { playerInfo: string, description: string, player: { id: string, name: string, x: number, y: number, hp: number, isAlive: boolean }, location: { x: number, y: number, biomeName: string, description?: string | null }, surroundingTiles: Array<{ x: number, y: number, biomeName: string, description?: string | null, direction: string }>, monsters: Array<{ id: string, name: string, hp: number, isAlive: boolean }> } | null } };
+export type MovePlayerMutation = { movePlayer: { success: boolean, message?: string | null, data?: { playerInfo: string, description: string, player: { id: string, name: string, x: number, y: number, hp: number, isAlive: boolean }, location: { x: number, y: number, temperature: number, moisture: number, biomeName: string, description?: string | null }, surroundingTiles: Array<{ x: number, y: number, biomeName: string, description?: string | null, direction: string }>, monsters: Array<{ id: string, name: string, hp: number, isAlive: boolean }> } | null } };
 
 export type AttackMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -439,6 +439,8 @@ export const MovePlayerDocument = gql`
       location {
         x
         y
+        temperature
+        moisture
         biomeName
         description
       }

@@ -28,14 +28,13 @@ export class OpenaiService {
     }
 
     try {
-      const systemMessage =
-        `You are to describe a location in a fantasy world. ` +
-        `The description should be vivid and immersive, providing details about the environment, atmosphere, and any notable features. ` +
-        `Temperature is a scale between 0 and 1, where 0 is freezing and 1 is very hot. ` +
-        `Height is a scale of 0 to 1, where 0 is sea level and 1 is the highest mountain peak. ` +
-        `Moisture is a scale of 0 to 1, where 0 is desert and 1 is a rainforest. ` +
-        `Distance units are expressed in 100 meters but should be expressed in general terms like 'far' or 'near'. Never use specific numbers. Each tile of the map is equivalent to 100 square meters.` +
-        `All content will be displayed in Slack so make sure to use Slack Block Kit formatting. `;
+      const systemMessage = `You describe locations in a fantasy world.
+        - Output MUST be plain text, no code blocks or Slack formatting.
+        - Focus on the environment only; do NOT mention dynamic entities like players or monsters.
+        - Be vivid and cohesive with nearby context; keep to 1-3 sentences.
+        - Temperature, Height, and Moisture are 0-1 scales (0 cold/low/dry, 1 hot/high/wet).
+        - Use general terms for distance (near/far), avoid specific numbers.
+        - Each tile is ~100 square meters.`;
 
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',

@@ -10,6 +10,7 @@ import { GameTickService } from './game-tick/game-tick.service';
 import { WorldService } from './world/world.service';
 import { OpenaiModule } from '../openai/openai.module';
 import { PlayerResolver, LocationResolver, SystemResolver } from './graphql';
+import { CoordinationService } from '../shared/coordination.service';
 import { join } from 'path';
 
 @Module({
@@ -30,6 +31,7 @@ import { join } from 'path';
     CombatService,
     GameTickService,
     WorldService,
+    CoordinationService,
     PlayerResolver,
     LocationResolver,
     SystemResolver,
