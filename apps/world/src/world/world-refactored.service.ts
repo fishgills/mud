@@ -32,6 +32,13 @@ export class WorldService {
     }
   }
 
+  // Debug: delete all world tiles
+  async deleteAllWorldTiles(): Promise<number> {
+    const count = await this.worldDatabase.deleteAllWorldTiles();
+    this.logger.warn(`World tiles cleared: ${count}`);
+    return count;
+  }
+
   async getChunk(chunkX: number, chunkY: number): Promise<ChunkData> {
     const startTime = Date.now();
 

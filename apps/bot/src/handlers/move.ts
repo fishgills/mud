@@ -3,12 +3,7 @@ import { HandlerContext } from './types';
 import { Direction } from '../generated/dm-graphql';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
-import {
-  buildLocationBlocks,
-  formatLocationMessage,
-  LocationData,
-} from './locationUtils';
-import { COMMANDS, MOVE_ACTIONS } from '../commands';
+import { COMMANDS } from '../commands';
 
 const directionMap: Record<string, Direction> = {
   [COMMANDS.UP]: Direction.NORTH,
@@ -50,45 +45,21 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
       return;
     }
 
-    const locationData: LocationData = {
-      location: data.location,
-      surroundingTiles: data.surroundingTiles,
-      monsters: data.monsters,
-      playerInfo: data.playerInfo,
-      description: data.description,
-    };
-
-    // Send a polished Block Kit message with quick movement actions and debug info
-    const blocks = buildLocationBlocks(locationData, direction, {
-      includeDebug: true,
-    });
-    blocks.push({ type: 'divider' });
-    blocks.push({
-      type: 'actions',
-      elements: [
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '⬆️ North' },
-          action_id: MOVE_ACTIONS.NORTH,
+    // Debug: send raw data structure as JSON (code block or file if large)
+    const debugJson = JSON.stringify(data, null, 2);
+    if (debugJson.length > 2500) {
+      await say({
+        text: 'Move result attached as JSON for debugging.',
+        fileUpload: {
+          filename: 'move-result.json',
+          title: 'MovePlayer result',
+          filetype: 'json',
+          contentBase64: Buffer.from(debugJson, 'utf-8').toString('base64'),
         },
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '⬇️ South' },
-          action_id: MOVE_ACTIONS.SOUTH,
-        },
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '⬅️ West' },
-          action_id: MOVE_ACTIONS.WEST,
-        },
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: '➡️ East' },
-          action_id: MOVE_ACTIONS.EAST,
-        },
-      ],
-    });
-    await say({ text: formatLocationMessage(locationData, direction), blocks });
+      });
+    } else {
+      await say({ text: '```' + debugJson + '```' });
+    }
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(err, 'Failed to move');
     await say({ text: errorMessage });

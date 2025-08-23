@@ -40,4 +40,16 @@ export class TileResolver {
       message: 'Tile description updated successfully',
     };
   }
+
+  @Mutation(() => TileUpdateResult, {
+    description:
+      'DEBUG: Deletes all world tiles from the database. Use with caution.',
+  })
+  async deleteAllWorldTiles(): Promise<TileUpdateResult> {
+    const count = await this.worldService.deleteAllWorldTiles();
+    return {
+      success: true,
+      message: `Deleted ${count} world tiles`,
+    };
+  }
 }

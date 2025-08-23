@@ -163,4 +163,7 @@ type Mutation {
     pattern: String
   ): Int!
   updateTileDescription(x: Int!, y: Int!, description: String!): TileUpdateResult!
+
+  """DEBUG: Deletes all world tiles from the database. Use with caution."""
+  deleteAllWorldTiles: TileUpdateResult!
 }
