@@ -74,24 +74,10 @@ export class RenderService {
         }
       }
 
-      // Draw a small 'X' marker on the exact center tile of the map
+      // Draw a solid red square on the exact center tile of the map
       if (x === centerTileX && y === centerTileY) {
-        // Choose a contrasting color; white stands out on most biomes
-        ctx.fillStyle = '#ffffff';
-        for (let i = 0; i < p; i++) {
-          // Primary diagonal
-          ctx.fillRect(pixelX + i, pixelY + i, 1, 1);
-          // Secondary diagonal
-          ctx.fillRect(pixelX + (p - 1 - i), pixelY + i, 1, 1);
-        }
-        // Thicken lines for higher resolutions
-        if (p >= 6) {
-          ctx.fillStyle = '#000000';
-          for (let i = 0; i < p; i++) {
-            ctx.fillRect(pixelX + i, pixelY + i + 1, 1, 1);
-            ctx.fillRect(pixelX + (p - 1 - i), pixelY + i + 1, 1, 1);
-          }
-        }
+        ctx.fillStyle = '#ff0000';
+        ctx.fillRect(pixelX, pixelY, p, p);
       }
     }
 
