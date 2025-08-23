@@ -155,5 +155,12 @@ type Query {
 }
 
 type Mutation {
+  """Clears the render cache in Redis. Returns number of keys removed."""
+  clearRenderCache(
+    """
+    Optional suffix glob pattern (without prefix). Example: "*" or "*,p=4" to clear only p=4 entries.
+    """
+    pattern: String
+  ): Int!
   updateTileDescription(x: Int!, y: Int!, description: String!): TileUpdateResult!
 }
