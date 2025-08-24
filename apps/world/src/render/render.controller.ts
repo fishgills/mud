@@ -1,45 +1,74 @@
-import { Controller, Get, Header, Param, Res } from '@nestjs/common';
-import { RenderService } from './render.service';
+import { Controller, Get, Logger, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { RenderService } from './render.service';
+import { CacheService } from '../shared/cache.service';
 
 @Controller('render')
 export class RenderController {
-  constructor(private readonly renderService: RenderService) {}
-  @Get()
-  @Header('Content-Type', 'image/png')
-  async renderMap(
-    @Param('minX') minX: string,
-    @Param('maxX') maxX: string,
-    @Param('minY') minY: string,
-    @Param('maxY') maxY: string,
-    @Res() res: Response,
-  ) {
+  private readonly logger = new Logger(RenderController.name);
+  constructor(
+    private readonly renderService: RenderService,
+    private readonly cache: CacheService,
+  ) {}
+
+  @Get('map.png')
+  async getMapPng(@Query() q: any, @Res() res: Response) {
+    const centerX = Number.isFinite(Number(q?.x)) ? parseInt(q.x, 10) : 0;
+    const centerY = Number.isFinite(Number(q?.y)) ? parseInt(q.y, 10) : 0;
+    const pStr = q?.p ?? q?.pixelsPerTile;
+    const p = Math.max(
+      1,
+      Math.floor(Number.isFinite(Number(pStr)) ? parseInt(pStr, 10) : 4),
+    );
+
+    const half = 25;
+    const minX = centerX - half;
+    const maxX = centerX + half;
+    const minY = centerY - half;
+    const maxY = centerY + half;
+    const cacheKey = `${minX},${minY},${maxX},${maxY},p=${p}`;
+    const ttlMs = Number(process.env.WORLD_RENDER_CACHE_TTL_MS ?? 30000);
+
+    const cached = await this.cache.get(cacheKey);
+    if (cached) {
+      this.logger.debug(`PNG HTTP cache hit for ${cacheKey}`);
+      const buf = Buffer.from(cached, 'base64');
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader(
+        'Cache-Control',
+        `public, max-age=${Math.floor(ttlMs / 1000)}`,
+      );
+      return res.send(buf);
+    }
+    this.logger.debug(
+      `PNG HTTP cache MISS for ${cacheKey}; rendering via service`,
+    );
+
+    const tRenderStart = Date.now();
     const canvas = await this.renderService.renderMap(
-      minX ? parseInt(minX) : -100,
-      maxX ? parseInt(maxX) : 100,
-      minY ? parseInt(minY) : -100,
-      maxY ? parseInt(maxY) : 100,
+      minX,
+      maxX,
+      minY,
+      maxY,
+      p,
+    );
+    const renderMs = Date.now() - tRenderStart;
+
+    const tEncodeStart = Date.now();
+    const base64 = canvas.toBuffer('image/png').toString('base64');
+    const encodeMs = Date.now() - tEncodeStart;
+    await this.cache.set(cacheKey, base64, ttlMs);
+    const sizeKB = Math.round(((base64.length / 4) * 3) / 1024);
+    this.logger.debug(
+      `PNG HTTP cache SET for ${cacheKey} (ttlMs=${ttlMs}) renderMs=${renderMs} encodeMs=${encodeMs} sizeKB=${sizeKB}`,
     );
 
-    const buffer = canvas.toBuffer('image/png');
-
-    res.send(buffer);
-  }
-
-  @Get('ascii')
-  async renderMapAscii(
-    @Param('minX') minX: string,
-    @Param('maxX') maxX: string,
-    @Param('minY') minY: string,
-    @Param('maxY') maxY: string,
-  ) {
-    const asciiMap = await this.renderService.renderMapAscii(
-      minX ? parseInt(minX) : -50,
-      maxX ? parseInt(maxX) : 50,
-      minY ? parseInt(minY) : -50,
-      maxY ? parseInt(maxY) : 50,
+    const buf = Buffer.from(base64, 'base64');
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader(
+      'Cache-Control',
+      `public, max-age=${Math.floor(ttlMs / 1000)}`,
     );
-
-    return asciiMap;
+    return res.send(buf);
   }
 }

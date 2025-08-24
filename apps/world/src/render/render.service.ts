@@ -152,6 +152,7 @@ export class RenderService {
     const startY = chunkY * 50;
     const endX = startX + 50;
     const endY = startY + 50;
+    const tPrepareStart = Date.now();
     const { width, height, tileData } = await this.prepareMapData(
       startX,
       endX,
@@ -163,12 +164,14 @@ export class RenderService {
         includeSettlements: true,
       },
     );
+    const prepareMs = Date.now() - tPrepareStart;
 
     const canvas = createCanvas(width * p, height * p);
     const ctx = canvas.getContext('2d');
     // Background
     ctx.fillStyle = '#2c2c2c';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const tRenderStart = Date.now();
     // Paint tiles and settlement overlays (no center marker here!)
     for (const { x, y, tile, settlement, biome } of tileData) {
       const pixelX = (x - startX) * p;
@@ -201,12 +204,18 @@ export class RenderService {
         }
       }
     }
+    const renderMs = Date.now() - tRenderStart;
 
+    const tEncodeStart = Date.now();
     const base64 = canvas.toBuffer('image/png').toString('base64');
+    const encodeMs = Date.now() - tEncodeStart;
     // Cache with same TTL as region cache
     const ttlMs = Number(process.env.WORLD_RENDER_CACHE_TTL_MS ?? 30000);
     await this.cache.set(key, base64, ttlMs);
-    this.logger.debug(`[chunkpng SET] ${key} ttlMs=${ttlMs}`);
+    const sizeKB = Math.round(((base64.length / 4) * 3) / 1024);
+    this.logger.debug(
+      `[chunkpng SET] ${key} ttlMs=${ttlMs} prepareMs=${prepareMs} renderMs=${renderMs} encodeMs=${encodeMs} sizeKB=${sizeKB}`,
+    );
     return base64;
   }
 
@@ -218,6 +227,7 @@ export class RenderService {
     p: number,
     chunkSize: number,
   ) {
+    const t0 = Date.now();
     const width = maxX - minX;
     const height = maxY - minY;
     const canvas = createCanvas(width * p, height * p);
@@ -244,11 +254,28 @@ export class RenderService {
         needed.push({ cx, cy, imgB64: b64 });
       }
     }
+    const fetchMs = Date.now() - t0;
+
+    // Pre-decode all chunk images in parallel to reduce latency
+    const tDecodeStart = Date.now();
+    const decoded = await Promise.all(
+      needed.map((n) =>
+        n
+          ? loadImage(Buffer.from(n.imgB64, 'base64')).then((img) => ({
+              cx: n.cx,
+              cy: n.cy,
+              img,
+            }))
+          : Promise.resolve(null),
+      ),
+    );
+    const decodeMs = Date.now() - tDecodeStart;
 
     // Draw the relevant sub-rectangles of each chunk image
-    for (const entry of needed) {
+    const tDrawStart = Date.now();
+    for (const entry of decoded) {
       if (!entry) continue;
-      const { cx, cy, imgB64 } = entry;
+      const { cx, cy, img } = entry;
       const startX = cx * chunkSize;
       const startY = cy * chunkSize;
       const endX = startX + chunkSize;
@@ -273,9 +300,9 @@ export class RenderService {
       const dw = sw;
       const dh = sh;
 
-      const img = await loadImage(Buffer.from(imgB64, 'base64'));
-      ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+      ctx.drawImage(img as any, sx, sy, sw, sh, dx, dy, dw, dh);
     }
+    const drawMs = Date.now() - tDrawStart;
 
     // Draw center red square on exact center tile of the region
     const centerTileX = Math.floor((minX + maxX - 1) / 2);
@@ -285,6 +312,10 @@ export class RenderService {
     ctx.fillStyle = '#ff0000';
     ctx.fillRect(centerPixelX, centerPixelY, p, p);
 
+    const totalMs = Date.now() - t0;
+    this.logger.debug(
+      `[chunkpng COMPOSE] chunks=${needed.length} fetchMs=${fetchMs} decodeMs=${decodeMs} drawMs=${drawMs} totalMs=${totalMs}`,
+    );
     return canvas;
   }
 
