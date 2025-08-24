@@ -36,6 +36,7 @@ import { OpenaiService } from '../../../openai/openai.service';
 import { CoordinationService } from '../../../shared/coordination.service';
 import { env } from '../../../env';
 import { LookViewResponse } from '../types/response.types';
+import type { NearbySettlement } from '../../world/world.service';
 
 @Resolver(() => Player)
 export class PlayerResolver {
@@ -136,20 +137,48 @@ export class PlayerResolver {
     @Args('slackId') slackId: string,
   ): Promise<LookViewResponse> {
     try {
+      const t0 = Date.now();
+      let tPlayerMs = 0;
+      let tGetCenterMs = 0;
+      let tGetCenterNearbyMs = 0;
+      let tBoundsTilesMs = 0;
+      let tExtBoundsMs = 0;
+      let tFilterTilesMs = 0;
+      let tPeaksSortMs = 0;
+      let tBiomeSummaryMs = 0;
+      let tSettlementsFilterMs = 0;
+      let tAiMs = 0;
+      let tilesCount = 0;
+      let peaksCount = 0;
+
+      const tPlayerStart = Date.now();
       const player = await this.playerService.getPlayer(slackId);
-      // Proactively ensure surrounding chunks are generated before sampling
-      await this.worldService.ensureChunksAround(player.x, player.y, 50);
-      const center = await this.worldService.getTileInfoWithNearby(
-        player.x,
-        player.y,
-      );
+      tPlayerMs = Date.now() - tPlayerStart;
+      // Fast center tile fetch (compute-only path on World)
+      const tCenterStart = Date.now();
+      const centerTilePromise = this.worldService
+        .getTileInfo(player.x, player.y)
+        .then((tile) => {
+          tGetCenterMs = Date.now() - tCenterStart;
+          return tile;
+        });
+      // Fetch extended center info (nearby biomes/settlements) in parallel; we'll use it if it arrives in time
+      const tCenterNearbyStart = Date.now();
+      const centerWithNearbyPromise = this.worldService
+        .getTileInfoWithNearby(player.x, player.y)
+        .then((d) => {
+          tGetCenterNearbyMs = Date.now() - tCenterNearbyStart;
+          return d;
+        })
+        .catch(() => null as any);
+      const centerTile = await centerTilePromise;
 
       // Compute visibility radius based on tile height (0..1) with base and bonus
       // - base 3 tiles
       // - + up to 7 tiles from height (height * 7)
       // - ensure at least 3, at most 12
       const base = 10;
-      const heightFactor = Math.max(0, Math.min(1, center.tile.height));
+      const heightFactor = Math.max(0, Math.min(1, centerTile.height));
       let visibilityRadius = Math.round(base + heightFactor * 7);
       visibilityRadius = Math.max(3, Math.min(12, visibilityRadius));
 
@@ -159,12 +188,32 @@ export class PlayerResolver {
       const maxX = player.x + visibilityRadius;
       const minY = player.y - visibilityRadius;
       const maxY = player.y + visibilityRadius;
-      const boundTiles = await this.worldService.getTilesInBounds(
-        minX,
-        maxX,
-        minY,
-        maxY,
-      );
+      // Fetch main bounds and extended bounds in parallel
+      const tBoundsStart = Date.now();
+      const boundsPromise = this.worldService
+        .getTilesInBounds(minX, maxX, minY, maxY)
+        .then((res) => {
+          tBoundsTilesMs = Date.now() - tBoundsStart;
+          return res;
+        });
+      const peakScanRadius = Math.min(visibilityRadius * 2, 30);
+      const tExtBoundsStart = Date.now();
+      const extPromise = this.worldService
+        .getTilesInBounds(
+          player.x - peakScanRadius,
+          player.x + peakScanRadius,
+          player.y - peakScanRadius,
+          player.y + peakScanRadius,
+        )
+        .then((res) => {
+          tExtBoundsMs = Date.now() - tExtBoundsStart;
+          return res;
+        });
+      const [boundTiles, extTiles] = await Promise.all([
+        boundsPromise,
+        extPromise,
+      ]);
+      const tFilterTilesStart = Date.now();
       const tiles = boundTiles
         .map((t) => ({
           x: t.x,
@@ -177,16 +226,12 @@ export class PlayerResolver {
             Math.sqrt((t.x - player.x) ** 2 + (t.y - player.y) ** 2) <=
             visibilityRadius,
         );
+      tFilterTilesMs = Date.now() - tFilterTilesStart;
+      tilesCount = tiles.length;
 
       // Peaks: select top-k highest tiles beyond a near radius so they feel "distant peaks"
       const minPeakDistance = Math.max(3, Math.floor(visibilityRadius / 2));
-      const peakScanRadius = Math.min(visibilityRadius * 2, 30);
-      const extTiles = await this.worldService.getTilesInBounds(
-        player.x - peakScanRadius,
-        player.x + peakScanRadius,
-        player.y - peakScanRadius,
-        player.y + peakScanRadius,
-      );
+      const tPeaksSortStart = Date.now();
       const peakCandidates = extTiles
         .filter(
           (t) =>
@@ -195,6 +240,8 @@ export class PlayerResolver {
         )
         .sort((a, b) => b.height - a.height)
         .slice(0, 6);
+      tPeaksSortMs = Date.now() - tPeaksSortStart;
+      peaksCount = peakCandidates.length;
 
       const visiblePeaks = peakCandidates.map((t) => {
         const dx = t.x - player.x;
@@ -205,6 +252,7 @@ export class PlayerResolver {
       });
 
       // Biome sector summary: count tiles by biome and infer predominant directions
+      const tBiomeStart = Date.now();
       const biomeCounts = new Map<string, number>();
       const biomeDirBuckets = new Map<string, Record<string, number>>();
       for (const t of tiles) {
@@ -230,9 +278,17 @@ export class PlayerResolver {
         })
         .sort((a, b) => b.proportion - a.proportion)
         .slice(0, 6);
+      tBiomeSummaryMs = Date.now() - tBiomeStart;
 
-      // Settlements: leverage existing nearbySettlements and extend range by visibility radius
-      const nearby = center.nearbySettlements || [];
+      // Settlements: leverage nearby from the extended center query if available quickly
+      const tSettlementsStart = Date.now();
+      const centerWithNearby = await Promise.race([
+        centerWithNearbyPromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 300)),
+      ]);
+      const nearby: NearbySettlement[] =
+        ((centerWithNearby as any)?.nearbySettlements as NearbySettlement[]) ||
+        [];
       const visibleSettlements = nearby
         .filter(
           (s) => s.distance <= visibilityRadius * 1.2 || s.size === 'large',
@@ -244,6 +300,7 @@ export class PlayerResolver {
           distance: s.distance,
           direction: this.calculateDirection(player.x, player.y, s.x, s.y),
         }));
+      tSettlementsFilterMs = Date.now() - tSettlementsStart;
 
       // Compose a concise panoramic description
       const topBiomes = biomeSummary.slice(0, 2).map((b) => b.biomeName);
@@ -262,7 +319,7 @@ export class PlayerResolver {
       // Build a descriptive paragraph; prefer AI if available for richer prose
       let description = [
         `From here you can see roughly ${visibilityRadius} tiles out across mostly ${
-          topBiomes.join(' and ') || center.tile.biomeName
+          topBiomes.join(' and ') || centerTile.biomeName
         }.`,
         peakLine,
         settleLine,
@@ -273,10 +330,10 @@ export class PlayerResolver {
       try {
         const context = {
           center: {
-            x: center.tile.x,
-            y: center.tile.y,
-            biomeName: center.tile.biomeName,
-            height: center.tile.height,
+            x: centerTile.x,
+            y: centerTile.y,
+            biomeName: centerTile.biomeName,
+            height: centerTile.height,
           },
           visibilityRadius,
           biomeSummary,
@@ -290,24 +347,31 @@ export class PlayerResolver {
           'Context:',
           JSON.stringify(context, null, 2),
         ].join('\n');
+        const tAiStart = Date.now();
         const ai = await this.openaiService.getText(prompt);
+        tAiMs = Date.now() - tAiStart;
         const aiText = (ai?.output_text ?? '').trim();
         if (aiText) description = aiText;
       } catch (e) {
         this.logger.debug('Panoramic AI description skipped or failed.');
       }
 
+      const totalMs = Date.now() - t0;
+      this.logger.debug(
+        `getLookView perf slackId=${slackId} totalMs=${totalMs} playerMs=${tPlayerMs} getCenterMs=${tGetCenterMs} getCenterNearbyMs=${tGetCenterNearbyMs} boundsTilesMs=${tBoundsTilesMs} filterTilesMs=${tFilterTilesMs} extBoundsMs=${tExtBoundsMs} peaksSortMs=${tPeaksSortMs} biomeSummaryMs=${tBiomeSummaryMs} settlementsFilterMs=${tSettlementsFilterMs} aiMs=${tAiMs} tiles=${tilesCount} peaks=${peaksCount}`,
+      );
+
       return {
         success: true,
         data: {
           location: {
-            x: center.tile.x,
-            y: center.tile.y,
-            biomeName: center.tile.biomeName,
-            description: center.tile.description || '',
-            height: center.tile.height,
-            temperature: center.tile.temperature,
-            moisture: center.tile.moisture,
+            x: centerTile.x,
+            y: centerTile.y,
+            biomeName: centerTile.biomeName,
+            description: centerTile.description || '',
+            height: centerTile.height,
+            temperature: centerTile.temperature,
+            moisture: centerTile.moisture,
           },
           visibilityRadius,
           biomeSummary,
