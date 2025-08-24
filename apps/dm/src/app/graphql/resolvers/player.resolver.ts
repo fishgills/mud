@@ -262,7 +262,7 @@ export class PlayerResolver {
       const biomeDirBuckets = new Map<string, Record<string, number>>();
       for (const t of tiles) {
         biomeCounts.set(t.biomeName, (biomeCounts.get(t.biomeName) || 0) + 1);
-  const dir = calculateDirection(player.x, player.y, t.x, t.y);
+        const dir = calculateDirection(player.x, player.y, t.x, t.y);
         const bucket = biomeDirBuckets.get(t.biomeName) || {};
         bucket[dir] = (bucket[dir] || 0) + 1;
         biomeDirBuckets.set(t.biomeName, bucket);
