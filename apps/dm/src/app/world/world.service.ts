@@ -70,6 +70,45 @@ export class WorldService {
   private readonly worldServiceUrl =
     process.env.WORLD_SERVICE_URL || 'http://localhost:3000';
   private readonly graphqlClient: GraphQLClient;
+  // Simple in-memory cache and in-flight dedupe for chunk requests
+  private readonly chunkCache = new Map<
+    string,
+    { tiles: WorldTile[]; ts: number }
+  >();
+  private readonly inflightChunkRequests = new Map<
+    string,
+    Promise<WorldTile[]>
+  >();
+  private readonly CHUNK_CACHE_TTL_MS = Number.parseInt(
+    process.env.DM_CHUNK_CACHE_TTL_MS || '10000',
+    10,
+  );
+  // Center-with-nearby cache and inflight dedupe
+  private readonly centerNearbyCache = new Map<
+    string,
+    {
+      data: {
+        tile: WorldTile;
+        nearbyBiomes: NearbyBiome[];
+        nearbySettlements: NearbySettlement[];
+        currentSettlement?: Settlement;
+      };
+      ts: number;
+    }
+  >();
+  private readonly inflightCenterNearby = new Map<
+    string,
+    Promise<{
+      tile: WorldTile;
+      nearbyBiomes: NearbyBiome[];
+      nearbySettlements: NearbySettlement[];
+      currentSettlement?: Settlement;
+    }>
+  >();
+  private readonly CENTER_NEARBY_CACHE_TTL_MS = Number.parseInt(
+    process.env.DM_CENTER_NEARBY_CACHE_TTL_MS || '15000',
+    10,
+  );
 
   constructor() {
     // Ensure URL doesn't have double slashes
@@ -205,6 +244,18 @@ export class WorldService {
   }
 
   async getChunk(chunkX: number, chunkY: number): Promise<WorldTile[]> {
+    const key = `${chunkX}:${chunkY}`;
+
+    // Serve from cache if fresh
+    const cached = this.chunkCache.get(key);
+    if (cached && Date.now() - cached.ts < this.CHUNK_CACHE_TTL_MS) {
+      return cached.tiles;
+    }
+
+    // Deduplicate concurrent requests for the same chunk
+    const inflight = this.inflightChunkRequests.get(key);
+    if (inflight) return inflight;
+
     const GET_CHUNK_QUERY = gql`
       query GetChunk($chunkX: Float!, $chunkY: Float!) {
         getChunk(chunkX: $chunkX, chunkY: $chunkY) {
@@ -230,36 +281,47 @@ export class WorldService {
       }
     `;
 
-    const result = await this.makeGraphQLRequest<{ getChunk: ChunkData }>(
-      GET_CHUNK_QUERY,
-      { chunkX, chunkY },
-      {
-        logErrorMessage: `Failed to fetch chunk (${chunkX}, ${chunkY}):`,
-        throwOnError: true,
-      },
-    );
+    const promise = (async () => {
+      const result = await this.makeGraphQLRequest<{ getChunk: ChunkData }>(
+        GET_CHUNK_QUERY,
+        { chunkX, chunkY },
+        {
+          logErrorMessage: `Failed to fetch chunk (${chunkX}, ${chunkY}):`,
+          throwOnError: true,
+        },
+      );
 
-    if (result?.getChunk?.tiles) {
-      // Convert GraphQL response to WorldTile format
-      return result.getChunk.tiles.map((tile) => ({
-        id: tile.id,
-        x: tile.x,
-        y: tile.y,
-        biomeId: tile.biomeId,
-        biomeName: tile.biomeName,
-        description: tile.description || '',
-        height: tile.height,
-        temperature: tile.temperature,
-        moisture: tile.moisture,
-        seed: tile.seed,
-        chunkX: tile.chunkX,
-        chunkY: tile.chunkY,
-        createdAt: new Date(tile.createdAt),
-        updatedAt: new Date(tile.updatedAt),
-      }));
-    }
+      let tiles: WorldTile[] = [];
+      if (result?.getChunk?.tiles) {
+        // Convert GraphQL response to WorldTile format
+        tiles = result.getChunk.tiles.map((tile) => ({
+          id: tile.id,
+          x: tile.x,
+          y: tile.y,
+          biomeId: tile.biomeId,
+          biomeName: tile.biomeName,
+          description: tile.description || '',
+          height: tile.height,
+          temperature: tile.temperature,
+          moisture: tile.moisture,
+          seed: tile.seed,
+          chunkX: tile.chunkX,
+          chunkY: tile.chunkY,
+          createdAt: new Date(tile.createdAt),
+          updatedAt: new Date(tile.updatedAt),
+        }));
+      }
 
-    return [];
+      // cache the result (even empty) to avoid hammering
+      this.chunkCache.set(key, { tiles, ts: Date.now() });
+      return tiles;
+    })().finally(() => {
+      // clear inflight regardless of success/failure
+      this.inflightChunkRequests.delete(key);
+    });
+
+    this.inflightChunkRequests.set(key, promise);
+    return promise;
   }
 
   async getSurroundingTiles(
@@ -310,17 +372,25 @@ export class WorldService {
     const maxChunkX = Math.floor(maxX / chunkSize);
     const minChunkY = Math.floor(minY / chunkSize);
     const maxChunkY = Math.floor(maxY / chunkSize);
-    const tiles: WorldTile[] = [];
+
+    // Build list of unique chunk coords within the bounds
+    const coords: Array<[number, number]> = [];
     for (let cx = minChunkX; cx <= maxChunkX; cx++) {
       for (let cy = minChunkY; cy <= maxChunkY; cy++) {
-        const chunkTiles = await this.getChunk(cx, cy);
-        for (const t of chunkTiles) {
-          if (t.x >= minX && t.x <= maxX && t.y >= minY && t.y <= maxY) {
-            tiles.push(t);
-          }
-        }
+        coords.push([cx, cy]);
       }
     }
+
+    // Fetch all chunks in parallel (benefits from in-flight deduping & cache)
+    const chunks = await Promise.all(
+      coords.map(([cx, cy]) => this.getChunk(cx, cy)),
+    );
+
+    // Flatten and filter tiles by bounds
+    const tiles = chunks
+      .flat()
+      .filter((t) => t.x >= minX && t.x <= maxX && t.y >= minY && t.y <= maxY);
+
     return tiles;
   }
 
@@ -391,6 +461,15 @@ export class WorldService {
     nearbySettlements: NearbySettlement[];
     currentSettlement?: Settlement;
   }> {
+    const cacheKey = `${x}:${y}`;
+    const cached = this.centerNearbyCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < this.CENTER_NEARBY_CACHE_TTL_MS) {
+      return cached.data;
+    }
+
+    const inflight = this.inflightCenterNearby.get(cacheKey);
+    if (inflight) return inflight;
+
     const GET_TILE_WITH_NEARBY_QUERY = gql`
       query GetTileWithNearby($x: Int!, $y: Int!) {
         getTile(x: $x, y: $y) {
@@ -451,52 +530,65 @@ export class WorldService {
       updatedAt: new Date(),
     };
 
-    const result = await this.makeGraphQLRequest<{
-      getTile: TileWithNearbyBiomes;
-    }>(
-      GET_TILE_WITH_NEARBY_QUERY,
-      { x, y },
-      {
-        logErrorMessage: `Failed to fetch tile with nearby data for (${x}, ${y}):`,
-        defaultValue: {
-          getTile: {
-            ...defaultTile,
-            nearbyBiomes: [],
-            nearbySettlements: [],
-          } as any,
+    const promise = (async () => {
+      const result = await this.makeGraphQLRequest<{
+        getTile: TileWithNearbyBiomes;
+      }>(
+        GET_TILE_WITH_NEARBY_QUERY,
+        { x, y },
+        {
+          logErrorMessage: `Failed to fetch tile with nearby data for (${x}, ${y}):`,
+          defaultValue: {
+            getTile: {
+              ...defaultTile,
+              nearbyBiomes: [],
+              nearbySettlements: [],
+            } as any,
+          },
         },
-      },
-    );
+      );
 
-    if (result?.getTile) {
-      const tile = result.getTile;
-      return {
-        tile: {
-          id: tile.id,
-          x: tile.x,
-          y: tile.y,
-          biomeId: tile.biomeId,
-          biomeName: tile.biomeName,
-          description: tile.description || defaultTile.description,
-          height: tile.height,
-          temperature: tile.temperature,
-          moisture: tile.moisture,
-          seed: tile.seed,
-          chunkX: tile.chunkX,
-          chunkY: tile.chunkY,
-          createdAt: new Date(tile.createdAt),
-          updatedAt: new Date(tile.updatedAt),
-        },
-        nearbyBiomes: tile.nearbyBiomes || [],
-        nearbySettlements: tile.nearbySettlements || [],
-        currentSettlement: tile.currentSettlement,
+      let data: {
+        tile: WorldTile;
+        nearbyBiomes: NearbyBiome[];
+        nearbySettlements: NearbySettlement[];
+        currentSettlement?: Settlement;
+      } = {
+        tile: defaultTile,
+        nearbyBiomes: [],
+        nearbySettlements: [],
       };
-    }
 
-    return {
-      tile: defaultTile,
-      nearbyBiomes: [],
-      nearbySettlements: [],
-    };
+      if (result?.getTile) {
+        const tile = result.getTile;
+        data = {
+          tile: {
+            id: tile.id,
+            x: tile.x,
+            y: tile.y,
+            biomeId: tile.biomeId,
+            biomeName: tile.biomeName,
+            description: tile.description || defaultTile.description,
+            height: tile.height,
+            temperature: tile.temperature,
+            moisture: tile.moisture,
+            seed: tile.seed,
+            chunkX: tile.chunkX,
+            chunkY: tile.chunkY,
+            createdAt: new Date(tile.createdAt),
+            updatedAt: new Date(tile.updatedAt),
+          },
+          nearbyBiomes: tile.nearbyBiomes || [],
+          nearbySettlements: tile.nearbySettlements || [],
+          currentSettlement: tile.currentSettlement,
+        };
+      }
+
+      this.centerNearbyCache.set(cacheKey, { data, ts: Date.now() });
+      return data;
+    })().finally(() => this.inflightCenterNearby.delete(cacheKey));
+
+    this.inflightCenterNearby.set(cacheKey, promise);
+    return promise;
   }
 }
