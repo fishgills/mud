@@ -208,12 +208,22 @@ type VisibleSettlementInfo {
   direction: String!
 }
 
+type CurrentSettlementInfo {
+  name: String!
+  type: String!
+  size: String!
+  intensity: Float!
+  isCenter: Boolean!
+}
+
 type LookViewData {
   location: TileInfo!
   visibilityRadius: Float!
   biomeSummary: [BiomeSectorSummary!]!
   visiblePeaks: [VisiblePeakInfo!]!
   visibleSettlements: [VisibleSettlementInfo!]!
+  currentSettlement: CurrentSettlementInfo
+  inSettlement: Boolean!
   description: String!
 }
 

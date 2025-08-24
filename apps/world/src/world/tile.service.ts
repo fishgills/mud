@@ -4,6 +4,7 @@ import { WorldUtilsService } from './world-utils.service';
 import { WorldTile } from '@mud/database';
 import { ChunkData } from './types';
 import { ChunkGeneratorService } from './chunk-generator.service';
+import { SettlementGenerator } from '../settlement-generator/settlement-generator';
 
 export interface TileWithNearbyBiomes extends WorldTile {
   nearbyBiomes: Array<{
@@ -169,6 +170,10 @@ export class TileService {
     let currentSettlement: TileWithNearbyBiomes['currentSettlement'];
     let currentSettlementId: number | undefined;
 
+    // Ensure we have the world seed for deterministic footprints
+    await this.ensureSeed();
+    const generator = new SettlementGenerator(this.currentSeed);
+
     for (const settlement of settlements) {
       // Check if this is the settlement center
       if (settlement.x === x && settlement.y === y) {
@@ -183,8 +188,36 @@ export class TileService {
         break;
       }
 
-      // TODO: Add settlement footprint checking logic here
-      // This would require the settlement footprint generation logic
+      // Deterministic footprint membership check (irregular blob)
+      try {
+        const footprint = generator.generateSettlementFootprint(
+          settlement.x,
+          settlement.y,
+          settlement.size as 'large' | 'medium' | 'small' | 'tiny',
+          () => 0.5, // rng not used by generator's deterministic shape logic
+          {
+            type: settlement.type as any,
+            population: settlement.population as any,
+          },
+        );
+
+        const tile = footprint.tiles.find((t) => t.x === x && t.y === y);
+        if (tile) {
+          currentSettlement = {
+            name: settlement.name,
+            type: settlement.type,
+            size: settlement.size,
+            intensity: tile.intensity,
+            isCenter: false,
+          };
+          currentSettlementId = settlement.id;
+          break;
+        }
+      } catch (e) {
+        this.logger.debug(
+          `Footprint check failed for settlement ${settlement.name} (${settlement.x},${settlement.y}): ${e instanceof Error ? e.message : e}`,
+        );
+      }
     }
 
     // Calculate distance for each settlement and filter by true radius

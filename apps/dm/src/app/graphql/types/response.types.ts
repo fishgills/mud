@@ -274,6 +274,24 @@ export class VisibleSettlementInfo {
 }
 
 @ObjectType()
+export class CurrentSettlementInfo {
+  @Field()
+  name!: string;
+
+  @Field()
+  type!: string;
+
+  @Field()
+  size!: string;
+
+  @Field(() => Float)
+  intensity!: number; // 0..1
+
+  @Field()
+  isCenter!: boolean;
+}
+
+@ObjectType()
 export class LookViewData {
   @Field(() => TileInfo)
   location!: TileInfo; // center tile
@@ -289,6 +307,12 @@ export class LookViewData {
 
   @Field(() => [VisibleSettlementInfo])
   visibleSettlements!: VisibleSettlementInfo[];
+
+  @Field(() => CurrentSettlementInfo, { nullable: true })
+  currentSettlement?: CurrentSettlementInfo;
+
+  @Field()
+  inSettlement!: boolean;
 
   @Field()
   description!: string; // panoramic prose (not persisted)

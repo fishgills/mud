@@ -219,6 +219,13 @@ query GetLookView($slackId: String!) {
         temperature
         moisture
       }
+      currentSettlement {
+        name
+        type
+        size
+        intensity
+        isCenter
+      }
       visibilityRadius
       biomeSummary {
         biomeName

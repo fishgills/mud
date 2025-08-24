@@ -369,7 +369,11 @@ export class PlayerResolver {
         .join(' ');
 
       try {
-        const inSettlement = Boolean(currentSettlement);
+        // Consider the player inside a settlement if the world service marks the current tile
+        // as part of a settlement footprint (currentSettlement present), not just exact center.
+        const inSettlement = Boolean(
+          currentSettlement && currentSettlement.intensity > 0,
+        );
         const context = {
           center: {
             x: centerTile.x,
@@ -389,10 +393,24 @@ export class PlayerResolver {
           'Do NOT mention players, inhabitants, or monsters. Focus on place and setting.',
           'Use the JSON context for bearings and features but avoid explicit numbers unless natural.',
         ];
+        const intensityVal = currentSettlement?.intensity ?? 0;
+        const densityBucket =
+          intensityVal >= 0.7
+            ? 'high'
+            : intensityVal >= 0.4
+              ? 'medium'
+              : intensityVal > 0
+                ? 'low'
+                : 'none';
         const settlementFocus = [
           'You are inside a settlement: make the description center on the settlement itself (architecture, layout, immediate surroundings, notable landmarks, atmosphere).',
           'Mention the settlement name and type once if present (e.g., "the hamlet South Manorthorpe").',
           'Optionally reference nearby terrain as backdrop, but keep the settlement as the focal point.',
+          'Use currentSettlement.intensity to scale how built-up and busy it feels:',
+          '- high (>= 0.7): dense core, closely packed structures, tight lanes, frequent activity/noise.',
+          '- medium (0.4-0.69): mixed residential/commercial, some open space, steady but modest activity.',
+          '- low (0.01-0.39): outskirts/edge, scattered buildings, paths/hedgerows/fields, quiet/occasional passersby.',
+          'Do not invent crowds or specifics beyond what intensity implies; keep it grounded and qualitative.',
         ];
         const landscapeFocus = [
           'You are in the open: focus on terrain, weather, and distant features; settlements are secondary if visible.',
@@ -404,13 +422,17 @@ export class PlayerResolver {
           JSON.stringify(context, null, 2),
         ].join('\n');
         const tAiStart = Date.now();
+
+        this.logger.debug(`getLookView prompt: ${prompt}`);
         const ai = await this.openaiService.getText(prompt, {
-          timeoutMs: 800, // keep latency tight; fallback if exceeded
+          timeoutMs: 1200, // keep latency tight; fallback if exceeded
           cacheKey: `look:${centerTile.x},${centerTile.y}:${visibilityRadius}:${topBiomes.join(',')}:${visiblePeaks
             .map((p) => p.direction)
             .join('/')}:${visibleSettlements
             .map((s) => `${s.type}-${s.direction}`)
-            .join('/')}::${currentSettlement?.name ?? 'none'}`,
+            .join(
+              '/',
+            )}::${currentSettlement?.name ?? 'none'}:${inSettlement ? 'in' : 'out'}:${densityBucket}`,
           maxTokens: 120,
         });
         tAiMs = Date.now() - tAiStart;
@@ -441,6 +463,18 @@ export class PlayerResolver {
           biomeSummary,
           visiblePeaks,
           visibleSettlements,
+          currentSettlement: currentSettlement
+            ? {
+                name: currentSettlement.name,
+                type: currentSettlement.type,
+                size: currentSettlement.size,
+                intensity: currentSettlement.intensity,
+                isCenter: currentSettlement.isCenter,
+              }
+            : undefined,
+          inSettlement: Boolean(
+            currentSettlement && currentSettlement.intensity > 0,
+          ),
           description,
         },
       };
@@ -583,9 +617,24 @@ export class PlayerResolver {
           'Keep it concise but vivid (1-3 sentences).',
           'Use the JSON context for cohesion with surrounding tiles; avoid explicit numbers unless natural.',
         ];
+        const intensityVal2 =
+          tileInfoWithNearby.currentSettlement?.intensity ?? 0;
+        const densityBucket2 =
+          intensityVal2 >= 0.7
+            ? 'high'
+            : intensityVal2 >= 0.4
+              ? 'medium'
+              : intensityVal2 > 0
+                ? 'low'
+                : 'none';
         const settlementTileFocus = [
           'You are inside a settlement: make the description center on the settlement itself (architecture, materials, layout, immediate surroundings, notable landmarks, atmosphere).',
           'Mention the settlement name and type once if present (e.g., "the hamlet South Manorthorpe").',
+          'Use currentSettlement.intensity to scale how built-up this specific tile is:',
+          '- high (>= 0.7): dense center, close-packed structures, lanes, little open ground.',
+          '- medium (0.4-0.69): mixed spaces and buildings, some yards/greens, steady use.',
+          '- low (0.01-0.39): fringe/outskirts, sparse buildings, fields/hedges/tracks, quiet.',
+          `Current intensity bucket: ${densityBucket2}. Reflect that subtly in the details.`,
         ];
         const openTileFocus = [
           'You are in the open: focus on the tile’s terrain and nearby natural features.',

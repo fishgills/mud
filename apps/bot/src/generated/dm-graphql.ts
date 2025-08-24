@@ -68,6 +68,14 @@ export type CreatePlayerInput = {
   y?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type CurrentSettlementInfo = {
+  intensity: Scalars['Float']['output'];
+  isCenter: Scalars['Boolean']['output'];
+  name: Scalars['String']['output'];
+  size: Scalars['String']['output'];
+  type: Scalars['String']['output'];
+};
+
 /** Cardinal directions for player movement */
 export enum Direction {
   EAST = 'EAST',
@@ -108,7 +116,9 @@ export type LocationResponse = {
 
 export type LookViewData = {
   biomeSummary: Array<BiomeSectorSummary>;
+  currentSettlement?: Maybe<CurrentSettlementInfo>;
   description: Scalars['String']['output'];
+  inSettlement: Scalars['Boolean']['output'];
   location: TileInfo;
   visibilityRadius: Scalars['Float']['output'];
   visiblePeaks: Array<VisiblePeakInfo>;
@@ -441,7 +451,7 @@ export type GetLookViewQueryVariables = Exact<{
 }>;
 
 
-export type GetLookViewQuery = { getLookView: { success: boolean, message?: string | null, data?: { visibilityRadius: number, description: string, location: { x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number }, biomeSummary: Array<{ biomeName: string, proportion: number, predominantDirections: Array<string> }>, visiblePeaks: Array<{ x: number, y: number, height: number, distance: number, direction: string }>, visibleSettlements: Array<{ name: string, type: string, size: string, distance: number, direction: string }> } | null } };
+export type GetLookViewQuery = { getLookView: { success: boolean, message?: string | null, data?: { visibilityRadius: number, description: string, location: { x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number }, currentSettlement?: { name: string, type: string, size: string, intensity: number, isCenter: boolean } | null, biomeSummary: Array<{ biomeName: string, proportion: number, predominantDirections: Array<string> }>, visiblePeaks: Array<{ x: number, y: number, height: number, distance: number, direction: string }>, visibleSettlements: Array<{ name: string, type: string, size: string, distance: number, direction: string }> } | null } };
 
 export type CreatePlayerMutationVariables = Exact<{
   input: CreatePlayerInput;
@@ -697,6 +707,13 @@ export const GetLookViewDocument = gql`
         height
         temperature
         moisture
+      }
+      currentSettlement {
+        name
+        type
+        size
+        intensity
+        isCenter
       }
       visibilityRadius
       biomeSummary {
