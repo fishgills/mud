@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { createCanvas, loadImage } from 'canvas';
+import { createCanvas, loadImage, CanvasRenderingContext2D } from 'canvas';
 import { PrismaService } from '../prisma/prisma.service';
 import { BIOMES } from '../constants';
 import { WorldService } from '../world/world-refactored.service';
@@ -13,6 +13,7 @@ import { env } from '../env';
 @Injectable()
 export class RenderService {
   private readonly logger = new Logger(RenderService.name);
+  private readonly RENDER_STYLE_VERSION = 2; // bump to invalidate cached chunk PNGs when style changes
   constructor(
     private readonly prisma: PrismaService,
     private readonly worldService: WorldService,
@@ -70,15 +71,35 @@ export class RenderService {
     const centerTileX = minX + Math.floor((maxX - minX) / 2);
     const centerTileY = minY + Math.floor((maxY - minY) / 2);
 
+    // Build quick biome map for edge detection
+    const biomeMap = new Map<
+      string,
+      (typeof BIOMES)[keyof typeof BIOMES] | null
+    >();
+    for (const t of tileData) {
+      biomeMap.set(`${t.x},${t.y}`, t.biome);
+    }
+
     // Render each tile
+    const seed = this.worldService.getCurrentSeed();
     for (const { x, y, tile, settlement, biome } of tileData) {
       const pixelX = (x - minX) * p;
       // Invert Y so that higher world Y (north) appears toward the top of the image
       const pixelY = (maxY - 1 - y) * p;
 
       if (tile && biome) {
-        ctx.fillStyle = biome.color;
-        ctx.fillRect(pixelX, pixelY, p, p);
+        this.drawBiomeTile(ctx, pixelX, pixelY, p, biome, x, y, seed);
+        this.drawBiomeEdges(
+          ctx,
+          pixelX,
+          pixelY,
+          p,
+          biome,
+          biomeMap.get(`${x},${y + 1}`) || null,
+          biomeMap.get(`${x},${y - 1}`) || null,
+          biomeMap.get(`${x + 1},${y}`) || null,
+          biomeMap.get(`${x - 1},${y}`) || null,
+        );
       }
 
       // Overlay settlement if present
@@ -135,8 +156,239 @@ export class RenderService {
     return canvas;
   }
 
+  // ----- Visual helpers: deterministic noise + color utils -----
+  private hash32(x: number, y: number, seed: number, salt = 0): number {
+    // Robert Jenkins' 32 bit integer hash adapted
+    let a = (x | 0) ^ 0x9e3779b9;
+    let b = (y | 0) ^ 0x85ebca6b;
+    let c = (seed | 0) ^ 0xc2b2ae35 ^ (salt | 0);
+    a -= b;
+    a -= c;
+    a ^= c >>> 13;
+    b -= c;
+    b -= a;
+    b ^= a << 8;
+    c -= a;
+    c -= b;
+    c ^= b >>> 13;
+    a -= b;
+    a -= c;
+    a ^= c >>> 12;
+    b -= c;
+    b -= a;
+    b ^= a << 16;
+    c -= a;
+    c -= b;
+    c ^= b >>> 5;
+    a -= b;
+    a -= c;
+    a ^= c >>> 3;
+    b -= c;
+    b -= a;
+    b ^= a << 10;
+    c -= a;
+    c -= b;
+    c ^= b >>> 15;
+    return (c >>> 0) & 0xffffffff;
+  }
+
+  private rand01(x: number, y: number, seed: number, salt = 0): number {
+    return (this.hash32(x, y, seed, salt) % 1000000) / 1000000; // [0,1)
+  }
+
+  private hexToRgb(hex: string): { r: number; g: number; b: number } {
+    const h = hex.startsWith('#') ? hex.slice(1) : hex;
+    const v =
+      h.length === 3
+        ? h
+            .split('')
+            .map((c) => c + c)
+            .join('')
+        : h;
+    const num = parseInt(v, 16);
+    return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+  }
+
+  private rgbToHex(c: { r: number; g: number; b: number }): string {
+    const to = (n: number) =>
+      Math.max(0, Math.min(255, Math.round(n)))
+        .toString(16)
+        .padStart(2, '0');
+    return `#${to(c.r)}${to(c.g)}${to(c.b)}`;
+  }
+
+  private lightenDarken(hex: string, amount: number): string {
+    // amount in [-1,1]; positive -> lighten
+    const c = this.hexToRgb(hex);
+    const delta = Math.max(-1, Math.min(1, amount)) * 255;
+    return this.rgbToHex({ r: c.r + delta, g: c.g + delta, b: c.b + delta });
+  }
+
+  private mix(hexA: string, hexB: string, t: number): string {
+    const a = this.hexToRgb(hexA);
+    const b = this.hexToRgb(hexB);
+    const m = (u: number, v: number) => u + (v - u) * t;
+    return this.rgbToHex({
+      r: m(a.r, b.r),
+      g: m(a.g, b.g),
+      b: m(a.b, b.b),
+    } as any);
+  }
+
+  private drawBiomeTile(
+    ctx: CanvasRenderingContext2D,
+    pixelX: number,
+    pixelY: number,
+    p: number,
+    biome: (typeof BIOMES)[keyof typeof BIOMES],
+    worldX: number,
+    worldY: number,
+    seed: number,
+  ) {
+    // Base fill
+    ctx.fillStyle = biome.color;
+    ctx.fillRect(pixelX, pixelY, p, p);
+
+    // Sub-tile texturing parameters
+    const name = biome.name.toUpperCase();
+    const nInit = Math.max(2, Math.min(4, Math.floor(p / 2)));
+    const cell = Math.max(1, Math.floor(p / nInit));
+    const nEff = Math.max(1, Math.min(nInit, Math.floor(p / cell)));
+    const padX = Math.max(0, Math.floor((p - cell * nEff) / 2));
+    const padY = Math.max(0, Math.floor((p - cell * nEff) / 2));
+
+    const base = biome.color;
+
+    // Choose style parameters
+    let amp = 0.08; // default amplitude for shading
+    let altColor: string | null = null;
+    let bandFreq = 0; // 0 means disable banding
+    if (name.includes('OCEAN') || name === 'LAKE' || name === 'RIVER') {
+      amp = 0.1;
+      altColor = this.lightenDarken(base, 0.08);
+      bandFreq = 1.8;
+    } else if (name === 'DESERT') {
+      amp = 0.12;
+      altColor = this.lightenDarken(base, 0.12);
+      bandFreq = 1.6;
+    } else if (name === 'BEACH') {
+      amp = 0.08;
+      altColor = this.lightenDarken(base, 0.1);
+      bandFreq = 1.2;
+    } else if (name === 'SAVANNA') {
+      amp = 0.06;
+      altColor = this.lightenDarken(base, 0.06);
+    } else if (name === 'FOREST' || name === 'TAIGA' || name === 'JUNGLE') {
+      amp = 0.12;
+      altColor = this.lightenDarken(base, -0.12); // darker flecks
+    } else if (name === 'SWAMP') {
+      amp = 0.1;
+      altColor = this.lightenDarken(base, -0.1);
+    } else if (name === 'MOUNTAIN' || name === 'HILLS' || name === 'ALPINE') {
+      amp = 0.14;
+      altColor = this.lightenDarken(base, -0.1);
+    } else if (
+      name === 'SNOWY MOUNTAIN' ||
+      name === 'SNOWY_MOUNTAIN' ||
+      name === 'TUNDRA'
+    ) {
+      amp = 0.08;
+      altColor = this.mix(base, '#bcd6ff', 0.15); // cool blue shadow
+    } else if (name === 'VOLCANIC') {
+      amp = 0.12;
+      altColor = this.lightenDarken(base, -0.15);
+    } else {
+      // Grassland and others
+      amp = 0.08;
+      altColor = this.lightenDarken(base, 0.06);
+    }
+
+    // Light direction pseudo shading to add depth
+    const lightDir = 0.25; // bias top-left lighter
+    for (let j = 0; j < nEff; j++) {
+      for (let i = 0; i < nEff; i++) {
+        const nx = worldX * 31 + i;
+        const ny = worldY * 17 + j;
+        const r = this.rand01(nx, ny, seed, 1337);
+        const band = bandFreq
+          ? Math.sin(
+              (worldX * 0.5 +
+                worldY * 0.3 +
+                i * 0.4 +
+                j * 0.2 +
+                seed * 0.0001) *
+                bandFreq,
+            ) *
+              0.5 +
+            0.5
+          : 0.5;
+        // depth bias
+        const bias =
+          (nEff - 1 - i + (nEff - 1 - j)) / (2 * Math.max(1, nEff - 1));
+        let t = r * 0.6 + band * 0.4;
+        t = t * (1 - lightDir) + bias * lightDir;
+
+        // Decide shade per biome category
+        let color = base;
+        if (altColor) {
+          const s = (t - 0.5) * 2; // [-1,1]
+          const mag = Math.max(-1, Math.min(1, (s * amp) / 0.5));
+          color =
+            mag >= 0
+              ? this.mix(base, altColor, mag)
+              : this.lightenDarken(base, mag);
+        } else {
+          color = this.lightenDarken(base, (t - 0.5) * 2 * amp);
+        }
+        ctx.fillStyle = color;
+        ctx.fillRect(
+          pixelX + padX + i * cell,
+          pixelY + padY + j * cell,
+          cell,
+          cell,
+        );
+      }
+    }
+  }
+
+  private drawBiomeEdges(
+    ctx: CanvasRenderingContext2D,
+    pixelX: number,
+    pixelY: number,
+    p: number,
+    biome: (typeof BIOMES)[keyof typeof BIOMES],
+    north: (typeof BIOMES)[keyof typeof BIOMES] | null,
+    south: (typeof BIOMES)[keyof typeof BIOMES] | null,
+    east: (typeof BIOMES)[keyof typeof BIOMES] | null,
+    west: (typeof BIOMES)[keyof typeof BIOMES] | null,
+  ) {
+    const edgeW = Math.max(1, Math.floor(p / 6));
+    const dark = this.lightenDarken(biome.color, -0.12);
+    const light = this.lightenDarken(biome.color, 0.12);
+    // north edge (top)
+    if (north && north.name !== biome.name) {
+      ctx.fillStyle = dark;
+      ctx.fillRect(pixelX, pixelY, p, edgeW);
+    }
+    // south edge (bottom)
+    if (south && south.name !== biome.name) {
+      ctx.fillStyle = dark;
+      ctx.fillRect(pixelX, pixelY + p - edgeW, p, edgeW);
+    }
+    // east edge (right)
+    if (east && east.name !== biome.name) {
+      ctx.fillStyle = light;
+      ctx.fillRect(pixelX + p - edgeW, pixelY, edgeW, p);
+    }
+    // west edge (left)
+    if (west && west.name !== biome.name) {
+      ctx.fillStyle = light;
+      ctx.fillRect(pixelX, pixelY, edgeW, p);
+    }
+  }
+
   private chunkKey(chunkX: number, chunkY: number, p: number) {
-    return `chunk:png:${chunkX},${chunkY},p=${p}`;
+    return `chunk:png:v${this.RENDER_STYLE_VERSION}:${chunkX},${chunkY},p=${p}`;
   }
 
   private async getChunkPngBase64(
@@ -176,13 +428,33 @@ export class RenderService {
     ctx.fillStyle = '#2c2c2c';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     const tRenderStart = Date.now();
+    // Build biome map for this chunk
+    const biomeMap = new Map<
+      string,
+      (typeof BIOMES)[keyof typeof BIOMES] | null
+    >();
+    for (const t of tileData) {
+      biomeMap.set(`${t.x},${t.y}`, t.biome);
+    }
+
     // Paint tiles and settlement overlays (no center marker here!)
+    const seed = this.worldService.getCurrentSeed();
     for (const { x, y, tile, settlement, biome } of tileData) {
       const pixelX = (x - startX) * p;
       const pixelY = (endY - 1 - y) * p;
       if (tile && biome) {
-        ctx.fillStyle = biome.color;
-        ctx.fillRect(pixelX, pixelY, p, p);
+        this.drawBiomeTile(ctx, pixelX, pixelY, p, biome, x, y, seed);
+        this.drawBiomeEdges(
+          ctx,
+          pixelX,
+          pixelY,
+          p,
+          biome,
+          biomeMap.get(`${x},${y + 1}`) || null,
+          biomeMap.get(`${x},${y - 1}`) || null,
+          biomeMap.get(`${x + 1},${y}`) || null,
+          biomeMap.get(`${x - 1},${y}`) || null,
+        );
       }
       if (settlement) {
         const isCenter = settlement.x === x && settlement.y === y;
