@@ -66,8 +66,9 @@ export class RenderService {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Precompute center tile coordinates of the region
-    const centerTileX = Math.floor((minX + maxX - 1) / 2);
-    const centerTileY = Math.floor((minY + maxY - 1) / 2);
+    // Use half-width/height from min to align center with requested (x,y), even for even-sized regions
+    const centerTileX = minX + Math.floor((maxX - minX) / 2);
+    const centerTileY = minY + Math.floor((maxY - minY) / 2);
 
     // Render each tile
     for (const { x, y, tile, settlement, biome } of tileData) {
@@ -109,10 +110,13 @@ export class RenderService {
         }
       }
 
-      // Draw a solid red square on the exact center tile of the map
+      // Draw a distinct PLAYER marker (white outline) on the exact center tile of the map
       if (x === centerTileX && y === centerTileY) {
-        ctx.fillStyle = '#ff0000';
-        ctx.fillRect(pixelX, pixelY, p, p);
+        const lw = Math.max(1, Math.floor(p / 4));
+        ctx.lineWidth = lw;
+        ctx.strokeStyle = '#ffffff';
+        // Use 0.5 offset for crisp strokes
+        ctx.strokeRect(pixelX + 0.5, pixelY + 0.5, p - 1, p - 1);
       }
     }
 
@@ -304,13 +308,15 @@ export class RenderService {
     }
     const drawMs = Date.now() - tDrawStart;
 
-    // Draw center red square on exact center tile of the region
-    const centerTileX = Math.floor((minX + maxX - 1) / 2);
-    const centerTileY = Math.floor((minY + maxY - 1) / 2);
+    // Draw distinct PLAYER marker (white outline) on exact center tile of the region
+    const centerTileX = minX + Math.floor((maxX - minX) / 2);
+    const centerTileY = minY + Math.floor((maxY - minY) / 2);
     const centerPixelX = (centerTileX - minX) * p;
     const centerPixelY = (maxY - 1 - centerTileY) * p;
-    ctx.fillStyle = '#ff0000';
-    ctx.fillRect(centerPixelX, centerPixelY, p, p);
+    const lw = Math.max(1, Math.floor(p / 4));
+    ctx.lineWidth = lw;
+    ctx.strokeStyle = '#ffffff';
+    ctx.strokeRect(centerPixelX + 0.5, centerPixelY + 0.5, p - 1, p - 1);
 
     const totalMs = Date.now() - t0;
     this.logger.debug(

@@ -289,7 +289,7 @@ export class PlayerResolver {
       const tSettlementsStart = Date.now();
       const nearby: NearbySettlement[] =
         (centerWithNearby?.nearbySettlements as NearbySettlement[]) || [];
-      const visibleSettlements = nearby
+      let visibleSettlements = nearby
         .filter(
           (s) => s.distance <= visibilityRadius * 1.2 || s.size === 'large',
         )
@@ -300,6 +300,32 @@ export class PlayerResolver {
           distance: s.distance,
           direction: calculateDirection(player.x, player.y, s.x, s.y),
         }));
+
+      // If we're standing in a settlement, include it explicitly as distance 0 at "here"
+      const currentSettlement = centerWithNearby?.currentSettlement;
+      if (
+        currentSettlement?.name &&
+        currentSettlement?.type &&
+        currentSettlement?.size
+      ) {
+        const alreadyIncluded = visibleSettlements.some(
+          (s) =>
+            s.name === currentSettlement.name &&
+            s.type === currentSettlement.type,
+        );
+        if (!alreadyIncluded) {
+          visibleSettlements = [
+            {
+              name: currentSettlement.name,
+              type: currentSettlement.type,
+              size: currentSettlement.size,
+              distance: 0,
+              direction: 'here',
+            },
+            ...visibleSettlements,
+          ];
+        }
+      }
       tSettlementsFilterMs = Date.now() - tSettlementsStart;
 
       // Compose a concise panoramic description
@@ -310,12 +336,27 @@ export class PlayerResolver {
             .map((p) => p.direction)
             .join(' and ')}`
         : '';
-      const settleLine = visibleSettlements.length
-        ? `You spot signs of ${visibleSettlements
-            .map((s) => `${s.type} ${s.name} to the ${s.direction}`)
+      // Build settlement line; read nicely when you're currently in a settlement
+      let settleLine = '';
+      if (visibleSettlements.length) {
+        const here = visibleSettlements.find((s) => s.distance === 0);
+        const others = visibleSettlements.filter((s) => s.distance > 0);
+        if (here) {
+          const lead = `You're in the ${here.type} ${here.name}.`;
+          const also = others.length
+            ? ` You also spot ${others
+                .slice(0, 2)
+                .map((s) => `${s.type} ${s.name} to the ${s.direction}`)
+                .join(' and ')}`
+            : '';
+          settleLine = `${lead}${also}`.trim();
+        } else {
+          settleLine = `You spot signs of ${others
             .slice(0, 2)
-            .join(' and ')}`
-        : '';
+            .map((s) => `${s.type} ${s.name} to the ${s.direction}`)
+            .join(' and ')}`;
+        }
+      }
       // Build a descriptive paragraph; prefer AI if available for richer prose
       let description = [
         `From here you can see roughly ${visibilityRadius} tiles out across mostly ${
@@ -328,6 +369,7 @@ export class PlayerResolver {
         .join(' ');
 
       try {
+        const inSettlement = Boolean(currentSettlement);
         const context = {
           center: {
             x: centerTile.x,
@@ -339,11 +381,25 @@ export class PlayerResolver {
           biomeSummary,
           visiblePeaks,
           visibleSettlements,
+          currentSettlement: currentSettlement || null,
+          inSettlement,
         };
+        const baseInstructions = [
+          'Write a short environmental description (2-4 sentences).',
+          'Do NOT mention players, inhabitants, or monsters. Focus on place and setting.',
+          'Use the JSON context for bearings and features but avoid explicit numbers unless natural.',
+        ];
+        const settlementFocus = [
+          'You are inside a settlement: make the description center on the settlement itself (architecture, layout, immediate surroundings, notable landmarks, atmosphere).',
+          'Mention the settlement name and type once if present (e.g., "the hamlet South Manorthorpe").',
+          'Optionally reference nearby terrain as backdrop, but keep the settlement as the focal point.',
+        ];
+        const landscapeFocus = [
+          'You are in the open: focus on terrain, weather, and distant features; settlements are secondary if visible.',
+        ];
         const prompt = [
-          'Write a short panoramic environmental description (2-4 sentences).',
-          'Do NOT mention players or monsters. Focus on terrain, weather, distant features.',
-          'Use the JSON context for bearings and features but do not include numbers unless natural.',
+          ...(inSettlement ? settlementFocus : landscapeFocus),
+          ...baseInstructions,
           'Context:',
           JSON.stringify(context, null, 2),
         ].join('\n');
@@ -354,7 +410,7 @@ export class PlayerResolver {
             .map((p) => p.direction)
             .join('/')}:${visibleSettlements
             .map((s) => `${s.type}-${s.direction}`)
-            .join('/')}`,
+            .join('/')}::${currentSettlement?.name ?? 'none'}`,
           maxTokens: 120,
         });
         tAiMs = Date.now() - tAiStart;
@@ -494,6 +550,7 @@ export class PlayerResolver {
       (!movementData.description || movementData.description.trim() === '')
     ) {
       try {
+        const inSettlement = Boolean(tileInfoWithNearby.currentSettlement);
         const context = {
           player: {
             id: player.id,
@@ -516,13 +573,26 @@ export class PlayerResolver {
           })),
           nearbyBiomes: movementData.nearbyBiomes ?? [],
           nearbySettlements: movementData.nearbySettlements ?? [],
-          currentSettlement: movementData.currentSettlement ?? undefined,
+          currentSettlement: tileInfoWithNearby.currentSettlement || null,
+          inSettlement,
         };
 
-        const prompt = [
+        const baseTileInstructions = [
           'Describe ONLY the environment for this single map tile in plain text (no code blocks or Slack formatting).',
-          'Use the JSON context for cohesion with surrounding tiles. Do NOT mention players or monsters.',
+          'Do NOT mention players, inhabitants, or monsters.',
           'Keep it concise but vivid (1-3 sentences).',
+          'Use the JSON context for cohesion with surrounding tiles; avoid explicit numbers unless natural.',
+        ];
+        const settlementTileFocus = [
+          'You are inside a settlement: make the description center on the settlement itself (architecture, materials, layout, immediate surroundings, notable landmarks, atmosphere).',
+          'Mention the settlement name and type once if present (e.g., "the hamlet South Manorthorpe").',
+        ];
+        const openTileFocus = [
+          'You are in the open: focus on the tile’s terrain and nearby natural features.',
+        ];
+        const prompt = [
+          ...(inSettlement ? settlementTileFocus : openTileFocus),
+          ...baseTileInstructions,
           'Context:',
           JSON.stringify(context, null, 2),
         ].join('\n');
