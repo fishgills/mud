@@ -51,97 +51,10 @@ export class RenderService {
     this.logger.debug('Chunk-compose unavailable; falling back to full render');
 
     // Fallback path: render computed tiles without touching the database
-
-    const { width, height, existingTileCount, tileData } =
-      await this.prepareMapData(minX, maxX, minY, maxY, {
-        compute: true,
-        includeDescriptions: false,
-        includeSettlements: true,
+    const { canvas, existingTileCount, width, height } =
+      await this.renderRegionCanvas(minX, maxX, minY, maxY, p, {
+        includeCenterMarker: true,
       });
-
-    const canvas = createCanvas(width * p, height * p); // pixels per tile
-    const ctx = canvas.getContext('2d');
-
-    // Background - use a neutral color to show ungenerated areas
-    ctx.fillStyle = '#2c2c2c'; // Dark gray for ungenerated areas
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Precompute center tile coordinates of the region
-    // Use half-width/height from min to align center with requested (x,y), even for even-sized regions
-    const centerTileX = minX + Math.floor((maxX - minX) / 2);
-    const centerTileY = minY + Math.floor((maxY - minY) / 2);
-
-    // Build quick biome map for edge detection
-    const biomeMap = new Map<
-      string,
-      (typeof BIOMES)[keyof typeof BIOMES] | null
-    >();
-    for (const t of tileData) {
-      biomeMap.set(`${t.x},${t.y}`, t.biome);
-    }
-
-    // Render each tile
-    const seed = this.worldService.getCurrentSeed();
-    for (const { x, y, tile, settlement, biome } of tileData) {
-      const pixelX = (x - minX) * p;
-      // Invert Y so that higher world Y (north) appears toward the top of the image
-      const pixelY = (maxY - 1 - y) * p;
-
-      if (tile && biome) {
-        this.drawBiomeTile(ctx, pixelX, pixelY, p, biome, x, y, seed);
-        this.drawBiomeEdges(
-          ctx,
-          pixelX,
-          pixelY,
-          p,
-          biome,
-          biomeMap.get(`${x},${y + 1}`) || null,
-          biomeMap.get(`${x},${y - 1}`) || null,
-          biomeMap.get(`${x + 1},${y}`) || null,
-          biomeMap.get(`${x - 1},${y}`) || null,
-        );
-      }
-
-      // Overlay settlement if present
-      if (settlement) {
-        const isCenter = settlement.x === x && settlement.y === y;
-        if (isCenter) {
-          // Settlement center - bright red
-          ctx.fillStyle = '#ff0000';
-          ctx.fillRect(pixelX, pixelY, p, p);
-        } else {
-          // Check settlement intensity for footprint areas
-          const settlementCheck = this.worldService.isCoordinateInSettlement(
-            x,
-            y,
-            [settlement],
-          );
-          if (settlementCheck.isSettlement) {
-            const intensity = settlementCheck.intensity;
-            // Create a semi-transparent red overlay based on intensity (shade full tile for blob effect)
-            ctx.fillStyle = `rgba(255, 51, 51, ${intensity * 0.8})`;
-            ctx.fillRect(pixelX, pixelY, p, p);
-          } else {
-            // Fallback - small red dot
-            ctx.fillStyle = '#ff3333';
-            const dotSize = Math.max(1, Math.floor(p / 2));
-            const offset = Math.max(0, Math.floor((p - dotSize) / 2));
-            ctx.fillRect(pixelX + offset, pixelY + offset, dotSize, dotSize);
-          }
-        }
-      }
-
-      // Draw a distinct PLAYER marker (white outline) on the exact center tile of the map
-      if (x === centerTileX && y === centerTileY) {
-        const lw = Math.max(1, Math.floor(p / 4));
-        ctx.lineWidth = lw;
-        ctx.strokeStyle = '#ffffff';
-        // Use 0.5 offset for crisp strokes
-        ctx.strokeRect(pixelX + 0.5, pixelY + 0.5, p - 1, p - 1);
-      }
-    }
-
-    // Debug overlay removed by request
 
     // Opportunistically pre-populate chunk PNG cache for next renders (non-blocking)
     this.prewarmChunkPngCache(minX, maxX, minY, maxY, p, chunkSize).catch((e) =>
@@ -233,6 +146,101 @@ export class RenderService {
       g: m(a.g, b.g),
       b: m(a.b, b.b),
     } as any);
+  }
+
+  // Shared region renderer used by both full renders and chunk renders
+  private async renderRegionCanvas(
+    minX: number,
+    maxX: number,
+    minY: number,
+    maxY: number,
+    p: number,
+    opts: { includeCenterMarker: boolean },
+  ): Promise<{
+    canvas: ReturnType<typeof createCanvas>;
+    width: number;
+    height: number;
+    existingTileCount: number;
+  }> {
+    const { width, height, existingTileCount, tileData } =
+      await this.prepareMapData(minX, maxX, minY, maxY, {
+        compute: true,
+        includeDescriptions: false,
+        includeSettlements: true,
+      });
+
+    const canvas = createCanvas(width * p, height * p);
+    const ctx = canvas.getContext('2d');
+    // Background
+    ctx.fillStyle = '#2c2c2c';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Center marker location (tile space)
+    const centerTileX = minX + Math.floor((maxX - minX) / 2);
+    const centerTileY = minY + Math.floor((maxY - minY) / 2);
+
+    // Biome map for edges
+    const biomeMap = new Map<
+      string,
+      (typeof BIOMES)[keyof typeof BIOMES] | null
+    >();
+    for (const t of tileData) biomeMap.set(`${t.x},${t.y}`, t.biome);
+
+    // Deterministic seed for texturing
+    const seed = this.worldService.getCurrentSeed();
+
+    for (const { x, y, tile, settlement, biome } of tileData) {
+      const pixelX = (x - minX) * p;
+      const pixelY = (maxY - 1 - y) * p; // invert Y
+
+      if (tile && biome) {
+        this.drawBiomeTile(ctx, pixelX, pixelY, p, biome, x, y, seed);
+        this.drawBiomeEdges(
+          ctx,
+          pixelX,
+          pixelY,
+          p,
+          biome,
+          biomeMap.get(`${x},${y + 1}`) || null,
+          biomeMap.get(`${x},${y - 1}`) || null,
+          biomeMap.get(`${x + 1},${y}`) || null,
+          biomeMap.get(`${x - 1},${y}`) || null,
+        );
+      }
+
+      if (settlement) {
+        const isCenter = settlement.x === x && settlement.y === y;
+        if (isCenter) {
+          ctx.fillStyle = '#ff0000';
+          ctx.fillRect(pixelX, pixelY, p, p);
+        } else {
+          const settlementCheck = this.worldService.isCoordinateInSettlement(
+            x,
+            y,
+            [settlement],
+          );
+          if (settlementCheck.isSettlement) {
+            const intensity = settlementCheck.intensity;
+            ctx.fillStyle = `rgba(255, 51, 51, ${intensity * 0.8})`;
+            ctx.fillRect(pixelX, pixelY, p, p);
+          } else {
+            ctx.fillStyle = '#ff3333';
+            const dotSize = Math.max(1, Math.floor(p / 2));
+            const offset = Math.max(0, Math.floor((p - dotSize) / 2));
+            ctx.fillRect(pixelX + offset, pixelY + offset, dotSize, dotSize);
+          }
+        }
+      }
+
+      if (opts.includeCenterMarker && x === centerTileX && y === centerTileY) {
+        const lw = Math.max(1, Math.floor(p / 4));
+        ctx.lineWidth = lw;
+        ctx.strokeStyle = '#ffffff';
+        ctx.strokeRect(pixelX + 0.5, pixelY + 0.5, p - 1, p - 1);
+      }
+    }
+
+    return { canvas, width, height, existingTileCount };
   }
 
   private drawBiomeTile(
@@ -408,78 +416,16 @@ export class RenderService {
     const startY = chunkY * 50;
     const endX = startX + 50;
     const endY = startY + 50;
-    const tPrepareStart = Date.now();
-    const { width, height, tileData } = await this.prepareMapData(
+
+    const tRenderStart = Date.now();
+    const { canvas, width, height } = await this.renderRegionCanvas(
       startX,
       endX,
       startY,
       endY,
-      {
-        compute: true,
-        includeDescriptions: false,
-        includeSettlements: true,
-      },
+      p,
+      { includeCenterMarker: false },
     );
-    const prepareMs = Date.now() - tPrepareStart;
-
-    const canvas = createCanvas(width * p, height * p);
-    const ctx = canvas.getContext('2d');
-    // Background
-    ctx.fillStyle = '#2c2c2c';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const tRenderStart = Date.now();
-    // Build biome map for this chunk
-    const biomeMap = new Map<
-      string,
-      (typeof BIOMES)[keyof typeof BIOMES] | null
-    >();
-    for (const t of tileData) {
-      biomeMap.set(`${t.x},${t.y}`, t.biome);
-    }
-
-    // Paint tiles and settlement overlays (no center marker here!)
-    const seed = this.worldService.getCurrentSeed();
-    for (const { x, y, tile, settlement, biome } of tileData) {
-      const pixelX = (x - startX) * p;
-      const pixelY = (endY - 1 - y) * p;
-      if (tile && biome) {
-        this.drawBiomeTile(ctx, pixelX, pixelY, p, biome, x, y, seed);
-        this.drawBiomeEdges(
-          ctx,
-          pixelX,
-          pixelY,
-          p,
-          biome,
-          biomeMap.get(`${x},${y + 1}`) || null,
-          biomeMap.get(`${x},${y - 1}`) || null,
-          biomeMap.get(`${x + 1},${y}`) || null,
-          biomeMap.get(`${x - 1},${y}`) || null,
-        );
-      }
-      if (settlement) {
-        const isCenter = settlement.x === x && settlement.y === y;
-        if (isCenter) {
-          ctx.fillStyle = '#ff0000';
-          ctx.fillRect(pixelX, pixelY, p, p);
-        } else {
-          const settlementCheck = this.worldService.isCoordinateInSettlement(
-            x,
-            y,
-            [settlement],
-          );
-          if (settlementCheck.isSettlement) {
-            const intensity = settlementCheck.intensity;
-            ctx.fillStyle = `rgba(255, 51, 51, ${intensity * 0.8})`;
-            ctx.fillRect(pixelX, pixelY, p, p);
-          } else {
-            ctx.fillStyle = '#ff3333';
-            const dotSize = Math.max(1, Math.floor(p / 2));
-            const offset = Math.max(0, Math.floor((p - dotSize) / 2));
-            ctx.fillRect(pixelX + offset, pixelY + offset, dotSize, dotSize);
-          }
-        }
-      }
-    }
     const renderMs = Date.now() - tRenderStart;
 
     const tEncodeStart = Date.now();
@@ -490,7 +436,7 @@ export class RenderService {
     await this.cache.set(key, base64, ttlMs);
     const sizeKB = Math.round(((base64.length / 4) * 3) / 1024);
     this.logger.debug(
-      `[chunkpng SET] ${key} ttlMs=${ttlMs} prepareMs=${prepareMs} renderMs=${renderMs} encodeMs=${encodeMs} sizeKB=${sizeKB}`,
+      `[chunkpng SET] ${key} ttlMs=${ttlMs} renderMs=${renderMs} encodeMs=${encodeMs} sizeKB=${sizeKB} wh=${width}x${height}`,
     );
     return base64;
   }
