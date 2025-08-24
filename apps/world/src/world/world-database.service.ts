@@ -1,7 +1,6 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BIOMES } from '../constants';
-import { ChunkData } from './types';
 import { WorldTile } from '@mud/database';
 
 @Injectable()
@@ -45,82 +44,25 @@ export class WorldDatabaseService {
     return newSeed;
   }
 
-  async getChunkFromDatabase(
-    chunkX: number,
-    chunkY: number,
-    limit?: number,
-    offset?: number,
-  ): Promise<WorldTile[]> {
-    return await this.prismaService.worldTile.findMany({
-      where: {
-        chunkX: chunkX,
-        chunkY: chunkY,
-      },
-      include: { biome: true },
-      ...(limit !== undefined && { take: limit }),
-      ...(offset !== undefined && { skip: offset }),
-      orderBy: [{ x: 'asc' }, { y: 'asc' }],
-    });
-  }
+  // Removed tile persistence; tiles are computed on-the-fly
 
-  async getChunkTileCount(chunkX: number, chunkY: number): Promise<number> {
-    return await this.prismaService.worldTile.count({
-      where: {
-        chunkX: chunkX,
-        chunkY: chunkY,
-      },
-    });
-  }
-
-  async getTileFromDatabase(x: number, y: number): Promise<WorldTile | null> {
-    return await this.prismaService.worldTile.findUnique({
-      where: {
-        x_y: { x, y },
-      },
-      include: { biome: true },
-    });
-  }
-
-  async saveChunkToDatabase(
-    chunkData: ChunkData,
-    currentSeed: number,
+  /** Persist only settlements; tiles are computed on-the-fly and not stored. */
+  async saveChunkSettlements(
+    settlements: Array<{
+      name: string;
+      type: string;
+      size: string;
+      population: number;
+      x: number;
+      y: number;
+      description: string;
+    }>,
   ): Promise<void> {
-    // Save tiles
-    const tileData = chunkData.tiles.map((tile) => ({
-      x: tile.x,
-      y: tile.y,
-      biomeId: tile.biomeId,
-      biomeName: tile.biomeName,
-      height: tile.height,
-      temperature: tile.temperature,
-      moisture: tile.moisture,
-      seed: currentSeed,
-      chunkX: Math.floor(tile.x / 50),
-      chunkY: Math.floor(tile.y / 50),
-    }));
-
-    await this.prismaService.worldTile.createMany({
-      data: tileData,
+    if (!settlements?.length) return;
+    await this.prismaService.settlement.createMany({
+      data: settlements,
       skipDuplicates: true,
     });
-
-    // Save settlements
-    const settlementData = chunkData.settlements.map((settlement) => ({
-      name: settlement.name,
-      type: settlement.type,
-      size: settlement.size,
-      population: settlement.population,
-      x: settlement.x,
-      y: settlement.y,
-      description: settlement.description,
-    }));
-
-    if (settlementData.length > 0) {
-      await this.prismaService.settlement.createMany({
-        data: settlementData,
-        skipDuplicates: true,
-      });
-    }
   }
 
   async getSettlementsInRadius(x: number, y: number, radius: number) {

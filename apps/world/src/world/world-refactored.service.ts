@@ -48,31 +48,16 @@ export class WorldService {
     const startTime = Date.now();
 
     try {
-      // Check database for existing tiles
-      const existingTiles = await this.worldDatabase.getChunkFromDatabase(
-        chunkX,
-        chunkY,
-      );
-
-      if (existingTiles.length === 2500) {
-        // 50x50 = 2500
-        const chunkData =
-          this.tileService.reconstructChunkFromTiles(existingTiles);
-        this.logger.debug(
-          `Loaded existing chunk ${chunkX},${chunkY} from database.`,
-        );
-        return chunkData;
-      }
-
-      // Generate new chunk
+      // Compute chunk deterministically from seed (no DB tile read)
       const chunkData = this.chunkGenerator.generateChunk(
         chunkX,
         chunkY,
         this.currentSeed,
       );
-
-      // Store in database
-      await this.worldDatabase.saveChunkToDatabase(chunkData, this.currentSeed);
+      // Persist only settlements if desired; tiles are not stored
+      if (chunkData.settlements?.length) {
+        await this.worldDatabase.saveChunkSettlements(chunkData.settlements);
+      }
 
       const generationTime = Date.now() - startTime;
       this.logger.debug(
@@ -92,22 +77,24 @@ export class WorldService {
     x: number,
     y: number,
   ): Promise<TileWithNearbyBiomes> {
-    // First ensure the tile exists by generating its chunk if needed
-    let tile = await this.tileService.getTile(x, y);
+    // Compute the center tile on-the-fly
+    const center = this.chunkGenerator.generateTileAt(x, y, this.currentSeed);
+    // Compute nearby biome summary using compute-first tile access
+    const nearbyBiomes = await this.tileService.findNearbyBiomes(
+      x,
+      y,
+      center.biomeName,
+    );
+    // Fetch nearby settlements from DB
+    const { nearbySettlements, currentSettlement } =
+      await this.tileService.analyzeSettlements(x, y);
 
-    if (!tile) {
-      // Generate the chunk containing this tile
-      const { chunkX, chunkY } = this.worldUtils.getChunkCoordinates(x, y);
-      await this.getChunk(chunkX, chunkY);
-
-      // Try to get the tile again
-      tile = await this.tileService.getTile(x, y);
-      if (!tile) {
-        throw new Error(`Failed to generate tile at ${x},${y}`);
-      }
-    }
-
-    return await this.tileService.getTileWithNearbyBiomes(x, y);
+    return {
+      ...center,
+      nearbyBiomes,
+      nearbySettlements,
+      currentSettlement,
+    };
   }
 
   // Helper method to allow TileService to generate chunks
@@ -193,53 +180,20 @@ export class WorldService {
     limit?: number,
     offset?: number,
   ): Promise<WorldTile[]> {
-    // Check database for existing tiles first
-    const existingTiles = await this.worldDatabase.getChunkFromDatabase(
-      chunkX,
-      chunkY,
-      limit,
-      offset,
-    );
-
-    // If we have pagination parameters, return the paginated results directly
+    // Always compute tiles on-the-fly
+    const chunk = await this.getChunk(chunkX, chunkY);
+    // Apply pagination in-memory if requested
     if (limit !== undefined || offset !== undefined) {
-      // Ensure chunk exists first
-      await this.ensureChunkExists(chunkX, chunkY);
-
-      // Return paginated results
-      return await this.worldDatabase.getChunkFromDatabase(
-        chunkX,
-        chunkY,
-        limit,
-        offset,
-      );
+      const start = offset ?? 0;
+      const end = limit !== undefined ? start + limit : undefined;
+      return chunk.tiles.slice(start, end);
     }
-
-    // Legacy behavior: check for full chunk and generate if needed
-    const totalTiles = await this.worldDatabase.getChunkTileCount(
-      chunkX,
-      chunkY,
-    );
-
-    if (totalTiles === 2500) {
-      this.logger.debug(
-        `Loaded existing chunk ${chunkX},${chunkY} from database.`,
-      );
-      return existingTiles;
-    }
-
-    // Generate chunk if not found
-    await this.getChunk(chunkX, chunkY);
-
-    // Re-fetch tiles from database to get the proper IDs
-    return await this.worldDatabase.getChunkFromDatabase(chunkX, chunkY);
+    return chunk.tiles;
   }
 
   async getChunkTileCount(chunkX: number, chunkY: number): Promise<number> {
-    // Ensure chunk exists first
-    await this.ensureChunkExists(chunkX, chunkY);
-
-    return await this.worldDatabase.getChunkTileCount(chunkX, chunkY);
+    // Compute-only mode: chunk size is fixed
+    return 50 * 50;
   }
 
   async getChunkSettlements(
@@ -322,13 +276,7 @@ export class WorldService {
     chunkX: number,
     chunkY: number,
   ): Promise<void> {
-    const tileCount = await this.worldDatabase.getChunkTileCount(
-      chunkX,
-      chunkY,
-    );
-
-    if (tileCount < 2500) {
-      await this.getChunk(chunkX, chunkY);
-    }
+    // No-op in compute-only mode
+    return;
   }
 }

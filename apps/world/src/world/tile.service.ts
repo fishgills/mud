@@ -3,6 +3,7 @@ import { WorldDatabaseService } from './world-database.service';
 import { WorldUtilsService } from './world-utils.service';
 import { WorldTile } from '@mud/database';
 import { ChunkData } from './types';
+import { ChunkGeneratorService } from './chunk-generator.service';
 
 export interface TileWithNearbyBiomes extends WorldTile {
   nearbyBiomes: Array<{
@@ -36,7 +37,14 @@ export class TileService {
   constructor(
     private worldDatabase: WorldDatabaseService,
     private worldUtils: WorldUtilsService,
+    private chunkGenerator: ChunkGeneratorService,
   ) {}
+
+  private currentSeed = 0;
+  private async ensureSeed(): Promise<void> {
+    if (this.currentSeed) return;
+    this.currentSeed = await this.worldDatabase.loadWorldSeed();
+  }
 
   async getTileWithNearbyBiomes(
     x: number,
@@ -64,20 +72,9 @@ export class TileService {
     y: number,
     retryCount = 0,
   ): Promise<WorldTile | null> {
-    // Prevent infinite recursion
-    if (retryCount > 2) {
-      this.logger.error(`Max retries reached for tile ${x},${y}`);
-      return null;
-    }
-
-    // Check database first
-    const dbTile = await this.worldDatabase.getTileFromDatabase(x, y);
-    if (dbTile) {
-      return dbTile;
-    }
-
-    // If tile not found, return null - chunk generation should be handled elsewhere
-    return null;
+    await this.ensureSeed();
+    // Compute tile deterministically from seed
+    return this.chunkGenerator.generateTileAt(x, y, this.currentSeed);
   }
 
   reconstructChunkFromTiles(tiles: WorldTile[]): ChunkData {
@@ -105,7 +102,7 @@ export class TileService {
     };
   }
 
-  private async findNearbyBiomes(
+  async findNearbyBiomes(
     x: number,
     y: number,
     currentBiome: string,
@@ -160,7 +157,7 @@ export class TileService {
     return nearbyBiomes.slice(0, 5);
   }
 
-  private async analyzeSettlements(x: number, y: number) {
+  async analyzeSettlements(x: number, y: number) {
     const radius = 50;
     const settlements = await this.worldDatabase.getSettlementsInRadius(
       x,

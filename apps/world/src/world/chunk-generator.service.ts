@@ -14,6 +14,14 @@ import { Settlement, WorldTile } from '@mud/database';
 export class ChunkGeneratorService {
   constructor(private worldUtils: WorldUtilsService) {}
 
+  private computeId(x: number, y: number): number {
+    // Deterministic 31-bit positive int based on coordinates
+    const xi = (x & 0xffff) >>> 0;
+    const yi = (y & 0xffff) >>> 0;
+    const mixed = ((xi << 16) ^ yi) >>> 0;
+    return mixed & 0x7fffffff;
+  }
+
   generateChunk(chunkX: number, chunkY: number, seed: number): ChunkData {
     const config: WorldSeedConfig = {
       heightSeed: seed,
@@ -42,6 +50,7 @@ export class ChunkGeneratorService {
 
         // Convert TileData to WorldTile format
         const worldTile: Partial<WorldTile> = {
+          id: this.computeId(tileData.x, tileData.y),
           x: tileData.x,
           y: tileData.y,
           biomeId: tileData.biome.id,
@@ -53,6 +62,8 @@ export class ChunkGeneratorService {
           chunkX: Math.floor(tileData.x / 50),
           chunkY: Math.floor(tileData.y / 50),
           description: null,
+          createdAt: new Date(0),
+          updatedAt: new Date(0),
         };
 
         tiles.push(worldTile);
@@ -80,6 +91,35 @@ export class ChunkGeneratorService {
       settlements,
       stats: finalStats,
     };
+  }
+
+  /** Compute a single tile deterministically from the given seed. */
+  generateTileAt(x: number, y: number, seed: number) {
+    const config: WorldSeedConfig = {
+      heightSeed: seed,
+      temperatureSeed: seed + 1000,
+      moistureSeed: seed + 2000,
+      ...DEFAULT_WORLD_CONFIG,
+    };
+    const noiseGenerator = new NoiseGenerator(config);
+    const tileData = this.generateTile(x, y, noiseGenerator);
+    const worldTile: Partial<WorldTile> = {
+      id: this.computeId(tileData.x, tileData.y),
+      x: tileData.x,
+      y: tileData.y,
+      biomeId: tileData.biome.id,
+      biomeName: tileData.biome.name,
+      height: tileData.height,
+      temperature: tileData.temperature,
+      moisture: tileData.moisture,
+      seed,
+      chunkX: Math.floor(tileData.x / 50),
+      chunkY: Math.floor(tileData.y / 50),
+      description: null,
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+    };
+    return worldTile as WorldTile;
   }
 
   private generateTile(
