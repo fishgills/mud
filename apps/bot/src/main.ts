@@ -3,9 +3,9 @@ import { env } from './env';
 
 const app = new App({
   token: env.SLACK_BOT_TOKEN,
-  // signingSecret: env.SLACK_SIGNING_SECRET,
+  signingSecret: env.SLACK_SIGNING_SECRET,
   // logLevel: LogLevel.,
-  socketMode: true,
+  socketMode: false,
   appToken: env.SLACK_APP_TOKEN,
 });
 

@@ -148,7 +148,7 @@ export class PlayerResolver {
       // - base 3 tiles
       // - + up to 7 tiles from height (height * 7)
       // - ensure at least 3, at most 12
-      const base = 3;
+      const base = 10;
       const heightFactor = Math.max(0, Math.min(1, center.tile.height));
       let visibilityRadius = Math.round(base + heightFactor * 7);
       visibilityRadius = Math.max(3, Math.min(12, visibilityRadius));

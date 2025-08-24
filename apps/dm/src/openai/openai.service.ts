@@ -34,10 +34,11 @@ export class OpenaiService {
         - Be vivid and cohesive with nearby context; keep to 1-3 sentences.
         - Temperature, Height, and Moisture are 0-1 scales (0 cold/low/dry, 1 hot/high/wet).
         - Use general terms for distance (near/far), avoid specific numbers.
-        - Each tile is ~100 square meters.`;
+        - Each x/y coordinate is a tile in a grid, with each tile representing a 100m x 100m area. If a distance is '28', it refers to 28 tiles (2800m).
+      `;
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-nano',
         messages: [
           {
             role: 'system',
@@ -48,7 +49,7 @@ export class OpenaiService {
             content: prompt,
           },
         ],
-        temperature: 0.9,
+        // temperature: 0.9,
       });
 
       this.logger.log(`OpenAI response received`);
