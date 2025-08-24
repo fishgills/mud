@@ -58,8 +58,8 @@ export class OpenaiService {
         - Focus on the environment only; do NOT mention dynamic entities like players or monsters.
         - Be vivid and cohesive with nearby context; keep to 1-3 sentences.
         - Temperature, Height, and Moisture are 0-1 scales (0 cold/low/dry, 1 hot/high/wet).
-        - Use general terms for distance (near/far), avoid specific numbers.
         - Each x/y coordinate is a tile in a grid, with each tile representing a 100m x 100m area. If a distance is '28', it refers to 28 tiles (2800m).
+        - Use general terms for distance (near/far), avoid specific numbers.
       `;
       const call = async () => {
         const response = await this.openai.chat.completions.create({
