@@ -5,19 +5,21 @@ import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS } from '../commands';
 import { sendDebugJson } from './debugUtils';
 
-export const lookHandlerHelp = `Look around at your current location to see the area description, nearby tiles, monsters, and other players. Example: Send 'look' or 'l' to examine your surroundings.`;
+export const lookHandlerHelp = `Look around with enhanced vision based on terrain height. Returns a panoramic description, visible peaks, nearby settlements, and biome summary. Example: Send 'look' or 'l'.`;
 
 export const lookHandler = async ({ userId, say }: HandlerContext) => {
   try {
-    // Ask DM for the movement view (same shape as MovePlayer.data)
-    const res = await dmSdk.GetMovementView({ slackId: userId });
-    if (!res.getMovementView.success || !res.getMovementView.data) {
+    const res = await dmSdk.GetLookView({ slackId: userId });
+    if (!res.getLookView.success || !res.getLookView.data) {
       await say({
-        text: `Failed to look: ${res.getMovementView.message ?? 'unknown error'}`,
+        text: `Failed to look: ${res.getLookView.message ?? 'unknown error'}`,
       });
       return;
     }
-    await sendDebugJson(say, res.getMovementView.data, {
+    // Send the panoramic description as the primary message
+    await say({ text: res.getLookView.data.description });
+    // Attach structured details for QA/debugging
+    await sendDebugJson(say, res.getLookView.data, {
       filename: 'look-result.json',
       title: 'Look result',
     });

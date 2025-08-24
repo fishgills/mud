@@ -35,6 +35,7 @@ import { Logger } from '@nestjs/common';
 import { OpenaiService } from '../../../openai/openai.service';
 import { CoordinationService } from '../../../shared/coordination.service';
 import { env } from '../../../env';
+import { LookViewResponse } from '../types/response.types';
 
 @Resolver(() => Player)
 export class PlayerResolver {
@@ -91,7 +92,10 @@ export class PlayerResolver {
   ): Promise<PlayerMoveResponse> {
     try {
       const player = await this.playerService.movePlayer(slackId, input);
-      const movementData = await this.buildMovementData(player, slackId);
+      const movementData = await this.buildMovementData(player, slackId, {
+        generateDescription: false,
+        minimal: true,
+      });
       this.logger.debug(
         `Moved to (${player.x}, ${player.y}) with ${movementData.monsters.length} monster(s) nearby.`,
       );
@@ -111,7 +115,9 @@ export class PlayerResolver {
   ): Promise<PlayerMoveResponse> {
     try {
       const player = await this.playerService.getPlayer(slackId);
-      const movementData = await this.buildMovementData(player, slackId);
+      const movementData = await this.buildMovementData(player, slackId, {
+        generateDescription: false,
+      });
       return { success: true, data: movementData };
     } catch (error) {
       return {
@@ -120,6 +126,192 @@ export class PlayerResolver {
           error instanceof Error
             ? error.message
             : 'Failed to fetch movement view',
+      };
+    }
+  }
+
+  // New: panoramic look view (does not persist AI descriptions; richer scene)
+  @Query(() => LookViewResponse)
+  async getLookView(
+    @Args('slackId') slackId: string,
+  ): Promise<LookViewResponse> {
+    try {
+      const player = await this.playerService.getPlayer(slackId);
+      // Proactively ensure surrounding chunks are generated before sampling
+      await this.worldService.ensureChunksAround(player.x, player.y, 50);
+      const center = await this.worldService.getTileInfoWithNearby(
+        player.x,
+        player.y,
+      );
+
+      // Compute visibility radius based on tile height (0..1) with base and bonus
+      // - base 3 tiles
+      // - + up to 7 tiles from height (height * 7)
+      // - ensure at least 3, at most 12
+      const base = 3;
+      const heightFactor = Math.max(0, Math.min(1, center.tile.height));
+      let visibilityRadius = Math.round(base + heightFactor * 7);
+      visibilityRadius = Math.max(3, Math.min(12, visibilityRadius));
+
+      // Ensure chunks around are generated to cover FOV
+      // We'll request tiles via getSurroundingTiles-like sampling for a diamond/circle
+      const minX = player.x - visibilityRadius;
+      const maxX = player.x + visibilityRadius;
+      const minY = player.y - visibilityRadius;
+      const maxY = player.y + visibilityRadius;
+      const boundTiles = await this.worldService.getTilesInBounds(
+        minX,
+        maxX,
+        minY,
+        maxY,
+      );
+      const tiles = boundTiles
+        .map((t) => ({ x: t.x, y: t.y, biomeName: t.biomeName, height: t.height }))
+        .filter((t) =>
+          Math.sqrt((t.x - player.x) ** 2 + (t.y - player.y) ** 2) <=
+          visibilityRadius,
+        );
+
+      // Peaks: select top-k highest tiles beyond a near radius so they feel "distant peaks"
+      const minPeakDistance = Math.max(3, Math.floor(visibilityRadius / 2));
+      const peakScanRadius = Math.min(visibilityRadius * 2, 30);
+      const extTiles = await this.worldService.getTilesInBounds(
+        player.x - peakScanRadius,
+        player.x + peakScanRadius,
+        player.y - peakScanRadius,
+        player.y + peakScanRadius,
+      );
+      const peakCandidates = extTiles
+        .filter((t) =>
+          Math.sqrt((t.x - player.x) ** 2 + (t.y - player.y) ** 2) >=
+            minPeakDistance && t.height >= 0.7,
+        )
+        .sort((a, b) => b.height - a.height)
+        .slice(0, 6);
+
+      const visiblePeaks = peakCandidates.map((t) => {
+        const dx = t.x - player.x;
+        const dy = t.y - player.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const direction = this.calculateDirection(player.x, player.y, t.x, t.y);
+        return { x: t.x, y: t.y, height: t.height, distance, direction };
+      });
+
+      // Biome sector summary: count tiles by biome and infer predominant directions
+      const biomeCounts = new Map<string, number>();
+      const biomeDirBuckets = new Map<string, Record<string, number>>();
+      for (const t of tiles) {
+        biomeCounts.set(t.biomeName, (biomeCounts.get(t.biomeName) || 0) + 1);
+        const dir = this.calculateDirection(player.x, player.y, t.x, t.y);
+        const bucket = biomeDirBuckets.get(t.biomeName) || {};
+        bucket[dir] = (bucket[dir] || 0) + 1;
+        biomeDirBuckets.set(t.biomeName, bucket);
+      }
+      const totalTiles = tiles.length || 1;
+      const biomeSummary = Array.from(biomeCounts.entries())
+        .map(([biomeName, count]) => {
+          const dirs = biomeDirBuckets.get(biomeName) || {};
+          const sortedDirs = Object.entries(dirs)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([d]) => d);
+          return {
+            biomeName,
+            proportion: count / totalTiles,
+            predominantDirections: sortedDirs,
+          };
+        })
+        .sort((a, b) => b.proportion - a.proportion)
+        .slice(0, 6);
+
+      // Settlements: leverage existing nearbySettlements and extend range by visibility radius
+      const nearby = center.nearbySettlements || [];
+      const visibleSettlements = nearby
+        .filter((s) => s.distance <= visibilityRadius * 1.2 || s.size === 'large')
+        .map((s) => ({
+          name: s.name,
+          type: s.type,
+          size: s.size,
+          distance: s.distance,
+          direction: this.calculateDirection(player.x, player.y, s.x, s.y),
+        }));
+
+      // Compose a concise panoramic description
+      const topBiomes = biomeSummary.slice(0, 2).map((b) => b.biomeName);
+      const peakLine = visiblePeaks.length
+        ? `Distant peaks rise to the ${visiblePeaks
+            .slice(0, 2)
+            .map((p) => p.direction)
+            .join(' and ')}`
+        : '';
+      const settleLine = visibleSettlements.length
+        ? `You spot signs of ${visibleSettlements
+            .map((s) => `${s.type} ${s.name} to the ${s.direction}`)
+            .slice(0, 2)
+            .join(' and ')}`
+        : '';
+      // Build a descriptive paragraph; prefer AI if available for richer prose
+      let description = [
+        `From here you can see roughly ${visibilityRadius} tiles out across mostly ${
+          topBiomes.join(' and ') || center.tile.biomeName
+        }.`,
+        peakLine,
+        settleLine,
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      try {
+        const context = {
+          center: {
+            x: center.tile.x,
+            y: center.tile.y,
+            biomeName: center.tile.biomeName,
+            height: center.tile.height,
+          },
+          visibilityRadius,
+          biomeSummary,
+          visiblePeaks,
+          visibleSettlements,
+        };
+        const prompt = [
+          'Write a short panoramic environmental description (2-4 sentences).',
+          'Do NOT mention players or monsters. Focus on terrain, weather, distant features.',
+          'Use the JSON context for bearings and features but do not include numbers unless natural.',
+          'Context:',
+          JSON.stringify(context, null, 2),
+        ].join('\n');
+        const ai = await this.openaiService.getText(prompt);
+        const aiText = (ai?.output_text ?? '').trim();
+        if (aiText) description = aiText;
+      } catch (e) {
+        this.logger.debug('Panoramic AI description skipped or failed.');
+      }
+
+      return {
+        success: true,
+        data: {
+          location: {
+            x: center.tile.x,
+            y: center.tile.y,
+            biomeName: center.tile.biomeName,
+            description: center.tile.description || '',
+            height: center.tile.height,
+            temperature: center.tile.temperature,
+            moisture: center.tile.moisture,
+          },
+          visibilityRadius,
+          biomeSummary,
+          visiblePeaks,
+          visibleSettlements,
+          description,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error ? error.message : 'Failed to build look view',
       };
     }
   }
@@ -155,7 +347,30 @@ export class PlayerResolver {
   private async buildMovementData(
     player: Player,
     slackId: string,
+    options: { generateDescription?: boolean; minimal?: boolean } = {},
   ): Promise<PlayerMovementData> {
+    const { generateDescription = false, minimal = false } = options;
+    if (minimal) {
+      // Return the lightest possible payload required by the client when moving.
+      return {
+        player: player as Player,
+        location: {
+          x: player.x,
+          y: player.y,
+          biomeName: '',
+          description: '',
+          height: 0,
+          temperature: 0,
+          moisture: 0,
+        },
+        monsters: [],
+        nearbyPlayers: [],
+        playerInfo: '',
+        surroundingTiles: [],
+        description: '',
+      } as PlayerMovementData;
+    }
+
     const [tileInfoWithNearby, monsters, nearbyPlayers, surroundingTiles] =
       await Promise.all([
         this.worldService.getTileInfoWithNearby(player.x, player.y),
@@ -191,7 +406,10 @@ export class PlayerResolver {
 
     const movementData: PlayerMovementData = {
       player: player as Player,
-      location: tileInfo,
+      location: {
+        ...tileInfo,
+        description: generateDescription ? tileInfo.description : '',
+      },
       monsters: monsters as Monster[],
       nearbyPlayers: (nearbyPlayers || []).map((p) => ({
         distance: p.distance,
@@ -201,7 +419,7 @@ export class PlayerResolver {
       })) as NearbyPlayerInfo[],
       playerInfo: '',
       surroundingTiles: surroundingTilesWithDirection,
-      description: tileInfo.description ?? '',
+  description: generateDescription ? tileInfo.description ?? '' : '',
       nearbyBiomes: tileInfoWithNearby.nearbyBiomes?.map(
         (b) =>
           `${b.biomeName} (${b.direction}, ${b.distance.toFixed(1)} units)`,
@@ -215,7 +433,10 @@ export class PlayerResolver {
     };
 
     // If there's no description, generate one using OpenAI with non-dynamic context, persist to World, and return it
-    if (!movementData.description || movementData.description.trim() === '') {
+    if (
+      generateDescription &&
+      (!movementData.description || movementData.description.trim() === '')
+    ) {
       try {
         const context = {
           player: {

@@ -106,6 +106,7 @@ export class RenderResolver {
       this.logger.debug(`PNG cache hit for ${cacheKey}`);
       return cached;
     }
+    this.logger.debug(`PNG cache MISS for ${cacheKey}; rendering via service`);
     const canvas = await this.renderService.renderMap(
       minX,
       maxX,
@@ -115,6 +116,7 @@ export class RenderResolver {
     );
     const base64 = canvas.toBuffer('image/png').toString('base64');
     await this.cache.set(cacheKey, base64, ttlMs);
+    this.logger.debug(`PNG cache SET for ${cacheKey} (ttlMs=${ttlMs})`);
     return base64;
   }
 

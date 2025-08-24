@@ -222,3 +222,80 @@ export class PlayerMoveResponse extends SuccessResponse {
   @Field(() => PlayerMovementData, { nullable: true })
   data?: PlayerMovementData;
 }
+
+// --- Look/Scenic View types ---
+
+@ObjectType()
+export class BiomeSectorSummary {
+  @Field()
+  biomeName!: string;
+
+  @Field(() => Float)
+  proportion!: number; // 0..1 of visible tiles
+
+  @Field(() => [String])
+  predominantDirections!: string[]; // e.g., ["north", "northeast"]
+}
+
+@ObjectType()
+export class VisiblePeakInfo {
+  @Field(() => Int)
+  x!: number;
+
+  @Field(() => Int)
+  y!: number;
+
+  @Field(() => Float)
+  height!: number; // 0..1
+
+  @Field(() => Float)
+  distance!: number;
+
+  @Field()
+  direction!: string;
+}
+
+@ObjectType()
+export class VisibleSettlementInfo {
+  @Field()
+  name!: string;
+
+  @Field()
+  type!: string; // city, town, village, hamlet
+
+  @Field()
+  size!: string; // large, medium, small, tiny
+
+  @Field(() => Float)
+  distance!: number;
+
+  @Field()
+  direction!: string;
+}
+
+@ObjectType()
+export class LookViewData {
+  @Field(() => TileInfo)
+  location!: TileInfo; // center tile
+
+  @Field(() => Float)
+  visibilityRadius!: number;
+
+  @Field(() => [BiomeSectorSummary])
+  biomeSummary!: BiomeSectorSummary[];
+
+  @Field(() => [VisiblePeakInfo])
+  visiblePeaks!: VisiblePeakInfo[];
+
+  @Field(() => [VisibleSettlementInfo])
+  visibleSettlements!: VisibleSettlementInfo[];
+
+  @Field()
+  description!: string; // panoramic prose (not persisted)
+}
+
+@ObjectType()
+export class LookViewResponse extends SuccessResponse {
+  @Field(() => LookViewData, { nullable: true })
+  data?: LookViewData;
+}

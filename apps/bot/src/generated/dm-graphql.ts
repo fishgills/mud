@@ -25,6 +25,12 @@ export type AttackInput = {
   targetType: TargetType;
 };
 
+export type BiomeSectorSummary = {
+  biomeName: Scalars['String']['output'];
+  predominantDirections: Array<Scalars['String']['output']>;
+  proportion: Scalars['Float']['output'];
+};
+
 export type CombatLog = {
   attackerId: Scalars['Int']['output'];
   attackerType: Scalars['String']['output'];
@@ -96,6 +102,21 @@ export type LocationInfo = {
 
 export type LocationResponse = {
   data?: Maybe<LocationInfo>;
+  message?: Maybe<Scalars['String']['output']>;
+  success: Scalars['Boolean']['output'];
+};
+
+export type LookViewData = {
+  biomeSummary: Array<BiomeSectorSummary>;
+  description: Scalars['String']['output'];
+  location: TileInfo;
+  visibilityRadius: Scalars['Float']['output'];
+  visiblePeaks: Array<VisiblePeakInfo>;
+  visibleSettlements: Array<VisibleSettlementInfo>;
+};
+
+export type LookViewResponse = {
+  data?: Maybe<LookViewData>;
   message?: Maybe<Scalars['String']['output']>;
   success: Scalars['Boolean']['output'];
 };
@@ -281,6 +302,7 @@ export type Query = {
   getAllPlayers: Array<Player>;
   getGameState: GameStateResponse;
   getLocationInfo: LocationResponse;
+  getLookView: LookViewResponse;
   getMovementView: PlayerMoveResponse;
   getPlayer: PlayerResponse;
   getPlayerStats: PlayerStats;
@@ -292,6 +314,11 @@ export type Query = {
 export type QuerygetLocationInfoArgs = {
   x: Scalars['Int']['input'];
   y: Scalars['Int']['input'];
+};
+
+
+export type QuerygetLookViewArgs = {
+  slackId: Scalars['String']['input'];
 };
 
 
@@ -348,6 +375,22 @@ export type TileInfo = {
   y: Scalars['Float']['output'];
 };
 
+export type VisiblePeakInfo = {
+  direction: Scalars['String']['output'];
+  distance: Scalars['Float']['output'];
+  height: Scalars['Float']['output'];
+  x: Scalars['Int']['output'];
+  y: Scalars['Int']['output'];
+};
+
+export type VisibleSettlementInfo = {
+  direction: Scalars['String']['output'];
+  distance: Scalars['Float']['output'];
+  name: Scalars['String']['output'];
+  size: Scalars['String']['output'];
+  type: Scalars['String']['output'];
+};
+
 export type MovePlayerMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
   input: MovePlayerInput;
@@ -392,6 +435,13 @@ export type GetMovementViewQueryVariables = Exact<{
 
 
 export type GetMovementViewQuery = { getMovementView: { success: boolean, message?: string | null, data?: { playerInfo: string, description: string, player: { id: string, name: string, x: number, y: number, hp: number, isAlive: boolean }, location: { x: number, y: number, biomeName: string, description?: string | null }, surroundingTiles: Array<{ x: number, y: number, biomeName: string, description?: string | null, direction: string }>, monsters: Array<{ id: string, name: string, hp: number, isAlive: boolean }> } | null } };
+
+export type GetLookViewQueryVariables = Exact<{
+  slackId: Scalars['String']['input'];
+}>;
+
+
+export type GetLookViewQuery = { getLookView: { success: boolean, message?: string | null, data?: { visibilityRadius: number, description: string, location: { x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number }, biomeSummary: Array<{ biomeName: string, proportion: number, predominantDirections: Array<string> }>, visiblePeaks: Array<{ x: number, y: number, height: number, distance: number, direction: string }>, visibleSettlements: Array<{ name: string, type: string, size: string, distance: number, direction: string }> } | null } };
 
 export type CreatePlayerMutationVariables = Exact<{
   input: CreatePlayerInput;
@@ -633,6 +683,46 @@ export const GetMovementViewDocument = gql`
   }
 }
     `;
+export const GetLookViewDocument = gql`
+    query GetLookView($slackId: String!) {
+  getLookView(slackId: $slackId) {
+    success
+    message
+    data {
+      location {
+        x
+        y
+        biomeName
+        description
+        height
+        temperature
+        moisture
+      }
+      visibilityRadius
+      biomeSummary {
+        biomeName
+        proportion
+        predominantDirections
+      }
+      visiblePeaks {
+        x
+        y
+        height
+        distance
+        direction
+      }
+      visibleSettlements {
+        name
+        type
+        size
+        distance
+        direction
+      }
+      description
+    }
+  }
+}
+    `;
 export const CreatePlayerDocument = gql`
     mutation CreatePlayer($input: CreatePlayerInput!) {
   createPlayer(input: $input) {
@@ -727,6 +817,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     GetMovementView(variables: GetMovementViewQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetMovementViewQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<GetMovementViewQuery>({ document: GetMovementViewDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetMovementView', 'query', variables);
+    },
+    GetLookView(variables: GetLookViewQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetLookViewQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<GetLookViewQuery>({ document: GetLookViewDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetLookView', 'query', variables);
     },
     CreatePlayer(variables: CreatePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<CreatePlayerMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<CreatePlayerMutation>({ document: CreatePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CreatePlayer', 'mutation', variables);

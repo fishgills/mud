@@ -281,6 +281,45 @@ export class WorldService {
     return Promise.all(tilePromises);
   }
 
+  /** Ensure the chunk containing (x,y) and its immediate neighbors are generated */
+  async ensureChunksAround(x: number, y: number, chunkSize = 50): Promise<void> {
+    const cx = Math.floor(x / chunkSize);
+    const cy = Math.floor(y / chunkSize);
+    const promises: Promise<any>[] = [];
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        promises.push(this.getChunk(cx + dx, cy + dy));
+      }
+    }
+    await Promise.all(promises);
+  }
+
+  /** Fetch all tiles in [minX,maxX] x [minY,maxY] by combining overlapping chunks */
+  async getTilesInBounds(
+    minX: number,
+    maxX: number,
+    minY: number,
+    maxY: number,
+    chunkSize = 50,
+  ): Promise<WorldTile[]> {
+    const minChunkX = Math.floor(minX / chunkSize);
+    const maxChunkX = Math.floor(maxX / chunkSize);
+    const minChunkY = Math.floor(minY / chunkSize);
+    const maxChunkY = Math.floor(maxY / chunkSize);
+    const tiles: WorldTile[] = [];
+    for (let cx = minChunkX; cx <= maxChunkX; cx++) {
+      for (let cy = minChunkY; cy <= maxChunkY; cy++) {
+        const chunkTiles = await this.getChunk(cx, cy);
+        for (const t of chunkTiles) {
+          if (t.x >= minX && t.x <= maxX && t.y >= minY && t.y <= maxY) {
+            tiles.push(t);
+          }
+        }
+      }
+    }
+    return tiles;
+  }
+
   async updateTileDescription(
     x: number,
     y: number,

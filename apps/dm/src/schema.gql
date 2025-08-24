@@ -186,10 +186,48 @@ type PlayerMoveResponse {
   data: PlayerMovementData
 }
 
+type BiomeSectorSummary {
+  biomeName: String!
+  proportion: Float!
+  predominantDirections: [String!]!
+}
+
+type VisiblePeakInfo {
+  x: Int!
+  y: Int!
+  height: Float!
+  distance: Float!
+  direction: String!
+}
+
+type VisibleSettlementInfo {
+  name: String!
+  type: String!
+  size: String!
+  distance: Float!
+  direction: String!
+}
+
+type LookViewData {
+  location: TileInfo!
+  visibilityRadius: Float!
+  biomeSummary: [BiomeSectorSummary!]!
+  visiblePeaks: [VisiblePeakInfo!]!
+  visibleSettlements: [VisibleSettlementInfo!]!
+  description: String!
+}
+
+type LookViewResponse {
+  success: Boolean!
+  message: String
+  data: LookViewData
+}
+
 type Query {
   getPlayer(slackId: String!): PlayerResponse!
   getAllPlayers: [Player!]!
   getMovementView(slackId: String!): PlayerMoveResponse!
+  getLookView(slackId: String!): LookViewResponse!
   getPlayersAtLocation(x: Float!, y: Float!): [Player!]!
   getPlayerStats(slackId: String!): PlayerStats!
   getLocationInfo(x: Int!, y: Int!): LocationResponse!
