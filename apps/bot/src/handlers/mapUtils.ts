@@ -23,10 +23,6 @@ export async function sendPngMap(
       url.searchParams.set('y', String(y));
       url.searchParams.set('p', String(pixelsPerTile));
       const imageUrl = url.toString();
-
-      console.log(
-        `sendPngMap via URL: x=${x} y=${y} p=${pixelsPerTile} url=${imageUrl}`,
-      );
       const t0 = Date.now();
       await say({
         text: 'Map',
