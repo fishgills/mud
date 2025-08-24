@@ -343,23 +343,6 @@ export class WorldService {
     return Promise.all(tilePromises);
   }
 
-  /** Ensure the chunk containing (x,y) and its immediate neighbors are generated */
-  async ensureChunksAround(
-    x: number,
-    y: number,
-    chunkSize = 50,
-  ): Promise<void> {
-    const cx = Math.floor(x / chunkSize);
-    const cy = Math.floor(y / chunkSize);
-    const promises: Promise<any>[] = [];
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        promises.push(this.getChunk(cx + dx, cy + dy));
-      }
-    }
-    await Promise.all(promises);
-  }
-
   /** Fetch all tiles in [minX,maxX] x [minY,maxY] by combining overlapping chunks */
   async getTilesInBounds(
     minX: number,

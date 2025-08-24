@@ -37,6 +37,7 @@ import { CoordinationService } from '../../../shared/coordination.service';
 import { env } from '../../../env';
 import { LookViewResponse } from '../types/response.types';
 import type { NearbySettlement } from '../../world/world.service';
+import { calculateDirection } from '../../shared/direction.util';
 
 @Resolver(() => Player)
 export class PlayerResolver {
@@ -251,7 +252,7 @@ export class PlayerResolver {
         const dx = t.x - player.x;
         const dy = t.y - player.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const direction = this.calculateDirection(player.x, player.y, t.x, t.y);
+        const direction = calculateDirection(player.x, player.y, t.x, t.y);
         return { x: t.x, y: t.y, height: t.height, distance, direction };
       });
 
@@ -261,7 +262,7 @@ export class PlayerResolver {
       const biomeDirBuckets = new Map<string, Record<string, number>>();
       for (const t of tiles) {
         biomeCounts.set(t.biomeName, (biomeCounts.get(t.biomeName) || 0) + 1);
-        const dir = this.calculateDirection(player.x, player.y, t.x, t.y);
+  const dir = calculateDirection(player.x, player.y, t.x, t.y);
         const bucket = biomeDirBuckets.get(t.biomeName) || {};
         bucket[dir] = (bucket[dir] || 0) + 1;
         biomeDirBuckets.set(t.biomeName, bucket);
@@ -297,7 +298,7 @@ export class PlayerResolver {
           type: s.type,
           size: s.size,
           distance: s.distance,
-          direction: this.calculateDirection(player.x, player.y, s.x, s.y),
+          direction: calculateDirection(player.x, player.y, s.x, s.y),
         }));
       tSettlementsFilterMs = Date.now() - tSettlementsStart;
 
@@ -396,32 +397,7 @@ export class PlayerResolver {
     }
   }
 
-  // Helper method for direction calculation
-  private calculateDirection(
-    fromX: number,
-    fromY: number,
-    toX: number,
-    toY: number,
-  ): string {
-    const dx = toX - fromX;
-    const dy = toY - fromY;
-
-    // Calculate angle in radians, then convert to degrees
-    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-
-    // Normalize angle to 0-360 range
-    const normalizedAngle = (angle + 360) % 360;
-
-    // Convert to compass direction
-    if (normalizedAngle >= 337.5 || normalizedAngle < 22.5) return 'east';
-    if (normalizedAngle >= 22.5 && normalizedAngle < 67.5) return 'northeast';
-    if (normalizedAngle >= 67.5 && normalizedAngle < 112.5) return 'north';
-    if (normalizedAngle >= 112.5 && normalizedAngle < 157.5) return 'northwest';
-    if (normalizedAngle >= 157.5 && normalizedAngle < 202.5) return 'west';
-    if (normalizedAngle >= 202.5 && normalizedAngle < 247.5) return 'southwest';
-    if (normalizedAngle >= 247.5 && normalizedAngle < 292.5) return 'south';
-    return 'southeast';
-  }
+  // direction util now imported from shared/direction.util
 
   // Shared builder for PlayerMovementData used by both movePlayer and getMovementView
   private async buildMovementData(
@@ -471,7 +447,7 @@ export class PlayerResolver {
         y: tile.y,
         biomeName: tile.biomeName,
         description: tile.description || '',
-        direction: this.calculateDirection(player.x, player.y, tile.x, tile.y),
+        direction: calculateDirection(player.x, player.y, tile.x, tile.y),
       }));
 
     const tileInfo: TileInfo = {

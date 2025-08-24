@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { calculateDirection } from '../shared/direction.util';
 import { getPrismaClient, Player } from '@mud/database';
 import {
   CreatePlayerDto,
@@ -274,7 +275,7 @@ export class PlayerService {
         const distance = Math.sqrt(
           (player.x - currentX) ** 2 + (player.y - currentY) ** 2,
         );
-        const direction = this.calculateDirection(
+        const direction = calculateDirection(
           currentX,
           currentY,
           player.x,
@@ -294,31 +295,7 @@ export class PlayerService {
     return playersWithDistance;
   }
 
-  private calculateDirection(
-    fromX: number,
-    fromY: number,
-    toX: number,
-    toY: number,
-  ): string {
-    const dx = toX - fromX;
-    const dy = toY - fromY;
-
-    // Calculate angle in radians, then convert to degrees
-    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-
-    // Normalize angle to 0-360 range
-    const normalizedAngle = (angle + 360) % 360;
-
-    // Convert to compass direction
-    if (normalizedAngle >= 337.5 || normalizedAngle < 22.5) return 'east';
-    if (normalizedAngle >= 22.5 && normalizedAngle < 67.5) return 'northeast';
-    if (normalizedAngle >= 67.5 && normalizedAngle < 112.5) return 'north';
-    if (normalizedAngle >= 112.5 && normalizedAngle < 157.5) return 'northwest';
-    if (normalizedAngle >= 157.5 && normalizedAngle < 202.5) return 'west';
-    if (normalizedAngle >= 202.5 && normalizedAngle < 247.5) return 'southwest';
-    if (normalizedAngle >= 247.5 && normalizedAngle < 292.5) return 'south';
-    return 'southeast';
-  }
+  // direction util now imported from shared/direction.util
 
   private async findValidSpawnPosition(
     preferredX?: number,
