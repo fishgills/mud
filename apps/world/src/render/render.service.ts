@@ -97,9 +97,9 @@ export class RenderService {
           );
           if (settlementCheck.isSettlement) {
             const intensity = settlementCheck.intensity;
-            // Create a semi-transparent red overlay based on intensity
+            // Create a semi-transparent red overlay based on intensity (shade full tile for blob effect)
             ctx.fillStyle = `rgba(255, 51, 51, ${intensity * 0.8})`;
-            ctx.fillRect(pixelX, pixelY, 4, 4);
+            ctx.fillRect(pixelX, pixelY, p, p);
           } else {
             // Fallback - small red dot
             ctx.fillStyle = '#ff3333';
@@ -198,7 +198,7 @@ export class RenderService {
           if (settlementCheck.isSettlement) {
             const intensity = settlementCheck.intensity;
             ctx.fillStyle = `rgba(255, 51, 51, ${intensity * 0.8})`;
-            ctx.fillRect(pixelX, pixelY, 4, 4);
+            ctx.fillRect(pixelX, pixelY, p, p);
           } else {
             ctx.fillStyle = '#ff3333';
             const dotSize = Math.max(1, Math.floor(p / 2));

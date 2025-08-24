@@ -131,6 +131,8 @@ export class WorldService {
     x: number;
     y: number;
     size: string;
+    type?: string;
+    population?: number;
   }): SettlementFootprint {
     // Create a deterministic random generator based on settlement position
     const coordSeed = settlement.x * 1000 + settlement.y + this.currentSeed;
@@ -142,6 +144,10 @@ export class WorldService {
       settlement.y,
       settlement.size as 'large' | 'medium' | 'small' | 'tiny',
       coordRng,
+      {
+        type: settlement.type as any,
+        population: settlement.population as any,
+      },
     );
   }
 

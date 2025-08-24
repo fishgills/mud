@@ -296,22 +296,27 @@ export class SettlementGenerator {
     centerY: number,
     size: Settlement['size'],
     rng: () => number,
+    attrs?: { type?: Settlement['type']; population?: number },
   ): SettlementFootprint {
-    // Determine base radius based on settlement size
-    const baseRadius = this.getSettlementRadius(size);
+    // Determine base radius based on population, type, and size
+    const baseRadius = this.getSettlementRadius(
+      size,
+      attrs?.type,
+      attrs?.population,
+    );
 
     const tiles: Array<{ x: number; y: number; intensity: number }> = [];
 
-    // Generate multiple center points for organic growth patterns
+    // Deterministic growth centers for organic shapes (seeded by center + global seed)
     const growthCenters = this.generateGrowthCenters(
       centerX,
       centerY,
       size,
-      rng,
+      baseRadius,
     );
 
     // For each potential tile in the area, calculate if it should be part of the settlement
-    const searchRadius = Math.ceil(baseRadius * 1.5); // Search a bit beyond base radius
+    const searchRadius = Math.ceil(baseRadius * 1.6); // Search a bit beyond base radius
 
     for (let dx = -searchRadius; dx <= searchRadius; dx++) {
       for (let dy = -searchRadius; dy <= searchRadius; dy++) {
@@ -321,9 +326,10 @@ export class SettlementGenerator {
         const intensity = this.calculateTileIntensity(
           x,
           y,
+          centerX,
+          centerY,
           growthCenters,
           baseRadius,
-          rng,
         );
 
         if (intensity > 0.1) {
@@ -344,19 +350,65 @@ export class SettlementGenerator {
   /**
    * Get the base radius for a settlement based on its size
    */
-  private getSettlementRadius(size: Settlement['size']): number {
-    switch (size) {
-      case 'large':
-        return 8; // Cities: ~8 tile radius
-      case 'medium':
-        return 5; // Towns: ~5 tile radius
-      case 'small':
-        return 3; // Villages: ~3 tile radius
-      case 'tiny':
-        return 1; // Hamlets/Farms: ~1 tile radius
-      default:
-        return 1;
+  private getSettlementRadius(
+    size: Settlement['size'],
+    type?: Settlement['type'],
+    population?: number,
+  ): number {
+    // Each tile is 100m x 100m = 1 hectare
+    // Use approximate population densities (people per tile/hectare) by type
+    const densityByType: Record<Settlement['type'], number> = {
+      city: 60, // dense urban core
+      town: 35, // mixed urban
+      village: 18, // compact rural center
+      hamlet: 10, // sparse cluster
+      farm: 4, // homestead + immediate yard, fields not modeled
+    } as const;
+
+    // Fallback density by size if type is missing
+    const densityBySize: Record<Settlement['size'], number> = {
+      large: 60,
+      medium: 35,
+      small: 18,
+      tiny: 10,
+    } as const;
+
+    // Minimum radius by size to ensure noticeable footprint
+    const minRadiusBySize: Record<Settlement['size'], number> = {
+      large: 6,
+      medium: 4,
+      small: 2.5,
+      tiny: 1.5,
+    } as const;
+
+    // If no population provided, fall back to legacy size-based radius
+    if (!population || population <= 0) {
+      switch (size) {
+        case 'large':
+          return 8;
+        case 'medium':
+          return 5;
+        case 'small':
+          return 3;
+        case 'tiny':
+          return 1.5;
+        default:
+          return 1.5;
+      }
     }
+
+    // Compute area in tiles (hectares) using density
+    const density = type ? densityByType[type] : (densityBySize[size] ?? 12);
+    const areaTiles = Math.max(1, population / Math.max(1, density));
+
+    // Convert area to an equivalent circular radius and smooth slightly
+    const radius = Math.sqrt(areaTiles / Math.PI);
+
+    // Clamp to reasonable bounds and enforce size-based minimums
+    const minR = minRadiusBySize[size] ?? 1.5;
+    const maxR = 20; // avoid extreme blobs
+    const adjusted = Math.max(minR, Math.min(maxR, radius));
+    return adjusted;
   }
 
   /**
@@ -366,7 +418,7 @@ export class SettlementGenerator {
     centerX: number,
     centerY: number,
     size: Settlement['size'],
-    rng: () => number,
+    baseRadius: number,
   ): Array<{ x: number; y: number; weight: number }> {
     const centers: Array<{ x: number; y: number; weight: number }> = [];
 
@@ -377,13 +429,15 @@ export class SettlementGenerator {
     const additionalCenters = this.getAdditionalCenterCount(size);
 
     for (let i = 0; i < additionalCenters; i++) {
-      // Generate points around the main center with some randomness
-      const angle = rng() * Math.PI * 2;
-      const distance = rng() * this.getSettlementRadius(size) * 0.6; // Stay within reasonable bounds
+      // Deterministic angle and distance based on seed + coords + index
+      const angle = this.noise1D(centerX, centerY, i * 17 + 1) * Math.PI * 2;
+      const distance =
+        (0.25 + 0.45 * this.noise1D(centerX, centerY, i * 31 + 7)) * baseRadius;
 
-      const x = centerX + Math.round(Math.cos(angle) * distance);
-      const y = centerY + Math.round(Math.sin(angle) * distance);
-      const weight = 0.3 + rng() * 0.5; // Secondary centers have less influence
+      // Keep sub-centers on fractional coordinates for smoother lobes
+      const x = centerX + Math.cos(angle) * distance;
+      const y = centerY + Math.sin(angle) * distance;
+      const weight = 0.45 + 0.45 * this.noise1D(centerX, centerY, i * 47 + 13); // 0.45 - 0.9
 
       centers.push({ x, y, weight });
     }
@@ -415,32 +469,76 @@ export class SettlementGenerator {
   private calculateTileIntensity(
     x: number,
     y: number,
+    centerX: number,
+    centerY: number,
     growthCenters: Array<{ x: number; y: number; weight: number }>,
     baseRadius: number,
-    rng: () => number,
   ): number {
-    let maxIntensity = 0;
+    // Local radius modulation to create wavy/irregular boundary around the main center
+    const localRadiusMod =
+      0.85 + 0.3 * this.noise2D(centerX, centerY, x, y, 101);
+    const mainLocalRadius = baseRadius * localRadiusMod;
 
-    for (const center of growthCenters) {
-      const distance = Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2);
+    const dx0 = x - centerX;
+    const dy0 = y - centerY;
+    const distMain = Math.sqrt(dx0 * dx0 + dy0 * dy0);
+    let intensity = Math.max(0, 1 - distMain / mainLocalRadius);
 
-      // Add some noise to make the boundaries irregular
-      const noise = (rng() - 0.5) * 0.8; // ±0.4 tiles of noise
-      const effectiveDistance = distance + noise;
+    // Add lobes from growth centers with their own local radius and weight
+    for (let i = 0; i < growthCenters.length; i++) {
+      const c = growthCenters[i];
+      const dx = x - c.x;
+      const dy = y - c.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
 
-      if (effectiveDistance <= baseRadius) {
-        // Calculate intensity based on distance from center, with falloff
-        const falloff = 1 - effectiveDistance / baseRadius;
-        const intensity = Math.max(0, falloff * center.weight);
+      // Per-center local radius modulation for this tile
+      const perCenterMod =
+        0.9 + 0.25 * this.noise2D(centerX, centerY, x, y, 200 + i);
+      const lobeRadius = baseRadius * (0.55 + 0.45 * c.weight) * perCenterMod;
 
-        // Add some randomness to create organic variation
-        const variation = 0.8 + rng() * 0.4; // 0.8-1.2 multiplier
-        const adjustedIntensity = Math.min(1, intensity * variation);
-
-        maxIntensity = Math.max(maxIntensity, adjustedIntensity);
-      }
+      const lobeIntensity = Math.max(0, 1 - d / lobeRadius);
+      intensity = Math.max(intensity, lobeIntensity);
     }
 
-    return maxIntensity;
+    // Final small stochastic variation to avoid plateaus
+    const microVar = 0.95 + 0.1 * this.noise2D(centerX, centerY, x, y, 307);
+    return Math.min(1, intensity * microVar);
+  }
+
+  // --- Deterministic noise helpers (fast, seed + coord-based) ---
+  private _hash32(n: number): number {
+    // Robert Jenkins' 32 bit integer hash variant
+    n = (n + 0x7ed55d16 + (n << 12)) | 0;
+    n = n ^ 0xc761c23c ^ (n >>> 19);
+    n = (n + 0x165667b1 + (n << 5)) | 0;
+    n = (n + 0xd3a2646c) ^ (n << 9);
+    n = (n + 0xfd7046c5 + (n << 3)) | 0;
+    n = n ^ 0xb55a4f09 ^ (n >>> 16);
+    return n >>> 0; // as unsigned
+  }
+
+  private noise1D(centerX: number, centerY: number, k: number): number {
+    // Combine seed + center coords + k into a 32-bit state
+    const a = this._hash32(
+      (this.seed | 0) ^ (centerX * 73856093) ^ (centerY * 19349663),
+    );
+    const b = this._hash32(a ^ (k * 83492791));
+    return (b & 0xffffffff) / 0x100000000; // [0,1)
+  }
+
+  private noise2D(
+    centerX: number,
+    centerY: number,
+    x: number,
+    y: number,
+    salt: number,
+  ): number {
+    let s = this._hash32(
+      (this.seed | 0) ^ (centerX * 2654435761) ^ (centerY * 1597334677),
+    );
+    s = this._hash32(
+      s ^ (x * 374761393) ^ (y * 1103515245) ^ (salt * 1013904223),
+    );
+    return (s & 0xffffffff) / 0x100000000; // [0,1)
   }
 }
