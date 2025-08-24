@@ -5,6 +5,10 @@ import { BIOMES } from '../constants';
 import { WorldService } from '../world/world-refactored.service';
 import { Settlement, WorldTile } from '@mud/database';
 import { CacheService } from '../shared/cache.service';
+import { NoiseGenerator } from '../noise-generator/noise-generator';
+import { BiomeGenerator } from '../biome-generator/biome-generator';
+import { DEFAULT_WORLD_CONFIG, WorldSeedConfig } from '../world/types';
+import { env } from '../env';
 
 @Injectable()
 export class RenderService {
@@ -45,25 +49,14 @@ export class RenderService {
     }
     this.logger.debug('Chunk-compose unavailable; falling back to full render');
 
-    // Ensure all chunks overlapping the requested bounds are generated (fallback path)
-    const minChunkX = Math.floor(minX / chunkSize);
-    const maxChunkX = Math.floor((maxX - 1) / chunkSize);
-    const minChunkY = Math.floor(minY / chunkSize);
-    const maxChunkY = Math.floor((maxY - 1) / chunkSize);
-    await Promise.all(
-      Array.from(
-        { length: maxChunkX - minChunkX + 1 },
-        (_, ix) => minChunkX + ix,
-      ).flatMap((cx) =>
-        Array.from(
-          { length: maxChunkY - minChunkY + 1 },
-          (_, iy) => minChunkY + iy,
-        ).map((cy) => this.worldService.getChunk(cx, cy)),
-      ),
-    );
+    // Fallback path: render computed tiles without touching the database
 
     const { width, height, existingTileCount, tileData } =
-      await this.prepareMapData(minX, maxX, minY, maxY);
+      await this.prepareMapData(minX, maxX, minY, maxY, {
+        compute: true,
+        includeDescriptions: false,
+        includeSettlements: true,
+      });
 
     const canvas = createCanvas(width * p, height * p); // pixels per tile
     const ctx = canvas.getContext('2d');
@@ -155,8 +148,6 @@ export class RenderService {
     }
     this.logger.debug(`[chunkpng MISS] ${key}`);
 
-    // Ensure chunk exists and render a 50x50 PNG for the chunk
-    await this.worldService.getChunk(chunkX, chunkY);
     const startX = chunkX * 50;
     const startY = chunkY * 50;
     const endX = startX + 50;
@@ -166,6 +157,11 @@ export class RenderService {
       endX,
       startY,
       endY,
+      {
+        compute: true,
+        includeDescriptions: false,
+        includeSettlements: true,
+      },
     );
 
     const canvas = createCanvas(width * p, height * p);
@@ -405,6 +401,11 @@ export class RenderService {
     maxX: number,
     minY: number,
     maxY: number,
+    options?: {
+      compute?: boolean; // force compute mode regardless of env
+      includeDescriptions?: boolean; // when computing, fetch described tiles in bounds
+      includeSettlements?: boolean; // fetch settlements in bounds
+    },
   ): Promise<{
     width: number;
     height: number;
@@ -422,25 +423,94 @@ export class RenderService {
     const width = maxX - minX;
     const height = maxY - minY;
 
-    // Fetch all settlements in the region
-    const settlements =
-      (await this.prisma.settlement.findMany({
-        where: {
-          x: { gte: minX, lt: maxX },
-          y: { gte: minY, lt: maxY },
-        },
-      })) || [];
+    const includeSettlements = options?.includeSettlements ?? true;
+    // Fetch settlements in the region (optional)
+    const settlements = includeSettlements
+      ? (await this.prisma.settlement.findMany({
+          where: {
+            x: { gte: minX, lt: maxX },
+            y: { gte: minY, lt: maxY },
+          },
+        })) || []
+      : [];
     const settlementMap = new Map(settlements.map((s) => [`${s.x},${s.y}`, s]));
+    const computeMode = options?.compute ?? env.WORLD_RENDER_COMPUTE_ON_THE_FLY;
 
-    // Fetch all tiles in the region in one DB call
-    const tiles = await this.prisma.worldTile.findMany({
-      where: {
-        x: { gte: minX, lt: maxX },
-        y: { gte: minY, lt: maxY },
-      },
-      include: { biome: true },
-    });
-    const tileMap = new Map(tiles.map((t) => [`${t.x},${t.y}`, t]));
+    let tileMap: Map<string, WorldTile>;
+    if (!computeMode) {
+      // Legacy DB-backed path: fetch all tiles from DB
+      const tiles = await this.prisma.worldTile.findMany({
+        where: { x: { gte: minX, lt: maxX }, y: { gte: minY, lt: maxY } },
+        include: { biome: true },
+      });
+      tileMap = new Map(tiles.map((t) => [`${t.x},${t.y}`, t] as const));
+    } else {
+      // Compute-on-the-fly path: only fetch descriptions for tiles that have them
+      const seed = this.worldService.getCurrentSeed();
+      const config: WorldSeedConfig = {
+        heightSeed: seed,
+        temperatureSeed: seed + 1000,
+        moistureSeed: seed + 2000,
+        ...DEFAULT_WORLD_CONFIG,
+      } as WorldSeedConfig;
+      const noise = new NoiseGenerator(config);
+
+      // Optionally fetch described tiles in bounds so we can attach descriptions if present
+      const includeDescriptions = options?.includeDescriptions ?? true;
+      const describedMap: Map<string, WorldTile> = includeDescriptions
+        ? new Map(
+            (
+              await this.prisma.worldTile.findMany({
+                where: {
+                  x: { gte: minX, lt: maxX },
+                  y: { gte: minY, lt: maxY },
+                  NOT: { description: null },
+                },
+                include: { biome: true },
+              })
+            ).map((t) => [`${t.x},${t.y}`, t]),
+          )
+        : new Map();
+
+      tileMap = new Map();
+      for (let y = minY; y < maxY; y++) {
+        for (let x = minX; x < maxX; x++) {
+          const key = `${x},${y}` as string;
+          const descTile = describedMap.get(key);
+          if (descTile) {
+            tileMap.set(key, descTile);
+            continue;
+          }
+          // Compute tile deterministically
+          const height = noise.generateHeight(x, y);
+          const temperature = noise.generateTemperature(x, y);
+          const moisture = noise.generateMoisture(x, y);
+          const biomeInfo = BiomeGenerator.determineBiome(
+            height,
+            temperature,
+            moisture,
+          );
+          // Create a transient WorldTile-like shape (biome relation omitted; we’ll resolve via BIOMES)
+          tileMap.set(key, {
+            id: 0 as any, // not used by renderer
+            x,
+            y,
+            biomeId: biomeInfo.id,
+            biomeName: biomeInfo.name,
+            description: null,
+            height,
+            temperature,
+            moisture,
+            seed,
+            chunkX: Math.floor(x / 50),
+            chunkY: Math.floor(y / 50),
+            createdAt: new Date(0) as any,
+            updatedAt: new Date(0) as any,
+            // These extra relations/fields from Prisma types are not used in rendering
+          } as unknown as WorldTile);
+        }
+      }
+    }
 
     const tileData: Array<{
       x: number;
@@ -485,7 +555,7 @@ export class RenderService {
 
         // Check if this coordinate is within any settlement footprint
         let settlementFromFootprint: Settlement | undefined;
-        if (!settlement && settlements.length > 0) {
+        if (includeSettlements && !settlement && settlements.length > 0) {
           const settlementCheck = this.worldService.isCoordinateInSettlement(
             x,
             y,

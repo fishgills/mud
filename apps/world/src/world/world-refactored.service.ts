@@ -32,6 +32,11 @@ export class WorldService {
     }
   }
 
+  /** Returns the active world seed used for terrain generation. */
+  getCurrentSeed(): number {
+    return this.currentSeed;
+  }
+
   // Debug: delete all world tiles
   async deleteAllWorldTiles(): Promise<number> {
     const count = await this.worldDatabase.deleteAllWorldTiles();
