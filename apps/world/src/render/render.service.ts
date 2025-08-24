@@ -51,18 +51,21 @@ export class RenderService {
     const minChunkY = Math.floor(minY / chunkSize);
     const maxChunkY = Math.floor((maxY - 1) / chunkSize);
     await Promise.all(
-      Array.from({ length: maxChunkX - minChunkX + 1 }, (_, ix) => minChunkX + ix)
-        .flatMap((cx) =>
-          Array.from({ length: maxChunkY - minChunkY + 1 }, (_, iy) => minChunkY + iy).map(
-            (cy) => this.worldService.getChunk(cx, cy),
-          ),
-        ),
+      Array.from(
+        { length: maxChunkX - minChunkX + 1 },
+        (_, ix) => minChunkX + ix,
+      ).flatMap((cx) =>
+        Array.from(
+          { length: maxChunkY - minChunkY + 1 },
+          (_, iy) => minChunkY + iy,
+        ).map((cy) => this.worldService.getChunk(cx, cy)),
+      ),
     );
 
     const { width, height, existingTileCount, tileData } =
       await this.prepareMapData(minX, maxX, minY, maxY);
 
-  const canvas = createCanvas(width * p, height * p); // pixels per tile
+    const canvas = createCanvas(width * p, height * p); // pixels per tile
     const ctx = canvas.getContext('2d');
 
     // Background - use a neutral color to show ungenerated areas
@@ -123,8 +126,8 @@ export class RenderService {
     // Debug overlay removed by request
 
     // Opportunistically pre-populate chunk PNG cache for next renders (non-blocking)
-    this.prewarmChunkPngCache(minX, maxX, minY, maxY, p, chunkSize).catch(
-      (e) => this.logger.warn(`Prewarm failed: ${e?.message ?? e}`),
+    this.prewarmChunkPngCache(minX, maxX, minY, maxY, p, chunkSize).catch((e) =>
+      this.logger.warn(`Prewarm failed: ${e?.message ?? e}`),
     );
 
     this.logger.log(

@@ -210,11 +210,35 @@ query GetLookView($slackId: String!) {
     success
     message
     data {
-      location { x y biomeName description height temperature moisture }
+      location {
+        x
+        y
+        biomeName
+        description
+        height
+        temperature
+        moisture
+      }
       visibilityRadius
-      biomeSummary { biomeName proportion predominantDirections }
-      visiblePeaks { x y height distance direction }
-      visibleSettlements { name type size distance direction }
+      biomeSummary {
+        biomeName
+        proportion
+        predominantDirections
+      }
+      visiblePeaks {
+        x
+        y
+        height
+        distance
+        direction
+      }
+      visibleSettlements {
+        name
+        type
+        size
+        distance
+        direction
+      }
       description
     }
   }

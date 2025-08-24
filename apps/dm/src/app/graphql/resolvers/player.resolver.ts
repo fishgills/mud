@@ -166,10 +166,16 @@ export class PlayerResolver {
         maxY,
       );
       const tiles = boundTiles
-        .map((t) => ({ x: t.x, y: t.y, biomeName: t.biomeName, height: t.height }))
-        .filter((t) =>
-          Math.sqrt((t.x - player.x) ** 2 + (t.y - player.y) ** 2) <=
-          visibilityRadius,
+        .map((t) => ({
+          x: t.x,
+          y: t.y,
+          biomeName: t.biomeName,
+          height: t.height,
+        }))
+        .filter(
+          (t) =>
+            Math.sqrt((t.x - player.x) ** 2 + (t.y - player.y) ** 2) <=
+            visibilityRadius,
         );
 
       // Peaks: select top-k highest tiles beyond a near radius so they feel "distant peaks"
@@ -182,9 +188,10 @@ export class PlayerResolver {
         player.y + peakScanRadius,
       );
       const peakCandidates = extTiles
-        .filter((t) =>
-          Math.sqrt((t.x - player.x) ** 2 + (t.y - player.y) ** 2) >=
-            minPeakDistance && t.height >= 0.7,
+        .filter(
+          (t) =>
+            Math.sqrt((t.x - player.x) ** 2 + (t.y - player.y) ** 2) >=
+              minPeakDistance && t.height >= 0.7,
         )
         .sort((a, b) => b.height - a.height)
         .slice(0, 6);
@@ -227,7 +234,9 @@ export class PlayerResolver {
       // Settlements: leverage existing nearbySettlements and extend range by visibility radius
       const nearby = center.nearbySettlements || [];
       const visibleSettlements = nearby
-        .filter((s) => s.distance <= visibilityRadius * 1.2 || s.size === 'large')
+        .filter(
+          (s) => s.distance <= visibilityRadius * 1.2 || s.size === 'large',
+        )
         .map((s) => ({
           name: s.name,
           type: s.type,
@@ -419,7 +428,7 @@ export class PlayerResolver {
       })) as NearbyPlayerInfo[],
       playerInfo: '',
       surroundingTiles: surroundingTilesWithDirection,
-  description: generateDescription ? tileInfo.description ?? '' : '',
+      description: generateDescription ? (tileInfo.description ?? '') : '',
       nearbyBiomes: tileInfoWithNearby.nearbyBiomes?.map(
         (b) =>
           `${b.biomeName} (${b.direction}, ${b.distance.toFixed(1)} units)`,

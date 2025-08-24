@@ -282,7 +282,11 @@ export class WorldService {
   }
 
   /** Ensure the chunk containing (x,y) and its immediate neighbors are generated */
-  async ensureChunksAround(x: number, y: number, chunkSize = 50): Promise<void> {
+  async ensureChunksAround(
+    x: number,
+    y: number,
+    chunkSize = 50,
+  ): Promise<void> {
     const cx = Math.floor(x / chunkSize);
     const cy = Math.floor(y / chunkSize);
     const promises: Promise<any>[] = [];
