@@ -95,11 +95,11 @@ export class PlayerService {
     switch (moveDto.direction.toLowerCase()) {
       case 'n':
       case 'north':
-        newY -= 1;
+        newY += 1;
         break;
       case 's':
       case 'south':
-        newY += 1;
+        newY -= 1;
         break;
       case 'e':
       case 'east':

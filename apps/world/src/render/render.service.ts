@@ -19,6 +19,7 @@ export class RenderService {
     minY: number,
     maxY: number,
     pixelsPerTile = 4,
+    debugOverlay = false,
   ) {
     const { width, height, existingTileCount, tileData } =
       await this.prepareMapData(minX, maxX, minY, maxY);
@@ -38,7 +39,8 @@ export class RenderService {
     // Render each tile
     for (const { x, y, tile, settlement, biome } of tileData) {
       const pixelX = (x - minX) * p;
-      const pixelY = (y - minY) * p;
+      // Invert Y so that higher world Y (north) appears toward the top of the image
+      const pixelY = (maxY - 1 - y) * p;
 
       if (tile && biome) {
         ctx.fillStyle = biome.color;
@@ -80,6 +82,8 @@ export class RenderService {
         ctx.fillRect(pixelX, pixelY, p, p);
       }
     }
+
+    // Debug overlay removed by request
 
     this.logger.log(
       `Rendered map with ${existingTileCount} existing tiles out of ${
