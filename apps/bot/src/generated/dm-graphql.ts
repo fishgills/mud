@@ -124,6 +124,7 @@ export type LookViewData = {
   description: Scalars['String']['output'];
   inSettlement: Scalars['Boolean']['output'];
   location: TileInfo;
+  nearbyPlayers?: Maybe<Array<NearbyPlayerInfo>>;
   visibilityRadius: Scalars['Float']['output'];
   visiblePeaks: Array<VisiblePeakInfo>;
   visibleSettlements: Array<VisibleSettlementInfo>;
@@ -236,6 +237,14 @@ export type MutationSpawnMonsterArgs = {
 export type MutationUpdatePlayerStatsArgs = {
   input: PlayerStatsInput;
   slackId: Scalars['String']['input'];
+};
+
+export type NearbyPlayerInfo = {
+  __typename?: 'NearbyPlayerInfo';
+  direction: Scalars['String']['output'];
+  distance: Scalars['Float']['output'];
+  x: Scalars['Int']['output'];
+  y: Scalars['Int']['output'];
 };
 
 export type Player = {
@@ -412,7 +421,7 @@ export type GetLookViewQueryVariables = Exact<{
 }>;
 
 
-export type GetLookViewQuery = { __typename?: 'Query', getLookView: { __typename?: 'LookViewResponse', success: boolean, message?: string | null, data?: { __typename?: 'LookViewData', visibilityRadius: number, description: string, location: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number }, currentSettlement?: { __typename?: 'CurrentSettlementInfo', name: string, type: string, size: string, intensity: number, isCenter: boolean } | null, biomeSummary: Array<{ __typename?: 'BiomeSectorSummary', biomeName: string, proportion: number, predominantDirections: Array<string> }>, visiblePeaks: Array<{ __typename?: 'VisiblePeakInfo', x: number, y: number, height: number, distance: number, direction: string }>, visibleSettlements: Array<{ __typename?: 'VisibleSettlementInfo', name: string, type: string, size: string, distance: number, direction: string }> } | null } };
+export type GetLookViewQuery = { __typename?: 'Query', getLookView: { __typename?: 'LookViewResponse', success: boolean, message?: string | null, data?: { __typename?: 'LookViewData', visibilityRadius: number, description: string, location: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number }, currentSettlement?: { __typename?: 'CurrentSettlementInfo', name: string, type: string, size: string, intensity: number, isCenter: boolean } | null, biomeSummary: Array<{ __typename?: 'BiomeSectorSummary', biomeName: string, proportion: number, predominantDirections: Array<string> }>, visiblePeaks: Array<{ __typename?: 'VisiblePeakInfo', x: number, y: number, height: number, distance: number, direction: string }>, visibleSettlements: Array<{ __typename?: 'VisibleSettlementInfo', name: string, type: string, size: string, distance: number, direction: string }>, nearbyPlayers?: Array<{ __typename?: 'NearbyPlayerInfo', distance: number, direction: string, x: number, y: number }> | null } | null } };
 
 export type CreatePlayerMutationVariables = Exact<{
   input: CreatePlayerInput;
@@ -587,6 +596,12 @@ export const GetLookViewDocument = gql`
         size
         distance
         direction
+      }
+      nearbyPlayers {
+        distance
+        direction
+        x
+        y
       }
       description
     }

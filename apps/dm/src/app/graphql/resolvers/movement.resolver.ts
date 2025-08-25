@@ -123,6 +123,12 @@ export class MovementResolver {
         timing,
       );
 
+      // Get NearbyPlayers
+      const nearbyPlayers = await this.playerService.getNearbyPlayers(
+        player.x,
+        player.y,
+        slackId,
+      );
       // Process visible settlements
       const visibleSettlements =
         this.settlementService.processVisibleSettlements(
@@ -142,6 +148,7 @@ export class MovementResolver {
         visibleSettlements,
         currentSettlement,
         timing,
+        nearbyPlayers,
       );
 
       // Build response data
@@ -153,6 +160,7 @@ export class MovementResolver {
         visibleSettlements,
         currentSettlement,
         description,
+        nearbyPlayers,
       );
 
       const totalMs = Date.now() - t0;

@@ -212,6 +212,15 @@ export class PlayerService {
     });
   }
 
+  /**
+   * Get nearby players within a certain radius
+   * @param currentX The current X coordinate of the player
+   * @param currentY The current Y coordinate of the player
+   * @param excludeSlackId The Slack ID to exclude from the results
+   * @param radius The radius to search within
+   * @param limit The maximum number of players to return
+   * @returns An array of nearby players with their distance and direction
+   */
   async getNearbyPlayers(
     currentX: number,
     currentY: number,
@@ -245,15 +254,23 @@ export class PlayerService {
     // Calculate actual distance and filter by circular radius
     const playersWithDistance = players
       .map((player) => {
-        const distance = Math.sqrt(
-          (player.x - currentX) ** 2 + (player.y - currentY) ** 2,
-        );
+        // const distancee = Math.sqrt(
+        //   (player.x - currentX) ** 2 + (player.y - currentY) ** 2,
+        // );
         const direction = calculateDirection(
           currentX,
           currentY,
           player.x,
           player.y,
         );
+
+        const distance = this.calculateDistance(
+          currentX,
+          currentY,
+          player.x,
+          player.y,
+        );
+
         return {
           distance: Math.round(distance * 10) / 10,
           direction,
@@ -453,5 +470,9 @@ export class PlayerService {
         referencePlayer.y + Math.sin(fallbackAngle) * fallbackDistance,
       ),
     };
+  }
+
+  calculateDistance(x1: number, y1: number, x2: number, y2: number): number {
+    return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
   }
 }

@@ -5,6 +5,7 @@ import type {
   VisiblePeak,
   VisibleSettlement,
 } from './look-view-types';
+import { LookViewData, NearbyPlayerInfo } from '../types/response.types';
 
 @Injectable()
 export class ResponseService {
@@ -19,7 +20,8 @@ export class ResponseService {
     visibleSettlements: VisibleSettlement[],
     currentSettlement: any,
     description: string,
-  ) {
+    nearbyPlayers: NearbyPlayerInfo[],
+  ): LookViewData {
     return {
       location: {
         x: centerTile.x,
@@ -30,6 +32,7 @@ export class ResponseService {
         temperature: centerTile.temperature,
         moisture: centerTile.moisture,
       },
+      nearbyPlayers,
       visibilityRadius,
       biomeSummary,
       visiblePeaks,

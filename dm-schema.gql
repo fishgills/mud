@@ -146,6 +146,13 @@ type PlayerStats {
   recentCombat: [CombatLog!]!
 }
 
+type NearbyPlayerInfo {
+  distance: Float!
+  direction: String!
+  x: Int!
+  y: Int!
+}
+
 type PlayerMoveResponse {
   success: Boolean!
   message: String
@@ -189,6 +196,7 @@ type LookViewData {
   visiblePeaks: [VisiblePeakInfo!]!
   visibleSettlements: [VisibleSettlementInfo!]!
   currentSettlement: CurrentSettlementInfo
+  nearbyPlayers: [NearbyPlayerInfo!]
   inSettlement: Boolean!
   description: String!
 }

@@ -277,6 +277,11 @@ export class LookViewData {
   @Field(() => CurrentSettlementInfo, { nullable: true })
   currentSettlement?: CurrentSettlementInfo;
 
+  @Field(() => [NearbyPlayerInfo], {
+    nullable: true,
+  })
+  nearbyPlayers!: NearbyPlayerInfo[];
+
   @Field()
   inSettlement!: boolean;
 
