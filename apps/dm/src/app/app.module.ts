@@ -11,6 +11,14 @@ import { WorldService } from './world/world.service';
 import { OpenaiModule } from '../openai/openai.module';
 import { PlayerResolver, SystemResolver, MovementResolver } from './graphql';
 import { CoordinationService } from '../shared/coordination.service';
+import {
+  VisibilityService,
+  PeakService,
+  BiomeService,
+  SettlementService,
+  DescriptionService,
+  ResponseService,
+} from './graphql/services';
 
 @Module({
   imports: [
@@ -32,6 +40,12 @@ import { CoordinationService } from '../shared/coordination.service';
     PlayerResolver,
     MovementResolver,
     SystemResolver,
+    VisibilityService,
+    PeakService,
+    BiomeService,
+    SettlementService,
+    DescriptionService,
+    ResponseService,
   ],
 })
 export class AppModule {}
