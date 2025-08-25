@@ -17,11 +17,6 @@ export const lookHandler = async ({ userId, say }: HandlerContext) => {
     }
     // Send the panoramic description as the primary message
     await say({ text: res.getLookView.data.description });
-    // Attach structured details for QA/debugging
-    // await sendDebugJson(say, res.getLookView.data, {
-    //   filename: 'look-result.json',
-    //   title: 'Look result',
-    // });
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(
       err,

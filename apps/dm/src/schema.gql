@@ -236,10 +236,10 @@ type LookViewResponse {
 type Query {
   getPlayer(slackId: String!): PlayerResponse!
   getAllPlayers: [Player!]!
-  getMovementView(slackId: String!): PlayerMoveResponse!
-  getLookView(slackId: String!): LookViewResponse!
   getPlayersAtLocation(x: Float!, y: Float!): [Player!]!
   getPlayerStats(slackId: String!): PlayerStats!
+  getMovementView(slackId: String!): PlayerMoveResponse!
+  getLookView(slackId: String!): LookViewResponse!
   getLocationInfo(x: Int!, y: Int!): LocationResponse!
   health: HealthCheck!
   getGameState: GameStateResponse!
@@ -248,7 +248,6 @@ type Query {
 
 type Mutation {
   createPlayer(input: CreatePlayerInput!): PlayerResponse!
-  movePlayer(slackId: String!, input: MovePlayerInput!): PlayerMoveResponse!
   updatePlayerStats(slackId: String!, input: PlayerStatsInput!): PlayerResponse!
   rerollPlayerStats(slackId: String!): PlayerResponse!
   healPlayer(slackId: String!, amount: Float!): PlayerResponse!
@@ -256,6 +255,7 @@ type Mutation {
   attack(slackId: String!, input: AttackInput!): CombatResponse!
   respawn(slackId: String!): PlayerResponse!
   deletePlayer(slackId: String!): PlayerResponse!
+  movePlayer(slackId: String!, input: MovePlayerInput!): PlayerMoveResponse!
   processTick: SuccessResponse!
   spawnMonster(input: SpawnMonsterInput!): MonsterResponse!
 }
@@ -265,18 +265,6 @@ input CreatePlayerInput {
   name: String!
   x: Int
   y: Int
-}
-
-input MovePlayerInput {
-  direction: Direction!
-}
-
-"""Cardinal directions for player movement"""
-enum Direction {
-  NORTH
-  EAST
-  SOUTH
-  WEST
 }
 
 input PlayerStatsInput {
@@ -294,6 +282,18 @@ input AttackInput {
 enum TargetType {
   PLAYER
   MONSTER
+}
+
+input MovePlayerInput {
+  direction: Direction!
+}
+
+"""Cardinal directions for player movement"""
+enum Direction {
+  NORTH
+  EAST
+  SOUTH
+  WEST
 }
 
 input SpawnMonsterInput {
