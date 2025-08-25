@@ -40,13 +40,6 @@ query GetChunk($chunkX: Float!, $chunkY: Float!) {
   }
 }
 
-mutation UpdateTileDescription($x: Int!, $y: Int!, $description: String!) {
-  updateTileDescription(x: $x, y: $y, description: $description) {
-    success
-    message
-  }
-}
-
 query HealthCheck {
   __schema {
     queryType {

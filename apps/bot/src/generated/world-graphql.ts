@@ -80,21 +80,11 @@ export type Mutation = {
   __typename?: 'Mutation';
   /** Clears the render cache in Redis. Returns number of keys removed. */
   clearRenderCache: Scalars['Int']['output'];
-  /** DEBUG: Deletes all world tiles from the database. Use with caution. */
-  deleteAllWorldTiles: TileUpdateResult;
-  updateTileDescription: TileUpdateResult;
 };
 
 
 export type MutationClearRenderCacheArgs = {
   pattern?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type MutationUpdateTileDescriptionArgs = {
-  description: Scalars['String']['input'];
-  x: Scalars['Int']['input'];
-  y: Scalars['Int']['input'];
 };
 
 export type NearbyBiome = {
@@ -180,12 +170,6 @@ export type Settlement = {
   updatedAt: Scalars['DateTime']['output'];
   x: Scalars['Int']['output'];
   y: Scalars['Int']['output'];
-};
-
-export type TileUpdateResult = {
-  __typename?: 'TileUpdateResult';
-  message: Scalars['String']['output'];
-  success: Scalars['Boolean']['output'];
 };
 
 export type TileWithNearbyBiomes = {

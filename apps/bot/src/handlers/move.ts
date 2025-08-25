@@ -8,14 +8,14 @@ import { sendPngMap } from './mapUtils';
 import { COMMANDS } from '../commands';
 
 const directionMap: Record<string, Direction> = {
-  [COMMANDS.UP]: Direction.NORTH,
-  [COMMANDS.NORTH]: Direction.NORTH,
-  [COMMANDS.DOWN]: Direction.SOUTH,
-  [COMMANDS.SOUTH]: Direction.SOUTH,
-  [COMMANDS.LEFT]: Direction.WEST,
-  [COMMANDS.WEST]: Direction.WEST,
-  [COMMANDS.RIGHT]: Direction.EAST,
-  [COMMANDS.EAST]: Direction.EAST,
+  [COMMANDS.UP]: Direction.North,
+  [COMMANDS.NORTH]: Direction.North,
+  [COMMANDS.DOWN]: Direction.South,
+  [COMMANDS.SOUTH]: Direction.South,
+  [COMMANDS.LEFT]: Direction.West,
+  [COMMANDS.WEST]: Direction.West,
+  [COMMANDS.RIGHT]: Direction.East,
+  [COMMANDS.EAST]: Direction.East,
 };
 
 export const moveHandlerHelp = `Move your character using direction words: up, down, left, right, north, south, east, west. Example: Send "up" or "north" to move north.`;
@@ -52,7 +52,7 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
       );
       return;
     }
-    const data = result.movePlayer.data;
+    const data = result.movePlayer.player;
     if (!data) {
       await say({ text: 'Move succeeded but no data returned.' });
       totalMs = Date.now() - t0;
@@ -63,11 +63,11 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
     }
     // Send only the PNG map centered on the new location; no text.
     const tPngStart = Date.now();
-    await sendPngMap(say, data.location.x, data.location.y, 8);
+    await sendPngMap(say, data.x, data.y, 8);
     pngMs = Date.now() - tPngStart;
     const tMsgStart = Date.now();
     await say({
-      text: `You moved ${direction.toLowerCase()}. You are now at (${data.location.x}, ${data.location.y}).`,
+      text: `You moved ${direction.toLowerCase()}. You are now at (${data.x}, ${data.y}).`,
     });
     finalMsgMs = Date.now() - tMsgStart;
     totalMs = Date.now() - t0;

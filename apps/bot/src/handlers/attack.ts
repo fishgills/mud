@@ -20,7 +20,7 @@ export const attackHandler = async ({ userId, say }: HandlerContext) => {
     const monster = player.nearbyMonsters[0];
     const attackResult = await dmSdk.Attack({
       slackId: userId,
-      input: { targetType: TargetType.MONSTER, targetId: Number(monster.id) },
+      input: { targetType: TargetType.Monster, targetId: Number(monster.id) },
     });
     if (!attackResult.attack.success) {
       await say({ text: `Attack failed: ${attackResult.attack.message}` });

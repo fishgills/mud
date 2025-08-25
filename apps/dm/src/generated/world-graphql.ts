@@ -80,21 +80,11 @@ export type Mutation = {
   __typename?: 'Mutation';
   /** Clears the render cache in Redis. Returns number of keys removed. */
   clearRenderCache: Scalars['Int']['output'];
-  /** DEBUG: Deletes all world tiles from the database. Use with caution. */
-  deleteAllWorldTiles: TileUpdateResult;
-  updateTileDescription: TileUpdateResult;
 };
 
 
 export type MutationClearRenderCacheArgs = {
   pattern?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type MutationUpdateTileDescriptionArgs = {
-  description: Scalars['String']['input'];
-  x: Scalars['Int']['input'];
-  y: Scalars['Int']['input'];
 };
 
 export type NearbyBiome = {
@@ -180,12 +170,6 @@ export type Settlement = {
   updatedAt: Scalars['DateTime']['output'];
   x: Scalars['Int']['output'];
   y: Scalars['Int']['output'];
-};
-
-export type TileUpdateResult = {
-  __typename?: 'TileUpdateResult';
-  message: Scalars['String']['output'];
-  success: Scalars['Boolean']['output'];
 };
 
 export type TileWithNearbyBiomes = {
@@ -435,15 +419,6 @@ export type GetChunkQueryVariables = Exact<{
 
 export type GetChunkQuery = { __typename?: 'Query', getChunk: { __typename?: 'ChunkData', chunkX: number, chunkY: number, tiles?: Array<{ __typename?: 'WorldTile', id: number, x: number, y: number, biomeId: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number, seed: number, chunkX: number, chunkY: number, createdAt: any, updatedAt: any }> | null } };
 
-export type UpdateTileDescriptionMutationVariables = Exact<{
-  x: Scalars['Int']['input'];
-  y: Scalars['Int']['input'];
-  description: Scalars['String']['input'];
-}>;
-
-
-export type UpdateTileDescriptionMutation = { __typename?: 'Mutation', updateTileDescription: { __typename?: 'TileUpdateResult', success: boolean, message: string } };
-
 export type HealthCheckQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -499,14 +474,6 @@ export const GetChunkDocument = gql`
       createdAt
       updatedAt
     }
-  }
-}
-    `;
-export const UpdateTileDescriptionDocument = gql`
-    mutation UpdateTileDescription($x: Int!, $y: Int!, $description: String!) {
-  updateTileDescription(x: $x, y: $y, description: $description) {
-    success
-    message
   }
 }
     `;
@@ -574,9 +541,6 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     GetChunk(variables: GetChunkQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetChunkQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<GetChunkQuery>({ document: GetChunkDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetChunk', 'query', variables);
-    },
-    UpdateTileDescription(variables: UpdateTileDescriptionMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<UpdateTileDescriptionMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<UpdateTileDescriptionMutation>({ document: UpdateTileDescriptionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'UpdateTileDescription', 'mutation', variables);
     },
     HealthCheck(variables?: HealthCheckQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<HealthCheckQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<HealthCheckQuery>({ document: HealthCheckDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'HealthCheck', 'query', variables);

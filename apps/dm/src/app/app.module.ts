@@ -11,15 +11,12 @@ import { WorldService } from './world/world.service';
 import { OpenaiModule } from '../openai/openai.module';
 import { PlayerResolver, SystemResolver, MovementResolver } from './graphql';
 import { CoordinationService } from '../shared/coordination.service';
-import { join } from 'path';
 
 @Module({
   imports: [
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: join(process.cwd(), 'apps/dm/src/schema.gql'),
-      playground: true,
-      introspection: true,
+      autoSchemaFile: 'dm-schema.gql',
     }),
     OpenaiModule,
   ],

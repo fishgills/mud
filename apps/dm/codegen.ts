@@ -6,9 +6,9 @@ const config: CodegenConfig = {
   // schema: '../**/schema.gql',
   ignoreNoDocuments: true,
   generates: {
-    'src/generated/world-graphql.ts': {
-      schema: 'apps/world/src/schema.gql',
-      documents: 'src/app/world/world.graphql',
+    'apps/dm/src/generated/world-graphql.ts': {
+      schema: 'world-schema.gql',
+      documents: 'apps/dm/src/app/world/world.graphql',
       plugins: [
         { add: { content: "import type { RequestInit } from 'node-fetch';" } },
         'typescript',
