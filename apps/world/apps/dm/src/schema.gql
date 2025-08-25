@@ -146,10 +146,38 @@ type PlayerStats {
   recentCombat: [CombatLog!]!
 }
 
+type SurroundingTile {
+  x: Int!
+  y: Int!
+  biomeName: String!
+  description: String
+  direction: String!
+}
+
+type NearbyPlayerInfo {
+  distance: Float!
+  direction: String!
+  x: Int!
+  y: Int!
+}
+
+type PlayerMovementData {
+  player: Player!
+  location: TileInfo!
+  monsters: [Monster!]!
+  nearbyPlayers: [NearbyPlayerInfo!]
+  playerInfo: String!
+  surroundingTiles: [SurroundingTile!]!
+  description: String!
+  nearbyBiomes: [String!]
+  nearbySettlements: [String!]
+  currentSettlement: String
+}
+
 type PlayerMoveResponse {
   success: Boolean!
   message: String
-  player: Player!
+  data: PlayerMovementData
 }
 
 type BiomeSectorSummary {
@@ -204,6 +232,7 @@ type Query {
   getAllPlayers: [Player!]!
   getPlayersAtLocation(x: Float!, y: Float!): [Player!]!
   getPlayerStats(slackId: String!): PlayerStats!
+  getMovementView(slackId: String!): PlayerMoveResponse!
   getLookView(slackId: String!): LookViewResponse!
   health: HealthCheck!
   getGameState: GameStateResponse!

@@ -13,7 +13,7 @@ const config: CodegenConfig = {
         skipTypename: true,
         flattenGeneratedTypes: true,
       },
-      schema: '../dm/src/schema.gql',
+      schema: 'apps/dm/src/schema.gql',
       documents: 'src/graphql/dm.graphql',
       plugins: [
         { add: { content: "import type { RequestInit } from 'node-fetch';" } },
@@ -24,7 +24,7 @@ const config: CodegenConfig = {
       ],
     },
     'src/generated/world-graphql.ts': {
-      schema: '../world/src/schema.gql',
+      schema: 'apps/world/src/schema.gql',
       documents: 'src/graphql/world.graphql',
       plugins: [
         { add: { content: "import type { RequestInit } from 'node-fetch';" } },

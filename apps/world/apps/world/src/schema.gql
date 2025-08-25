@@ -128,11 +128,6 @@ type TileWithNearbyBiomes {
   currentSettlement: CurrentSettlement
 }
 
-type TileUpdateResult {
-  success: Boolean!
-  message: String!
-}
-
 type Query {
   """Returns a 2D array of map tiles for a 50x50 region centered on (x, y)."""
   renderMapTiles(x: Int, y: Int): [[MapTile!]!]!
@@ -143,11 +138,23 @@ type Query {
   """
   Returns a PNG map centered on (x, y) as a base64 string (50x50 region).
   """
-  renderMapPngBase64(x: Int, y: Int): String!
+  renderMapPngBase64(
+    x: Int
+    y: Int
+
+    """Pixels per tile (resolution scalar), default 4"""
+    pixelsPerTile: Int
+  ): String!
   getChunk(chunkX: Float!, chunkY: Float!): ChunkData!
   getTile(x: Int!, y: Int!): TileWithNearbyBiomes!
 }
 
 type Mutation {
-  updateTileDescription(x: Int!, y: Int!, description: String!): TileUpdateResult!
+  """Clears the render cache in Redis. Returns number of keys removed."""
+  clearRenderCache(
+    """
+    Optional suffix glob pattern (without prefix). Example: "*" or "*,p=4" to clear only p=4 entries.
+    """
+    pattern: String
+  ): Int!
 }

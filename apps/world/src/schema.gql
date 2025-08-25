@@ -128,11 +128,6 @@ type TileWithNearbyBiomes {
   currentSettlement: CurrentSettlement
 }
 
-type TileUpdateResult {
-  success: Boolean!
-  message: String!
-}
-
 type Query {
   """Returns a 2D array of map tiles for a 50x50 region centered on (x, y)."""
   renderMapTiles(x: Int, y: Int): [[MapTile!]!]!
@@ -162,8 +157,4 @@ type Mutation {
     """
     pattern: String
   ): Int!
-  updateTileDescription(x: Int!, y: Int!, description: String!): TileUpdateResult!
-
-  """DEBUG: Deletes all world tiles from the database. Use with caution."""
-  deleteAllWorldTiles: TileUpdateResult!
 }

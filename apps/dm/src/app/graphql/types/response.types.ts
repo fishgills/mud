@@ -184,43 +184,9 @@ export class NearbyPlayerInfo {
 }
 
 @ObjectType()
-export class PlayerMovementData {
-  @Field(() => Player)
-  player!: Player;
-
-  @Field(() => TileInfo)
-  location!: TileInfo;
-
-  @Field(() => [Monster])
-  monsters!: Monster[];
-
-  @Field(() => [NearbyPlayerInfo], { nullable: true })
-  nearbyPlayers?: NearbyPlayerInfo[];
-
-  @Field()
-  playerInfo!: string;
-
-  @Field(() => [SurroundingTile])
-  surroundingTiles!: SurroundingTile[];
-
-  @Field()
-  description!: string;
-
-  // Enhanced settlement and biome data (when available)
-  @Field(() => [String], { nullable: true })
-  nearbyBiomes?: string[];
-
-  @Field(() => [String], { nullable: true })
-  nearbySettlements?: string[];
-
-  @Field({ nullable: true })
-  currentSettlement?: string;
-}
-
-@ObjectType()
 export class PlayerMoveResponse extends SuccessResponse {
-  @Field(() => PlayerMovementData, { nullable: true })
-  data?: PlayerMovementData;
+  @Field(() => Player)
+  player?: Player;
 }
 
 // --- Look/Scenic View types ---

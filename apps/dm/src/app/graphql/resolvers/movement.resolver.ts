@@ -1,21 +1,9 @@
 import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { Logger } from '@nestjs/common';
 import { PlayerService } from '../../player/player.service';
-import { MonsterService } from '../../monster/monster.service';
 import { WorldService } from '../../world/world.service';
 import { OpenaiService } from '../../../openai/openai.service';
-import { CoordinationService } from '../../../shared/coordination.service';
-import { env } from '../../../env';
-import { Player } from '../models/player.model';
-import { Monster } from '../models/monster.model';
-import { TileInfo } from '../models/tile-info.model';
-import {
-  PlayerMoveResponse,
-  PlayerMovementData,
-  SurroundingTile,
-  NearbyPlayerInfo,
-  LookViewResponse,
-} from '../types/response.types';
+import { PlayerMoveResponse, LookViewResponse } from '../types/response.types';
 import { MovePlayerInput } from '../inputs/player.input';
 import type { NearbySettlement } from '../../world/world.service';
 import { calculateDirection } from '../../shared/direction.util';
@@ -23,15 +11,11 @@ import { calculateDirection } from '../../shared/direction.util';
 @Resolver()
 export class MovementResolver {
   private logger = new Logger(MovementResolver.name);
-  private readonly TILE_DESC_COOLDOWN_MS = env.TILE_DESC_COOLDOWN_MS;
-  private readonly TILE_DESC_MIN_RETRY_MS = env.TILE_DESC_MIN_RETRY_MS;
 
   constructor(
     private playerService: PlayerService,
-    private monsterService: MonsterService,
     private worldService: WorldService,
     private openaiService: OpenaiService,
-    private coord: CoordinationService,
   ) {}
 
   @Mutation(() => PlayerMoveResponse)
@@ -41,14 +25,8 @@ export class MovementResolver {
   ): Promise<PlayerMoveResponse> {
     try {
       const player = await this.playerService.movePlayer(slackId, input);
-      const movementData = await this.buildMovementData(player, slackId, {
-        generateDescription: false,
-        minimal: true,
-      });
-      this.logger.debug(
-        `Moved to (${player.x}, ${player.y}) with ${movementData.monsters.length} monster(s) nearby.`,
-      );
-      return { success: true, data: movementData };
+      this.logger.debug(`Moved to (${player.x}, ${player.y})`);
+      return { success: true, player };
     } catch (error) {
       return {
         success: false,
@@ -58,28 +36,6 @@ export class MovementResolver {
     }
   }
 
-  @Query(() => PlayerMoveResponse)
-  async getMovementView(
-    @Args('slackId') slackId: string,
-  ): Promise<PlayerMoveResponse> {
-    try {
-      const player = await this.playerService.getPlayer(slackId);
-      const movementData = await this.buildMovementData(player, slackId, {
-        generateDescription: false,
-      });
-      return { success: true, data: movementData };
-    } catch (error) {
-      return {
-        success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to fetch movement view',
-      };
-    }
-  }
-
-  // New: panoramic look view (does not persist AI descriptions; richer scene)
   @Query(() => LookViewResponse)
   async getLookView(
     @Args('slackId') slackId: string,
@@ -432,220 +388,5 @@ export class MovementResolver {
           error instanceof Error ? error.message : 'Failed to build look view',
       };
     }
-  }
-
-  // Shared builder for PlayerMovementData used by both movePlayer and getMovementView
-  private async buildMovementData(
-    player: Player,
-    slackId: string,
-    options: { generateDescription?: boolean; minimal?: boolean } = {},
-  ): Promise<PlayerMovementData> {
-    const { generateDescription = false, minimal = false } = options;
-    if (minimal) {
-      // Return the lightest possible payload required by the client when moving.
-      return {
-        player: player as Player,
-        location: {
-          x: player.x,
-          y: player.y,
-          biomeName: '',
-          description: '',
-          height: 0,
-          temperature: 0,
-          moisture: 0,
-        },
-        monsters: [],
-        nearbyPlayers: [],
-        playerInfo: '',
-        surroundingTiles: [],
-        description: '',
-      } as PlayerMovementData;
-    }
-
-    const [tileInfoWithNearby, monsters, nearbyPlayers, surroundingTiles] =
-      await Promise.all([
-        this.worldService.getTileInfoWithNearby(player.x, player.y),
-        this.monsterService.getMonstersAtLocation(player.x, player.y),
-        this.playerService.getNearbyPlayers(
-          player.x,
-          player.y,
-          slackId,
-          Infinity,
-          10,
-        ),
-        this.worldService.getSurroundingTiles(player.x, player.y, 1),
-      ]);
-
-    const surroundingTilesWithDirection: SurroundingTile[] =
-      surroundingTiles.map((tile) => ({
-        x: tile.x,
-        y: tile.y,
-        biomeName: tile.biomeName,
-        description: tile.description || '',
-        direction: calculateDirection(player.x, player.y, tile.x, tile.y),
-      }));
-
-    const tileInfo: TileInfo = {
-      x: tileInfoWithNearby.tile.x,
-      y: tileInfoWithNearby.tile.y,
-      biomeName: tileInfoWithNearby.tile.biomeName,
-      description: tileInfoWithNearby.tile.description || '',
-      height: tileInfoWithNearby.tile.height,
-      temperature: tileInfoWithNearby.tile.temperature,
-      moisture: tileInfoWithNearby.tile.moisture,
-    };
-
-    const movementData: PlayerMovementData = {
-      player: player as Player,
-      location: {
-        ...tileInfo,
-        description: generateDescription ? tileInfo.description : '',
-      },
-      monsters: monsters as Monster[],
-      nearbyPlayers: (nearbyPlayers || []).map((p) => ({
-        distance: p.distance,
-        direction: p.direction,
-        x: p.x,
-        y: p.y,
-      })) as NearbyPlayerInfo[],
-      playerInfo: '',
-      surroundingTiles: surroundingTilesWithDirection,
-      description: generateDescription ? (tileInfo.description ?? '') : '',
-      nearbyBiomes: tileInfoWithNearby.nearbyBiomes?.map(
-        (b) =>
-          `${b.biomeName} (${b.direction}, ${b.distance.toFixed(1)} units)`,
-      ),
-      nearbySettlements: tileInfoWithNearby.nearbySettlements?.map(
-        (s) => `${s.name} (${s.type}, ${s.distance.toFixed(1)} units away)`,
-      ),
-      currentSettlement: tileInfoWithNearby.currentSettlement
-        ? `${tileInfoWithNearby.currentSettlement.name} (${tileInfoWithNearby.currentSettlement.type}, intensity: ${tileInfoWithNearby.currentSettlement.intensity})`
-        : undefined,
-    };
-
-    // If there's no description, generate one using OpenAI with non-dynamic context, persist to World, and return it
-    if (
-      generateDescription &&
-      (!movementData.description || movementData.description.trim() === '')
-    ) {
-      try {
-        const inSettlement = Boolean(tileInfoWithNearby.currentSettlement);
-        const context = {
-          player: {
-            id: player.id,
-            name: player.name,
-            x: player.x,
-            y: player.y,
-          },
-          location: {
-            x: tileInfo.x,
-            y: tileInfo.y,
-            biomeName: tileInfo.biomeName,
-            temperature: tileInfo.temperature,
-            moisture: tileInfo.moisture,
-          },
-          surroundingTiles: surroundingTilesWithDirection.map((t) => ({
-            x: t.x,
-            y: t.y,
-            biomeName: t.biomeName,
-            direction: t.direction,
-          })),
-          nearbyBiomes: movementData.nearbyBiomes ?? [],
-          nearbySettlements: movementData.nearbySettlements ?? [],
-          currentSettlement: tileInfoWithNearby.currentSettlement || null,
-          inSettlement,
-        };
-
-        const baseTileInstructions = [
-          'Describe ONLY the environment for this single map tile in plain text (no code blocks or Slack formatting).',
-          'Do NOT mention players, inhabitants, or monsters.',
-          'Keep it concise but vivid (1-3 sentences).',
-          'Use the JSON context for cohesion with surrounding tiles; avoid explicit numbers unless natural.',
-        ];
-        const intensityVal2 =
-          tileInfoWithNearby.currentSettlement?.intensity ?? 0;
-        const densityBucket2 =
-          intensityVal2 >= 0.7
-            ? 'high'
-            : intensityVal2 >= 0.4
-              ? 'medium'
-              : intensityVal2 > 0
-                ? 'low'
-                : 'none';
-        const settlementTileFocus = [
-          'You are inside a settlement: make the description center on the settlement itself (architecture, materials, layout, immediate surroundings, notable landmarks, atmosphere).',
-          'Mention the settlement name and type once if present (e.g., "the hamlet South Manorthorpe").',
-          'Use currentSettlement.intensity to scale how built-up this specific tile is:',
-          '- high (>= 0.7): dense center, close-packed structures, lanes, little open ground.',
-          '- medium (0.4-0.69): mixed spaces and buildings, some yards/greens, steady use.',
-          '- low (0.01-0.39): fringe/outskirts, sparse buildings, fields/hedges/tracks, quiet.',
-          `Current intensity bucket: ${densityBucket2}. Reflect that subtly in the details.`,
-        ];
-        const openTileFocus = [
-          'You are in the open: focus on the tile’s terrain and nearby natural features.',
-        ];
-        const prompt = [
-          ...(inSettlement ? settlementTileFocus : openTileFocus),
-          ...baseTileInstructions,
-          'Context:',
-          JSON.stringify(context, null, 2),
-        ].join('\n');
-
-        const tileKey = `${tileInfo.x},${tileInfo.y}`;
-        const cdKey = `tile-desc-cooldown:${tileKey}`;
-        const lockKey = `tile-desc-lock:${tileKey}`;
-        // Distributed cooldown: skip if cooldown key exists
-        if (await this.coord.exists(cdKey)) {
-          return movementData;
-        }
-
-        // Acquire distributed lock
-        const token = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const gotLock = await this.coord.acquireLock(
-          lockKey,
-          token,
-          env.TILE_DESC_LOCK_TTL_MS,
-        );
-        if (!gotLock) {
-          // Another instance is generating; quick exit. Optionally we could poll once later.
-          return movementData;
-        }
-        try {
-          // Re-check DB description after acquiring the lock (another instance may have filled it)
-          const fresh = await this.worldService.getTileInfo(player.x, player.y);
-          const already =
-            fresh.description && fresh.description.trim().length > 0;
-          if (already) {
-            movementData.description = fresh.description || '';
-            movementData.location.description = fresh.description || '';
-            return movementData;
-          }
-
-          const ai = await this.openaiService.getText(prompt);
-          const generated = (ai?.output_text ?? '').trim();
-          if (generated) {
-            await this.worldService.updateTileDescription(
-              tileInfo.x,
-              tileInfo.y,
-              generated,
-            );
-            await this.coord.setCooldown(cdKey, this.TILE_DESC_COOLDOWN_MS);
-            movementData.description = generated;
-            movementData.location.description = generated;
-          } else {
-            // Empty output: set a short retry window
-            await this.coord.setCooldown(cdKey, this.TILE_DESC_MIN_RETRY_MS);
-          }
-        } finally {
-          await this.coord.releaseLock(lockKey, token);
-        }
-      } catch (e) {
-        this.logger.warn(
-          `AI description generation failed for (${tileInfo.x},${tileInfo.y}): ${e instanceof Error ? e.message : e}`,
-        );
-      }
-    }
-
-    return movementData;
   }
 }

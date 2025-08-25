@@ -48,6 +48,7 @@
         "executor": "@nx/js:node",
         "defaultConfiguration": "development",
         "dependsOn": [
+          "typecheck",
           "build"
         ],
         "options": {
@@ -63,6 +64,9 @@
             "buildTarget": "slack-bot:build:production"
           }
         }
+      },
+      "codegen": {
+        "command": "npx graphql-codegen --config {projectRoot}/codegen.ts"
       },
       "test": {
         "options": {
