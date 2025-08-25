@@ -383,7 +383,7 @@ export type MovePlayerMutationVariables = Exact<{
 }>;
 
 
-export type MovePlayerMutation = { __typename?: 'Mutation', movePlayer: { __typename?: 'PlayerMoveResponse', success: boolean, message?: string | null, player: { __typename?: 'Player', id: string, name: string, x: number, y: number, hp: number, isAlive: boolean } } };
+export type MovePlayerMutation = { __typename?: 'Mutation', movePlayer: { __typename?: 'PlayerMoveResponse', success: boolean, message?: string | null, player: { __typename?: 'Player', x: number, y: number } } };
 
 export type AttackMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -449,12 +449,8 @@ export const MovePlayerDocument = gql`
     success
     message
     player {
-      id
-      name
       x
       y
-      hp
-      isAlive
     }
   }
 }

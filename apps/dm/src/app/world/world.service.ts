@@ -236,20 +236,6 @@ export class WorldService {
     return tiles;
   }
 
-  async updateTileDescription(
-    x: number,
-    y: number,
-    description: string,
-  ): Promise<boolean> {
-    const result = await worldSdk.UpdateTileDescription({
-      x,
-      y,
-      description,
-    });
-
-    return result?.updateTileDescription?.success || false;
-  }
-
   async healthCheck(): Promise<boolean> {
     try {
       const result = await worldSdk.HealthCheck();
