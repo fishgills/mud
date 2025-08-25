@@ -3,12 +3,8 @@ mutation MovePlayer($slackId: String!, $input: MovePlayerInput!) {
     success
     message
     player {
-      id
-      name
       x
       y
-      hp
-      isAlive
     }
   }
 }
