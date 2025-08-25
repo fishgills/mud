@@ -9,7 +9,7 @@ import { CombatService } from './combat/combat.service';
 import { GameTickService } from './game-tick/game-tick.service';
 import { WorldService } from './world/world.service';
 import { OpenaiModule } from '../openai/openai.module';
-import { PlayerResolver, LocationResolver, SystemResolver, MovementResolver } from './graphql';
+import { PlayerResolver, SystemResolver, MovementResolver } from './graphql';
 import { CoordinationService } from '../shared/coordination.service';
 import { join } from 'path';
 
@@ -34,7 +34,6 @@ import { join } from 'path';
     CoordinationService,
     PlayerResolver,
     MovementResolver,
-    LocationResolver,
     SystemResolver,
   ],
 })

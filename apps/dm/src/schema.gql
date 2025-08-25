@@ -91,12 +91,6 @@ type PlayerResponse {
   data: Player
 }
 
-type LocationResponse {
-  success: Boolean!
-  message: String
-  data: LocationInfo
-}
-
 type MonsterResponse {
   success: Boolean!
   message: String
@@ -240,7 +234,6 @@ type Query {
   getPlayerStats(slackId: String!): PlayerStats!
   getMovementView(slackId: String!): PlayerMoveResponse!
   getLookView(slackId: String!): LookViewResponse!
-  getLocationInfo(x: Int!, y: Int!): LocationResponse!
   health: HealthCheck!
   getGameState: GameStateResponse!
   getAllMonsters: [Monster!]!

@@ -1,0 +1,18 @@
+query GetTile($x: Int!, $y: Int!) {
+  getTile(x: $x, y: $y) {
+    id
+    x
+    y
+    biomeId
+    biomeName
+    description
+    height
+    temperature
+    moisture
+    seed
+    chunkX
+    chunkY
+    createdAt
+    updatedAt
+  }
+}

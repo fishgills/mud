@@ -12,6 +12,5 @@ export * from './types/response.types';
 
 // Resolvers
 export * from './resolvers/player.resolver';
-export * from './resolvers/location.resolver';
 export * from './resolvers/system.resolver';
 export * from './resolvers/movement.resolver';
