@@ -4,12 +4,12 @@ import { drawBiomeTile, drawBiomeEdges } from './graphics';
 import { PrismaService } from '../prisma/prisma.service';
 import { BIOMES } from '../constants';
 import { WorldService } from '../world/world-refactored.service';
-import { Settlement, WorldTile } from '@mud/database';
+import { Settlement } from '@mud/database';
 import { CacheService } from '../shared/cache.service';
 import { NoiseGenerator } from '../noise-generator/noise-generator';
 import { BiomeGenerator } from '../biome-generator/biome-generator';
 import { DEFAULT_WORLD_CONFIG, WorldSeedConfig } from '../world/types';
-import { env } from '../env';
+import { WorldTile } from '../world/models';
 
 @Injectable()
 export class RenderService {
@@ -463,81 +463,52 @@ export class RenderService {
         })) || []
       : [];
     const settlementMap = new Map(settlements.map((s) => [`${s.x},${s.y}`, s]));
-    const computeMode = options?.compute ?? env.WORLD_RENDER_COMPUTE_ON_THE_FLY;
 
     let tileMap: Map<string, WorldTile>;
-    if (!computeMode) {
-      // Legacy DB-backed path: fetch all tiles from DB
-      const tiles = await this.prisma.worldTile.findMany({
-        where: { x: { gte: minX, lt: maxX }, y: { gte: minY, lt: maxY } },
-        include: { biome: true },
-      });
-      tileMap = new Map(tiles.map((t) => [`${t.x},${t.y}`, t] as const));
-    } else {
-      // Compute-on-the-fly path: only fetch descriptions for tiles that have them
-      const seed = this.worldService.getCurrentSeed();
-      const config: WorldSeedConfig = {
-        heightSeed: seed,
-        temperatureSeed: seed + 1000,
-        moistureSeed: seed + 2000,
-        ...DEFAULT_WORLD_CONFIG,
-      } as WorldSeedConfig;
-      const noise = new NoiseGenerator(config);
+    // Compute-on-the-fly path: only fetch descriptions for tiles that have them
+    const seed = this.worldService.getCurrentSeed();
+    const config: WorldSeedConfig = {
+      heightSeed: seed,
+      temperatureSeed: seed + 1000,
+      moistureSeed: seed + 2000,
+      ...DEFAULT_WORLD_CONFIG,
+    } as WorldSeedConfig;
+    const noise = new NoiseGenerator(config);
 
-      // Optionally fetch described tiles in bounds so we can attach descriptions if present
-      const includeDescriptions = options?.includeDescriptions ?? true;
-      const describedMap: Map<string, WorldTile> = includeDescriptions
-        ? new Map(
-            (
-              await this.prisma.worldTile.findMany({
-                where: {
-                  x: { gte: minX, lt: maxX },
-                  y: { gte: minY, lt: maxY },
-                  NOT: { description: null },
-                },
-                include: { biome: true },
-              })
-            ).map((t) => [`${t.x},${t.y}`, t]),
-          )
-        : new Map();
+    // Optionally fetch described tiles in bounds so we can attach descriptions if present
 
-      tileMap = new Map();
-      for (let y = minY; y < maxY; y++) {
-        for (let x = minX; x < maxX; x++) {
-          const key = `${x},${y}` as string;
-          const descTile = describedMap.get(key);
-          if (descTile) {
-            tileMap.set(key, descTile);
-            continue;
-          }
-          // Compute tile deterministically
-          const height = noise.generateHeight(x, y);
-          const temperature = noise.generateTemperature(x, y);
-          const moisture = noise.generateMoisture(x, y);
-          const biomeInfo = BiomeGenerator.determineBiome(
-            height,
-            temperature,
-            moisture,
-          );
-          // Create a transient WorldTile-like shape (biome relation omitted; we’ll resolve via BIOMES)
-          tileMap.set(key, {
-            id: 0 as any, // not used by renderer
-            x,
-            y,
-            biomeId: biomeInfo.id,
-            biomeName: biomeInfo.name,
-            description: null,
-            height,
-            temperature,
-            moisture,
-            seed,
-            chunkX: Math.floor(x / 50),
-            chunkY: Math.floor(y / 50),
-            createdAt: new Date(0) as any,
-            updatedAt: new Date(0) as any,
-            // These extra relations/fields from Prisma types are not used in rendering
-          } as unknown as WorldTile);
-        }
+    tileMap = new Map();
+    for (let y = minY; y < maxY; y++) {
+      for (let x = minX; x < maxX; x++) {
+        const key = `${x},${y}` as string;
+
+        // Compute tile deterministically
+        const height = noise.generateHeight(x, y);
+        const temperature = noise.generateTemperature(x, y);
+        const moisture = noise.generateMoisture(x, y);
+        const biomeInfo = BiomeGenerator.determineBiome(
+          height,
+          temperature,
+          moisture,
+        );
+        // Create a transient WorldTile-like shape (biome relation omitted; we’ll resolve via BIOMES)
+        tileMap.set(key, {
+          id: 0 as any, // not used by renderer
+          x,
+          y,
+          biomeId: biomeInfo.id,
+          biomeName: biomeInfo.name,
+          description: null,
+          height,
+          temperature,
+          moisture,
+          seed,
+          chunkX: Math.floor(x / 50),
+          chunkY: Math.floor(y / 50),
+          createdAt: new Date(0) as any,
+          updatedAt: new Date(0) as any,
+          // These extra relations/fields from Prisma types are not used in rendering
+        } as unknown as WorldTile);
       }
     }
 

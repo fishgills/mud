@@ -1,7 +1,6 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BIOMES } from '../constants';
-import { WorldTile } from '@mud/database';
 
 @Injectable()
 export class WorldDatabaseService {
@@ -88,39 +87,9 @@ export class WorldDatabaseService {
     });
   }
 
-  async updateTileDescription(
-    x: number,
-    y: number,
-    description: string,
-  ): Promise<WorldTile | null> {
-    const updatedTile = await this.prismaService.worldTile.update({
-      where: {
-        x_y: { x, y },
-      },
-      data: {
-        description,
-      },
-      include: { biome: true },
-    });
-
-    return updatedTile;
-  }
-
   async getBiomeById(biomeId: number) {
     return await this.prismaService.biome.findUnique({
       where: { id: biomeId },
     });
-  }
-
-  /** Debug utility: remove all world tiles. Also clears any FK references on monsters/players to avoid constraint failures. */
-  async deleteAllWorldTiles(): Promise<number> {
-    // Clear worldTileId references on players and monsters to avoid FK constraints
-    await this.prismaService.player.updateMany({ data: { worldTileId: null } });
-    await this.prismaService.monster.updateMany({
-      data: { worldTileId: null },
-    });
-    const result = await this.prismaService.worldTile.deleteMany({});
-    this.logger.warn(`Deleted ${result.count} world tiles (debug operation)`);
-    return result.count;
   }
 }

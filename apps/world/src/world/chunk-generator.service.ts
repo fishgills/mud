@@ -9,7 +9,8 @@ import { NoiseGenerator } from '../noise-generator/noise-generator';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
 import { BiomeGenerator } from '../biome-generator/biome-generator';
 import { WorldUtilsService } from './world-utils.service';
-import { Settlement, WorldTile } from '@mud/database';
+import { Settlement } from '@mud/database';
+import { WorldTile } from './models';
 @Injectable()
 export class ChunkGeneratorService {
   constructor(private worldUtils: WorldUtilsService) {}

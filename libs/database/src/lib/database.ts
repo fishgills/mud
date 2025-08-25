@@ -20,7 +20,6 @@ export async function disconnectPrisma(): Promise<void> {
 export { PrismaClient, Prisma };
 export type {
   Player,
-  WorldTile,
   Biome,
   Monster,
   WeatherState,

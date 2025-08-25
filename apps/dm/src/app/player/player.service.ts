@@ -55,16 +55,6 @@ export class PlayerService {
   async getPlayer(slackId: string): Promise<Player> {
     const player = await this.prisma.player.findUnique({
       where: { slackId },
-      include: {
-        worldTile: {
-          include: {
-            biome: true,
-            monsters: {
-              where: { isAlive: true },
-            },
-          },
-        },
-      },
     });
 
     if (!player) {
@@ -77,13 +67,6 @@ export class PlayerService {
   async getAllPlayers(): Promise<Player[]> {
     return this.prisma.player.findMany({
       where: { isAlive: true },
-      include: {
-        worldTile: {
-          include: {
-            biome: true,
-          },
-        },
-      },
     });
   }
 
@@ -120,16 +103,6 @@ export class PlayerService {
         x: newX,
         y: newY,
         lastAction: new Date(),
-      },
-      include: {
-        worldTile: {
-          include: {
-            biome: true,
-            monsters: {
-              where: { isAlive: true },
-            },
-          },
-        },
       },
     });
   }

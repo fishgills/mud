@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { WorldDatabaseService } from './world-database.service';
 import { WorldUtilsService } from './world-utils.service';
-import { WorldTile } from '@mud/database';
 import { ChunkData } from './types';
 import { ChunkGeneratorService } from './chunk-generator.service';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
+import { WorldTile } from './models';
 
 export interface TileWithNearbyBiomes extends WorldTile {
   nearbyBiomes: Array<{

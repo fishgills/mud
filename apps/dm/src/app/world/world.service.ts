@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { WorldTile } from '@prisma/client';
 import { worldSdk } from '../gql-client';
+import { WorldTile } from '../../generated/world-graphql';
 
 export interface Biome {
   id: number;

@@ -6,7 +6,8 @@ import { ChunkGeneratorService } from './chunk-generator.service';
 import { TileService, TileWithNearbyBiomes } from './tile.service';
 import { WorldUtilsService } from './world-utils.service';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
-import { Settlement, WorldTile } from '@mud/database';
+import { Settlement } from '@mud/database';
+import { WorldTile } from './models';
 
 @Injectable()
 export class WorldService {
@@ -35,13 +36,6 @@ export class WorldService {
   /** Returns the active world seed used for terrain generation. */
   getCurrentSeed(): number {
     return this.currentSeed;
-  }
-
-  // Debug: delete all world tiles
-  async deleteAllWorldTiles(): Promise<number> {
-    const count = await this.worldDatabase.deleteAllWorldTiles();
-    this.logger.warn(`World tiles cleared: ${count}`);
-    return count;
   }
 
   async getChunk(chunkX: number, chunkY: number): Promise<ChunkData> {
@@ -151,34 +145,6 @@ export class WorldService {
     );
   }
 
-  async updateTileDescription(
-    x: number,
-    y: number,
-    description: string,
-  ): Promise<boolean | null> {
-    try {
-      const updatedTile = await this.worldDatabase.updateTileDescription(
-        x,
-        y,
-        description,
-      );
-
-      if (!updatedTile) {
-        this.logger.warn(`Tile not found at coordinates (${x}, ${y})`);
-        return null;
-      }
-
-      // Return the updated tile with nearby biomes info
-      return true;
-    } catch (error) {
-      this.logger.error(
-        `Failed to update tile description at (${x}, ${y}):`,
-        error,
-      );
-      throw error;
-    }
-  }
-
   // GraphQL-friendly methods for field resolution
   async getChunkTiles(
     chunkX: number,
@@ -206,9 +172,6 @@ export class WorldService {
     chunkX: number,
     chunkY: number,
   ): Promise<Settlement[]> {
-    // Generate chunk if needed
-    await this.ensureChunkExists(chunkX, chunkY);
-
     // Get settlements in the chunk bounds
     const chunkSize = 50; // Assuming 50x50 chunks
     const startX = chunkX * chunkSize;
@@ -276,13 +239,5 @@ export class WorldService {
       biomeName,
       count,
     }));
-  }
-
-  private async ensureChunkExists(
-    chunkX: number,
-    chunkY: number,
-  ): Promise<void> {
-    // No-op in compute-only mode
-    return;
   }
 }

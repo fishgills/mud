@@ -83,7 +83,6 @@ export class MonsterService {
       where: { isAlive: true },
       include: {
         biome: true,
-        worldTile: true,
       },
     });
   }
@@ -175,7 +174,7 @@ export class MonsterService {
   async spawnMonstersInArea(
     centerX: number,
     centerY: number,
-    radius = 5
+    radius = 5,
   ): Promise<Monster[]> {
     const monsters: Monster[] = [];
     const spawnCount = Math.floor(Math.random() * 3) + 1; // 1-3 monsters

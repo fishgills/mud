@@ -1,4 +1,5 @@
-import { Settlement, WorldTile } from '@mud/database';
+import { Settlement } from '@mud/database';
+import { WorldTile } from './models';
 
 export interface TileData {
   x: number;

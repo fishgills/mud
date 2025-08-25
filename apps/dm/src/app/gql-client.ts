@@ -1,6 +1,6 @@
 import { GraphQLClient } from 'graphql-request';
 import { env } from '../env';
-import { getSdk as getWorldSdk } from '../generated/world-graphql';
+import { getSdk } from '../generated/world-graphql';
 
 // Ensure the provided endpoint URL targets the GraphQL path. This guards against
 // misconfigurations like using http://localhost:3000/world instead of /graphql.
@@ -18,6 +18,6 @@ function ensureGraphQLEndpoint(urlStr: string): string {
   }
 }
 
-export const worldSdk = getWorldSdk(
+export const worldSdk = getSdk(
   new GraphQLClient(ensureGraphQLEndpoint(env.WORLD_SERVICE_URL)),
 );
