@@ -16,3 +16,82 @@ query GetTile($x: Int!, $y: Int!) {
     updatedAt
   }
 }
+
+query GetChunk($chunkX: Float!, $chunkY: Float!) {
+  getChunk(chunkX: $chunkX, chunkY: $chunkY) {
+    chunkX
+    chunkY
+    tiles {
+      id
+      x
+      y
+      biomeId
+      biomeName
+      description
+      height
+      temperature
+      moisture
+      seed
+      chunkX
+      chunkY
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+mutation UpdateTileDescription($x: Int!, $y: Int!, $description: String!) {
+  updateTileDescription(x: $x, y: $y, description: $description) {
+    success
+    message
+  }
+}
+
+query HealthCheck {
+  __schema {
+    queryType {
+      name
+    }
+  }
+}
+
+query GetTileWithNearby($x: Int!, $y: Int!) {
+  getTile(x: $x, y: $y) {
+    id
+    x
+    y
+    biomeId
+    biomeName
+    description
+    height
+    temperature
+    moisture
+    seed
+    chunkX
+    chunkY
+    createdAt
+    updatedAt
+    nearbyBiomes {
+      biomeName
+      distance
+      direction
+    }
+    nearbySettlements {
+      name
+      type
+      size
+      population
+      x
+      y
+      description
+      distance
+    }
+    currentSettlement {
+      name
+      type
+      size
+      intensity
+      isCenter
+    }
+  }
+}

@@ -1,6 +1,6 @@
-import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { WorldTile } from '@prisma/client';
-import { GraphQLClient, gql } from 'graphql-request';
+import { worldSdk } from '../gql-client';
 
 export interface Biome {
   id: number;
@@ -32,44 +32,11 @@ export interface Settlement {
   isCenter: boolean;
 }
 
-// GraphQL response types that match the World service schema
-interface TileWithNearbyBiomes {
-  id: number;
-  x: number;
-  y: number;
-  biomeId: number;
-  biomeName: string;
-  description?: string;
-  height: number;
-  temperature: number;
-  moisture: number;
-  seed: number;
-  chunkX: number;
-  chunkY: number;
-  createdAt: string;
-  updatedAt: string;
-  nearbyBiomes: NearbyBiome[];
-  nearbySettlements: NearbySettlement[];
-  currentSettlement?: Settlement;
-}
-
-interface ChunkData {
-  chunkX: number;
-  chunkY: number;
-  tiles: WorldTile[];
-}
-
-interface TileUpdateResult {
-  success: boolean;
-  message: string;
-}
-
 @Injectable()
 export class WorldService {
   private readonly logger = new Logger(WorldService.name);
   private readonly worldServiceUrl =
     process.env.WORLD_SERVICE_URL || 'http://localhost:3000';
-  private readonly graphqlClient: GraphQLClient;
   // Simple in-memory cache and in-flight dedupe for chunk requests
   private readonly chunkCache = new Map<
     string,
@@ -118,55 +85,6 @@ export class WorldService {
     const graphqlUrl = `${baseUrl}/graphql`;
 
     this.logger.log(`Initializing GraphQL client with URL: ${graphqlUrl}`);
-    this.graphqlClient = new GraphQLClient(graphqlUrl);
-  }
-
-  /**
-   * Generic GraphQL request wrapper with error handling
-   */
-  private async makeGraphQLRequest<T>(
-    query: string,
-    variables?: Record<string, unknown>,
-    options: {
-      logErrorMessage?: string;
-      throwOnError?: boolean;
-      defaultValue?: T;
-    } = {},
-  ): Promise<T | null> {
-    const {
-      logErrorMessage,
-      throwOnError = false,
-      defaultValue = null,
-    } = options;
-
-    try {
-      const response = await this.graphqlClient.request<T>(query, variables);
-      this.logger.log(
-        `GraphQL request successful: ${JSON.stringify(response).substring(0, 200)}...`,
-      );
-      return response;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-
-      this.logger.error(`GraphQL request failed to ${this.worldServiceUrl}`);
-      this.logger.error(`Query: ${query}`);
-      this.logger.error(`Variables: ${JSON.stringify(variables)}`);
-      this.logger.error(`Error: ${errorMessage}`);
-
-      if (logErrorMessage) {
-        this.logger.error(logErrorMessage, errorMessage);
-      }
-
-      if (throwOnError) {
-        throw new HttpException(
-          'World service unavailable',
-          HttpStatus.SERVICE_UNAVAILABLE,
-        );
-      }
-
-      return defaultValue as T;
-    }
   }
 
   async getTileInfo(x: number, y: number): Promise<WorldTile> {
@@ -187,37 +105,10 @@ export class WorldService {
       updatedAt: new Date(),
     };
 
-    const GET_TILE_QUERY = gql`
-      query GetTile($x: Int!, $y: Int!) {
-        getTile(x: $x, y: $y) {
-          id
-          x
-          y
-          biomeId
-          biomeName
-          description
-          height
-          temperature
-          moisture
-          seed
-          chunkX
-          chunkY
-          createdAt
-          updatedAt
-        }
-      }
-    `;
-
-    const result = await this.makeGraphQLRequest<{
-      getTile: TileWithNearbyBiomes;
-    }>(
-      GET_TILE_QUERY,
-      { x, y },
-      {
-        logErrorMessage: `Failed to fetch tile info for (${x}, ${y}):`,
-        defaultValue: { getTile: defaultTile as any },
-      },
-    );
+    const result = await worldSdk.GetTile({
+      x,
+      y,
+    });
 
     if (result?.getTile) {
       // Convert the GraphQL response to the expected WorldTile format
@@ -256,40 +147,8 @@ export class WorldService {
     const inflight = this.inflightChunkRequests.get(key);
     if (inflight) return inflight;
 
-    const GET_CHUNK_QUERY = gql`
-      query GetChunk($chunkX: Float!, $chunkY: Float!) {
-        getChunk(chunkX: $chunkX, chunkY: $chunkY) {
-          chunkX
-          chunkY
-          tiles {
-            id
-            x
-            y
-            biomeId
-            biomeName
-            description
-            height
-            temperature
-            moisture
-            seed
-            chunkX
-            chunkY
-            createdAt
-            updatedAt
-          }
-        }
-      }
-    `;
-
     const promise = (async () => {
-      const result = await this.makeGraphQLRequest<{ getChunk: ChunkData }>(
-        GET_CHUNK_QUERY,
-        { chunkX, chunkY },
-        {
-          logErrorMessage: `Failed to fetch chunk (${chunkX}, ${chunkY}):`,
-          throwOnError: true,
-        },
-      );
+      const result = await worldSdk.GetChunk({ chunkX, chunkY });
 
       let tiles: WorldTile[] = [];
       if (result?.getChunk?.tiles) {
@@ -382,52 +241,18 @@ export class WorldService {
     y: number,
     description: string,
   ): Promise<boolean> {
-    const UPDATE_TILE_MUTATION = gql`
-      mutation UpdateTileDescription(
-        $x: Int!
-        $y: Int!
-        $description: String!
-      ) {
-        updateTileDescription(x: $x, y: $y, description: $description) {
-          success
-          message
-        }
-      }
-    `;
-
-    const result = await this.makeGraphQLRequest<{
-      updateTileDescription: TileUpdateResult;
-    }>(
-      UPDATE_TILE_MUTATION,
-      { x, y, description },
-      {
-        logErrorMessage: `Failed to update tile description for (${x}, ${y}):`,
-      },
-    );
+    const result = await worldSdk.UpdateTileDescription({
+      x,
+      y,
+      description,
+    });
 
     return result?.updateTileDescription?.success || false;
   }
 
   async healthCheck(): Promise<boolean> {
     try {
-      // Use a simple introspection query to check if the GraphQL service is available
-      const HEALTH_CHECK_QUERY = gql`
-        query HealthCheck {
-          __schema {
-            queryType {
-              name
-            }
-          }
-        }
-      `;
-
-      const result = await this.makeGraphQLRequest<any>(
-        HEALTH_CHECK_QUERY,
-        {},
-        {
-          // No logging for health check failures to avoid spam
-        },
-      );
+      const result = await worldSdk.HealthCheck();
 
       return result !== null;
     } catch {
@@ -453,49 +278,6 @@ export class WorldService {
     const inflight = this.inflightCenterNearby.get(cacheKey);
     if (inflight) return inflight;
 
-    const GET_TILE_WITH_NEARBY_QUERY = gql`
-      query GetTileWithNearby($x: Int!, $y: Int!) {
-        getTile(x: $x, y: $y) {
-          id
-          x
-          y
-          biomeId
-          biomeName
-          description
-          height
-          temperature
-          moisture
-          seed
-          chunkX
-          chunkY
-          createdAt
-          updatedAt
-          nearbyBiomes {
-            biomeName
-            distance
-            direction
-          }
-          nearbySettlements {
-            name
-            type
-            size
-            population
-            x
-            y
-            description
-            distance
-          }
-          currentSettlement {
-            name
-            type
-            size
-            intensity
-            isCenter
-          }
-        }
-      }
-    `;
-
     const defaultTile: WorldTile = {
       id: 0,
       x,
@@ -514,22 +296,10 @@ export class WorldService {
     };
 
     const promise = (async () => {
-      const result = await this.makeGraphQLRequest<{
-        getTile: TileWithNearbyBiomes;
-      }>(
-        GET_TILE_WITH_NEARBY_QUERY,
-        { x, y },
-        {
-          logErrorMessage: `Failed to fetch tile with nearby data for (${x}, ${y}):`,
-          defaultValue: {
-            getTile: {
-              ...defaultTile,
-              nearbyBiomes: [],
-              nearbySettlements: [],
-            } as any,
-          },
-        },
-      );
+      const result = await worldSdk.GetTileWithNearby({
+        x,
+        y,
+      });
 
       let data: {
         tile: WorldTile;
@@ -563,7 +333,7 @@ export class WorldService {
           },
           nearbyBiomes: tile.nearbyBiomes || [],
           nearbySettlements: tile.nearbySettlements || [],
-          currentSettlement: tile.currentSettlement,
+          currentSettlement: tile.currentSettlement || undefined,
         };
       }
 
