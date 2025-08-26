@@ -49,6 +49,7 @@ export type CombatResponse = {
   __typename?: 'CombatResponse';
   data?: Maybe<CombatResult>;
   message?: Maybe<Scalars['String']['output']>;
+  result?: Maybe<TickResult>;
   success: Scalars['Boolean']['output'];
 };
 
@@ -100,6 +101,7 @@ export type GameStateResponse = {
   __typename?: 'GameStateResponse';
   data?: Maybe<GameState>;
   message?: Maybe<Scalars['String']['output']>;
+  result?: Maybe<TickResult>;
   success: Scalars['Boolean']['output'];
 };
 
@@ -124,6 +126,7 @@ export type LookViewData = {
   description: Scalars['String']['output'];
   inSettlement: Scalars['Boolean']['output'];
   location: TileInfo;
+  monsters?: Maybe<Array<Monster>>;
   nearbyPlayers?: Maybe<Array<NearbyPlayerInfo>>;
   visibilityRadius: Scalars['Float']['output'];
   visiblePeaks: Array<VisiblePeakInfo>;
@@ -134,6 +137,7 @@ export type LookViewResponse = {
   __typename?: 'LookViewResponse';
   data?: Maybe<LookViewData>;
   message?: Maybe<Scalars['String']['output']>;
+  result?: Maybe<TickResult>;
   success: Scalars['Boolean']['output'];
 };
 
@@ -162,6 +166,7 @@ export type MonsterResponse = {
   __typename?: 'MonsterResponse';
   data?: Maybe<Monster>;
   message?: Maybe<Scalars['String']['output']>;
+  result?: Maybe<TickResult>;
   success: Scalars['Boolean']['output'];
 };
 
@@ -276,6 +281,7 @@ export type PlayerMoveResponse = {
   __typename?: 'PlayerMoveResponse';
   message?: Maybe<Scalars['String']['output']>;
   player: Player;
+  result?: Maybe<TickResult>;
   success: Scalars['Boolean']['output'];
 };
 
@@ -283,6 +289,7 @@ export type PlayerResponse = {
   __typename?: 'PlayerResponse';
   data?: Maybe<Player>;
   message?: Maybe<Scalars['String']['output']>;
+  result?: Maybe<TickResult>;
   success: Scalars['Boolean']['output'];
 };
 
@@ -314,6 +321,7 @@ export type Query = {
   getAllPlayers: Array<Player>;
   getGameState: GameStateResponse;
   getLookView: LookViewResponse;
+  getMonstersAtLocation: Array<Monster>;
   getPlayer: PlayerResponse;
   getPlayerStats: PlayerStats;
   getPlayersAtLocation: Array<Player>;
@@ -323,6 +331,12 @@ export type Query = {
 
 export type QueryGetLookViewArgs = {
   slackId: Scalars['String']['input'];
+};
+
+
+export type QueryGetMonstersAtLocationArgs = {
+  x: Scalars['Float']['input'];
+  y: Scalars['Float']['input'];
 };
 
 
@@ -349,6 +363,7 @@ export type SpawnMonsterInput = {
 export type SuccessResponse = {
   __typename?: 'SuccessResponse';
   message?: Maybe<Scalars['String']['output']>;
+  result?: Maybe<TickResult>;
   success: Scalars['Boolean']['output'];
 };
 
@@ -356,6 +371,17 @@ export enum TargetType {
   Monster = 'MONSTER',
   Player = 'PLAYER'
 }
+
+export type TickResult = {
+  __typename?: 'TickResult';
+  combatEvents: Scalars['Int']['output'];
+  gameDay: Scalars['Int']['output'];
+  gameHour: Scalars['Int']['output'];
+  monstersMoved: Scalars['Int']['output'];
+  monstersSpawned: Scalars['Int']['output'];
+  tick: Scalars['Int']['output'];
+  weatherUpdated: Scalars['Boolean']['output'];
+};
 
 export type TileInfo = {
   __typename?: 'TileInfo';
@@ -416,12 +442,20 @@ export type GetPlayerWithLocationQueryVariables = Exact<{
 
 export type GetPlayerWithLocationQuery = { __typename?: 'Query', getPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean, nearbyMonsters?: Array<{ __typename?: 'Monster', id: string, name: string, hp: number, isAlive: boolean }> | null, currentTile?: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number } | null, nearbyPlayers?: Array<{ __typename?: 'Player', id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
 
+export type GetMonsterAtLocationQueryVariables = Exact<{
+  x: Scalars['Float']['input'];
+  y: Scalars['Float']['input'];
+}>;
+
+
+export type GetMonsterAtLocationQuery = { __typename?: 'Query', getMonstersAtLocation: Array<{ __typename?: 'Monster', id: string, name: string, hp: number, isAlive: boolean }> };
+
 export type GetLookViewQueryVariables = Exact<{
   slackId: Scalars['String']['input'];
 }>;
 
 
-export type GetLookViewQuery = { __typename?: 'Query', getLookView: { __typename?: 'LookViewResponse', success: boolean, message?: string | null, data?: { __typename?: 'LookViewData', visibilityRadius: number, description: string, location: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number }, currentSettlement?: { __typename?: 'CurrentSettlementInfo', name: string, type: string, size: string, intensity: number, isCenter: boolean } | null, biomeSummary: Array<{ __typename?: 'BiomeSectorSummary', biomeName: string, proportion: number, predominantDirections: Array<string> }>, visiblePeaks: Array<{ __typename?: 'VisiblePeakInfo', x: number, y: number, height: number, distance: number, direction: string }>, visibleSettlements: Array<{ __typename?: 'VisibleSettlementInfo', name: string, type: string, size: string, distance: number, direction: string }>, nearbyPlayers?: Array<{ __typename?: 'NearbyPlayerInfo', distance: number, direction: string, x: number, y: number }> | null } | null } };
+export type GetLookViewQuery = { __typename?: 'Query', getLookView: { __typename?: 'LookViewResponse', success: boolean, message?: string | null, data?: { __typename?: 'LookViewData', visibilityRadius: number, description: string, location: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number }, currentSettlement?: { __typename?: 'CurrentSettlementInfo', name: string, type: string, size: string, intensity: number, isCenter: boolean } | null, monsters?: Array<{ __typename?: 'Monster', id: string, name: string }> | null, biomeSummary: Array<{ __typename?: 'BiomeSectorSummary', biomeName: string, proportion: number, predominantDirections: Array<string> }>, visiblePeaks: Array<{ __typename?: 'VisiblePeakInfo', x: number, y: number, height: number, distance: number, direction: string }>, visibleSettlements: Array<{ __typename?: 'VisibleSettlementInfo', name: string, type: string, size: string, distance: number, direction: string }>, nearbyPlayers?: Array<{ __typename?: 'NearbyPlayerInfo', distance: number, direction: string, x: number, y: number }> | null } | null } };
 
 export type CreatePlayerMutationVariables = Exact<{
   input: CreatePlayerInput;
@@ -555,6 +589,16 @@ export const GetPlayerWithLocationDocument = gql`
   }
 }
     `;
+export const GetMonsterAtLocationDocument = gql`
+    query getMonsterAtLocation($x: Float!, $y: Float!) {
+  getMonstersAtLocation(x: $x, y: $y) {
+    id
+    name
+    hp
+    isAlive
+  }
+}
+    `;
 export const GetLookViewDocument = gql`
     query GetLookView($slackId: String!) {
   getLookView(slackId: $slackId) {
@@ -576,6 +620,10 @@ export const GetLookViewDocument = gql`
         size
         intensity
         isCenter
+      }
+      monsters {
+        id
+        name
       }
       visibilityRadius
       biomeSummary {
@@ -696,6 +744,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     GetPlayerWithLocation(variables: GetPlayerWithLocationQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetPlayerWithLocationQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<GetPlayerWithLocationQuery>({ document: GetPlayerWithLocationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetPlayerWithLocation', 'query', variables);
+    },
+    getMonsterAtLocation(variables: GetMonsterAtLocationQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetMonsterAtLocationQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<GetMonsterAtLocationQuery>({ document: GetMonsterAtLocationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'getMonsterAtLocation', 'query', variables);
     },
     GetLookView(variables: GetLookViewQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetLookViewQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<GetLookViewQuery>({ document: GetLookViewDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetLookView', 'query', variables);

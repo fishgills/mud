@@ -29,14 +29,16 @@ export class SystemResolver {
   @Mutation(() => SuccessResponse)
   async processTick(): Promise<SuccessResponse> {
     try {
-      await this.gameTickService.processTick();
+      const result = await this.gameTickService.processTick();
       return {
         success: true,
+        result,
         message: 'Tick processed successfully',
       };
     } catch (error) {
       return {
         success: false,
+        result: undefined,
         message:
           error instanceof Error ? error.message : 'Tick processing failed',
       };
@@ -70,9 +72,16 @@ export class SystemResolver {
   }
 
   @Query(() => [Monster])
+  async getMonstersAtLocation(
+    @Args('x') x: number,
+    @Args('y') y: number,
+  ): Promise<Monster[]> {
+    return await this.monsterService.getMonstersAtLocation(x, y);
+  }
+
+  @Query(() => [Monster])
   async getAllMonsters(): Promise<Monster[]> {
-    const monsters = await this.monsterService.getAllMonsters();
-    return monsters as Monster[];
+    return await this.monsterService.getAllMonsters();
   }
 
   @Mutation(() => MonsterResponse)

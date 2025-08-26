@@ -97,6 +97,15 @@ query GetPlayerWithLocation($slackId: String!) {
   }
 }
 
+query getMonsterAtLocation($x: Float!, $y: Float!) {
+  getMonstersAtLocation(x: $x, y: $y) {
+    id
+    name
+    hp
+    isAlive
+  }
+}
+
 # Enhanced panoramic look view
 query GetLookView($slackId: String!) {
   getLookView(slackId: $slackId) {
@@ -118,6 +127,10 @@ query GetLookView($slackId: String!) {
         size
         intensity
         isCenter
+      }
+      monsters {
+        id
+        name
       }
       visibilityRadius
       biomeSummary {

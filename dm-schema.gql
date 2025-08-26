@@ -80,20 +80,33 @@ type LocationInfo {
   recentCombat: [CombatLog!]
 }
 
+type TickResult {
+  tick: Int!
+  gameHour: Int!
+  gameDay: Int!
+  monstersSpawned: Int!
+  monstersMoved: Int!
+  combatEvents: Int!
+  weatherUpdated: Boolean!
+}
+
 type SuccessResponse {
   success: Boolean!
   message: String
+  result: TickResult
 }
 
 type PlayerResponse {
   success: Boolean!
   message: String
+  result: TickResult
   data: Player
 }
 
 type MonsterResponse {
   success: Boolean!
   message: String
+  result: TickResult
   data: Monster
 }
 
@@ -112,6 +125,7 @@ type CombatResult {
 type CombatResponse {
   success: Boolean!
   message: String
+  result: TickResult
   data: CombatResult
 }
 
@@ -124,6 +138,7 @@ type GameState {
 type GameStateResponse {
   success: Boolean!
   message: String
+  result: TickResult
   data: GameState
 }
 
@@ -156,6 +171,7 @@ type NearbyPlayerInfo {
 type PlayerMoveResponse {
   success: Boolean!
   message: String
+  result: TickResult
   player: Player!
 }
 
@@ -199,11 +215,13 @@ type LookViewData {
   nearbyPlayers: [NearbyPlayerInfo!]
   inSettlement: Boolean!
   description: String!
+  monsters: [Monster!]
 }
 
 type LookViewResponse {
   success: Boolean!
   message: String
+  result: TickResult
   data: LookViewData
 }
 
@@ -215,6 +233,7 @@ type Query {
   getLookView(slackId: String!): LookViewResponse!
   health: HealthCheck!
   getGameState: GameStateResponse!
+  getMonstersAtLocation(x: Float!, y: Float!): [Monster!]!
   getAllMonsters: [Monster!]!
 }
 

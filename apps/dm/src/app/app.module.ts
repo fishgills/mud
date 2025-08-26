@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PlayerService } from './player/player.service';
 import { MonsterService } from './monster/monster.service';
+import { MONSTER_ENGINE } from './monster/monster.engine';
 import { CombatService } from './combat/combat.service';
 import { GameTickService } from './game-tick/game-tick.service';
 import { WorldService } from './world/world.service';
@@ -19,6 +20,7 @@ import {
   DescriptionService,
   ResponseService,
 } from './graphql/services';
+import { PopulationService } from './monster/population.service';
 
 @Module({
   imports: [
@@ -33,6 +35,7 @@ import {
     AppService,
     PlayerService,
     MonsterService,
+    { provide: MONSTER_ENGINE, useExisting: MonsterService },
     CombatService,
     GameTickService,
     WorldService,
@@ -46,6 +49,7 @@ import {
     SettlementService,
     DescriptionService,
     ResponseService,
+    PopulationService,
   ],
 })
 export class AppModule {}

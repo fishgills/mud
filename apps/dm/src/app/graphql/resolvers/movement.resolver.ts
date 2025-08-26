@@ -13,6 +13,7 @@ import {
   DescriptionService,
   ResponseService,
 } from '../services';
+import { MonsterService } from '../../monster/monster.service';
 
 @Resolver()
 export class MovementResolver {
@@ -27,6 +28,7 @@ export class MovementResolver {
     private settlementService: SettlementService,
     private descriptionService: DescriptionService,
     private responseService: ResponseService,
+    private monsterService: MonsterService,
   ) {}
 
   @Mutation(() => PlayerMoveResponse)
@@ -138,6 +140,11 @@ export class MovementResolver {
           timing,
         );
 
+      const monsters = await this.monsterService.getMonstersAtLocation(
+        player.x,
+        player.y,
+      );
+
       // Generate description (AI-enhanced or fallback)
       const currentSettlement = centerWithNearby?.currentSettlement;
       const description = await this.descriptionService.generateAiDescription(
@@ -161,6 +168,7 @@ export class MovementResolver {
         currentSettlement,
         description,
         nearbyPlayers,
+        monsters,
       );
 
       const totalMs = Date.now() - t0;

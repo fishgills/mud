@@ -5,7 +5,7 @@ const DM_GRAPHQL_URL =
   process.env.DM_GRAPHQL_URL || 'http://localhost:3000/graphql';
 
 // GraphQL mutation for processing a tick
-const PROCESS_TICK_MUTATION = `mutation { processTick { success message } }`;
+const PROCESS_TICK_MUTATION = `mutation {  processTick {    success    message    result {      tick      gameHour      gameDay      monstersSpawned      monstersMoved      combatEvents      weatherUpdated    }   } }`;
 
 async function sendProcessTick() {
   try {
@@ -23,6 +23,7 @@ async function sendProcessTick() {
     const result = payload?.data?.processTick;
     if (result?.success) {
       console.log(`[tick] DM processTick OK: ${result.message ?? 'success'}`);
+      console.log(`[tick] Result: ${JSON.stringify(result.result, null, 2)}`);
     } else {
       console.warn(
         `[tick] DM processTick returned failure: ${result?.message ?? 'unknown error'}`,

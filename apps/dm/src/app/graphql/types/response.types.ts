@@ -25,12 +25,39 @@ export class LocationInfo {
 }
 
 @ObjectType()
+export class TickResult {
+  @Field(() => Int)
+  tick!: number;
+
+  @Field(() => Int)
+  gameHour!: number;
+
+  @Field(() => Int)
+  gameDay!: number;
+
+  @Field(() => Int)
+  monstersSpawned!: number;
+
+  @Field(() => Int)
+  monstersMoved!: number;
+
+  @Field(() => Int)
+  combatEvents!: number;
+
+  @Field(() => Boolean)
+  weatherUpdated!: boolean;
+}
+
+@ObjectType()
 export class SuccessResponse {
   @Field()
   success!: boolean;
 
   @Field({ nullable: true })
   message?: string;
+
+  @Field(() => TickResult, { nullable: true })
+  result?: TickResult;
 }
 
 @ObjectType()
@@ -286,7 +313,10 @@ export class LookViewData {
   inSettlement!: boolean;
 
   @Field()
-  description!: string; // panoramic prose (not persisted)
+  description!: string;
+
+  @Field(() => [Monster], { nullable: true })
+  monsters!: Monster[];
 }
 
 @ObjectType()

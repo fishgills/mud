@@ -66,6 +66,14 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
     await sendPngMap(say, data.x, data.y, 8);
     pngMs = Date.now() - tPngStart;
     const tMsgStart = Date.now();
+
+    const monsters = await dmSdk.getMonsterAtLocation({ x: data.x, y: data.y });
+
+    if (monsters.getMonstersAtLocation.length > 0) {
+      await say({
+        text: `You see the following monsters at your location: ${monsters.getMonstersAtLocation.map((m) => m.name).join(', ')}`,
+      });
+    }
     await say({
       text: `You moved ${direction.toLowerCase()}. You are now at (${data.x}, ${data.y}).`,
     });

@@ -1,57 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { getPrismaClient, Monster } from '@mud/database';
+import { WorldService } from '../world/world.service';
+import {
+  MONSTER_TEMPLATES,
+  getMonsterTemplate,
+  pickTypeForBiome,
+} from './monster.types';
 
 @Injectable()
 export class MonsterService {
   private prisma = getPrismaClient();
-
-  // Monster types with different stat ranges
-  private monsterTypes = [
-    {
-      name: 'Goblin',
-      type: 'goblin',
-      baseHp: 25,
-      strength: 6,
-      agility: 12,
-      health: 6,
-    },
-    {
-      name: 'Orc',
-      type: 'orc',
-      baseHp: 40,
-      strength: 12,
-      agility: 8,
-      health: 10,
-    },
-    {
-      name: 'Wolf',
-      type: 'wolf',
-      baseHp: 30,
-      strength: 10,
-      agility: 14,
-      health: 8,
-    },
-    {
-      name: 'Bear',
-      type: 'bear',
-      baseHp: 60,
-      strength: 16,
-      agility: 6,
-      health: 14,
-    },
-    {
-      name: 'Skeleton',
-      type: 'skeleton',
-      baseHp: 20,
-      strength: 8,
-      agility: 10,
-      health: 6,
-    },
-  ];
+  constructor(private worldService: WorldService) {}
 
   async spawnMonster(x: number, y: number, biomeId: number): Promise<Monster> {
+    // Choose a random template from the global set
     const monsterTemplate =
-      this.monsterTypes[Math.floor(Math.random() * this.monsterTypes.length)];
+      MONSTER_TEMPLATES[Math.floor(Math.random() * MONSTER_TEMPLATES.length)];
 
     // Add some randomness to stats (±2)
     const variance = () => Math.floor(Math.random() * 5) - 2;
@@ -94,9 +58,22 @@ export class MonsterService {
         y,
         isAlive: true,
       },
-      include: {
-        biome: true,
+    });
+  }
+
+  async getMonstersInBounds(
+    minX: number,
+    maxX: number,
+    minY: number,
+    maxY: number,
+  ): Promise<Monster[]> {
+    return this.prisma.monster.findMany({
+      where: {
+        isAlive: true,
+        x: { gte: minX, lte: maxX },
+        y: { gte: minY, lte: maxY },
       },
+      include: { biome: true },
     });
   }
 
@@ -110,30 +87,25 @@ export class MonsterService {
     }
 
     // Random movement (50% chance to move)
-    if (Math.random() < 0.5) {
-      const directions = [
-        { dx: 0, dy: -1 }, // North
-        { dx: 0, dy: 1 }, // South
-        { dx: 1, dy: 0 }, // East
-        { dx: -1, dy: 0 }, // West
-      ];
+    const directions = [
+      { dx: 0, dy: -1 }, // North
+      { dx: 0, dy: 1 }, // South
+      { dx: 1, dy: 0 }, // East
+      { dx: -1, dy: 0 }, // West
+    ];
 
-      const direction =
-        directions[Math.floor(Math.random() * directions.length)];
-      const newX = monster.x + direction.dx;
-      const newY = monster.y + direction.dy;
+    const direction = directions[Math.floor(Math.random() * directions.length)];
+    const newX = monster.x + direction.dx;
+    const newY = monster.y + direction.dy;
 
-      return this.prisma.monster.update({
-        where: { id: monsterId },
-        data: {
-          x: newX,
-          y: newY,
-          lastMove: new Date(),
-        },
-      });
-    }
-
-    return monster;
+    return this.prisma.monster.update({
+      where: { id: monsterId },
+      data: {
+        x: newX,
+        y: newY,
+        lastMove: new Date(),
+      },
+    });
   }
 
   async damageMonster(monsterId: number, damage: number): Promise<Monster> {
@@ -175,9 +147,14 @@ export class MonsterService {
     centerX: number,
     centerY: number,
     radius = 5,
+    constraints?: { avoidSettlementsWithin?: number; maxGroupSize?: number },
   ): Promise<Monster[]> {
     const monsters: Monster[] = [];
-    const spawnCount = Math.floor(Math.random() * 3) + 1; // 1-3 monsters
+    const groupCap = constraints?.maxGroupSize ?? 3;
+    const spawnCount = Math.max(
+      1,
+      Math.min(groupCap, Math.floor(Math.random() * groupCap) + 1),
+    );
 
     for (let i = 0; i < spawnCount; i++) {
       // Random position within radius
@@ -186,11 +163,59 @@ export class MonsterService {
       const x = Math.floor(centerX + Math.cos(angle) * distance);
       const y = Math.floor(centerY + Math.sin(angle) * distance);
 
-      // For now, assume biome ID 1 (we'd need to fetch from world service in real implementation)
-      const monster = await this.spawnMonster(x, y, 1);
-      monsters.push(monster);
+      // Fetch tile and nearby from world to decide biome and safety
+      const center = await this.worldService.getTileInfoWithNearby(x, y);
+
+      // settlement avoidance
+      const avoidR = constraints?.avoidSettlementsWithin ?? 3;
+      const tooCloseToSettlement =
+        (center.currentSettlement && center.currentSettlement.intensity > 0) ||
+        center.nearbySettlements?.some((s) => {
+          const dx = Math.abs(s.x - x);
+          const dy = Math.abs(s.y - y);
+          return dx <= avoidR && dy <= avoidR;
+        });
+      if (tooCloseToSettlement) continue;
+
+      // Weighted biome spawn selection from centralized table
+      const chosenType = pickTypeForBiome(center.tile.biomeName);
+
+      // Map name->stats by cloning from template with variance via spawnMonster
+      const biomeId = center.tile.biomeId;
+      const m = await this.spawnMonsterWithType(x, y, biomeId, chosenType);
+      monsters.push(m);
     }
 
     return monsters;
+  }
+
+  private async spawnMonsterWithType(
+    x: number,
+    y: number,
+    biomeId: number,
+    type: string,
+  ): Promise<Monster> {
+    // choose template matching type from centralized table
+    const template = getMonsterTemplate(type);
+    const variance = () => Math.floor(Math.random() * 5) - 2;
+    const strength = Math.max(1, template.strength + variance());
+    const agility = Math.max(1, template.agility + variance());
+    const health = Math.max(1, template.health + variance());
+    const maxHp = template.baseHp + health * 2;
+    return this.prisma.monster.create({
+      data: {
+        name: template.name,
+        type: template.type,
+        hp: maxHp,
+        maxHp,
+        strength,
+        agility,
+        health,
+        x,
+        y,
+        biomeId,
+        isAlive: true,
+      },
+    });
   }
 }

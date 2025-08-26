@@ -1,27 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { getPrismaClient } from '@mud/database';
-import { MonsterService } from '../monster/monster.service';
+import { MONSTER_ENGINE } from '../monster/monster.engine';
+import type { IMonsterEngine } from '../monster/monster.engine';
 import { CombatService } from '../combat/combat.service';
 import { PlayerService } from '../player/player.service';
-
-export interface TickResult {
-  tick: number;
-  gameHour: number;
-  gameDay: number;
-  monstersSpawned: number;
-  monstersMoved: number;
-  combatEvents: number;
-  weatherUpdated: boolean;
-}
+import { PopulationService } from '../monster/population.service';
+import { TickResult } from '../graphql';
 
 @Injectable()
 export class GameTickService {
   private prisma = getPrismaClient();
+  private logger = new Logger(GameTickService.name);
 
   constructor(
-    private monsterService: MonsterService,
+    @Inject(MONSTER_ENGINE) private monsterService: IMonsterEngine,
     private combatService: CombatService,
-    private playerService: PlayerService
+    private playerService: PlayerService,
+    private populationService: PopulationService,
   ) {}
 
   async processTick(): Promise<TickResult> {
@@ -61,18 +56,33 @@ export class GameTickService {
     let combatEvents = 0;
     let weatherUpdated = false;
 
-    // Spawn monsters (5% chance per tick)
-    if (Math.random() < 0.05) {
+    // Enforce biome density around active players (deterministic cap per tick)
+    {
       const players = await this.playerService.getAllPlayers();
       for (const player of players) {
-        if (player.isAlive && Math.random() < 0.3) {
-          // 30% chance per active player
-          const monsters = await this.monsterService.spawnMonstersInArea(
+        if (!player.isAlive) continue;
+        // Try to spawn up to N monsters to approach target densities in the area
+        const { spawned, report } =
+          await this.populationService.enforceDensityAround(
             player.x,
             player.y,
-            10
+            12, // radius to consider
+            6, // max spawns per player per tick
           );
-          monstersSpawned += monsters.length;
+        monstersSpawned += spawned;
+        if (report.length) {
+          const lines = report
+            .filter((r) => r.spawned > 0 || r.deficit > 0)
+            .map(
+              (r) =>
+                `${r.biome}: tiles=${r.tiles} target=${r.targetCount} current=${r.current} deficit=${r.deficit} spawned=${r.spawned}`,
+            )
+            .join(' | ');
+          if (lines) {
+            this.logger.debug(
+              `Density around (${player.x},${player.y}) -> ${lines}`,
+            );
+          }
         }
       }
     }
@@ -91,7 +101,7 @@ export class GameTickService {
     for (const monster of monsters) {
       const playersAtLocation = await this.playerService.getPlayersAtLocation(
         monster.x,
-        monster.y
+        monster.y,
       );
       for (const player of playersAtLocation) {
         if (player.isAlive && Math.random() < 0.2) {
@@ -99,14 +109,14 @@ export class GameTickService {
           try {
             await this.combatService.monsterAttackPlayer(
               monster.id,
-              player.slackId
+              player.slackId,
             );
             combatEvents++;
           } catch (error) {
             // Monster or player might have died or moved
             console.log(
               'Combat failed:',
-              error instanceof Error ? error.message : 'Unknown error'
+              error instanceof Error ? error.message : 'Unknown error',
             );
           }
         }
@@ -151,7 +161,7 @@ export class GameTickService {
     const pressureChange = Math.floor(Math.random() * 20) - 10; // -10 to +10
     const newPressure = Math.max(
       980,
-      Math.min(1040, weather.pressure + pressureChange)
+      Math.min(1040, weather.pressure + pressureChange),
     );
 
     let newState = weather.state;

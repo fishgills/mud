@@ -6,6 +6,7 @@ import type {
   VisibleSettlement,
 } from './look-view-types';
 import { LookViewData, NearbyPlayerInfo } from '../types/response.types';
+import { Monster } from '@mud/database';
 
 @Injectable()
 export class ResponseService {
@@ -21,6 +22,7 @@ export class ResponseService {
     currentSettlement: any,
     description: string,
     nearbyPlayers: NearbyPlayerInfo[],
+    monsters: Monster[],
   ): LookViewData {
     return {
       location: {
@@ -37,6 +39,7 @@ export class ResponseService {
       biomeSummary,
       visiblePeaks,
       visibleSettlements,
+      monsters,
       currentSettlement: currentSettlement
         ? {
             name: currentSettlement.name,

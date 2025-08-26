@@ -18,6 +18,14 @@ export const lookHandler = async ({ userId, say }: HandlerContext) => {
     }
     // Send the panoramic description as the primary message
     await say({ text: res.getLookView.data.description });
+
+    const monsters = res.getLookView.data.monsters;
+    if (monsters && monsters.length > 0) {
+      await say({ text: `You see the following monsters:` });
+      for (const monster of monsters) {
+        await say({ text: `- ${monster.name}` });
+      }
+    }
     await sendDebugJson(say, res.getLookView.data);
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(
