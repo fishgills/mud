@@ -2,6 +2,14 @@ mutation MovePlayer($slackId: String!, $input: MovePlayerInput!) {
   movePlayer(slackId: $slackId, input: $input) {
     success
     message
+    monsters {
+      name
+      id
+    }
+    playersAtLocation {
+      name
+      level
+    }
     player {
       x
       y
@@ -94,15 +102,6 @@ query GetPlayerWithLocation($slackId: String!) {
         isAlive
       }
     }
-  }
-}
-
-query getMonsterAtLocation($x: Float!, $y: Float!) {
-  getMonstersAtLocation(x: $x, y: $y) {
-    id
-    name
-    hp
-    isAlive
   }
 }
 

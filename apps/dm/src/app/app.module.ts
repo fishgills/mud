@@ -5,17 +5,11 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PlayerService } from './player/player.service';
 import { MonsterService } from './monster/monster.service';
-import { MONSTER_ENGINE } from './monster/monster.engine';
 import { CombatService } from './combat/combat.service';
 import { GameTickService } from './game-tick/game-tick.service';
 import { WorldService } from './world/world.service';
 import { OpenaiModule } from '../openai/openai.module';
-import {
-  PlayerResolver,
-  SystemResolver,
-  MovementResolver,
-  LookViewDataResolver,
-} from './graphql';
+import { PlayerResolver, SystemResolver, MovementResolver } from './graphql';
 import { CoordinationService } from '../shared/coordination.service';
 import {
   VisibilityService,
@@ -40,14 +34,12 @@ import { PopulationService } from './monster/population.service';
     AppService,
     PlayerService,
     MonsterService,
-    { provide: MONSTER_ENGINE, useExisting: MonsterService },
     CombatService,
     GameTickService,
     WorldService,
     CoordinationService,
     PlayerResolver,
     MovementResolver,
-    LookViewDataResolver,
     SystemResolver,
     VisibilityService,
     PeakService,

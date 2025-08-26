@@ -1,11 +1,10 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { getPrismaClient } from '@mud/database';
-import { MONSTER_ENGINE } from '../monster/monster.engine';
-import type { IMonsterEngine } from '../monster/monster.engine';
 import { CombatService } from '../combat/combat.service';
 import { PlayerService } from '../player/player.service';
 import { PopulationService } from '../monster/population.service';
 import { TickResult } from '../graphql';
+import { MonsterService } from '../monster/monster.service';
 
 @Injectable()
 export class GameTickService {
@@ -13,10 +12,10 @@ export class GameTickService {
   private logger = new Logger(GameTickService.name);
 
   constructor(
-    @Inject(MONSTER_ENGINE) private monsterService: IMonsterEngine,
     private combatService: CombatService,
     private playerService: PlayerService,
     private populationService: PopulationService,
+    private monsterService: MonsterService,
   ) {}
 
   async processTick(): Promise<TickResult> {

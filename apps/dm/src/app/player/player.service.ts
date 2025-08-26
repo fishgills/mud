@@ -72,7 +72,6 @@ export class PlayerService {
 
   async movePlayer(slackId: string, moveDto: MovePlayerDto): Promise<Player> {
     const player = await this.getPlayer(slackId);
-
     let newX = player.x;
     let newY = player.y;
 
@@ -202,12 +201,17 @@ export class PlayerService {
     });
   }
 
-  async getPlayersAtLocation(x: number, y: number): Promise<Player[]> {
+  async getPlayersAtLocation(
+    x: number,
+    y: number,
+    excludeSlackId?: string,
+  ): Promise<Player[]> {
     return this.prisma.player.findMany({
       where: {
         x,
         y,
         isAlive: true,
+        ...(excludeSlackId ? { slackId: { not: excludeSlackId } } : {}),
       },
     });
   }

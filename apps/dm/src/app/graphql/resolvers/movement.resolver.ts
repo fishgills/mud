@@ -1,36 +1,19 @@
-import {
-  Resolver,
-  Query,
-  Mutation,
-  Args,
-  ResolveField,
-  Parent,
-  Float,
-} from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { Logger } from '@nestjs/common';
 import { PlayerService } from '../../player/player.service';
 import { WorldService } from '../../world/world.service';
-import {
-  PlayerMoveResponse,
-  LookViewResponse,
-  LookViewData,
-  BiomeSectorSummary,
-  VisiblePeakInfo,
-  VisibleSettlementInfo,
-  CurrentSettlementInfo,
-  NearbyPlayerInfo,
-} from '../types/response.types';
-import { TileInfo } from '../models/tile-info.model';
-import { Monster as GqlMonster } from '../models/monster.model';
+import { PlayerMoveResponse, LookViewResponse } from '../types/response.types';
 import { MovePlayerInput } from '../inputs/player.input';
 import {
   TimingMetrics,
   VisibilityService,
-  DescriptionService,
   PeakService,
   BiomeService,
   SettlementService,
+  DescriptionService,
+  ResponseService,
 } from '../services';
+import { MonsterService } from '../../monster/monster.service';
 
 @Resolver()
 export class MovementResolver {
@@ -40,6 +23,12 @@ export class MovementResolver {
     private playerService: PlayerService,
     private worldService: WorldService,
     private visibilityService: VisibilityService,
+    private peakService: PeakService,
+    private biomeService: BiomeService,
+    private settlementService: SettlementService,
+    private descriptionService: DescriptionService,
+    private responseService: ResponseService,
+    private monsterService: MonsterService,
   ) {}
 
   @Mutation(() => PlayerMoveResponse)
@@ -49,12 +38,13 @@ export class MovementResolver {
   ): Promise<PlayerMoveResponse> {
     try {
       const player = await this.playerService.movePlayer(slackId, input);
-      const [playersAtLocation] = await Promise.all([
-        this.playerService.getPlayersAtLocation(player.x, player.y),
+      const [monsters, playersAtLocation] = await Promise.all([
+        this.monsterService.getMonstersAtLocation(player.x, player.y),
+        this.playerService.getPlayersAtLocation(player.x, player.y, slackId),
       ]);
 
       this.logger.debug(`Moved to (${player.x}, ${player.y})`);
-      return { success: true, player, monsters: [], playersAtLocation };
+      return { success: true, player, monsters, playersAtLocation };
     } catch (error) {
       return {
         success: false,
@@ -118,18 +108,73 @@ export class MovementResolver {
       const visibilityRadius =
         this.visibilityService.calculateVisibilityRadius(centerTile);
 
-      // Assemble a parent object for field resolvers to use (not part of the GraphQL schema)
-      const data: any = {
-        // Internal context for @ResolveField methods
-        _ctx: {
-          slackId,
+      // Process tile data within visibility bounds
+      const { tiles, extTiles } = await this.visibilityService.processTileData(
+        player,
+        visibilityRadius,
+        timing,
+      );
+
+      // Process visible peaks
+      const visiblePeaks = this.peakService.processVisiblePeaks(
+        player,
+        visibilityRadius,
+        extTiles,
+        timing,
+      );
+
+      // Generate biome summary
+      const biomeSummary = this.biomeService.generateBiomeSummary(
+        player,
+        tiles,
+        timing,
+      );
+
+      // Get NearbyPlayers
+      const nearbyPlayers = await this.playerService.getNearbyPlayers(
+        player.x,
+        player.y,
+        slackId,
+      );
+      // Process visible settlements
+      const visibleSettlements =
+        this.settlementService.processVisibleSettlements(
           player,
-          centerWithNearby,
-          centerTile,
           visibilityRadius,
+          centerWithNearby,
           timing,
-        },
-      };
+        );
+
+      const monsters = await this.monsterService.getMonstersAtLocation(
+        player.x,
+        player.y,
+      );
+
+      // Generate description (AI-enhanced or fallback)
+      const currentSettlement = centerWithNearby?.currentSettlement;
+      const description = await this.descriptionService.generateAiDescription(
+        centerTile,
+        visibilityRadius,
+        biomeSummary,
+        visiblePeaks,
+        visibleSettlements,
+        currentSettlement,
+        timing,
+        nearbyPlayers,
+      );
+
+      // Build response data
+      const responseData = this.responseService.buildResponseData(
+        centerTile,
+        visibilityRadius,
+        biomeSummary,
+        visiblePeaks,
+        visibleSettlements,
+        currentSettlement,
+        description,
+        nearbyPlayers,
+        monsters,
+      );
 
       const totalMs = Date.now() - t0;
       this.logger.debug(
@@ -138,7 +183,7 @@ export class MovementResolver {
 
       return {
         success: true,
-        data,
+        data: responseData,
       };
     } catch (error) {
       return {
@@ -147,156 +192,5 @@ export class MovementResolver {
           error instanceof Error ? error.message : 'Failed to build look view',
       };
     }
-  }
-}
-
-// Field resolvers for LookViewData
-@Resolver(() => LookViewData)
-export class LookViewDataResolver {
-  constructor(
-    private descriptionService: DescriptionService,
-    private visibilityService: VisibilityService,
-    private peakService: PeakService,
-    private biomeService: BiomeService,
-    private settlementService: SettlementService,
-    private playerService: PlayerService,
-  ) {}
-
-  @ResolveField(() => TileInfo, { name: 'location' })
-  async location(@Parent() parent: any) {
-    const ctx = parent._ctx;
-    const tile = ctx.centerTile;
-    return {
-      x: tile.x,
-      y: tile.y,
-      biomeName: tile.biomeName,
-      description: tile.description || '',
-      height: tile.height,
-      temperature: tile.temperature,
-      moisture: tile.moisture,
-    };
-  }
-
-  @ResolveField(() => Float)
-  visibilityRadius(@Parent() parent: any) {
-    return parent._ctx.visibilityRadius;
-  }
-
-  @ResolveField(() => [BiomeSectorSummary])
-  biomeSummary(@Parent() parent: any) {
-    const memo = (parent._memo ||= {});
-    if (!memo.biomeSummary) {
-      const { player, timing } = parent._ctx;
-      const tiles = this.visibilityService.processTileData(
-        player,
-        parent._ctx.visibilityRadius,
-        timing,
-      );
-      // processTileData can be async; support both
-      memo.biomeSummary = Promise.resolve(tiles).then(({ tiles }) =>
-        this.biomeService.generateBiomeSummary(player, tiles, timing),
-      );
-    }
-    return memo.biomeSummary;
-  }
-
-  @ResolveField(() => [VisiblePeakInfo])
-  visiblePeaks(@Parent() parent: any) {
-    const memo = (parent._memo ||= {});
-    if (!memo.visiblePeaks) {
-      const { player, timing } = parent._ctx;
-      const tilesP = this.visibilityService.processTileData(
-        player,
-        parent._ctx.visibilityRadius,
-        timing,
-      );
-      memo.visiblePeaks = Promise.resolve(tilesP).then(({ extTiles }) =>
-        this.peakService.processVisiblePeaks(
-          player,
-          parent._ctx.visibilityRadius,
-          extTiles,
-          timing,
-        ),
-      );
-    }
-    return memo.visiblePeaks;
-  }
-
-  @ResolveField(() => [VisibleSettlementInfo])
-  visibleSettlements(@Parent() parent: any) {
-    const memo = (parent._memo ||= {});
-    if (!memo.visibleSettlements) {
-      const { player, timing } = parent._ctx;
-      const centerWithNearby = parent._ctx.centerWithNearby;
-      memo.visibleSettlements =
-        this.settlementService.processVisibleSettlements(
-          player,
-          parent._ctx.visibilityRadius,
-          centerWithNearby,
-          timing,
-        );
-    }
-    return memo.visibleSettlements;
-  }
-
-  @ResolveField(() => CurrentSettlementInfo, { nullable: true })
-  currentSettlement(@Parent() parent: any) {
-    const current = parent._ctx.centerWithNearby?.currentSettlement;
-    if (!current) return undefined;
-    return {
-      name: current.name,
-      type: current.type,
-      size: current.size,
-      intensity: current.intensity,
-      isCenter: current.isCenter,
-    };
-  }
-
-  @ResolveField(() => [NearbyPlayerInfo], { nullable: true })
-  nearbyPlayers(@Parent() parent: any) {
-    const memo = (parent._memo ||= {});
-    if (!memo.nearbyPlayers) {
-      const { player } = parent._ctx;
-      memo.nearbyPlayers = this.playerService.getNearbyPlayers(
-        player.x,
-        player.y,
-        parent._ctx.slackId,
-      );
-    }
-    return memo.nearbyPlayers;
-  }
-
-  @ResolveField(() => Boolean)
-  inSettlement(@Parent() parent: any) {
-    const current = parent._ctx.centerWithNearby?.currentSettlement;
-    return Boolean(current && current.intensity > 0);
-  }
-
-  @ResolveField(() => String)
-  async description(@Parent() parent: any) {
-    const ctx = parent._ctx;
-    const currentSettlement = ctx.centerWithNearby?.currentSettlement;
-    const [biomeSummary, visiblePeaks, visibleSettlements, nearbyPlayers] =
-      await Promise.all([
-        this.biomeSummary(parent),
-        this.visiblePeaks(parent),
-        this.visibleSettlements(parent),
-        this.nearbyPlayers(parent),
-      ]);
-    return this.descriptionService.generateAiDescription(
-      ctx.centerTile,
-      ctx.visibilityRadius,
-      biomeSummary,
-      visiblePeaks,
-      visibleSettlements,
-      currentSettlement,
-      ctx.timing,
-      nearbyPlayers,
-    );
-  }
-
-  @ResolveField(() => [GqlMonster], { nullable: true, name: 'monsters' })
-  monsters(@Parent() parent: any) {
-    return parent._ctx.monsters ?? [];
   }
 }

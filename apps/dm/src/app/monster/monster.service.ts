@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { getPrismaClient, Monster } from '@mud/database';
 import { WorldService } from '../world/world.service';
 import {

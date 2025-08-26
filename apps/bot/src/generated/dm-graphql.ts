@@ -280,7 +280,9 @@ export type Player = {
 export type PlayerMoveResponse = {
   __typename?: 'PlayerMoveResponse';
   message?: Maybe<Scalars['String']['output']>;
+  monsters: Array<Monster>;
   player: Player;
+  playersAtLocation: Array<Player>;
   result?: Maybe<TickResult>;
   success: Scalars['Boolean']['output'];
 };
@@ -418,7 +420,7 @@ export type MovePlayerMutationVariables = Exact<{
 }>;
 
 
-export type MovePlayerMutation = { __typename?: 'Mutation', movePlayer: { __typename?: 'PlayerMoveResponse', success: boolean, message?: string | null, player: { __typename?: 'Player', x: number, y: number } } };
+export type MovePlayerMutation = { __typename?: 'Mutation', movePlayer: { __typename?: 'PlayerMoveResponse', success: boolean, message?: string | null, monsters: Array<{ __typename?: 'Monster', name: string, id: string }>, playersAtLocation: Array<{ __typename?: 'Player', name: string, level: number }>, player: { __typename?: 'Player', x: number, y: number } } };
 
 export type AttackMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -441,14 +443,6 @@ export type GetPlayerWithLocationQueryVariables = Exact<{
 
 
 export type GetPlayerWithLocationQuery = { __typename?: 'Query', getPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean, nearbyMonsters?: Array<{ __typename?: 'Monster', id: string, name: string, hp: number, isAlive: boolean }> | null, currentTile?: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number } | null, nearbyPlayers?: Array<{ __typename?: 'Player', id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
-
-export type GetMonsterAtLocationQueryVariables = Exact<{
-  x: Scalars['Float']['input'];
-  y: Scalars['Float']['input'];
-}>;
-
-
-export type GetMonsterAtLocationQuery = { __typename?: 'Query', getMonstersAtLocation: Array<{ __typename?: 'Monster', id: string, name: string, hp: number, isAlive: boolean }> };
 
 export type GetLookViewQueryVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -491,6 +485,14 @@ export const MovePlayerDocument = gql`
   movePlayer(slackId: $slackId, input: $input) {
     success
     message
+    monsters {
+      name
+      id
+    }
+    playersAtLocation {
+      name
+      level
+    }
     player {
       x
       y
@@ -586,16 +588,6 @@ export const GetPlayerWithLocationDocument = gql`
         isAlive
       }
     }
-  }
-}
-    `;
-export const GetMonsterAtLocationDocument = gql`
-    query getMonsterAtLocation($x: Float!, $y: Float!) {
-  getMonstersAtLocation(x: $x, y: $y) {
-    id
-    name
-    hp
-    isAlive
   }
 }
     `;
@@ -744,9 +736,6 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     GetPlayerWithLocation(variables: GetPlayerWithLocationQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetPlayerWithLocationQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<GetPlayerWithLocationQuery>({ document: GetPlayerWithLocationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetPlayerWithLocation', 'query', variables);
-    },
-    getMonsterAtLocation(variables: GetMonsterAtLocationQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetMonsterAtLocationQuery> {
-      return withWrapper((wrappedRequestHeaders) => client.request<GetMonsterAtLocationQuery>({ document: GetMonsterAtLocationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'getMonsterAtLocation', 'query', variables);
     },
     GetLookView(variables: GetLookViewQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetLookViewQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<GetLookViewQuery>({ document: GetLookViewDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetLookView', 'query', variables);
