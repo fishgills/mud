@@ -14,3 +14,4 @@ export * from './types/response.types';
 export * from './resolvers/player.resolver';
 export * from './resolvers/system.resolver';
 export * from './resolvers/movement.resolver';
+export * from './resolvers/movement.resolver';

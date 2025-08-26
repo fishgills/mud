@@ -173,6 +173,8 @@ type PlayerMoveResponse {
   message: String
   result: TickResult
   player: Player!
+  monsters: [Monster!]!
+  playersAtLocation: [Player!]!
 }
 
 type BiomeSectorSummary {

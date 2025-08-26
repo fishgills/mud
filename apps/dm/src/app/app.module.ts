@@ -10,7 +10,12 @@ import { CombatService } from './combat/combat.service';
 import { GameTickService } from './game-tick/game-tick.service';
 import { WorldService } from './world/world.service';
 import { OpenaiModule } from '../openai/openai.module';
-import { PlayerResolver, SystemResolver, MovementResolver } from './graphql';
+import {
+  PlayerResolver,
+  SystemResolver,
+  MovementResolver,
+  LookViewDataResolver,
+} from './graphql';
 import { CoordinationService } from '../shared/coordination.service';
 import {
   VisibilityService,
@@ -42,6 +47,7 @@ import { PopulationService } from './monster/population.service';
     CoordinationService,
     PlayerResolver,
     MovementResolver,
+    LookViewDataResolver,
     SystemResolver,
     VisibilityService,
     PeakService,
