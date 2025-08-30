@@ -361,7 +361,7 @@ resource "google_cloud_run_v2_service_iam_binding" "internal_invoker" {
   name     = google_cloud_run_v2_service.services[each.key].name
   location = google_cloud_run_v2_service.services[each.key].location
   role     = "roles/run.invoker"
-  members  = [
+  members = [
     "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
   ]
 }

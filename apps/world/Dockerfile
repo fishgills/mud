@@ -6,8 +6,8 @@ WORKDIR /workspace
 # Install build tools and headers for node-canvas
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    build-essential python3 pkg-config \
-    libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
+  build-essential python3 pkg-config \
+  libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
@@ -38,7 +38,7 @@ WORKDIR /app
 ## Install runtime libs required by node-canvas and wget for healthcheck
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    libcairo2 libpango-1.0-0 libjpeg62-turbo libgif7 librsvg2-2 wget ca-certificates \
+  libcairo2 libpango-1.0-0 libjpeg62-turbo libgif7 librsvg2-2 wget ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 # Bring in node_modules (built in builder with native bindings)
