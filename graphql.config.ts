@@ -6,7 +6,7 @@ export default {
   projects: {
     bot: {
       schema: ['world-schema.gql', 'dm-schema.gql'],
-      documents: ['apps/bot/src/graphql/*.graphql'],
+      documents: ['apps/slack-bot/src/graphql/*.graphql'],
       extensions: {
         endpoints: {
           default: {

@@ -37,6 +37,7 @@ export GCP_BILLING_ACCOUNT="your-billing-account-id"
 ```
 
 This script will:
+
 - Create/configure the GCP project
 - Enable required APIs
 - Create Artifact Registry
@@ -82,6 +83,7 @@ image_version = "latest"
 ```
 
 This script will:
+
 - Build all NestJS applications
 - Create Docker images
 - Push images to Artifact Registry
@@ -99,6 +101,7 @@ terraform output load_balancer_ip
 ```
 
 Add these DNS records to your domain:
+
 - `A` record: `dm.yourdomain.com` → Load Balancer IP
 - `A` record: `world.yourdomain.com` → Load Balancer IP
 
@@ -151,30 +154,35 @@ nx serve dm
 Each service uses environment variables for configuration. Key variables:
 
 **DM Service**:
+
 - `DATABASE_URL`: PostgreSQL connection string
 - `REDIS_URL`: Redis connection string
 - `OPENAI_API_KEY`: OpenAI API key
 - `WORLD_SERVICE_URL`: Internal URL to world service
 
 **World Service**:
+
 - `DATABASE_URL`: PostgreSQL connection string
 - `REDIS_URL`: Redis connection string
 
 **Bot Service**:
+
 - `SLACK_BOT_TOKEN`: Slack bot token
 - `SLACK_APP_TOKEN`: Slack app token
 - `DM_SERVICE_URL`: Internal URL to DM service
 
 **Tick Service**:
+
 - `DM_SERVICE_URL`: Internal URL to DM service
 - `WORLD_SERVICE_URL`: Internal URL to world service
 
 ### Service Communication
 
 Services communicate internally using Cloud Run's private networking:
+
 - DM Service: `https://dm-service-hash.a.run.app`
 - World Service: `https://world-service-hash.a.run.app`
-- Bot Service: `https://bot-service-hash.a.run.app`
+- Bot Service: `https://slack-bot-service-hash.a.run.app`
 - Tick Service: `https://tick-service-hash.a.run.app`
 
 External access is only available for DM and World services through the load balancer.
@@ -269,6 +277,7 @@ terraform destroy
 ## Support
 
 For issues with deployment or configuration, check:
+
 1. Cloud Console logs
 2. Terraform output
 3. Service health checks

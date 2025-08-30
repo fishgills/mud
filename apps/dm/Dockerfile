@@ -7,7 +7,7 @@ COPY package*.json ./
 COPY tsconfig*.json ./
 COPY tsconfig.base.json ./
 COPY apps/dm/tsconfig*.json ./apps/dm/
-COPY apps/bot/tsconfig*.json ./apps/bot/
+COPY apps/slack-bot/tsconfig*.json ./apps/slack-bot/
 COPY apps/tick/tsconfig*.json ./apps/tick/
 COPY apps/world/tsconfig*.json ./apps/world/
 COPY libs/database/tsconfig*.json ./libs/database/

@@ -87,7 +87,7 @@ build_and_push_images() {
         # Handle different folder structure for slack-bot
         local dockerfile_path
         if [ "$service" == "slack-bot" ]; then
-            dockerfile_path="apps/bot/Dockerfile"
+            dockerfile_path="apps/slack-bot/Dockerfile"
         else
             dockerfile_path="apps/${service}/Dockerfile"
         fi
