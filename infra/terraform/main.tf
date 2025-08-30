@@ -154,8 +154,8 @@ resource "google_secret_manager_secret" "openai_api_key" {
 }
 
 resource "google_secret_manager_secret_version" "openai_api_key" {
-  count     = var.openai_api_key == null ? 0 : 1
-  secret    = google_secret_manager_secret.openai_api_key.id
+  count       = var.openai_api_key == null ? 0 : 1
+  secret      = google_secret_manager_secret.openai_api_key.id
   secret_data = var.openai_api_key
 }
 
@@ -163,7 +163,7 @@ resource "google_secret_manager_secret_version" "openai_api_key" {
 resource "google_secret_manager_secret_iam_binding" "openai_accessor" {
   secret_id = google_secret_manager_secret.openai_api_key.id
   role      = "roles/secretmanager.secretAccessor"
-  members   = [
+  members = [
     "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
   ]
 }
@@ -214,7 +214,7 @@ resource "google_secret_manager_secret_version" "slack_app_token" {
 resource "google_secret_manager_secret_iam_binding" "slack_bot_token_accessor" {
   secret_id = google_secret_manager_secret.slack_bot_token.id
   role      = "roles/secretmanager.secretAccessor"
-  members   = [
+  members = [
     "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
   ]
 }
@@ -222,7 +222,7 @@ resource "google_secret_manager_secret_iam_binding" "slack_bot_token_accessor" {
 resource "google_secret_manager_secret_iam_binding" "slack_signing_secret_accessor" {
   secret_id = google_secret_manager_secret.slack_signing_secret.id
   role      = "roles/secretmanager.secretAccessor"
-  members   = [
+  members = [
     "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
   ]
 }
@@ -230,7 +230,7 @@ resource "google_secret_manager_secret_iam_binding" "slack_signing_secret_access
 resource "google_secret_manager_secret_iam_binding" "slack_app_token_accessor" {
   secret_id = google_secret_manager_secret.slack_app_token.id
   role      = "roles/secretmanager.secretAccessor"
-  members   = [
+  members = [
     "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
   ]
 }
@@ -313,9 +313,9 @@ resource "google_cloud_run_v2_service" "services" {
       # Secret-backed env vars for Slack bot
       dynamic "env" {
         for_each = contains(["bot"], each.key) ? {
-          SLACK_BOT_TOKEN     = google_secret_manager_secret.slack_bot_token.name
+          SLACK_BOT_TOKEN      = google_secret_manager_secret.slack_bot_token.name
           SLACK_SIGNING_SECRET = google_secret_manager_secret.slack_signing_secret.name
-          SLACK_APP_TOKEN     = google_secret_manager_secret.slack_app_token.name
+          SLACK_APP_TOKEN      = google_secret_manager_secret.slack_app_token.name
         } : {}
         content {
           name = env.key
