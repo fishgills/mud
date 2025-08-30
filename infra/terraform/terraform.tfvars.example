@@ -1,0 +1,60 @@
+project_id = "battleforge-444008"
+region = "us-central1"
+zone = "us-central1-a"
+domain = "battleforge.app"
+dns_zone_name = "battleforge-app"
+
+# Set this to a secure password for the database
+db_password = "your-secure-database-password-here"
+
+# Adjust resource sizes as needed
+redis_memory_size_gb = 1
+db_tier = "db-f1-micro"
+
+# Service configurations - adjust CPU, memory, and scaling as needed
+services = {
+  dm = {
+    name      = "dm"
+    port      = 3000
+    cpu       = "1000m"
+    memory    = "512Mi"
+    min_scale = 0
+    max_scale = 10
+    env_vars = {
+      NODE_ENV = "production"
+    }
+  }
+  world = {
+    name      = "world"
+    port      = 3001
+    cpu       = "1000m"
+    memory    = "512Mi"
+    min_scale = 0
+    max_scale = 10
+    env_vars = {
+      NODE_ENV = "production"
+    }
+  }
+  bot = {
+    name      = "bot"
+    port      = 3002
+    cpu       = "500m"
+    memory    = "256Mi"
+    min_scale = 0
+    max_scale = 5
+    env_vars = {
+      NODE_ENV = "production"
+    }
+  }
+  tick = {
+    name      = "tick"
+    port      = 3003
+    cpu       = "500m"
+    memory    = "256Mi"
+    min_scale = 0
+    max_scale = 3
+    env_vars = {
+      NODE_ENV = "production"
+    }
+  }
+}
