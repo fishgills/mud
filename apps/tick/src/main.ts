@@ -1,4 +1,5 @@
 import axios from 'axios';
+import http from 'http';
 
 // DM GraphQL endpoint for processTick mutation
 const DM_GRAPHQL_URL =
@@ -44,17 +45,39 @@ async function sendProcessTick() {
   }
 }
 
-// Start loop
+// Start loop and lightweight HTTP server for Cloud Run health/readiness
 console.log('[tick] service starting — targeting DM at', DM_GRAPHQL_URL);
 // Kick one immediately on startup (optional)
 sendProcessTick().catch(() => void 0);
 // Then every 30 seconds
 const interval: NodeJS.Timeout = setInterval(sendProcessTick, 30 * 1000);
 
+// Minimal HTTP server to satisfy Cloud Run's requirement to listen on $PORT
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3003;
+const server = http.createServer((req, res) => {
+  if (!req.url) {
+    res.statusCode = 400;
+    res.end('Bad Request');
+    return;
+  }
+  if (req.url === '/' || req.url.startsWith('/health')) {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+  res.statusCode = 404;
+  res.end('Not Found');
+});
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`[tick] HTTP health server listening on 0.0.0.0:${PORT}`);
+});
+
 // Graceful shutdown
 function cleanup(code?: number) {
   try {
     clearInterval(interval);
+    server.close();
   } finally {
     if (typeof code === 'number') process.exit(code);
   }

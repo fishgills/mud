@@ -56,6 +56,9 @@ variable "services" {
     min_scale = number
     max_scale = number
     env_vars  = map(string)
+    # Optional flags
+    internal = optional(bool)
+    enabled  = optional(bool)
   }))
   default = {
     dm = {
@@ -66,6 +69,7 @@ variable "services" {
       min_scale = 0
       max_scale = 10
       internal  = true # Internal service, no external access
+      enabled   = true
       env_vars = {
         NODE_ENV = "production"
       }
@@ -78,6 +82,7 @@ variable "services" {
       min_scale = 0
       max_scale = 10
       internal  = true # Internal service, no external access
+      enabled   = true
       env_vars = {
         NODE_ENV = "production"
       }
@@ -90,6 +95,7 @@ variable "services" {
       min_scale = 0
       max_scale = 5
       internal  = false # External service, accessible from internet
+      enabled   = true
       env_vars = {
         NODE_ENV = "production"
       }
@@ -102,11 +108,24 @@ variable "services" {
       min_scale = 0
       max_scale = 3
       internal  = true # Internal service, no external access
+      enabled   = true
       env_vars = {
         NODE_ENV = "production"
       }
     }
   }
+}
+
+variable "image_name_overrides" {
+  description = "Optional overrides for the container image name per service key (e.g., bot -> slack-bot)."
+  type        = map(string)
+  default     = {}
+}
+
+variable "dns_skip" {
+  description = "List of service keys to skip managing DNS A records for (useful if a CNAME already exists)."
+  type        = set(string)
+  default     = []
 }
 
 variable "image_version" {

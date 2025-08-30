@@ -23,9 +23,15 @@ locals {
   # All services
   all_services = var.services
 
+  # Only enabled services
+  enabled_services = {
+    for k, v in var.services : k => v
+    if try(v.enabled, true)
+  }
+
   # Only external services (exclude internal ones)
   external_services = {
-    for k, v in var.services : k => v
+    for k, v in local.enabled_services : k => v
     if !try(v.internal, false)
   }
 }
@@ -137,7 +143,7 @@ data "google_artifact_registry_repository" "repo" {
 
 # Cloud Run services
 resource "google_cloud_run_v2_service" "services" {
-  for_each = var.services
+  for_each = local.enabled_services
 
   name     = "mud-${each.value.name}"
   location = var.region
@@ -154,17 +160,32 @@ resource "google_cloud_run_v2_service" "services" {
     }
 
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/${data.google_artifact_registry_repository.repo.repository_id}/${each.value.name}:${var.image_version}"
+      # Compute the image name, allowing an override when provided
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/${data.google_artifact_registry_repository.repo.repository_id}/${lookup(var.image_name_overrides, each.key, each.value.name)}:${var.image_version}"
 
       ports {
         container_port = each.value.port
       }
 
       resources {
+        # Allow CPU throttling so <1 CPU (e.g., 500m) is supported
+        cpu_idle = true
         limits = {
           cpu    = each.value.cpu
           memory = each.value.memory
         }
+      }
+
+      # Give containers ample time to start and begin listening on the port
+      # This helps services that initialize DB connections or other dependencies on startup
+      startup_probe {
+        tcp_socket {
+          port = each.value.port
+        }
+        initial_delay_seconds = 0
+        period_seconds        = 10
+        timeout_seconds       = 300
+        failure_threshold     = 30
       }
 
       dynamic "env" {
@@ -218,8 +239,9 @@ resource "google_compute_global_address" "default" {
 
 # URL Map
 resource "google_compute_url_map" "default" {
-  name            = "mud-url-map"
-  default_service = google_compute_backend_service.services["dm"].id
+  name = "mud-url-map"
+  # Choose the first external service as default if available, else fall back to dm if present
+  default_service = length(keys(google_compute_backend_service.services)) > 0 ? google_compute_backend_service.services[one(keys(google_compute_backend_service.services))].id : google_compute_backend_service.services["dm"].id
 
   dynamic "host_rule" {
     for_each = local.external_services
@@ -254,7 +276,7 @@ resource "google_compute_backend_service" "services" {
 
 # Network Endpoint Groups for Cloud Run services
 resource "google_compute_region_network_endpoint_group" "services" {
-  for_each = var.services
+  for_each = local.enabled_services
 
   name                  = "mud-${each.value.name}-neg"
   network_endpoint_type = "SERVERLESS"
@@ -307,7 +329,8 @@ resource "google_compute_global_forwarding_rule" "http" {
 
 # DNS records
 resource "google_dns_record_set" "services" {
-  for_each = local.external_services
+  # Skip DNS A record creation for services marked in dns_skip to avoid conflicts with existing CNAMEs
+  for_each = { for k, v in local.external_services : k => v if !contains(var.dns_skip, k) }
 
   name = "${each.value.name}.${data.google_dns_managed_zone.zone.dns_name}"
   type = "A"
