@@ -60,60 +60,6 @@ variable "services" {
     internal = optional(bool)
     enabled  = optional(bool)
   }))
-  default = {
-    dm = {
-      name      = "dm"
-      port      = 3000
-      cpu       = "1000m"
-      memory    = "512Mi"
-      min_scale = 0
-      max_scale = 10
-      internal  = true # Internal service, no external access
-      enabled   = true
-      env_vars = {
-        NODE_ENV = "production"
-      }
-    }
-    world = {
-      name      = "world"
-      port      = 3001
-      cpu       = "1000m"
-      memory    = "512Mi"
-      min_scale = 0
-      max_scale = 10
-      internal  = true # Internal service, no external access
-      enabled   = true
-      env_vars = {
-        NODE_ENV = "production"
-      }
-    }
-    bot = {
-      name      = "slack-bot"
-      port      = 3002
-      cpu       = "1000m"
-      memory    = "256Mi"
-      min_scale = 0
-      max_scale = 5
-      internal  = false # External service, accessible from internet
-      enabled   = true
-      env_vars = {
-        NODE_ENV = "production"
-      }
-    }
-    tick = {
-      name      = "tick"
-      port      = 3003
-      cpu       = "1000m"
-      memory    = "256Mi"
-      min_scale = 0
-      max_scale = 3
-      internal  = true # Internal service, no external access
-      enabled   = true
-      env_vars = {
-        NODE_ENV = "production"
-      }
-    }
-  }
 }
 
 variable "image_name_overrides" {
@@ -132,4 +78,34 @@ variable "image_version" {
   description = "The version tag for Docker images"
   type        = string
   default     = "latest"
+}
+
+# Optional: Provide the OpenAI API key securely via TF_VAR_openai_api_key (recommended)
+variable "openai_api_key" {
+  description = "OpenAI API key secret value (optional). If unset, create the secret without a version and set it manually)."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+# Slack secrets (optional)
+variable "slack_bot_token" {
+  description = "Slack Bot Token (xoxb-...)"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "slack_signing_secret" {
+  description = "Slack Signing Secret"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "slack_app_token" {
+  description = "Slack App Token (xapp-...)"
+  type        = string
+  default     = null
+  sensitive   = true
 }

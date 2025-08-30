@@ -26,13 +26,13 @@ locals {
   # Only enabled services
   enabled_services = {
     for k, v in var.services : k => v
-    if try(v.enabled, true)
+    if try(coalesce(v.enabled, true), true)
   }
 
   # Only external services (exclude internal ones)
   external_services = {
     for k, v in local.enabled_services : k => v
-    if !try(v.internal, false)
+    if !try(coalesce(v.internal, false), false)
   }
 }
 
@@ -141,6 +141,100 @@ data "google_artifact_registry_repository" "repo" {
   location      = var.region
 }
 
+# Project data to obtain project number for default compute service account
+data "google_project" "project" {}
+
+# Secret Manager: OpenAI API key
+resource "google_secret_manager_secret" "openai_api_key" {
+  secret_id = "openai-api-key"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "openai_api_key" {
+  count     = var.openai_api_key == null ? 0 : 1
+  secret    = google_secret_manager_secret.openai_api_key.id
+  secret_data = var.openai_api_key
+}
+
+# Allow Cloud Run's default compute service account to access the secret
+resource "google_secret_manager_secret_iam_binding" "openai_accessor" {
+  secret_id = google_secret_manager_secret.openai_api_key.id
+  role      = "roles/secretmanager.secretAccessor"
+  members   = [
+    "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  ]
+}
+
+# Slack secrets
+resource "google_secret_manager_secret" "slack_bot_token" {
+  secret_id = "slack-bot-token"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret" "slack_signing_secret" {
+  secret_id = "slack-signing-secret"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret" "slack_app_token" {
+  secret_id = "slack-app-token"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "slack_bot_token" {
+  count       = var.slack_bot_token == null ? 0 : 1
+  secret      = google_secret_manager_secret.slack_bot_token.id
+  secret_data = var.slack_bot_token
+}
+
+resource "google_secret_manager_secret_version" "slack_signing_secret" {
+  count       = var.slack_signing_secret == null ? 0 : 1
+  secret      = google_secret_manager_secret.slack_signing_secret.id
+  secret_data = var.slack_signing_secret
+}
+
+resource "google_secret_manager_secret_version" "slack_app_token" {
+  count       = var.slack_app_token == null ? 0 : 1
+  secret      = google_secret_manager_secret.slack_app_token.id
+  secret_data = var.slack_app_token
+}
+
+resource "google_secret_manager_secret_iam_binding" "slack_bot_token_accessor" {
+  secret_id = google_secret_manager_secret.slack_bot_token.id
+  role      = "roles/secretmanager.secretAccessor"
+  members   = [
+    "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  ]
+}
+
+resource "google_secret_manager_secret_iam_binding" "slack_signing_secret_accessor" {
+  secret_id = google_secret_manager_secret.slack_signing_secret.id
+  role      = "roles/secretmanager.secretAccessor"
+  members   = [
+    "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  ]
+}
+
+resource "google_secret_manager_secret_iam_binding" "slack_app_token_accessor" {
+  secret_id = google_secret_manager_secret.slack_app_token.id
+  role      = "roles/secretmanager.secretAccessor"
+  members   = [
+    "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  ]
+}
+
 # Cloud Run services
 resource "google_cloud_run_v2_service" "services" {
   for_each = local.enabled_services
@@ -188,14 +282,49 @@ resource "google_cloud_run_v2_service" "services" {
         failure_threshold     = 30
       }
 
+      # Plain env vars (exclude secret keys such as OPENAI_API_KEY)
       dynamic "env" {
-        for_each = merge(each.value.env_vars, {
-          DATABASE_URL = "postgresql://${google_sql_user.user.name}:${var.db_password}@${google_sql_database_instance.postgres.private_ip_address}:5432/${google_sql_database.database.name}"
-          REDIS_URL    = "redis://${google_redis_instance.redis.host}:${google_redis_instance.redis.port}"
-        })
+        for_each = {
+          for k, v in merge(each.value.env_vars, {
+            DATABASE_URL = "postgresql://${google_sql_user.user.name}:${var.db_password}@${google_sql_database_instance.postgres.private_ip_address}:5432/${google_sql_database.database.name}"
+            REDIS_URL    = "redis://${google_redis_instance.redis.host}:${google_redis_instance.redis.port}"
+          }) : k => v if k != "OPENAI_API_KEY"
+        }
         content {
           name  = env.key
           value = env.value
+        }
+      }
+
+      # Secret-backed env var for dm
+      dynamic "env" {
+        for_each = contains(["dm"], each.key) ? { OPENAI_API_KEY = "from-secret" } : {}
+        content {
+          name = "OPENAI_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.openai_api_key.name
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      # Secret-backed env vars for Slack bot
+      dynamic "env" {
+        for_each = contains(["bot"], each.key) ? {
+          SLACK_BOT_TOKEN     = google_secret_manager_secret.slack_bot_token.name
+          SLACK_SIGNING_SECRET = google_secret_manager_secret.slack_signing_secret.name
+          SLACK_APP_TOKEN     = google_secret_manager_secret.slack_app_token.name
+        } : {}
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
         }
       }
     }
@@ -240,8 +369,8 @@ resource "google_compute_global_address" "default" {
 # URL Map
 resource "google_compute_url_map" "default" {
   name = "mud-url-map"
-  # Choose the first external service as default if available, else fall back to dm if present
-  default_service = length(keys(google_compute_backend_service.services)) > 0 ? google_compute_backend_service.services[one(keys(google_compute_backend_service.services))].id : google_compute_backend_service.services["dm"].id
+  # Use the first available external backend service as the default. Assumes at least one external service exists.
+  default_service = values(google_compute_backend_service.services)[0].id
 
   dynamic "host_rule" {
     for_each = local.external_services

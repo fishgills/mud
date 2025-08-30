@@ -78,7 +78,6 @@ model WorldTile {
   seed        Int // World seed used to generate this tile
   chunkX      Int // Chunk X coordinate (x / 50)
   chunkY      Int // Chunk Y coordinate (y / 50)
-  monsters    Monster[]
   players     Player[]  @relation("PlayerLocation")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -111,8 +110,6 @@ model Monster {
   spawnedAt   DateTime   @default(now())
   biomeId     Int
   biome       Biome      @relation(fields: [biomeId], references: [id])
-  worldTileId Int?
-  worldTile   WorldTile? @relation(fields: [worldTileId], references: [id])
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   // Add more fields as needed (type, loot, etc.)
