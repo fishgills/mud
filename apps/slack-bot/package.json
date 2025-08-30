@@ -13,15 +13,15 @@
         "defaultConfiguration": "production",
         "options": {
           "platform": "node",
-          "outputPath": "apps/bot/dist",
+          "outputPath": "apps/slack-bot/dist",
           "format": [
             "cjs"
           ],
           "bundle": false,
-          "main": "apps/bot/src/main.ts",
-          "tsConfig": "apps/bot/tsconfig.app.json",
+          "main": "apps/slack-bot/src/main.ts",
+          "tsConfig": "apps/slack-bot/tsconfig.app.json",
           "assets": [
-            "apps/bot/src/assets"
+            "apps/slack-bot/src/assets"
           ],
           "esbuildOptions": {
             "sourcemap": true,
@@ -77,22 +77,10 @@
         "dependsOn": [
           "build"
         ],
-        "command": "docker build -f apps/bot/Dockerfile . -t slack-bot"
+        "command": "docker build -f apps/slack-bot/Dockerfile . -t slack-bot"
       }
     }
   },
-  "dependencies": {
-    "@slack/bolt": "^4.4.0",
-    "dotenv": "^16.5.0",
-    "envalid": "^8.0.0",
-    "graphql-request": "^5.1.0"
-  },
-  "devDependencies": {
-    "@graphql-codegen/cli": "^5.0.7",
-    "@graphql-codegen/typescript": "^4.1.6",
-    "@graphql-codegen/typescript-generic-sdk": "^4.0.2",
-    "@graphql-codegen/typescript-graphql-request": "^6.3.0",
-    "@graphql-codegen/typescript-operations": "^4.6.1",
-    "@types/node-fetch": "^2.6.12"
-  }
+  "dependencies": {},
+  "devDependencies": {}
 }

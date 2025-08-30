@@ -12,11 +12,11 @@ WORKDIR /workspace
 COPY package*.json ./
 COPY tsconfig*.json ./
 COPY nx.json ./
-COPY apps/bot ./apps/bot
+COPY apps/slack-bot ./apps/slack-bot
 COPY libs ./libs
 COPY eslint.config.mjs ./
-COPY apps/bot/eslint.config.mjs ./apps/bot/eslint.config.mjs
-COPY apps/bot/tsconfig.* ./apps/bot/
+COPY apps/slack-bot/eslint.config.mjs ./apps/slack-bot/eslint.config.mjs
+COPY apps/slack-bot/tsconfig.* ./apps/slack-bot/
 
 RUN npm ci --ignore-scripts && npm i -D typescript-eslint@^8.34.1
 RUN npx nx build slack-bot
@@ -31,8 +31,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production --ignore-scripts
 
-COPY --from=builder /workspace/apps/bot/dist ./slack-bot
-COPY apps/bot/package.json ./slack-bot/package.json
+COPY --from=builder /workspace/apps/slack-bot/dist ./slack-bot
+COPY apps/slack-bot/package.json ./slack-bot/package.json
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD node -e "console.log('slack-bot ok')" || exit 1

@@ -16,7 +16,7 @@
       "path": "./apps/dm"
     },
     {
-      "path": "./apps/bot"
+      "path": "./apps/slack-bot"
     }
   ]
 }
