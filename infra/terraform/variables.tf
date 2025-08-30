@@ -49,13 +49,13 @@ variable "db_tier" {
 variable "services" {
   description = "Map of service configurations"
   type = map(object({
-    name        = string
-    port        = number
-    cpu         = string
-    memory      = string
-    min_scale   = number
-    max_scale   = number
-    env_vars    = map(string)
+    name      = string
+    port      = number
+    cpu       = string
+    memory    = string
+    min_scale = number
+    max_scale = number
+    env_vars  = map(string)
   }))
   default = {
     dm = {
@@ -65,7 +65,7 @@ variable "services" {
       memory    = "512Mi"
       min_scale = 0
       max_scale = 10
-      internal  = true  # Internal service, no external access
+      internal  = true # Internal service, no external access
       env_vars = {
         NODE_ENV = "production"
       }
@@ -77,7 +77,7 @@ variable "services" {
       memory    = "512Mi"
       min_scale = 0
       max_scale = 10
-      internal  = true  # Internal service, no external access
+      internal  = true # Internal service, no external access
       env_vars = {
         NODE_ENV = "production"
       }
@@ -89,7 +89,7 @@ variable "services" {
       memory    = "256Mi"
       min_scale = 0
       max_scale = 5
-      internal  = false  # External service, accessible from internet
+      internal  = false # External service, accessible from internet
       env_vars = {
         NODE_ENV = "production"
       }
@@ -101,7 +101,7 @@ variable "services" {
       memory    = "256Mi"
       min_scale = 0
       max_scale = 3
-      internal  = true  # Internal service, no external access
+      internal  = true # Internal service, no external access
       env_vars = {
         NODE_ENV = "production"
       }

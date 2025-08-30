@@ -4,22 +4,38 @@
 # Tip: Modify "docker-build" options in project.json to change docker build args.
 #
 # Run the container with `docker run -p 3000:3000 -t slack-bot`.
-FROM docker.io/node:lts-alpine
+## --- Builder stage ---
+FROM node:alpine AS builder
+ENV NX_SKIP_ESLINT_PLUGIN=1
+WORKDIR /workspace
 
+COPY package*.json ./
+COPY tsconfig*.json ./
+COPY nx.json ./
+COPY apps/bot ./apps/bot
+COPY libs ./libs
+COPY eslint.config.mjs ./
+COPY apps/bot/eslint.config.mjs ./apps/bot/eslint.config.mjs
+COPY apps/bot/tsconfig.* ./apps/bot/
+
+RUN npm ci --ignore-scripts && npm i -D typescript-eslint@^8.34.1
+RUN npx nx build slack-bot
+
+## --- Runtime stage ---
+FROM node:alpine AS runtime
 ENV HOST=0.0.0.0
-ENV PORT=3000
-
+ARG PORT=3002
+ENV PORT=$PORT
 WORKDIR /app
 
-RUN addgroup --system slack-bot && \
-          adduser --system -G slack-bot slack-bot
+COPY package*.json ./
+RUN npm ci --only=production --ignore-scripts
 
-COPY apps/bot/dist slack-bot/
-COPY apps/bot/package.json slack-bot/
-RUN chown -R slack-bot:slack-bot .
+COPY --from=builder /workspace/apps/bot/dist ./slack-bot
+COPY apps/bot/package.json ./slack-bot/package.json
 
-# You can remove this install step if you build with `--bundle` option.
-# The bundled output will include external dependencies.
-RUN npm --prefix slack-bot --omit=dev -f install
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node -e "console.log('slack-bot ok')" || exit 1
 
+EXPOSE $PORT
 CMD [ "node", "slack-bot" ]

@@ -64,15 +64,9 @@ configure_docker() {
 
 # Build all services
 build_services() {
-    print_status "Building all services..."
-    
-    # Build all applications
-    nx build dm
-    nx build world
-    nx build slack-bot
-    nx build tick
-    
-    print_status "All services built successfully"
+    print_status "Syncing Nx workspace before Docker builds..."
+    npx nx sync
+    print_status "Nx workspace synced. Skipping local NX build; builds are now handled inside Dockerfiles."
 }
 
 # Build and push Docker images

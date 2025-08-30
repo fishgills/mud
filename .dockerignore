@@ -4,11 +4,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Build outputs
-dist/
-tmp/
-out-tsc/
-.next/
+
 
 # IDE files
 .vscode/
@@ -23,6 +19,13 @@ out-tsc/
 .Spotlight-V100
 .Trashes
 ehthumbs.db
+
+
+# Build outputs (exclude to avoid Nx picking up built apps inside Docker)
+apps/*/dist/
+libs/*/dist/
+**/out-tsc/
+tmp/
 Thumbs.db
 
 # Git
@@ -70,22 +73,14 @@ data/
 test/
 jest.config.*
 
-# Linting
-.eslintrc.*
-eslint.config.*
 
-# Scripts (not needed in container)
-scripts/
 
-# Infrastructure files
-infra/
+
+
 
 # GraphQL codegen
 graphql.config.ts
 codegen.ts
 
-# Nx cache
-.nx/
 
-# Specific to builds - only include what we need
-# We'll copy dist/ and package files specifically in each Dockerfile
+
