@@ -35,6 +35,10 @@ RUN npm ci --only=production --ignore-scripts
 COPY --from=builder /workspace/node_modules/@prisma /app/node_modules/@prisma
 COPY --from=builder /workspace/node_modules/.prisma /app/node_modules/.prisma
 
+# Include the internal @mud/database library so runtime can resolve it
+COPY --from=builder /workspace/libs/database/dist /app/node_modules/@mud/database/dist
+COPY --from=builder /workspace/libs/database/package.json /app/node_modules/@mud/database/package.json
+
 # Copy built app from builder
 COPY --from=builder /workspace/apps/dm/dist ./
 COPY apps/dm/package.json ./app-package.json

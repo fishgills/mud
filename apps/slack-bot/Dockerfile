@@ -38,4 +38,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD node -e "console.log('slack-bot ok')" || exit 1
 
 EXPOSE $PORT
-CMD [ "node", "slack-bot" ]
+# Run the compiled entrypoint
+CMD [ "node", "slack-bot/main.js" ]

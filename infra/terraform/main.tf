@@ -312,7 +312,7 @@ resource "google_cloud_run_v2_service" "services" {
 
       # Secret-backed env vars for Slack bot
       dynamic "env" {
-        for_each = contains(["bot"], each.key) ? {
+        for_each = contains(["slack-bot"], each.key) ? {
           SLACK_BOT_TOKEN      = google_secret_manager_secret.slack_bot_token.name
           SLACK_SIGNING_SECRET = google_secret_manager_secret.slack_signing_secret.name
           SLACK_APP_TOKEN      = google_secret_manager_secret.slack_app_token.name
@@ -325,6 +325,17 @@ resource "google_cloud_run_v2_service" "services" {
               version = "latest"
             }
           }
+        }
+      }
+
+      # Set Slack Bot service endpoints via explicit env vars when provided (avoid intra-resource cycles)
+      dynamic "env" {
+        for_each = contains(["slack-bot"], each.key) ? {
+          for k, v in each.value.env_vars : k => v if contains(["DM_GQL_ENDPOINT", "WORLD_GQL_ENDPOINT", "WORLD_BASE_URL"], k)
+        } : {}
+        content {
+          name  = env.key
+          value = env.value
         }
       }
     }
@@ -341,6 +352,18 @@ resource "google_cloud_run_v2_service_iam_binding" "public" {
   location = google_cloud_run_v2_service.services[each.key].location
   role     = "roles/run.invoker"
   members  = ["allUsers"]
+}
+
+# Allow internal services to be invoked by the default compute SA (used by other services)
+resource "google_cloud_run_v2_service_iam_binding" "internal_invoker" {
+  for_each = { for k, v in local.enabled_services : k => v if try(coalesce(v.internal, false), false) }
+
+  name     = google_cloud_run_v2_service.services[each.key].name
+  location = google_cloud_run_v2_service.services[each.key].location
+  role     = "roles/run.invoker"
+  members  = [
+    "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  ]
 }
 
 # Get existing DNS zone
