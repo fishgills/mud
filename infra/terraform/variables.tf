@@ -80,6 +80,15 @@ variable "image_version" {
   default     = "latest"
 }
 
+# Toggle to enable or disable the external HTTPS Load Balancer stack.
+# When false, all LB-related resources (IP, forwarding rules, proxies, URL maps,
+# backend services, NEGs, and DNS A records) are not created.
+variable "enable_load_balancer" {
+  description = "Enable the external HTTPS Load Balancer (set false when using Cloud Run Domain Mapping only)"
+  type        = bool
+  default     = false
+}
+
 # Optional: Provide the OpenAI API key securely via TF_VAR_openai_api_key (recommended)
 variable "openai_api_key" {
   description = "OpenAI API key secret value (optional). If unset, create the secret without a version and set it manually)."

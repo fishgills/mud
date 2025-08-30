@@ -8,7 +8,7 @@ output "region" {
 }
 
 output "load_balancer_ip" {
-  value = google_compute_global_address.default.address
+  value = var.enable_load_balancer ? google_compute_global_address.default[0].address : null
 }
 
 output "database_connection_name" {

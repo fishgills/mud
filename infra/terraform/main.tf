@@ -373,7 +373,8 @@ data "google_dns_managed_zone" "zone" {
 
 # SSL Certificate
 resource "google_compute_managed_ssl_certificate" "ssl_cert" {
-  name = "mud-ssl-cert"
+  count = var.enable_load_balancer ? 1 : 0
+  name  = "mud-ssl-cert"
 
   managed {
     domains = [
@@ -386,17 +387,19 @@ resource "google_compute_managed_ssl_certificate" "ssl_cert" {
 
 # Global Load Balancer
 resource "google_compute_global_address" "default" {
-  name = "mud-lb-ip"
+  count = var.enable_load_balancer ? 1 : 0
+  name  = "mud-lb-ip"
 }
 
 # URL Map
 resource "google_compute_url_map" "default" {
-  name = "mud-url-map"
+  count = var.enable_load_balancer ? 1 : 0
+  name  = "mud-url-map"
   # Use the first available external backend service as the default. Assumes at least one external service exists.
-  default_service = values(google_compute_backend_service.services)[0].id
+  default_service = var.enable_load_balancer ? values(google_compute_backend_service.services)[0].id : null
 
   dynamic "host_rule" {
-    for_each = local.external_services
+    for_each = var.enable_load_balancer ? local.external_services : {}
     content {
       hosts        = ["${host_rule.value.name}.${var.domain}"]
       path_matcher = "path-matcher-${host_rule.value.name}"
@@ -404,7 +407,7 @@ resource "google_compute_url_map" "default" {
   }
 
   dynamic "path_matcher" {
-    for_each = local.external_services
+    for_each = var.enable_load_balancer ? local.external_services : {}
     content {
       name            = "path-matcher-${path_matcher.value.name}"
       default_service = google_compute_backend_service.services[path_matcher.key].id
@@ -414,7 +417,7 @@ resource "google_compute_url_map" "default" {
 
 # Backend services for Cloud Run (external services only)
 resource "google_compute_backend_service" "services" {
-  for_each = local.external_services
+  for_each = var.enable_load_balancer ? local.external_services : {}
 
   name        = "mud-${each.value.name}-backend"
   protocol    = "HTTP"
@@ -428,7 +431,7 @@ resource "google_compute_backend_service" "services" {
 
 # Network Endpoint Groups for Cloud Run services
 resource "google_compute_region_network_endpoint_group" "services" {
-  for_each = local.enabled_services
+  for_each = var.enable_load_balancer ? local.enabled_services : {}
 
   name                  = "mud-${each.value.name}-neg"
   network_endpoint_type = "SERVERLESS"
@@ -441,16 +444,16 @@ resource "google_compute_region_network_endpoint_group" "services" {
 
 # HTTPS Proxy
 resource "google_compute_target_https_proxy" "default" {
-  name    = "mud-https-proxy"
-  url_map = google_compute_url_map.default.id
-  ssl_certificates = [
-    google_compute_managed_ssl_certificate.ssl_cert.id
-  ]
+  count            = var.enable_load_balancer ? 1 : 0
+  name             = "mud-https-proxy"
+  url_map          = google_compute_url_map.default[0].id
+  ssl_certificates = [google_compute_managed_ssl_certificate.ssl_cert[0].id]
 }
 
 # HTTP to HTTPS redirect
 resource "google_compute_url_map" "https_redirect" {
-  name = "mud-https-redirect"
+  count = var.enable_load_balancer ? 1 : 0
+  name  = "mud-https-redirect"
 
   default_url_redirect {
     https_redirect         = true
@@ -460,29 +463,32 @@ resource "google_compute_url_map" "https_redirect" {
 }
 
 resource "google_compute_target_http_proxy" "https_redirect" {
+  count   = var.enable_load_balancer ? 1 : 0
   name    = "mud-http-proxy"
-  url_map = google_compute_url_map.https_redirect.id
+  url_map = google_compute_url_map.https_redirect[0].id
 }
 
 # Global forwarding rules
 resource "google_compute_global_forwarding_rule" "https" {
+  count      = var.enable_load_balancer ? 1 : 0
   name       = "mud-https-forwarding-rule"
-  target     = google_compute_target_https_proxy.default.id
+  target     = google_compute_target_https_proxy.default[0].id
   port_range = "443"
-  ip_address = google_compute_global_address.default.address
+  ip_address = google_compute_global_address.default[0].address
 }
 
 resource "google_compute_global_forwarding_rule" "http" {
+  count      = var.enable_load_balancer ? 1 : 0
   name       = "mud-http-forwarding-rule"
-  target     = google_compute_target_http_proxy.https_redirect.id
+  target     = google_compute_target_http_proxy.https_redirect[0].id
   port_range = "80"
-  ip_address = google_compute_global_address.default.address
+  ip_address = google_compute_global_address.default[0].address
 }
 
 # DNS records
 resource "google_dns_record_set" "services" {
-  # Skip DNS A record creation for services marked in dns_skip to avoid conflicts with existing CNAMEs
-  for_each = { for k, v in local.external_services : k => v if !contains(var.dns_skip, k) }
+  # Skip DNS A record creation when LB disabled or for services marked in dns_skip
+  for_each = var.enable_load_balancer ? { for k, v in local.external_services : k => v if !contains(var.dns_skip, k) } : {}
 
   name = "${each.value.name}.${data.google_dns_managed_zone.zone.dns_name}"
   type = "A"
@@ -490,5 +496,39 @@ resource "google_dns_record_set" "services" {
 
   managed_zone = data.google_dns_managed_zone.zone.name
 
-  rrdatas = [google_compute_global_address.default.address]
+  rrdatas = [google_compute_global_address.default[0].address]
+}
+
+###############################################
+# Cloud Run Domain Mapping (public service only)
+###############################################
+
+# Map slack-bot.battleforge.app directly to the Cloud Run service
+resource "google_cloud_run_domain_mapping" "slack_bot" {
+  location = var.region
+  name     = "slack-bot.${var.domain}"
+
+  metadata {
+    namespace = var.project_id
+  }
+
+  spec {
+    # Cloud Run service name (v2 resource name is same string)
+    route_name = google_cloud_run_v2_service.services["slack-bot"].name
+  }
+
+  depends_on = [
+    google_cloud_run_v2_service.services
+  ]
+}
+
+# Create the DNS CNAME record as returned by the domain mapping
+resource "google_dns_record_set" "slack_bot_domain_mapping" {
+  managed_zone = data.google_dns_managed_zone.zone.name
+  name         = "${google_cloud_run_domain_mapping.slack_bot.name}."
+  type         = "CNAME"
+  ttl          = 300
+
+  # Domain mapping returns the canonical rrdata value for this subdomain
+  rrdatas = [google_cloud_run_domain_mapping.slack_bot.status[0].resource_records[0].rrdata]
 }
