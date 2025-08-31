@@ -168,14 +168,15 @@ run_migrations() {
         chmod +x ./scripts/cloud-sql-proxy
     fi
 
-    ./scripts/cloud-sql-proxy --address=127.0.0.1 --port=${DB_PORT} --private-ip ${CONNECTION_NAME} &
+    ./scripts/cloud-sql-proxy --address=127.0.0.1 --port=${DB_PORT} ${CONNECTION_NAME} &
     PROXY_PID=$!
     sleep 5 # Wait for proxy to start
 
     # Set DATABASE_URL for Prisma
-    export DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}?schema=public"
+    export DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}?schema=public&sslmode=disable&connect_timeout=60"
 
     print_status "Running Prisma migrations..."
+    print_status "Using DATABASE_URL: ${DATABASE_URL}"
     npx prisma migrate deploy --schema=libs/database/prisma/schema.prisma
     MIGRATE_EXIT_CODE=$?
 
