@@ -137,12 +137,69 @@ deploy_infrastructure() {
         print_status "Applying Terraform changes..."
         terraform apply -var="project_id=${PROJECT_ID}" -var="region=${REGION}" -var="image_version=${VERSION}" -auto-approve
         print_status "Infrastructure deployed successfully"
+
+        # After apply, update Slack Bot endpoints to actual service URLs to avoid hard-coded values
+        update_slack_bot_endpoints
     else
         print_warning "Deployment cancelled"
         exit 0
     fi
 
     cd ../..
+}
+
+# Update Slack Bot endpoint environment variables to the actual DM and World service URLs
+update_slack_bot_endpoints() {
+    print_status "Updating Slack Bot endpoint environment variables from Terraform outputs..."
+
+    local slack_bot_service_name="mud-slack-bot"
+
+    # Move into terraform directory to read outputs
+    pushd infra/terraform >/dev/null
+
+    local outputs_json
+    if ! outputs_json=$(terraform output -json cloud_run_services 2>/dev/null); then
+        print_warning "Could not read Terraform output 'cloud_run_services'. Skipping endpoint update."
+        popd >/dev/null
+        return 0
+    fi
+
+    # Extract dm and world URLs using jq
+    if ! command -v jq &> /dev/null; then
+        print_warning "jq is not installed; cannot parse Terraform outputs. Skipping endpoint update."
+        popd >/dev/null
+        return 0
+    fi
+
+    local dm_uri
+    local world_uri
+    dm_uri=$(echo "$outputs_json" | jq -r '.["dm"].url')
+    world_uri=$(echo "$outputs_json" | jq -r '.["world"].url')
+
+    if [[ -z "$dm_uri" || "$dm_uri" == "null" || -z "$world_uri" || "$world_uri" == "null" ]]; then
+        print_warning "Terraform outputs missing dm/world URIs. Skipping endpoint update."
+        popd >/dev/null
+        return 0
+    fi
+
+    local dm_gql_endpoint="${dm_uri}/graphql"
+    local world_gql_endpoint="${world_uri}/graphql"
+    local world_base_url="${world_uri}/world"
+
+    print_status "Resolved endpoints:"
+    echo "  DM_GQL_ENDPOINT=${dm_gql_endpoint}"
+    echo "  WORLD_GQL_ENDPOINT=${world_gql_endpoint}"
+    echo "  WORLD_BASE_URL=${world_base_url}"
+
+    # Update only these env vars; other env vars (including secrets) remain unchanged
+    gcloud run services update "${slack_bot_service_name}" \
+        --region "${REGION}" \
+        --project "${PROJECT_ID}" \
+        --update-env-vars "DM_GQL_ENDPOINT=${dm_gql_endpoint},WORLD_GQL_ENDPOINT=${world_gql_endpoint},WORLD_BASE_URL=${world_base_url}"
+
+    print_status "Slack Bot environment variables updated."
+
+    popd >/dev/null
 }
 
 # Run database migrations
@@ -231,6 +288,9 @@ case "${1:-}" in
         ;;
     "infra-only")
         deploy_infrastructure
+        ;;
+    "update-slack-bot-endpoints")
+        update_slack_bot_endpoints
         ;;
     *)
         main
