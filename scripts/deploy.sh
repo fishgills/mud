@@ -106,13 +106,27 @@ build_and_push_images() {
 
 # Deploy infrastructure with Terraform
 deploy_infrastructure() {
+
     print_status "Deploying infrastructure with Terraform..."
-    
+
+    # Fetch DB password from Secret Manager
+    DB_PASSWORD=$(gcloud secrets versions access latest --secret=cloud-sql-db-password)
+
+    # Update terraform.tfvars with the latest DB password
+    TFVARS_FILE="infra/terraform/terraform.tfvars"
+    if grep -q '^db_password' "$TFVARS_FILE"; then
+        echo "Updating db_password in $TFVARS_FILE"
+        sed -i "s/^db_password *= *.*/db_password = \"$DB_PASSWORD\"/" "$TFVARS_FILE"
+    else
+        echo "Adding db_password to $TFVARS_FILE"
+        echo "db_password = \"$DB_PASSWORD\"" >> "$TFVARS_FILE"
+    fi
+
     cd infra/terraform
-    
+
     # Initialize Terraform
     # terraform init
-    
+
     # Plan the deployment
     print_status "Planning Terraform deployment..."
     terraform plan -var="project_id=${PROJECT_ID}" -var="region=${REGION}" -var="image_version=${VERSION}"
@@ -127,7 +141,7 @@ deploy_infrastructure() {
         print_warning "Deployment cancelled"
         exit 0
     fi
-    
+
     cd ../..
 }
 
@@ -140,7 +154,8 @@ run_migrations() {
         INSTANCE_NAME="mud-postgres"
         DB_NAME="mud_dev"
         DB_USER="mud"
-        DB_PASSWORD="your-secure-database-password-here" # Consider sourcing from secrets
+         # Fetch Cloud SQL password from Secret Manager
+         DB_PASSWORD=$(gcloud secrets versions access latest --secret=cloud-sql-db-password)
         CONNECTION_NAME="battleforge-444008:us-central1:mud-postgres"
         DB_PORT=5432
 
@@ -162,11 +177,17 @@ run_migrations() {
 
     print_status "Running Prisma migrations..."
     npx prisma migrate deploy --schema=libs/database/prisma/schema.prisma
+    MIGRATE_EXIT_CODE=$?
 
     # Stop the proxy
     print_status "Stopping Cloud SQL Proxy..."
     kill $PROXY_PID
     unset DATABASE_URL
+
+    if [ $MIGRATE_EXIT_CODE -ne 0 ]; then
+        print_error "Prisma migration failed. Cloud SQL Proxy stopped."
+        exit $MIGRATE_EXIT_CODE
+    fi
 
     print_status "Database migrations completed."
 }

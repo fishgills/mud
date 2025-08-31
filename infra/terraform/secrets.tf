@@ -1,3 +1,11 @@
+resource "google_secret_manager_secret" "cloud_sql_db_password" {
+  secret_id = "cloud-sql-db-password"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
 # OpenAI API key
 resource "google_secret_manager_secret" "openai_api_key" {
   secret_id = "openai-api-key"
