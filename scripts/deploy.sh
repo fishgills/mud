@@ -133,13 +133,42 @@ deploy_infrastructure() {
 
 # Run database migrations
 run_migrations() {
-    print_status "Running database migrations..."
-    
-    # This would typically connect to the Cloud SQL instance and run Prisma migrations
-    # For now, we'll just show the command that would be run
-    print_warning "Database migration step - please run manually:"
-    echo "npx prisma migrate deploy"
-    echo "You may need to set up a Cloud SQL Proxy or use the Cloud Shell"
+
+        print_status "Running database migrations..."
+
+        # Cloud SQL instance details
+        INSTANCE_NAME="mud-postgres"
+        DB_NAME="mud_dev"
+        DB_USER="mud"
+        DB_PASSWORD="your-secure-database-password-here" # Consider sourcing from secrets
+        CONNECTION_NAME="battleforge-444008:us-central1:mud-postgres"
+        DB_PORT=5432
+
+    # Start Cloud SQL Proxy in background
+    print_status "Starting Cloud SQL Proxy..."
+    # Check if Cloud SQL Proxy exists, if not, download it
+    if [ ! -f ./scripts/cloud-sql-proxy ]; then
+        print_status "cloud-sql-proxy not found, downloading..."
+        curl -o ./scripts/cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.18.1/cloud-sql-proxy.linux.amd64
+        chmod +x ./scripts/cloud-sql-proxy
+    fi
+
+    ./scripts/cloud-sql-proxy --address=127.0.0.1 --port=${DB_PORT} --private-ip ${CONNECTION_NAME} &
+    PROXY_PID=$!
+    sleep 5 # Wait for proxy to start
+
+    # Set DATABASE_URL for Prisma
+    export DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${DB_PORT}/${DB_NAME}?schema=public"
+
+    print_status "Running Prisma migrations..."
+    npx prisma migrate deploy --schema=libs/database/prisma/schema.prisma
+
+    # Stop the proxy
+    print_status "Stopping Cloud SQL Proxy..."
+    kill $PROXY_PID
+    unset DATABASE_URL
+
+    print_status "Database migrations completed."
 }
 
 # Main execution
@@ -166,6 +195,9 @@ main() {
 
 # Handle script arguments
 case "${1:-}" in
+    "migration-only")
+        run_migrations
+        ;;
     "build-only")
         check_prerequisites
         build_services
