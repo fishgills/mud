@@ -17,6 +17,9 @@
     },
     {
       "path": "./apps/slack-bot"
+    },
+    {
+      "path": "./libs/gcp-auth"
     }
   ]
 }
