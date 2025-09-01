@@ -46,6 +46,8 @@ resource "google_cloud_run_v2_service" "services" {
           for k, v in merge(each.value.env_vars, {
             DATABASE_URL = "postgresql://${google_sql_user.user.name}:${var.db_password}@${google_sql_database_instance.postgres.private_ip_address}:5432/${google_sql_database.database.name}"
             REDIS_URL    = "redis://${google_redis_instance.redis.host}:${google_redis_instance.redis.port}"
+            # Signal that this service is running in Google Cloud Run
+            GCP_CLOUD_RUN = "true"
           }) : k => v if k != "OPENAI_API_KEY"
         }
         content {

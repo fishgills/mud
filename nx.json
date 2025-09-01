@@ -15,6 +15,9 @@
     "sharedGlobals": ["{workspaceRoot}/.gitlab-ci.yml"]
   },
   "nxCloudId": "683ab50812ba03459d672d94",
+  "sync": {
+    "applyChanges": true
+  },
   "plugins": [
     {
       "plugin": "@nx/js/typescript",

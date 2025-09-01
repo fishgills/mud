@@ -18,6 +18,12 @@ export function audienceFromUrl(urlStr: string): string {
   return `${u.protocol}//${u.host}`;
 }
 
+/** Returns true when running in GCP/Cloud Run. */
+export function isRunningInGcp(): boolean {
+  // Prefer explicit flag set by our infra, fall back to Cloud Run's K_SERVICE
+  return process.env.GCP_CLOUD_RUN === 'true' || !!process.env.K_SERVICE;
+}
+
 async function getIdTokenClient(audience: string): Promise<IdTokenClient> {
   let clientPromise = clientCache.get(audience);
   if (!clientPromise) {
@@ -54,6 +60,11 @@ export async function getCloudRunAuthHeaders(
  * Pass this to libraries (e.g., graphql-request) that accept a custom fetch.
  */
 export async function authorizedFetch(input: any, init?: any): Promise<any> {
+  // Only apply identity-based auth when running in GCP/Cloud Run
+  if (!isRunningInGcp()) {
+    return (globalThis as any).fetch(input, init);
+  }
+
   // Resolve URL string from the input variant
   const urlStr = (() => {
     if (typeof input === 'string') return input;
