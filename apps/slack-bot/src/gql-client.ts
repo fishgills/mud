@@ -1,4 +1,5 @@
 import { GraphQLClient } from 'graphql-request';
+import { authorizedFetch } from '@mud/gcp-auth';
 import { env } from './env';
 import { getSdk as getDmSdk } from './generated/dm-graphql';
 import { getSdk as getWorldSdk } from './generated/world-graphql';
@@ -20,8 +21,12 @@ function ensureGraphQLEndpoint(urlStr: string): string {
 }
 
 export const dmSdk = getDmSdk(
-  new GraphQLClient(ensureGraphQLEndpoint(env.DM_GQL_ENDPOINT)),
+  new GraphQLClient(ensureGraphQLEndpoint(env.DM_GQL_ENDPOINT), {
+    fetch: authorizedFetch as any,
+  }),
 );
 export const worldSdk = getWorldSdk(
-  new GraphQLClient(ensureGraphQLEndpoint(env.WORLD_GQL_ENDPOINT)),
+  new GraphQLClient(ensureGraphQLEndpoint(env.WORLD_GQL_ENDPOINT), {
+    fetch: authorizedFetch as any,
+  }),
 );

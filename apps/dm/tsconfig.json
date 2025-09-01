@@ -4,6 +4,9 @@
   "include": [],
   "references": [
     {
+      "path": "../../libs/gcp-auth"
+    },
+    {
       "path": "../../libs/database"
     },
     {
