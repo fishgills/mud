@@ -4,13 +4,27 @@ WORKDIR /workspace
 # RUN apt-get update && apt-get install -y python3 make gcc g++ pkg-config
 
 COPY package.json tsconfig* nx.json package-lock.json ./
+COPY eslint.config.mjs ./
 
 RUN npm install
-COPY apps/slack-bot ./apps/slack-bot/
+
+# Copy project configuration files so Nx can detect projects
+COPY apps/slack-bot/package.json ./apps/slack-bot/package.json
+COPY apps/slack-bot/tsconfig*.json ./apps/slack-bot/
+COPY apps/slack-bot/eslint.config.mjs ./apps/slack-bot/
+
+# Copy libs and source code
 COPY libs ./libs/
-RUN npx nx sync
-RUN ls -al .nx
-RUN npx nx build slack-bot
+COPY apps/slack-bot/src ./apps/slack-bot/src/
+COPY apps/slack-bot/codegen.ts ./apps/slack-bot/
+
+RUN NX_DAEMON=false npx nx sync
+# Build gcp-auth first and create a symlink to the dist in node_modules
+RUN NX_DAEMON=false npx nx build gcp-auth
+RUN mkdir -p node_modules/@mud/gcp-auth
+RUN cp libs/gcp-auth/package.json node_modules/@mud/gcp-auth/
+RUN ln -sf ../../../libs/gcp-auth/dist node_modules/@mud/gcp-auth/dist
+RUN NX_DAEMON=false npx nx run slack-bot:build:production
 
 ## --- Runtime stage ---
 FROM node:alpine AS runtime
