@@ -1,8 +1,9 @@
 
 ## --- Builder stage ---
-FROM node:20-slim AS builder
+FROM node:slim AS builder
 WORKDIR /workspace
 
+ENV NX_DAEMON=false
 # Install build tools and headers for node-canvas
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -10,29 +11,29 @@ RUN apt-get update \
   libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json ./
-COPY tsconfig*.json ./
-COPY tsconfig.base.json ./
-COPY apps/dm/tsconfig*.json ./apps/dm/
-COPY apps/slack-bot/tsconfig*.json ./apps/slack-bot/
-COPY apps/tick/tsconfig*.json ./apps/tick/
-COPY apps/world/tsconfig*.json ./apps/world/
-COPY libs/database/tsconfig*.json ./libs/database/
-COPY nx.json ./
+COPY package.json tsconfig* nx.json package-lock.json ./
 COPY eslint.config.mjs ./
-COPY apps/world/eslint.config.mjs ./apps/world/eslint.config.mjs
-COPY apps/world/tsconfig.* ./apps/world/
-COPY apps/world ./apps/world
-COPY libs ./libs
 
 # Install dependencies and build (allow scripts for native modules like canvas)
-RUN npm ci
+RUN npm install
+
+# Copy all apps directory structure so Nx can detect projects
+COPY apps/world/package.json ./apps/world/package.json
+COPY apps/world/tsconfig*.json ./apps/world/
+COPY apps/world/webpack.config.js ./apps/world/
+COPY apps/world/eslint.config.mjs ./apps/world/
+
+# Copy libs and the actual source code
+COPY libs ./libs/
+COPY apps/world/src ./apps/world/src/
 ## Generate Prisma Client for the workspace schema used by libs/database
 RUN npx prisma generate --schema=libs/database/prisma/schema.prisma
-RUN npx nx build world
+## Sync the workspace to update TypeScript configuration
+RUN NX_DAEMON=false npx nx sync
+RUN NX_DAEMON=false npx nx run @mud/world:build:production
 
 ## --- Runtime stage ---
-FROM node:20-slim AS runtime
+FROM node:slim AS runtime
 WORKDIR /app
 
 ## Install runtime libs required by node-canvas and wget for healthcheck

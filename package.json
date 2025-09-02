@@ -68,6 +68,7 @@
     "node-fetch": "^2.7.0",
     "openai": "^5.15.0",
     "redis": "^4.7.0",
+    "reflect-metadata": "^0.2.2",
     "seedrandom": "^3.0.5",
     "simplex-noise": "^4.0.3"
   }
