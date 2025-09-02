@@ -143,32 +143,19 @@ deploy_infrastructure() {
 
 # Update Slack Bot endpoint environment variables to the actual DM and World service URLs
 update_slack_bot_endpoints() {
-    print_status "Updating Slack Bot endpoint environment variables from Terraform outputs..."
+    print_status "Updating Slack Bot endpoint environment variables from actual Cloud Run service URLs..."
 
     local slack_bot_service_name="mud-slack-bot"
 
-    # Move into terraform directory to read outputs (we're already in infra/terraform)
-    # Use . since we're already in the terraform directory
-
-    local outputs_json
-    if ! outputs_json=$(terraform output -json cloud_run_services 2>/dev/null); then
-        print_warning "Could not read Terraform output 'cloud_run_services'. Skipping endpoint update."
-        return 0
-    fi
-
-    # Extract dm and world URLs using jq
-    if ! command -v jq &> /dev/null; then
-        print_warning "jq is not installed; cannot parse Terraform outputs. Skipping endpoint update."
-        return 0
-    fi
-
+    # Get actual current URLs from gcloud services list CSV format (most reliable)
     local dm_uri
     local world_uri
-    dm_uri=$(echo "$outputs_json" | jq -r '.["dm"].url')
-    world_uri=$(echo "$outputs_json" | jq -r '.["world"].url')
+    
+    dm_uri=$(gcloud run services list --project="${PROJECT_ID}" --format="csv[no-heading](SERVICE,URL)" | grep "^mud-dm," | cut -d',' -f2 2>/dev/null)
+    world_uri=$(gcloud run services list --project="${PROJECT_ID}" --format="csv[no-heading](SERVICE,URL)" | grep "^mud-world," | cut -d',' -f2 2>/dev/null)
 
-    if [[ -z "$dm_uri" || "$dm_uri" == "null" || -z "$world_uri" || "$world_uri" == "null" ]]; then
-        print_warning "Terraform outputs missing dm/world URIs. Skipping endpoint update."
+    if [[ -z "$dm_uri" || -z "$world_uri" ]]; then
+        print_warning "Could not retrieve dm/world service URLs. Skipping endpoint update."
         return 0
     fi
 
