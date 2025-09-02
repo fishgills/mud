@@ -39,6 +39,10 @@ COPY --from=builder /workspace/node_modules/.prisma /app/node_modules/.prisma
 COPY --from=builder /workspace/libs/database/dist /app/node_modules/@mud/database/dist
 COPY --from=builder /workspace/libs/database/package.json /app/node_modules/@mud/database/package.json
 
+# Include the internal @mud/gcp-auth library so runtime can resolve it
+COPY --from=builder /workspace/libs/gcp-auth/dist /app/node_modules/@mud/gcp-auth/dist
+COPY --from=builder /workspace/libs/gcp-auth/package.json /app/node_modules/@mud/gcp-auth/package.json
+
 # Copy built app from builder
 COPY --from=builder /workspace/apps/dm/dist ./
 COPY apps/dm/package.json ./app-package.json
