@@ -147,20 +147,18 @@ update_slack_bot_endpoints() {
 
     local slack_bot_service_name="mud-slack-bot"
 
-    # Move into terraform directory to read outputs
-    pushd infra/terraform >/dev/null
+    # Move into terraform directory to read outputs (we're already in infra/terraform)
+    # Use . since we're already in the terraform directory
 
     local outputs_json
     if ! outputs_json=$(terraform output -json cloud_run_services 2>/dev/null); then
         print_warning "Could not read Terraform output 'cloud_run_services'. Skipping endpoint update."
-        popd >/dev/null
         return 0
     fi
 
     # Extract dm and world URLs using jq
     if ! command -v jq &> /dev/null; then
         print_warning "jq is not installed; cannot parse Terraform outputs. Skipping endpoint update."
-        popd >/dev/null
         return 0
     fi
 
@@ -171,7 +169,6 @@ update_slack_bot_endpoints() {
 
     if [[ -z "$dm_uri" || "$dm_uri" == "null" || -z "$world_uri" || "$world_uri" == "null" ]]; then
         print_warning "Terraform outputs missing dm/world URIs. Skipping endpoint update."
-        popd >/dev/null
         return 0
     fi
 
@@ -191,8 +188,6 @@ update_slack_bot_endpoints() {
         --update-env-vars "DM_GQL_ENDPOINT=${dm_gql_endpoint},WORLD_GQL_ENDPOINT=${world_gql_endpoint},WORLD_BASE_URL=${world_base_url}"
 
     print_status "Slack Bot environment variables updated."
-
-    popd >/dev/null
 }
 
 # Run database migrations
