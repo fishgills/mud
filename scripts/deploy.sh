@@ -260,6 +260,7 @@ case "${1:-}" in
         check_prerequisites
         configure_docker
         build_and_push_images
+        update_slack_bot_endpoints
         ;;
     "infra-only")
         deploy_infrastructure

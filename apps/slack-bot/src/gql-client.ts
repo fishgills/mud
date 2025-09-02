@@ -22,11 +22,11 @@ function ensureGraphQLEndpoint(urlStr: string): string {
 
 export const dmSdk = getDmSdk(
   new GraphQLClient(ensureGraphQLEndpoint(env.DM_GQL_ENDPOINT), {
-    fetch: authorizedFetch as any,
+    fetch: authorizedFetch,
   }),
 );
 export const worldSdk = getWorldSdk(
   new GraphQLClient(ensureGraphQLEndpoint(env.WORLD_GQL_ENDPOINT), {
-    fetch: authorizedFetch as any,
+    fetch: authorizedFetch,
   }),
 );

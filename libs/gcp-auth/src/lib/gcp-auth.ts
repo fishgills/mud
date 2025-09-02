@@ -1,4 +1,5 @@
 import { GoogleAuth, IdTokenClient } from 'google-auth-library';
+import fetch, { Request, RequestInfo, RequestInit, Response } from 'node-fetch';
 
 // Cache IdTokenClient per audience to avoid re-creating on every call
 const clientCache = new Map<string, Promise<IdTokenClient>>();
@@ -47,9 +48,12 @@ export async function getCloudRunAuthHeaders(
   }
 
   const audience = audienceFromUrl(urlStr);
+  console.log(`Using Cloud Run audience: ${audience}`);
+  // Get or create IdTokenClient for the given audience
   const client = await getIdTokenClient(audience);
   // getRequestHeaders uses the previously set audience and signs an ID token
   const headers = await client.getRequestHeaders(urlStr);
+  console.log('Obtained auth headers:', headers);
   // Normalize header keys to standard casing
   const authHeader = headers['Authorization'] ?? headers['authorization'];
   return authHeader ? { Authorization: String(authHeader) } : {};
@@ -59,33 +63,32 @@ export async function getCloudRunAuthHeaders(
  * Fetch implementation that injects Cloud Run ID token Authorization header automatically.
  * Pass this to libraries (e.g., graphql-request) that accept a custom fetch.
  */
-export async function authorizedFetch(input: any, init?: any): Promise<any> {
+export async function authorizedFetch(
+  input: RequestInfo,
+  init?: RequestInit,
+): Promise<Response> {
   // Only apply identity-based auth when running in GCP/Cloud Run
   if (!isRunningInGcp()) {
-    return (globalThis as any).fetch(input, init);
+    return fetch(input, init);
   }
 
   // Resolve URL string from the input variant
   const urlStr = (() => {
     if (typeof input === 'string') return input;
-    // Support WHATWG URL as well as request-like objects
-    try {
-      if (input instanceof URL) return input.toString();
-    } catch {
-      // ignore if URL isn't available in this environment
-    }
-    if (input && typeof input.url === 'string') return input.url as string;
-    return String(input);
+    if (input instanceof Request) return input.url;
+    return input.href;
   })();
 
   const authHeaders = await getCloudRunAuthHeaders(urlStr);
+
+  // Properly merge headers for node-fetch compatibility
   const headers: Record<string, string> = {
     ...(init?.headers as Record<string, string> | undefined),
     ...authHeaders,
   };
 
-  // Defer to global fetch (Node 18+ / undici), caller environment must provide it
-  return (globalThis as any).fetch(input, { ...init, headers });
+  // Defer to node-fetch with merged headers
+  return fetch(input, { ...init, headers });
 }
 
 /**
