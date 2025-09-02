@@ -131,17 +131,12 @@ deploy_infrastructure() {
     print_status "Planning Terraform deployment..."
     terraform plan -var="project_id=${PROJECT_ID}" -var="region=${REGION}" -var="image_version=${VERSION}"
 
-    if [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]]; then
-        print_status "Applying Terraform changes..."
-        terraform apply -var="project_id=${PROJECT_ID}" -var="region=${REGION}" -var="image_version=${VERSION}" -auto-approve
-        print_status "Infrastructure deployed successfully"
+    print_status "Applying Terraform changes..."
+    terraform apply -var="project_id=${PROJECT_ID}" -var="region=${REGION}" -var="image_version=${VERSION}" -auto-approve
+    print_status "Infrastructure deployed successfully"
 
-        # After apply, update Slack Bot endpoints to actual service URLs to avoid hard-coded values
-        update_slack_bot_endpoints
-    else
-        print_warning "Deployment cancelled"
-        exit 0
-    fi
+    # After apply, update Slack Bot endpoints to actual service URLs to avoid hard-coded values
+    update_slack_bot_endpoints
 
     cd ../..
 }
