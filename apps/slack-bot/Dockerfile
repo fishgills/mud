@@ -36,6 +36,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production --ignore-scripts
 
+# Include the internal @mud/gcp-auth library so runtime can resolve it
+COPY --from=builder /workspace/libs/gcp-auth/dist ./node_modules/@mud/gcp-auth/dist
+COPY --from=builder /workspace/libs/gcp-auth/package.json ./node_modules/@mud/gcp-auth/package.json
+
 COPY --from=builder /workspace/apps/slack-bot/dist ./slack-bot
 COPY apps/slack-bot/package.json ./slack-bot/package.json
 

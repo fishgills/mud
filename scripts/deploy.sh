@@ -131,8 +131,6 @@ deploy_infrastructure() {
     print_status "Planning Terraform deployment..."
     terraform plan -var="project_id=${PROJECT_ID}" -var="region=${REGION}" -var="image_version=${VERSION}"
 
-    # Ask for confirmation
-    read -p "Do you want to apply these changes? (y/N): " confirm
     if [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]]; then
         print_status "Applying Terraform changes..."
         terraform apply -var="project_id=${PROJECT_ID}" -var="region=${REGION}" -var="image_version=${VERSION}" -auto-approve
