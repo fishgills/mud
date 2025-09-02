@@ -43,6 +43,7 @@ export const statsHandler = async ({ userId, say }: HandlerContext) => {
       });
     }
   } catch (err: unknown) {
+    console.error('Error fetching player stats:', err);
     const errorMessage = getUserFriendlyErrorMessage(
       err,
       'Failed to load stats',

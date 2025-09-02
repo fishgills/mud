@@ -81,6 +81,9 @@
       }
     }
   },
-  "dependencies": {},
+  "dependencies": {
+    "google-auth-library": "^9.15.1",
+    "node-fetch": "^2.7.0"
+  },
   "devDependencies": {}
 }
