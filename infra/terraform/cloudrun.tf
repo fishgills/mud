@@ -47,7 +47,9 @@ resource "google_cloud_run_v2_service" "services" {
             DATABASE_URL = "postgresql://${google_sql_user.user.name}:${var.db_password}@${google_sql_database_instance.postgres.private_ip_address}:5432/${google_sql_database.database.name}"
             REDIS_URL    = "redis://${google_redis_instance.redis.host}:${google_redis_instance.redis.port}"
             # Signal that this service is running in Google Cloud Run
-            GCP_CLOUD_RUN = "true"
+            GCP_CLOUD_RUN  = "true"
+            GCP_PROJECT_ID = var.project_id
+            GCP_REGION     = var.region
           }) : k => v if k != "OPENAI_API_KEY"
         }
         content {
@@ -100,6 +102,26 @@ resource "google_cloud_run_v2_service" "services" {
       dynamic "env" {
         for_each = contains(["dm"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_SERVICE_URL") ? {
           WORLD_SERVICE_URL = "https://mud-world-${data.google_project.project.number}.${var.region}.run.app"
+        } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      # Feature flag for Vertex AI usage in DM
+      dynamic "env" {
+        for_each = contains(["dm"], each.key) ? { DM_USE_VERTEX_AI = tostring(try(each.value.env_vars.DM_USE_VERTEX_AI, false)) } : {}
+        content {
+          name  = "DM_USE_VERTEX_AI"
+          value = env.value
+        }
+      }
+
+      # Optional: pass through Vertex model/location overrides if provided in env_vars
+      dynamic "env" {
+        for_each = contains(["dm"], each.key) ? {
+          for k, v in try(each.value.env_vars, {}) : k => v if contains(["DM_VERTEX_MODEL", "VERTEX_LOCATION"], k)
         } : {}
         content {
           name  = env.key

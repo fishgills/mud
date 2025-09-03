@@ -9,7 +9,7 @@ import { MonsterService } from './monster/monster.service';
 import { CombatService } from './combat/combat.service';
 import { GameTickService } from './game-tick/game-tick.service';
 import { WorldService } from './world/world.service';
-import { OpenaiModule } from '../openai/openai.module';
+import { AiModule } from '../openai/ai.module';
 import { PlayerResolver, SystemResolver, MovementResolver } from './graphql';
 import { CoordinationService } from '../shared/coordination.service';
 import {
@@ -29,7 +29,7 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
       driver: ApolloDriver,
       autoSchemaFile: 'dm-schema.gql',
     }),
-    OpenaiModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [

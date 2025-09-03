@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { OpenaiService } from '../../../openai/openai.service';
+import { AiService } from '../../../openai/ai.service';
 import type {
   CenterTile,
   BiomeSummary,
@@ -13,7 +13,7 @@ import { NearbyPlayerInfo } from '../types/response.types';
 export class DescriptionService {
   private logger = new Logger(DescriptionService.name);
 
-  constructor(private openaiService: OpenaiService) {}
+  constructor(private aiService: AiService) {}
 
   /**
    * Build a concise hint guiding the user toward nearby players.
@@ -122,13 +122,17 @@ export class DescriptionService {
     biomeSummary: BiomeSummary[],
     visiblePeaks: VisiblePeak[],
     visibleSettlements: VisibleSettlement[],
-    currentSettlement: any,
+    currentSettlement: {
+      name?: string;
+      type?: string;
+      intensity?: number;
+    } | null,
     timing: TimingMetrics,
     nearbyPlayers: NearbyPlayerInfo[],
   ): Promise<string> {
     try {
       const inSettlement = Boolean(
-        currentSettlement && currentSettlement.intensity > 0,
+        currentSettlement && (currentSettlement.intensity ?? 0) > 0,
       );
 
       const context = {
@@ -188,7 +192,7 @@ export class DescriptionService {
       this.logger.debug(`getLookView prompt: ${prompt}`);
 
       const topBiomes = biomeSummary.slice(0, 2).map((b) => b.biomeName);
-      const ai = await this.openaiService.getText(prompt, {
+      const ai = await this.aiService.getText(prompt, {
         timeoutMs: 1200,
         cacheKey: `look:${centerTile.x},${centerTile.y}:${visibilityRadius}:${topBiomes.join(',')}:${visiblePeaks
           .map((p) => p.direction)
