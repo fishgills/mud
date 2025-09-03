@@ -326,7 +326,52 @@ export class LookViewData {
 }
 
 @ObjectType()
+export class PerformanceStats {
+  @Field(() => Int)
+  totalMs!: number;
+
+  @Field(() => Int)
+  playerMs!: number;
+
+  @Field(() => Int)
+  worldCenterNearbyMs!: number;
+
+  @Field(() => Int)
+  worldBoundsTilesMs!: number;
+
+  @Field(() => Int)
+  worldExtendedBoundsMs!: number;
+
+  @Field(() => Int)
+  tilesFilterMs!: number;
+
+  @Field(() => Int)
+  peaksSortMs!: number;
+
+  @Field(() => Int)
+  biomeSummaryMs!: number;
+
+  @Field(() => Int)
+  settlementsFilterMs!: number;
+
+  @Field(() => Int)
+  aiMs!: number;
+
+  @Field(() => Int)
+  tilesCount!: number;
+
+  @Field(() => Int)
+  peaksCount!: number;
+
+  @Field()
+  aiProvider!: string; // 'vertex' | 'openai'
+}
+
+@ObjectType()
 export class LookViewResponse extends SuccessResponse {
   @Field(() => LookViewData, { nullable: true })
   data?: LookViewData;
+
+  @Field(() => PerformanceStats, { nullable: true })
+  perf?: PerformanceStats;
 }

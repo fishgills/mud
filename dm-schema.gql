@@ -220,11 +220,28 @@ type LookViewData {
   monsters: [Monster!]
 }
 
+type PerformanceStats {
+  totalMs: Int!
+  playerMs: Int!
+  worldCenterNearbyMs: Int!
+  worldBoundsTilesMs: Int!
+  worldExtendedBoundsMs: Int!
+  tilesFilterMs: Int!
+  peaksSortMs: Int!
+  biomeSummaryMs: Int!
+  settlementsFilterMs: Int!
+  aiMs: Int!
+  tilesCount: Int!
+  peaksCount: Int!
+  aiProvider: String!
+}
+
 type LookViewResponse {
   success: Boolean!
   message: String
   result: TickResult
   data: LookViewData
+  perf: PerformanceStats
 }
 
 type Query {

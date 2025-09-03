@@ -159,6 +159,21 @@ query GetLookView($slackId: String!) {
       }
       description
     }
+    perf {
+      totalMs
+      playerMs
+      worldCenterNearbyMs
+      worldBoundsTilesMs
+      worldExtendedBoundsMs
+      tilesFilterMs
+      peaksSortMs
+      biomeSummaryMs
+      settlementsFilterMs
+      aiMs
+      tilesCount
+      peaksCount
+      aiProvider
+    }
   }
 }
 mutation CreatePlayer($input: CreatePlayerInput!) {

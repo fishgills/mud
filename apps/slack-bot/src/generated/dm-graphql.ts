@@ -137,6 +137,7 @@ export type LookViewResponse = {
   __typename?: 'LookViewResponse';
   data?: Maybe<LookViewData>;
   message?: Maybe<Scalars['String']['output']>;
+  perf?: Maybe<PerformanceStats>;
   result?: Maybe<TickResult>;
   success: Scalars['Boolean']['output'];
 };
@@ -250,6 +251,23 @@ export type NearbyPlayerInfo = {
   distance: Scalars['Float']['output'];
   x: Scalars['Int']['output'];
   y: Scalars['Int']['output'];
+};
+
+export type PerformanceStats = {
+  __typename?: 'PerformanceStats';
+  aiMs: Scalars['Int']['output'];
+  aiProvider: Scalars['String']['output'];
+  biomeSummaryMs: Scalars['Int']['output'];
+  peaksCount: Scalars['Int']['output'];
+  peaksSortMs: Scalars['Int']['output'];
+  playerMs: Scalars['Int']['output'];
+  settlementsFilterMs: Scalars['Int']['output'];
+  tilesCount: Scalars['Int']['output'];
+  tilesFilterMs: Scalars['Int']['output'];
+  totalMs: Scalars['Int']['output'];
+  worldBoundsTilesMs: Scalars['Int']['output'];
+  worldCenterNearbyMs: Scalars['Int']['output'];
+  worldExtendedBoundsMs: Scalars['Int']['output'];
 };
 
 export type Player = {
@@ -449,7 +467,7 @@ export type GetLookViewQueryVariables = Exact<{
 }>;
 
 
-export type GetLookViewQuery = { __typename?: 'Query', getLookView: { __typename?: 'LookViewResponse', success: boolean, message?: string | null, data?: { __typename?: 'LookViewData', visibilityRadius: number, description: string, location: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number }, currentSettlement?: { __typename?: 'CurrentSettlementInfo', name: string, type: string, size: string, intensity: number, isCenter: boolean } | null, monsters?: Array<{ __typename?: 'Monster', id: string, name: string }> | null, biomeSummary: Array<{ __typename?: 'BiomeSectorSummary', biomeName: string, proportion: number, predominantDirections: Array<string> }>, visiblePeaks: Array<{ __typename?: 'VisiblePeakInfo', x: number, y: number, height: number, distance: number, direction: string }>, visibleSettlements: Array<{ __typename?: 'VisibleSettlementInfo', name: string, type: string, size: string, distance: number, direction: string }>, nearbyPlayers?: Array<{ __typename?: 'NearbyPlayerInfo', distance: number, direction: string, x: number, y: number }> | null } | null } };
+export type GetLookViewQuery = { __typename?: 'Query', getLookView: { __typename?: 'LookViewResponse', success: boolean, message?: string | null, data?: { __typename?: 'LookViewData', visibilityRadius: number, description: string, location: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number }, currentSettlement?: { __typename?: 'CurrentSettlementInfo', name: string, type: string, size: string, intensity: number, isCenter: boolean } | null, monsters?: Array<{ __typename?: 'Monster', id: string, name: string }> | null, biomeSummary: Array<{ __typename?: 'BiomeSectorSummary', biomeName: string, proportion: number, predominantDirections: Array<string> }>, visiblePeaks: Array<{ __typename?: 'VisiblePeakInfo', x: number, y: number, height: number, distance: number, direction: string }>, visibleSettlements: Array<{ __typename?: 'VisibleSettlementInfo', name: string, type: string, size: string, distance: number, direction: string }>, nearbyPlayers?: Array<{ __typename?: 'NearbyPlayerInfo', distance: number, direction: string, x: number, y: number }> | null } | null, perf?: { __typename?: 'PerformanceStats', totalMs: number, playerMs: number, worldCenterNearbyMs: number, worldBoundsTilesMs: number, worldExtendedBoundsMs: number, tilesFilterMs: number, peaksSortMs: number, biomeSummaryMs: number, settlementsFilterMs: number, aiMs: number, tilesCount: number, peaksCount: number, aiProvider: string } | null } };
 
 export type CreatePlayerMutationVariables = Exact<{
   input: CreatePlayerInput;
@@ -644,6 +662,21 @@ export const GetLookViewDocument = gql`
         y
       }
       description
+    }
+    perf {
+      totalMs
+      playerMs
+      worldCenterNearbyMs
+      worldBoundsTilesMs
+      worldExtendedBoundsMs
+      tilesFilterMs
+      peaksSortMs
+      biomeSummaryMs
+      settlementsFilterMs
+      aiMs
+      tilesCount
+      peaksCount
+      aiProvider
     }
   }
 }

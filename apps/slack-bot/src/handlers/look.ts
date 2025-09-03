@@ -7,6 +7,20 @@ import { sendDebugJson } from './debugUtils';
 
 export const lookHandlerHelp = `Look around with enhanced vision based on terrain height. Returns a panoramic description, visible peaks, nearby settlements, and biome summary. Example: Send 'look' or 'l'.`;
 
+type Perf = {
+  totalMs: number;
+  playerMs: number;
+  worldCenterNearbyMs: number;
+  worldBoundsTilesMs: number;
+  worldExtendedBoundsMs: number;
+  tilesFilterMs: number;
+  peaksSortMs: number;
+  biomeSummaryMs: number;
+  settlementsFilterMs: number;
+  aiMs: number;
+  aiProvider: string;
+};
+
 export const lookHandler = async ({ userId, say }: HandlerContext) => {
   try {
     const res = await dmSdk.GetLookView({ slackId: userId });
@@ -26,6 +40,17 @@ export const lookHandler = async ({ userId, say }: HandlerContext) => {
         await say({ text: `- ${monster.name}` });
       }
     }
+    // Show performance stats summary if available
+    const perf: Perf | undefined = (
+      res.getLookView as unknown as {
+        perf?: Perf;
+      }
+    )?.perf;
+    if (perf) {
+      const summary = `Perf: total ${perf.totalMs}ms (player ${perf.playerMs}ms, world center+nearby ${perf.worldCenterNearbyMs}ms, bounds ${perf.worldBoundsTilesMs}ms, ext ${perf.worldExtendedBoundsMs}ms, tiles filter ${perf.tilesFilterMs}ms, peaks ${perf.peaksSortMs}ms, biome ${perf.biomeSummaryMs}ms, settlements ${perf.settlementsFilterMs}ms, AI[${perf.aiProvider}] ${perf.aiMs}ms)`;
+      await say({ text: summary });
+    }
+
     await sendDebugJson(say, res.getLookView.data);
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(

@@ -2,7 +2,11 @@ import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { Logger } from '@nestjs/common';
 import { PlayerService } from '../../player/player.service';
 import { WorldService } from '../../world/world.service';
-import { PlayerMoveResponse, LookViewResponse } from '../types/response.types';
+import {
+  PlayerMoveResponse,
+  LookViewResponse,
+  PerformanceStats,
+} from '../types/response.types';
 import { MovePlayerInput } from '../inputs/player.input';
 import {
   TimingMetrics,
@@ -88,13 +92,32 @@ export class MovementResolver {
           timing.tGetCenterNearbyMs = Date.now() - tCenterNearbyStart;
           return d;
         })
-        .catch(() => null as any);
+        .catch(() => null);
 
       // Await center data and compute dynamic visibility
       const centerWithNearby = await centerWithNearbyPromise;
-      const centerTile =
-        centerWithNearby?.tile ??
-        ({
+      const centerTile = ((): {
+        x: number;
+        y: number;
+        biomeName: string;
+        description: string;
+        height: number;
+        temperature: number;
+        moisture: number;
+      } => {
+        const t = centerWithNearby?.tile;
+        if (t) {
+          return {
+            x: t.x,
+            y: t.y,
+            biomeName: t.biomeName,
+            description: t.description || '',
+            height: t.height,
+            temperature: t.temperature,
+            moisture: t.moisture,
+          };
+        }
+        return {
           x: player.x,
           y: player.y,
           biomeName: 'grassland',
@@ -102,7 +125,8 @@ export class MovementResolver {
           height: 0.5,
           temperature: 0.6,
           moisture: 0.5,
-        } as any);
+        };
+      })();
 
       // Calculate visibility radius based on tile height
       const visibilityRadius =
@@ -151,7 +175,11 @@ export class MovementResolver {
       );
 
       // Generate description (AI-enhanced or fallback)
-      const currentSettlement = centerWithNearby?.currentSettlement;
+      const currentSettlement: {
+        name?: string;
+        type?: string;
+        intensity?: number;
+      } | null = centerWithNearby?.currentSettlement ?? null;
       const description = await this.descriptionService.generateAiDescription(
         centerTile,
         visibilityRadius,
@@ -180,10 +208,30 @@ export class MovementResolver {
       this.logger.debug(
         `getLookView perf slackId=${slackId} totalMs=${totalMs} playerMs=${timing.tPlayerMs} getCenterMs=${timing.tGetCenterMs} getCenterNearbyMs=${timing.tGetCenterNearbyMs} boundsTilesMs=${timing.tBoundsTilesMs} filterTilesMs=${timing.tFilterTilesMs} extBoundsMs=${timing.tExtBoundsMs} peaksSortMs=${timing.tPeaksSortMs} biomeSummaryMs=${timing.tBiomeSummaryMs} settlementsFilterMs=${timing.tSettlementsFilterMs} aiMs=${timing.tAiMs} tiles=${timing.tilesCount} peaks=${timing.peaksCount}`,
       );
+      const aiProvider =
+        (process.env.DM_USE_VERTEX_AI || '').toLowerCase() === 'true'
+          ? 'vertex'
+          : 'openai';
+      const perf: PerformanceStats = {
+        totalMs,
+        playerMs: timing.tPlayerMs,
+        worldCenterNearbyMs: timing.tGetCenterNearbyMs,
+        worldBoundsTilesMs: timing.tBoundsTilesMs,
+        worldExtendedBoundsMs: timing.tExtBoundsMs,
+        tilesFilterMs: timing.tFilterTilesMs,
+        peaksSortMs: timing.tPeaksSortMs,
+        biomeSummaryMs: timing.tBiomeSummaryMs,
+        settlementsFilterMs: timing.tSettlementsFilterMs,
+        aiMs: timing.tAiMs,
+        tilesCount: timing.tilesCount,
+        peaksCount: timing.peaksCount,
+        aiProvider,
+      };
 
       return {
         success: true,
         data: responseData,
+        perf,
       };
     } catch (error) {
       return {
