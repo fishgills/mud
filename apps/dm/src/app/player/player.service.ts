@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { calculateDirection } from '../shared/direction.util';
 import { getPrismaClient, Player } from '@mud/database';
 import {
@@ -10,6 +10,7 @@ import { GraphQLError } from 'graphql';
 
 @Injectable()
 export class PlayerService {
+  private readonly logger = new Logger(PlayerService.name);
   private prisma = getPrismaClient();
 
   async createPlayer(createPlayerDto: CreatePlayerDto): Promise<Player> {
@@ -53,14 +54,19 @@ export class PlayerService {
   }
 
   async getPlayer(slackId: string): Promise<Player> {
+    this.logger.log(`[DM-DB] Looking up player with slackId: ${slackId}`);
     const player = await this.prisma.player.findUnique({
       where: { slackId },
     });
 
     if (!player) {
+      this.logger.warn(`[DM-DB] Player not found for slackId: ${slackId}`);
       throw new NotFoundException(`Player not found`);
     }
 
+    this.logger.log(
+      `[DM-DB] Found player for slackId: ${slackId}, player ID: ${player.id}, name: ${player.name}`,
+    );
     return player;
   }
 

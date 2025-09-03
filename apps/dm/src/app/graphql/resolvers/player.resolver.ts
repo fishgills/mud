@@ -6,6 +6,7 @@ import {
   ResolveField,
   Parent,
 } from '@nestjs/graphql';
+import { Logger } from '@nestjs/common';
 import { PlayerService } from '../../player/player.service';
 import { MonsterService } from '../../monster/monster.service';
 import { CombatService } from '../../combat/combat.service';
@@ -29,6 +30,8 @@ import {
 
 @Resolver(() => Player)
 export class PlayerResolver {
+  private readonly logger = new Logger(PlayerResolver.name);
+
   constructor(
     private playerService: PlayerService,
     private monsterService: MonsterService,
@@ -49,13 +52,26 @@ export class PlayerResolver {
 
   @Query(() => PlayerResponse)
   async getPlayer(@Args('slackId') slackId: string): Promise<PlayerResponse> {
+    this.logger.log(
+      `[DM-AUTH] Received getPlayer request for slackId: ${slackId}`,
+    );
     try {
+      this.logger.log(
+        `[DM-AUTH] Calling playerService.getPlayer for slackId: ${slackId}`,
+      );
       const player = await this.playerService.getPlayer(slackId);
+      this.logger.log(
+        `[DM-AUTH] Successfully retrieved player for slackId: ${slackId}, player ID: ${player.id}`,
+      );
       return {
         success: true,
         data: player as Player,
       };
     } catch (error) {
+      this.logger.error(
+        `[DM-AUTH] Error getting player for slackId: ${slackId}`,
+        error instanceof Error ? error.stack : error,
+      );
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Player not found',
