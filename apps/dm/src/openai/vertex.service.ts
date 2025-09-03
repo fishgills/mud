@@ -12,8 +12,7 @@ export class VertexAiService {
     process.env.GCP_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
   private readonly location =
     process.env.GCP_REGION || process.env.VERTEX_LOCATION || 'us-central1';
-  private readonly model =
-    process.env.DM_VERTEX_MODEL || 'gemini-2.5-flash-lite';
+  private readonly model = 'gemini-2.5-flash-lite';
 
   // Simple in-memory cache similar to OpenAI service
   private cache = new Map<string, { ts: number; text: string }>();

@@ -41,6 +41,12 @@ resource "google_cloud_run_v2_service" "services" {
         failure_threshold     = 30
       }
 
+      # Inject a deploy stamp to force a new revision whenever the image tag changes
+      env {
+        name  = "DEPLOY_STAMP"
+        value = var.image_version
+      }
+
       dynamic "env" {
         for_each = {
           for k, v in merge(each.value.env_vars, {
@@ -121,7 +127,7 @@ resource "google_cloud_run_v2_service" "services" {
       # Optional: pass through Vertex model/location overrides if provided in env_vars
       dynamic "env" {
         for_each = contains(["dm"], each.key) ? {
-          for k, v in try(each.value.env_vars, {}) : k => v if contains(["DM_VERTEX_MODEL", "VERTEX_LOCATION"], k)
+          for k, v in try(each.value.env_vars, {}) : k => v if contains(["VERTEX_LOCATION"], k)
         } : {}
         content {
           name  = env.key
