@@ -21,8 +21,17 @@ export function audienceFromUrl(urlStr: string): string {
 
 /** Returns true when running in GCP/Cloud Run. */
 export function isRunningInGcp(): boolean {
+  const gcpCloudRun = process.env.GCP_CLOUD_RUN;
+  const kService = process.env.K_SERVICE;
+  const isGcp = gcpCloudRun === 'true' || !!kService;
+
+  console.log(`[GCP-AUTH] Environment detection:`);
+  console.log(`[GCP-AUTH]   GCP_CLOUD_RUN: "${gcpCloudRun}"`);
+  console.log(`[GCP-AUTH]   K_SERVICE: "${kService}"`);
+  console.log(`[GCP-AUTH]   isRunningInGcp: ${isGcp}`);
+
   // Prefer explicit flag set by our infra, fall back to Cloud Run's K_SERVICE
-  return process.env.GCP_CLOUD_RUN === 'true' || !!process.env.K_SERVICE;
+  return isGcp;
 }
 
 async function getIdTokenClient(audience: string): Promise<IdTokenClient> {
@@ -110,6 +119,14 @@ export async function authorizedFetch(
 
   console.log(`[GCP-AUTH] authorizedFetch called for URL: ${urlStr}`);
   console.log(`[GCP-AUTH] isRunningInGcp(): ${isRunningInGcp()}`);
+
+  // Log environment variable values for debugging
+  console.log(`[GCP-AUTH] Environment variables:`);
+  console.log(`[GCP-AUTH]   PORT: "${process.env.PORT}"`);
+  console.log(`[GCP-AUTH]   K_SERVICE: "${process.env.K_SERVICE}"`);
+  console.log(`[GCP-AUTH]   K_REVISION: "${process.env.K_REVISION}"`);
+  console.log(`[GCP-AUTH]   K_CONFIGURATION: "${process.env.K_CONFIGURATION}"`);
+  console.log(`[GCP-AUTH]   GCP_CLOUD_RUN: "${process.env.GCP_CLOUD_RUN}"`);
 
   // Only apply identity-based auth when running in GCP/Cloud Run
   if (!isRunningInGcp()) {
