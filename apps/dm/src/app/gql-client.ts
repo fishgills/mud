@@ -1,16 +1,18 @@
 import { GraphQLClient } from 'graphql-request';
+import type { RequestInfo, RequestInit, Response } from 'node-fetch';
 import { authorizedFetch } from '@mud/gcp-auth';
 import { env } from '../env';
 import { getSdk, Sdk } from '../generated/world-graphql';
 
 // Ensure the provided endpoint URL targets the GraphQL path. This guards against
-// misconfigurations like using http://localhost:3000/world instead of /graphql.
+// misconfigurations like missing /graphql and preserves existing base path (e.g., /world -> /world/graphql).
 function ensureGraphQLEndpoint(urlStr: string): string {
   try {
     const u = new URL(urlStr);
-    // If the path isn't exactly /graphql, force it to /graphql
+    // If pathname already ends with /graphql, keep it; else append /graphql to existing path (handling trailing slash)
     if (!/\/graphql\/?$/.test(u.pathname)) {
-      u.pathname = '/graphql';
+      const basePath = u.pathname.replace(/\/$/, '');
+      u.pathname = `${basePath}/graphql`;
     }
     return u.toString();
   } catch {
@@ -19,8 +21,10 @@ function ensureGraphQLEndpoint(urlStr: string): string {
   }
 }
 
+type FetchLike = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
+
 export const worldSdk: Sdk = getSdk(
   new GraphQLClient(ensureGraphQLEndpoint(env.WORLD_SERVICE_URL), {
-    fetch: authorizedFetch as any,
+    fetch: authorizedFetch as FetchLike,
   }),
 );

@@ -1,5 +1,5 @@
 import { GoogleAuth, IdTokenClient } from 'google-auth-library';
-import fetch, { RequestInfo, RequestInit, Response } from 'node-fetch';
+import fetch, { RequestInfo, RequestInit, Response, Headers } from 'node-fetch';
 
 // Cache IdTokenClient per audience to avoid re-creating on every call
 const clientCache = new Map<string, Promise<IdTokenClient>>();
@@ -112,8 +112,8 @@ export async function authorizedFetch(
       // ignore if URL isn't available in this environment
     }
     // Try to access url property if it exists
-    if (input && typeof (input as any).url === 'string')
-      return (input as any).url as string;
+    const maybeReq = input as { url?: unknown } | null;
+    if (maybeReq && typeof maybeReq.url === 'string') return maybeReq.url;
     return String(input);
   })();
 
@@ -137,19 +137,34 @@ export async function authorizedFetch(
   try {
     const authHeaders = await getCloudRunAuthHeaders(urlStr);
 
-    // Properly merge headers for node-fetch compatibility
-    const headers: Record<string, string> = {
-      ...(init?.headers as Record<string, string> | undefined),
-      ...authHeaders,
+    // Normalize and merge headers preserving originals (Headers, array, or record)
+    // Convert incoming headers (string[][] | Record<string,string> | Headers | undefined) to Headers
+    const toHeaders = (
+      h?:
+        | Headers
+        | Record<string, string>
+        | Array<[string, string]>
+        | undefined,
+    ): Headers => {
+      if (!h) return new Headers();
+      if (h instanceof Headers) return new Headers(h);
+      if (Array.isArray(h)) return new Headers(h);
+      return new Headers(Object.entries(h));
     };
 
-    // Ensure GraphQL requests have the correct content type
-    if (
-      urlStr.includes('/graphql') &&
-      !headers['content-type'] &&
-      !headers['Content-Type']
-    ) {
-      headers['Content-Type'] = 'application/json';
+    const merged = toHeaders(
+      init?.headers as
+        | Headers
+        | Record<string, string>
+        | Array<[string, string]>
+        | undefined,
+    );
+    // Apply auth header (overrides if already present)
+    for (const [k, v] of Object.entries(authHeaders)) merged.set(k, v);
+
+    // Ensure GraphQL requests have the correct content type if caller didn't set it
+    if (urlStr.includes('/graphql') && !merged.has('content-type')) {
+      merged.set('content-type', 'application/json');
       console.log(
         `[GCP-AUTH] Setting Content-Type to application/json for GraphQL request`,
       );
@@ -157,11 +172,11 @@ export async function authorizedFetch(
 
     console.log(
       `[GCP-AUTH] Making authenticated request to ${urlStr} with headers:`,
-      Object.keys(headers),
+      Array.from(merged.keys()),
     );
 
     // Defer to node-fetch with merged headers
-    const response = await fetch(input, { ...init, headers });
+    const response = await fetch(input, { ...init, headers: merged });
 
     console.log(
       `[GCP-AUTH] Response status: ${response.status} ${response.statusText}`,

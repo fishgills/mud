@@ -95,6 +95,17 @@ resource "google_cloud_run_v2_service" "services" {
           value = env.value
         }
       }
+
+      # Auto-inject WORLD_SERVICE_URL for DM if not provided, pointing to the World service base path (/world)
+      dynamic "env" {
+        for_each = contains(["dm"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_SERVICE_URL") ? {
+          WORLD_SERVICE_URL = "https://mud-world-${data.google_project.project.number}.${var.region}.run.app"
+        } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
     }
   }
 
