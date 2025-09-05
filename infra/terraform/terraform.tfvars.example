@@ -20,6 +20,8 @@ services = {
     memory    = "512Mi"
     min_scale = 0
     max_scale = 10
+    # Optional: override image instead of using var.image_version tag from Artifact Registry
+    # image = "us-central1-docker.pkg.dev/${project_id}/mud-repo/dm:my-tag"
     env_vars = {
       NODE_ENV = "production"
     }
@@ -31,6 +33,7 @@ services = {
     memory    = "512Mi"
     min_scale = 0
     max_scale = 10
+    # image = "us-central1-docker.pkg.dev/${project_id}/mud-repo/world:my-tag"
     env_vars = {
       NODE_ENV = "production"
     }
@@ -42,6 +45,7 @@ services = {
     memory    = "256Mi"
     min_scale = 0
     max_scale = 5
+    # image = "us-central1-docker.pkg.dev/${project_id}/mud-repo/bot:my-tag"
     env_vars = {
       NODE_ENV = "production"
     }
@@ -53,6 +57,7 @@ services = {
     memory    = "256Mi"
     min_scale = 0
     max_scale = 3
+    # image = "us-central1-docker.pkg.dev/${project_id}/mud-repo/tick:my-tag"
     env_vars = {
       NODE_ENV = "production"
     }

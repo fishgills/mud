@@ -17,7 +17,10 @@ resource "google_cloud_run_v2_service" "services" {
     }
 
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/${data.google_artifact_registry_repository.repo.repository_id}/${each.value.name}:${var.image_version}"
+      image = coalesce(
+        try(each.value.image, null),
+        "${var.region}-docker.pkg.dev/${var.project_id}/${data.google_artifact_registry_repository.repo.repository_id}/${each.value.name}:${var.image_version}"
+      )
 
       ports {
         container_port = each.value.port

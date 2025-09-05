@@ -59,6 +59,9 @@ variable "services" {
     # Optional flags
     internal = optional(bool)
     enabled  = optional(bool)
+    # Optional: fully qualified container image to deploy (overrides computed Artifact Registry image)
+    # Example: "us-central1-docker.pkg.dev/my-proj/my-repo/dm:abc123" or "gcr.io/my-proj/custom:tag"
+    image = optional(string)
   }))
 }
 
