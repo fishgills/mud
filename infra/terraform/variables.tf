@@ -62,18 +62,6 @@ variable "services" {
   }))
 }
 
-variable "image_name_overrides" {
-  description = "Optional overrides for the container image name per service key (e.g., bot -> slack-bot)."
-  type        = map(string)
-  default     = {}
-}
-
-variable "dns_skip" {
-  description = "List of service keys to skip managing DNS A records for (useful if a CNAME already exists)."
-  type        = set(string)
-  default     = []
-}
-
 variable "image_version" {
   description = "The version tag for Docker images"
   type        = string

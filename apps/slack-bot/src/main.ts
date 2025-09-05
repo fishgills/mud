@@ -9,6 +9,25 @@ const app = new App({
   appToken: env.SLACK_APP_TOKEN,
 });
 
+// Absorb ACME HTTP-01 challenge probes from Google-managed certs for domain mappings.
+// These requests look like: /.well-known/acme-challenge/<token>
+// We respond 204 to avoid noisy logs and keep it fast. No payload needed.
+// Bolt uses an Express receiver by default when not using Socket Mode, so we can attach routes.
+type ResLite = { status: (code: number) => { send: (body?: string) => void } };
+type RouterLite = {
+  get: (path: string, handler: (req: unknown, res: ResLite) => void) => void;
+};
+type ReceiverWithRouter = { router?: RouterLite };
+const receiver = (app as unknown as { receiver?: ReceiverWithRouter }).receiver;
+if (receiver?.router) {
+  receiver.router.get('/.well-known/acme-challenge/:token', (_req, res) => {
+    res.status(204).send('');
+  });
+  receiver.router.get('/.well-known/*', (_req, res) => {
+    res.status(204).send('');
+  });
+}
+
 import './handlers/move';
 import './handlers/look';
 import './handlers/attack';
@@ -73,10 +92,15 @@ app.message(async ({ message, say }) => {
         filename: msg.fileUpload.filename,
         file: buffer,
         initial_comment: msg.text,
-      } as any);
+      });
       return;
     }
-    await say(msg as any);
+    const { text, blocks } = msg;
+    if (blocks && Array.isArray(blocks) && blocks.length > 0) {
+      await say({ text: text ?? '', blocks });
+    } else {
+      await say(text ?? '');
+    }
   };
 
   const lowerText = text.toLowerCase();

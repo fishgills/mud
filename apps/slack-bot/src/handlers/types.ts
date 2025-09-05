@@ -1,6 +1,8 @@
+import type { Block, KnownBlock } from '@slack/types';
+
 export type SayMessage = {
   text?: string;
-  blocks?: any[];
+  blocks?: (KnownBlock | Block)[];
   fileUpload?: {
     filename: string;
     contentBase64: string;

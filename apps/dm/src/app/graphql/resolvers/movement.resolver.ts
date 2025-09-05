@@ -63,6 +63,11 @@ export class MovementResolver {
     @Args('slackId') slackId: string,
   ): Promise<LookViewResponse> {
     try {
+      const aiProviderEnv = (process.env.DM_USE_VERTEX_AI || '').toLowerCase();
+      const aiProvider = aiProviderEnv === 'true' ? 'vertex' : 'openai';
+      this.logger.debug(
+        `getLookView start slackId=${slackId} provider=${aiProvider}`,
+      );
       const t0 = Date.now();
       const timing: TimingMetrics = {
         tPlayerMs: 0,
@@ -208,10 +213,29 @@ export class MovementResolver {
       this.logger.debug(
         `getLookView perf slackId=${slackId} totalMs=${totalMs} playerMs=${timing.tPlayerMs} getCenterMs=${timing.tGetCenterMs} getCenterNearbyMs=${timing.tGetCenterNearbyMs} boundsTilesMs=${timing.tBoundsTilesMs} filterTilesMs=${timing.tFilterTilesMs} extBoundsMs=${timing.tExtBoundsMs} peaksSortMs=${timing.tPeaksSortMs} biomeSummaryMs=${timing.tBiomeSummaryMs} settlementsFilterMs=${timing.tSettlementsFilterMs} aiMs=${timing.tAiMs} tiles=${timing.tilesCount} peaks=${timing.peaksCount}`,
       );
-      const aiProvider =
-        (process.env.DM_USE_VERTEX_AI || '').toLowerCase() === 'true'
-          ? 'vertex'
-          : 'openai';
+      // Structured log for easy parsing in logs backends
+      try {
+        const perfPayload = {
+          event: 'getLookView.perf',
+          slackId,
+          provider: aiProvider,
+          totalMs,
+          playerMs: timing.tPlayerMs,
+          worldCenterNearbyMs: timing.tGetCenterNearbyMs,
+          worldBoundsTilesMs: timing.tBoundsTilesMs,
+          worldExtendedBoundsMs: timing.tExtBoundsMs,
+          tilesFilterMs: timing.tFilterTilesMs,
+          peaksSortMs: timing.tPeaksSortMs,
+          biomeSummaryMs: timing.tBiomeSummaryMs,
+          settlementsFilterMs: timing.tSettlementsFilterMs,
+          aiMs: timing.tAiMs,
+          tilesCount: timing.tilesCount,
+          peaksCount: timing.peaksCount,
+        };
+        this.logger.log(JSON.stringify(perfPayload));
+      } catch {
+        this.logger.debug('Failed to emit structured perf log');
+      }
       const perf: PerformanceStats = {
         totalMs,
         playerMs: timing.tPlayerMs,

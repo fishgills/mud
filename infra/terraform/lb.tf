@@ -106,7 +106,7 @@ resource "google_compute_global_forwarding_rule" "http" {
 }
 
 resource "google_dns_record_set" "services" {
-  for_each = var.enable_load_balancer ? { for k, v in local.external_services : k => v if !contains(var.dns_skip, k) } : {}
+  for_each = var.enable_load_balancer ? local.external_services : {}
 
   name = "${each.value.name}.${data.google_dns_managed_zone.zone.dns_name}"
   type = "A"

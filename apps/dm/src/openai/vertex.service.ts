@@ -47,10 +47,6 @@ export class VertexAiService {
     prompt: string,
     options?: { timeoutMs?: number; cacheKey?: string; maxTokens?: number },
   ) {
-    this.logger.log(
-      `VertexAI being called with prompt: ${prompt.substring(0, 100)}... (model=${this.model})`,
-    );
-
     const cacheKey = options?.cacheKey || `vertex:${prompt}`;
     const now = Date.now();
     const cached = this.cache.get(cacheKey);
@@ -108,7 +104,11 @@ export class VertexAiService {
       );
 
       const callPromise = call();
+
+      const startTime = Date.now();
       const raced = await Promise.race([callPromise, timeoutPromise]);
+      const elapsedMs = Date.now() - startTime;
+      this.logger.debug(`VertexAI call resolved in ${elapsedMs}ms`);
 
       if (raced !== TIMEOUT_SENTINEL) {
         this.logger.log(

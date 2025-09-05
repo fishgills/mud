@@ -192,7 +192,7 @@ def update_slack_bot_endpoints(project_id: str, region: str):
             slack_service,
             f"--region={region}",
             f"--project={project_id}",
-            f"--update-env-vars=DM_GQL_ENDPOINT={dm_gql},WORLD_GQL_ENDPOINT={world_gql},WORLD_BASE_URL={world_base}",
+            f"--update-env-vars=DM_GQL_ENDPOINT={dm_gql},WORLD_GQL_ENDPOINT={world_gql}",
         ]
     )
     info("Slack Bot environment variables updated.")
