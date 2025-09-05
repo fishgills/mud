@@ -1,35 +1,50 @@
-## --- Builder stage ---
-FROM node:alpine AS builder
-ENV NX_SKIP_ESLINT_PLUGIN=1
+FROM node:slim AS builder
 WORKDIR /workspace
 
-COPY package*.json ./
-COPY tsconfig*.json ./
-COPY nx.json ./
-COPY eslint.config.mjs ./
-COPY apps/tick/eslint.config.mjs ./apps/tick/eslint.config.mjs
-COPY apps/tick/tsconfig.* ./apps/tick/
-COPY apps/tick ./apps/tick
-COPY libs ./libs
+# RUN apt-get update && apt-get install -y python3 make gcc g++ pkg-config
 
-RUN npm ci --ignore-scripts && npm i -D typescript-eslint@^8.34.1
-RUN npx nx build tick
+COPY package.json tsconfig* nx.json package-lock.json ./
+COPY eslint.config.mjs ./
+
+RUN npm install
+
+# Copy project configuration files so Nx can detect projects
+COPY apps/tick/package.json ./apps/tick/package.json
+COPY apps/tick/tsconfig*.json ./apps/tick/
+COPY apps/tick/eslint.config.mjs ./apps/tick/
+
+# Copy libs and source code
+COPY libs ./libs/
+COPY apps/tick/src ./apps/tick/src/
+
+RUN NX_DAEMON=false npx nx sync
+# Build gcp-auth first and create a symlink to the dist in node_modules
+RUN NX_DAEMON=false npx nx build gcp-auth
+RUN mkdir -p node_modules/@mud/gcp-auth
+RUN cp libs/gcp-auth/package.json node_modules/@mud/gcp-auth/
+RUN ln -sf ../../../libs/gcp-auth/dist node_modules/@mud/gcp-auth/dist
+RUN NX_DAEMON=false npx nx run tick:build:production
 
 ## --- Runtime stage ---
 FROM node:alpine AS runtime
+ENV HOST=0.0.0.0
+ARG PORT=3002
+ENV PORT=$PORT
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm ci --only=production --ignore-scripts
 
-COPY --from=builder /workspace/apps/tick/dist ./
-COPY apps/tick/package.json ./app-package.json
+# Include the internal @mud/gcp-auth library so runtime can resolve it
+COPY --from=builder /workspace/libs/gcp-auth/dist ./node_modules/@mud/gcp-auth/dist
+COPY --from=builder /workspace/libs/gcp-auth/package.json ./node_modules/@mud/gcp-auth/package.json
 
-ARG PORT=3003
-ENV PORT=$PORT
-EXPOSE $PORT
+COPY --from=builder /workspace/apps/tick/dist ./tick
+COPY apps/tick/package.json ./tick/package.json
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "console.log('Tick health check')" || exit 1
+  CMD node -e "console.log('tick ok')" || exit 1
 
-CMD ["node", "main.js"]
+EXPOSE $PORT
+# Run the compiled entrypoint
+CMD [ "node", "tick/main.js" ]
