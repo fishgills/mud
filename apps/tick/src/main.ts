@@ -1,5 +1,5 @@
-import axios from 'axios';
 import http from 'http';
+import { authorizedFetch } from '@mud/gcp-auth';
 
 // DM GraphQL endpoint for processTick mutation
 const DM_GRAPHQL_URL =
@@ -10,18 +10,38 @@ const PROCESS_TICK_MUTATION = `mutation {  processTick {    success    message  
 
 async function sendProcessTick() {
   try {
-    const response = await axios.post(
-      DM_GRAPHQL_URL,
-      { query: PROCESS_TICK_MUTATION, variables: {} },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
+    const res = await authorizedFetch(DM_GRAPHQL_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
       },
-    );
-    const payload = response.data;
-    const result = payload?.data?.processTick;
+      body: JSON.stringify({ query: PROCESS_TICK_MUTATION, variables: {} }),
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      console.error(
+        `[tick] DM GraphQL HTTP ${res.status} ${res.statusText}: ${text.slice(0, 1000)}`,
+      );
+      return;
+    }
+    let payload: unknown;
+    try {
+      payload = JSON.parse(text);
+    } catch (e) {
+      console.error('[tick] Failed to parse DM response as JSON:', e);
+      return;
+    }
+    type ProcessTickPayload = {
+      data?: {
+        processTick?: {
+          success: boolean;
+          message?: string;
+          result?: Record<string, unknown>;
+        };
+      };
+    };
+    const result = (payload as ProcessTickPayload).data?.processTick;
     if (result?.success) {
       console.log(`[tick] DM processTick OK: ${result.message ?? 'success'}`);
       console.log(`[tick] Result: ${JSON.stringify(result.result, null, 2)}`);
@@ -31,13 +51,7 @@ async function sendProcessTick() {
       );
     }
   } catch (err) {
-    if (axios.isAxiosError(err)) {
-      console.error(
-        '[tick] Error calling DM GraphQL:',
-        err.message,
-        err.response?.data ?? '',
-      );
-    } else if (err instanceof Error) {
+    if (err instanceof Error) {
       console.error('[tick] Error calling DM GraphQL:', err.message);
     } else {
       console.error('[tick] Error calling DM GraphQL:', err);

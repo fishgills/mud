@@ -150,12 +150,12 @@ def terraform_deploy(project_id: str, region: str, version: str):
     run(["terraform", "apply", f"-var=project_id={project_id}", f"-var=region={region}", f"-var=image_version={version}", "-auto-approve"], cwd=cwd)
     info("Infrastructure deployed successfully")
 
-    update_slack_bot_endpoints(project_id, region)
+    update_service_endpoints(project_id, region)
 
-
-def update_slack_bot_endpoints(project_id: str, region: str):
+def update_service_endpoints(project_id: str, region: str):
     info("Updating Slack Bot endpoint environment variables from actual Cloud Run service URLs...")
     slack_service = "mud-slack-bot"
+    tick_service = "mud-tick"
     # Query service URLs
     dm_uri = (
         run([
@@ -196,6 +196,16 @@ def update_slack_bot_endpoints(project_id: str, region: str):
         ]
     )
     info("Slack Bot environment variables updated.")
+
+    run([
+        "gcloud",
+        "run","services","update",
+        tick_service,
+        f"--region={region}",
+        f"--project={project_id}",
+        f"--update-env-vars=DM_GRAPHQL_URL={dm_gql}"
+    ])
+    info("Tick service environment variables updated.")
 
 
 def run_migrations():
@@ -275,7 +285,7 @@ def main():
         configure_docker(region)
         nx_sync()
         build_and_push_images(project_id, region, registry_name, version)
-        update_slack_bot_endpoints(project_id, region)
+        update_service_endpoints(project_id, region)
         return
     if args.command == "infra-only":
         # Ensure images exist for this tag before running TF (prevents image-not-found)
@@ -283,7 +293,7 @@ def main():
         terraform_deploy(project_id, region, version)
         return
     if args.command == "update-slack-bot-endpoints":
-        update_slack_bot_endpoints(project_id, region)
+        update_service_endpoints(project_id, region)
         return
 
     # default: full pipeline
