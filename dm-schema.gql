@@ -110,16 +110,55 @@ type MonsterResponse {
   data: Monster
 }
 
-type CombatResult {
-  success: Boolean!
-  damage: Float!
+type CombatRound {
+  roundNumber: Float!
   attackerName: String!
   defenderName: String!
-  defenderHp: Float!
-  defenderMaxHp: Float!
-  isDead: Boolean!
+  attackRoll: Float!
+  attackModifier: Float!
+  totalAttack: Float!
+  defenderAC: Float!
+  hit: Boolean!
+  damage: Float!
+  defenderHpAfter: Float!
+  killed: Boolean!
+}
+
+type InitiativeRoll {
+  name: String!
+  roll: Float!
+  modifier: Float!
+  total: Float!
+}
+
+type CombatLocation {
+  x: Float!
+  y: Float!
+}
+
+type DetailedCombatLog {
+  combatId: String!
+  participant1: String!
+  participant2: String!
+  initiativeRolls: [InitiativeRoll!]!
+  firstAttacker: String!
+  rounds: [CombatRound!]!
+  winner: String!
+  loser: String!
+  xpAwarded: Float!
+  timestamp: DateTime!
+  location: CombatLocation!
+}
+
+type CombatResult {
+  success: Boolean!
+  combatLog: DetailedCombatLog!
+  winnerName: String!
+  loserName: String!
+  totalDamageDealt: Float!
+  roundsCompleted: Float!
+  xpGained: Float!
   message: String!
-  xpGained: Float
 }
 
 type CombatResponse {
@@ -221,16 +260,16 @@ type LookViewData {
 }
 
 type PerformanceStats {
-  totalMs: Int!
-  playerMs: Int!
-  worldCenterNearbyMs: Int!
-  worldBoundsTilesMs: Int!
-  worldExtendedBoundsMs: Int!
-  tilesFilterMs: Int!
-  peaksSortMs: Int!
-  biomeSummaryMs: Int!
-  settlementsFilterMs: Int!
-  aiMs: Int!
+  totalMs: Float!
+  playerMs: Float!
+  worldCenterNearbyMs: Float!
+  worldBoundsTilesMs: Float!
+  worldExtendedBoundsMs: Float!
+  tilesFilterMs: Float!
+  peaksSortMs: Float!
+  biomeSummaryMs: Float!
+  settlementsFilterMs: Float!
+  aiMs: Float!
   tilesCount: Int!
   peaksCount: Int!
   aiProvider: String!

@@ -31,14 +31,30 @@ export const attackHandler = async ({ userId, say }: HandlerContext) => {
       await say({ text: 'Attack succeeded but no combat data returned.' });
       return;
     }
-    let msg = `You attacked ${combat.defenderName} for ${combat.damage} damage!`;
-    if (combat.isDead) {
-      msg += `\n${combat.defenderName} was defeated!`;
+
+    const log = combat.combatLog;
+    const isPlayerWinner = combat.winnerName === player.name;
+    const defenderName = combat.loserName;
+    const playerDamage = combat.totalDamageDealt;
+
+    let msg = `You attacked ${defenderName} for ${playerDamage} total damage!`;
+    msg += `\nCombat lasted ${combat.roundsCompleted} rounds.`;
+
+    if (isPlayerWinner) {
+      msg += `\n${defenderName} was defeated!`;
+      if (combat.xpGained > 0) {
+        msg += `\nYou gained ${combat.xpGained} XP!`;
+      }
     } else {
-      msg += `\n${combat.defenderName} has ${combat.defenderHp}/${combat.defenderMaxHp} HP left.`;
+      msg += `\n${defenderName} defeated you!`;
     }
-    if (combat.xpGained) {
-      msg += `\nYou gained ${combat.xpGained} XP!`;
+
+    // Add some combat details
+    msg += `\n\n**Combat Summary:**`;
+    msg += `\nInitiative: ${log.firstAttacker} went first`;
+    if (log.rounds.length > 0) {
+      const lastRound = log.rounds[log.rounds.length - 1];
+      msg += `\nFinal blow: ${lastRound.attackerName} hit for ${lastRound.damage} damage`;
     }
     await say({ text: msg });
   } catch (err: unknown) {

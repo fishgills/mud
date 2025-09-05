@@ -79,12 +79,9 @@ export class MonsterResponse extends SuccessResponse {
 }
 
 @ObjectType()
-export class CombatResult {
+export class CombatRound {
   @Field()
-  success!: boolean;
-
-  @Field()
-  damage!: number;
+  roundNumber!: number;
 
   @Field()
   attackerName!: string;
@@ -93,19 +90,115 @@ export class CombatResult {
   defenderName!: string;
 
   @Field()
-  defenderHp!: number;
+  attackRoll!: number;
 
   @Field()
-  defenderMaxHp!: number;
+  attackModifier!: number;
 
   @Field()
-  isDead!: boolean;
+  totalAttack!: number;
+
+  @Field()
+  defenderAC!: number;
+
+  @Field()
+  hit!: boolean;
+
+  @Field()
+  damage!: number;
+
+  @Field()
+  defenderHpAfter!: number;
+
+  @Field()
+  killed!: boolean;
+}
+
+@ObjectType()
+export class InitiativeRoll {
+  @Field()
+  name!: string;
+
+  @Field()
+  roll!: number;
+
+  @Field()
+  modifier!: number;
+
+  @Field()
+  total!: number;
+}
+
+@ObjectType()
+export class CombatLocation {
+  @Field()
+  x!: number;
+
+  @Field()
+  y!: number;
+}
+
+@ObjectType()
+export class DetailedCombatLog {
+  @Field()
+  combatId!: string;
+
+  @Field()
+  participant1!: string;
+
+  @Field()
+  participant2!: string;
+
+  @Field(() => [InitiativeRoll])
+  initiativeRolls!: InitiativeRoll[];
+
+  @Field()
+  firstAttacker!: string;
+
+  @Field(() => [CombatRound])
+  rounds!: CombatRound[];
+
+  @Field()
+  winner!: string;
+
+  @Field()
+  loser!: string;
+
+  @Field()
+  xpAwarded!: number;
+
+  @Field()
+  timestamp!: Date;
+
+  @Field(() => CombatLocation)
+  location!: CombatLocation;
+}
+
+@ObjectType()
+export class CombatResult {
+  @Field()
+  success!: boolean;
+
+  @Field(() => DetailedCombatLog)
+  combatLog!: DetailedCombatLog;
+
+  @Field()
+  winnerName!: string;
+
+  @Field()
+  loserName!: string;
+
+  @Field()
+  totalDamageDealt!: number;
+
+  @Field()
+  roundsCompleted!: number;
+
+  @Field()
+  xpGained!: number;
 
   @Field()
   message!: string;
-
-  @Field({ nullable: true })
-  xpGained?: number;
 }
 
 @ObjectType()
@@ -327,34 +420,34 @@ export class LookViewData {
 
 @ObjectType()
 export class PerformanceStats {
-  @Field(() => Int)
+  @Field(() => Float)
   totalMs!: number;
 
-  @Field(() => Int)
+  @Field(() => Float)
   playerMs!: number;
 
-  @Field(() => Int)
+  @Field(() => Float)
   worldCenterNearbyMs!: number;
 
-  @Field(() => Int)
+  @Field(() => Float)
   worldBoundsTilesMs!: number;
 
-  @Field(() => Int)
+  @Field(() => Float)
   worldExtendedBoundsMs!: number;
 
-  @Field(() => Int)
+  @Field(() => Float)
   tilesFilterMs!: number;
 
-  @Field(() => Int)
+  @Field(() => Float)
   peaksSortMs!: number;
 
-  @Field(() => Int)
+  @Field(() => Float)
   biomeSummaryMs!: number;
 
-  @Field(() => Int)
+  @Field(() => Float)
   settlementsFilterMs!: number;
 
-  @Field(() => Int)
+  @Field(() => Float)
   aiMs!: number;
 
   @Field(() => Int)
@@ -364,7 +457,7 @@ export class PerformanceStats {
   peaksCount!: number;
 
   @Field()
-  aiProvider!: string; // 'vertex' | 'openai'
+  aiProvider!: string;
 }
 
 @ObjectType()

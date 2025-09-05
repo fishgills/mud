@@ -22,14 +22,40 @@ mutation Attack($slackId: String!, $input: AttackInput!) {
     success
     message
     data {
-      attackerName
-      defenderName
-      damage
-      defenderHp
-      defenderMaxHp
-      isDead
-      message
+      winnerName
+      loserName
+      totalDamageDealt
+      roundsCompleted
       xpGained
+      message
+      success
+      combatLog {
+        participant1
+        participant2
+        initiativeRolls {
+          name
+          roll
+          modifier
+          total
+        }
+        firstAttacker
+        rounds {
+          roundNumber
+          killed
+          attackerName
+          defenderName
+          attackRoll
+          attackModifier
+          totalAttack
+          defenderAC
+          hit
+          damage
+          defenderHpAfter
+        }
+        winner
+        loser
+        xpAwarded
+      }
     }
   }
 }
@@ -158,21 +184,6 @@ query GetLookView($slackId: String!) {
         y
       }
       description
-    }
-    perf {
-      totalMs
-      playerMs
-      worldCenterNearbyMs
-      worldBoundsTilesMs
-      worldExtendedBoundsMs
-      tilesFilterMs
-      peaksSortMs
-      biomeSummaryMs
-      settlementsFilterMs
-      aiMs
-      tilesCount
-      peaksCount
-      aiProvider
     }
   }
 }

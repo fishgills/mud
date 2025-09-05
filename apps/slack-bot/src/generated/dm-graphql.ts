@@ -32,6 +32,12 @@ export type BiomeSectorSummary = {
   proportion: Scalars['Float']['output'];
 };
 
+export type CombatLocation = {
+  __typename?: 'CombatLocation';
+  x: Scalars['Float']['output'];
+  y: Scalars['Float']['output'];
+};
+
 export type CombatLog = {
   __typename?: 'CombatLog';
   attackerId: Scalars['Int']['output'];
@@ -55,15 +61,29 @@ export type CombatResponse = {
 
 export type CombatResult = {
   __typename?: 'CombatResult';
+  combatLog: DetailedCombatLog;
+  loserName: Scalars['String']['output'];
+  message: Scalars['String']['output'];
+  roundsCompleted: Scalars['Float']['output'];
+  success: Scalars['Boolean']['output'];
+  totalDamageDealt: Scalars['Float']['output'];
+  winnerName: Scalars['String']['output'];
+  xpGained: Scalars['Float']['output'];
+};
+
+export type CombatRound = {
+  __typename?: 'CombatRound';
+  attackModifier: Scalars['Float']['output'];
+  attackRoll: Scalars['Float']['output'];
   attackerName: Scalars['String']['output'];
   damage: Scalars['Float']['output'];
-  defenderHp: Scalars['Float']['output'];
-  defenderMaxHp: Scalars['Float']['output'];
+  defenderAC: Scalars['Float']['output'];
+  defenderHpAfter: Scalars['Float']['output'];
   defenderName: Scalars['String']['output'];
-  isDead: Scalars['Boolean']['output'];
-  message: Scalars['String']['output'];
-  success: Scalars['Boolean']['output'];
-  xpGained?: Maybe<Scalars['Float']['output']>;
+  hit: Scalars['Boolean']['output'];
+  killed: Scalars['Boolean']['output'];
+  roundNumber: Scalars['Float']['output'];
+  totalAttack: Scalars['Float']['output'];
 };
 
 export type CreatePlayerInput = {
@@ -80,6 +100,21 @@ export type CurrentSettlementInfo = {
   name: Scalars['String']['output'];
   size: Scalars['String']['output'];
   type: Scalars['String']['output'];
+};
+
+export type DetailedCombatLog = {
+  __typename?: 'DetailedCombatLog';
+  combatId: Scalars['String']['output'];
+  firstAttacker: Scalars['String']['output'];
+  initiativeRolls: Array<InitiativeRoll>;
+  location: CombatLocation;
+  loser: Scalars['String']['output'];
+  participant1: Scalars['String']['output'];
+  participant2: Scalars['String']['output'];
+  rounds: Array<CombatRound>;
+  timestamp: Scalars['DateTime']['output'];
+  winner: Scalars['String']['output'];
+  xpAwarded: Scalars['Float']['output'];
 };
 
 /** Cardinal directions for player movement */
@@ -109,6 +144,14 @@ export type HealthCheck = {
   __typename?: 'HealthCheck';
   status: Scalars['String']['output'];
   timestamp: Scalars['String']['output'];
+};
+
+export type InitiativeRoll = {
+  __typename?: 'InitiativeRoll';
+  modifier: Scalars['Float']['output'];
+  name: Scalars['String']['output'];
+  roll: Scalars['Float']['output'];
+  total: Scalars['Float']['output'];
 };
 
 export type LocationInfo = {
@@ -255,19 +298,19 @@ export type NearbyPlayerInfo = {
 
 export type PerformanceStats = {
   __typename?: 'PerformanceStats';
-  aiMs: Scalars['Int']['output'];
+  aiMs: Scalars['Float']['output'];
   aiProvider: Scalars['String']['output'];
-  biomeSummaryMs: Scalars['Int']['output'];
+  biomeSummaryMs: Scalars['Float']['output'];
   peaksCount: Scalars['Int']['output'];
-  peaksSortMs: Scalars['Int']['output'];
-  playerMs: Scalars['Int']['output'];
-  settlementsFilterMs: Scalars['Int']['output'];
+  peaksSortMs: Scalars['Float']['output'];
+  playerMs: Scalars['Float']['output'];
+  settlementsFilterMs: Scalars['Float']['output'];
   tilesCount: Scalars['Int']['output'];
-  tilesFilterMs: Scalars['Int']['output'];
-  totalMs: Scalars['Int']['output'];
-  worldBoundsTilesMs: Scalars['Int']['output'];
-  worldCenterNearbyMs: Scalars['Int']['output'];
-  worldExtendedBoundsMs: Scalars['Int']['output'];
+  tilesFilterMs: Scalars['Float']['output'];
+  totalMs: Scalars['Float']['output'];
+  worldBoundsTilesMs: Scalars['Float']['output'];
+  worldCenterNearbyMs: Scalars['Float']['output'];
+  worldExtendedBoundsMs: Scalars['Float']['output'];
 };
 
 export type Player = {
@@ -446,7 +489,7 @@ export type AttackMutationVariables = Exact<{
 }>;
 
 
-export type AttackMutation = { __typename?: 'Mutation', attack: { __typename?: 'CombatResponse', success: boolean, message?: string | null, data?: { __typename?: 'CombatResult', attackerName: string, defenderName: string, damage: number, defenderHp: number, defenderMaxHp: number, isDead: boolean, message: string, xpGained?: number | null } | null } };
+export type AttackMutation = { __typename?: 'Mutation', attack: { __typename?: 'CombatResponse', success: boolean, message?: string | null, data?: { __typename?: 'CombatResult', winnerName: string, loserName: string, totalDamageDealt: number, roundsCompleted: number, xpGained: number, message: string, success: boolean, combatLog: { __typename?: 'DetailedCombatLog', participant1: string, participant2: string, firstAttacker: string, winner: string, loser: string, xpAwarded: number, initiativeRolls: Array<{ __typename?: 'InitiativeRoll', name: string, roll: number, modifier: number, total: number }>, rounds: Array<{ __typename?: 'CombatRound', roundNumber: number, killed: boolean, attackerName: string, defenderName: string, attackRoll: number, attackModifier: number, totalAttack: number, defenderAC: number, hit: boolean, damage: number, defenderHpAfter: number }> } } | null } };
 
 export type GetPlayerQueryVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -467,7 +510,7 @@ export type GetLookViewQueryVariables = Exact<{
 }>;
 
 
-export type GetLookViewQuery = { __typename?: 'Query', getLookView: { __typename?: 'LookViewResponse', success: boolean, message?: string | null, data?: { __typename?: 'LookViewData', visibilityRadius: number, description: string, location: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number }, currentSettlement?: { __typename?: 'CurrentSettlementInfo', name: string, type: string, size: string, intensity: number, isCenter: boolean } | null, monsters?: Array<{ __typename?: 'Monster', id: string, name: string }> | null, biomeSummary: Array<{ __typename?: 'BiomeSectorSummary', biomeName: string, proportion: number, predominantDirections: Array<string> }>, visiblePeaks: Array<{ __typename?: 'VisiblePeakInfo', x: number, y: number, height: number, distance: number, direction: string }>, visibleSettlements: Array<{ __typename?: 'VisibleSettlementInfo', name: string, type: string, size: string, distance: number, direction: string }>, nearbyPlayers?: Array<{ __typename?: 'NearbyPlayerInfo', distance: number, direction: string, x: number, y: number }> | null } | null, perf?: { __typename?: 'PerformanceStats', totalMs: number, playerMs: number, worldCenterNearbyMs: number, worldBoundsTilesMs: number, worldExtendedBoundsMs: number, tilesFilterMs: number, peaksSortMs: number, biomeSummaryMs: number, settlementsFilterMs: number, aiMs: number, tilesCount: number, peaksCount: number, aiProvider: string } | null } };
+export type GetLookViewQuery = { __typename?: 'Query', getLookView: { __typename?: 'LookViewResponse', success: boolean, message?: string | null, data?: { __typename?: 'LookViewData', visibilityRadius: number, description: string, location: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number }, currentSettlement?: { __typename?: 'CurrentSettlementInfo', name: string, type: string, size: string, intensity: number, isCenter: boolean } | null, monsters?: Array<{ __typename?: 'Monster', id: string, name: string }> | null, biomeSummary: Array<{ __typename?: 'BiomeSectorSummary', biomeName: string, proportion: number, predominantDirections: Array<string> }>, visiblePeaks: Array<{ __typename?: 'VisiblePeakInfo', x: number, y: number, height: number, distance: number, direction: string }>, visibleSettlements: Array<{ __typename?: 'VisibleSettlementInfo', name: string, type: string, size: string, distance: number, direction: string }>, nearbyPlayers?: Array<{ __typename?: 'NearbyPlayerInfo', distance: number, direction: string, x: number, y: number }> | null } | null } };
 
 export type CreatePlayerMutationVariables = Exact<{
   input: CreatePlayerInput;
@@ -524,14 +567,40 @@ export const AttackDocument = gql`
     success
     message
     data {
-      attackerName
-      defenderName
-      damage
-      defenderHp
-      defenderMaxHp
-      isDead
-      message
+      winnerName
+      loserName
+      totalDamageDealt
+      roundsCompleted
       xpGained
+      message
+      success
+      combatLog {
+        participant1
+        participant2
+        initiativeRolls {
+          name
+          roll
+          modifier
+          total
+        }
+        firstAttacker
+        rounds {
+          roundNumber
+          killed
+          attackerName
+          defenderName
+          attackRoll
+          attackModifier
+          totalAttack
+          defenderAC
+          hit
+          damage
+          defenderHpAfter
+        }
+        winner
+        loser
+        xpAwarded
+      }
     }
   }
 }
@@ -662,21 +731,6 @@ export const GetLookViewDocument = gql`
         y
       }
       description
-    }
-    perf {
-      totalMs
-      playerMs
-      worldCenterNearbyMs
-      worldBoundsTilesMs
-      worldExtendedBoundsMs
-      tilesFilterMs
-      peaksSortMs
-      biomeSummaryMs
-      settlementsFilterMs
-      aiMs
-      tilesCount
-      peaksCount
-      aiProvider
     }
   }
 }
