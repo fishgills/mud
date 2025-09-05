@@ -47,7 +47,7 @@ export class WorldService {
     Promise<WorldTile[]>
   >();
   private readonly CHUNK_CACHE_TTL_MS = Number.parseInt(
-    process.env.DM_CHUNK_CACHE_TTL_MS || '10000',
+    process.env.DM_CHUNK_CACHE_TTL_MS || '30000',
     10,
   );
   // Center-with-nearby cache and inflight dedupe
@@ -73,7 +73,7 @@ export class WorldService {
     }>
   >();
   private readonly CENTER_NEARBY_CACHE_TTL_MS = Number.parseInt(
-    process.env.DM_CENTER_NEARBY_CACHE_TTL_MS || '15000',
+    process.env.DM_CENTER_NEARBY_CACHE_TTL_MS || '30000',
     10,
   );
 
@@ -154,20 +154,21 @@ export class WorldService {
       if (result?.getChunk?.tiles) {
         // Convert GraphQL response to WorldTile format
         tiles = result.getChunk.tiles.map((tile) => ({
-          id: tile.id,
+          // Fill minimal fields we actually use downstream for look
+          id: 0,
           x: tile.x,
           y: tile.y,
-          biomeId: tile.biomeId,
+          biomeId: 0,
           biomeName: tile.biomeName,
-          description: tile.description || '',
+          description: '',
           height: tile.height,
-          temperature: tile.temperature,
-          moisture: tile.moisture,
-          seed: tile.seed,
-          chunkX: tile.chunkX,
-          chunkY: tile.chunkY,
-          createdAt: new Date(tile.createdAt),
-          updatedAt: new Date(tile.updatedAt),
+          temperature: 0,
+          moisture: 0,
+          seed: 0,
+          chunkX: Math.floor(tile.x / 50),
+          chunkY: Math.floor(tile.y / 50),
+          createdAt: new Date(),
+          updatedAt: new Date(),
         }));
       }
 

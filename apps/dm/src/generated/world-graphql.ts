@@ -417,7 +417,7 @@ export type GetChunkQueryVariables = Exact<{
 }>;
 
 
-export type GetChunkQuery = { __typename?: 'Query', getChunk: { __typename?: 'ChunkData', chunkX: number, chunkY: number, tiles?: Array<{ __typename?: 'WorldTile', id: number, x: number, y: number, biomeId: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number, seed: number, chunkX: number, chunkY: number, createdAt: any, updatedAt: any }> | null } };
+export type GetChunkQuery = { __typename?: 'Query', getChunk: { __typename?: 'ChunkData', chunkX: number, chunkY: number, tiles?: Array<{ __typename?: 'WorldTile', x: number, y: number, biomeName: string, height: number }> | null } };
 
 export type HealthCheckQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -459,20 +459,10 @@ export const GetChunkDocument = gql`
     chunkX
     chunkY
     tiles {
-      id
       x
       y
-      biomeId
       biomeName
-      description
       height
-      temperature
-      moisture
-      seed
-      chunkX
-      chunkY
-      createdAt
-      updatedAt
     }
   }
 }
