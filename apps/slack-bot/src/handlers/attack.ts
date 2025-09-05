@@ -32,14 +32,11 @@ export const attackHandler = async ({ userId, say }: HandlerContext) => {
       return;
     }
 
-    const log = combat.combatLog;
     const isPlayerWinner = combat.winnerName === player.name;
     const defenderName = combat.loserName;
-    const playerDamage = combat.totalDamageDealt;
+    // const playerDamage = combat.totalDamageDealt;
 
-    let msg = `You attacked ${defenderName} for ${playerDamage} total damage!`;
-    msg += `\nCombat lasted ${combat.roundsCompleted} rounds.`;
-
+    let msg = `You attacked ${defenderName}!`;
     if (isPlayerWinner) {
       msg += `\n${defenderName} was defeated!`;
       if (combat.xpGained > 0) {
@@ -49,14 +46,13 @@ export const attackHandler = async ({ userId, say }: HandlerContext) => {
       msg += `\n${defenderName} defeated you!`;
     }
 
+    msg += `\nCombat lasted ${combat.roundsCompleted} rounds.\n`;
+
     // Add some combat details
-    msg += `\n\n**Combat Summary:**`;
-    msg += `\nInitiative: ${log.firstAttacker} went first`;
-    if (log.rounds.length > 0) {
-      const lastRound = log.rounds[log.rounds.length - 1];
-      msg += `\nFinal blow: ${lastRound.attackerName} hit for ${lastRound.damage} damage`;
-    }
+    // msg += `\n\n**Combat Summary:**`;
+    msg += combat.message;
     await say({ text: msg });
+    console.log(JSON.stringify(combat, null, 2));
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(err, 'Failed to attack');
     await say({ text: errorMessage });

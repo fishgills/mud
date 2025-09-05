@@ -29,33 +29,6 @@ mutation Attack($slackId: String!, $input: AttackInput!) {
       xpGained
       message
       success
-      combatLog {
-        participant1
-        participant2
-        initiativeRolls {
-          name
-          roll
-          modifier
-          total
-        }
-        firstAttacker
-        rounds {
-          roundNumber
-          killed
-          attackerName
-          defenderName
-          attackRoll
-          attackModifier
-          totalAttack
-          defenderAC
-          hit
-          damage
-          defenderHpAfter
-        }
-        winner
-        loser
-        xpAwarded
-      }
     }
   }
 }

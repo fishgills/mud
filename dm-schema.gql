@@ -136,23 +136,8 @@ type CombatLocation {
   y: Float!
 }
 
-type DetailedCombatLog {
-  combatId: String!
-  participant1: String!
-  participant2: String!
-  initiativeRolls: [InitiativeRoll!]!
-  firstAttacker: String!
-  rounds: [CombatRound!]!
-  winner: String!
-  loser: String!
-  xpAwarded: Float!
-  timestamp: DateTime!
-  location: CombatLocation!
-}
-
 type CombatResult {
   success: Boolean!
-  combatLog: DetailedCombatLog!
   winnerName: String!
   loserName: String!
   totalDamageDealt: Float!

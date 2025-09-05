@@ -61,7 +61,6 @@ export type CombatResponse = {
 
 export type CombatResult = {
   __typename?: 'CombatResult';
-  combatLog: DetailedCombatLog;
   loserName: Scalars['String']['output'];
   message: Scalars['String']['output'];
   roundsCompleted: Scalars['Float']['output'];
@@ -100,21 +99,6 @@ export type CurrentSettlementInfo = {
   name: Scalars['String']['output'];
   size: Scalars['String']['output'];
   type: Scalars['String']['output'];
-};
-
-export type DetailedCombatLog = {
-  __typename?: 'DetailedCombatLog';
-  combatId: Scalars['String']['output'];
-  firstAttacker: Scalars['String']['output'];
-  initiativeRolls: Array<InitiativeRoll>;
-  location: CombatLocation;
-  loser: Scalars['String']['output'];
-  participant1: Scalars['String']['output'];
-  participant2: Scalars['String']['output'];
-  rounds: Array<CombatRound>;
-  timestamp: Scalars['DateTime']['output'];
-  winner: Scalars['String']['output'];
-  xpAwarded: Scalars['Float']['output'];
 };
 
 /** Cardinal directions for player movement */
@@ -490,7 +474,7 @@ export type AttackMutationVariables = Exact<{
 }>;
 
 
-export type AttackMutation = { __typename?: 'Mutation', attack: { __typename?: 'CombatResponse', success: boolean, message?: string | null, data?: { __typename?: 'CombatResult', winnerName: string, loserName: string, totalDamageDealt: number, roundsCompleted: number, xpGained: number, message: string, success: boolean, combatLog: { __typename?: 'DetailedCombatLog', participant1: string, participant2: string, firstAttacker: string, winner: string, loser: string, xpAwarded: number, initiativeRolls: Array<{ __typename?: 'InitiativeRoll', name: string, roll: number, modifier: number, total: number }>, rounds: Array<{ __typename?: 'CombatRound', roundNumber: number, killed: boolean, attackerName: string, defenderName: string, attackRoll: number, attackModifier: number, totalAttack: number, defenderAC: number, hit: boolean, damage: number, defenderHpAfter: number }> } } | null } };
+export type AttackMutation = { __typename?: 'Mutation', attack: { __typename?: 'CombatResponse', success: boolean, message?: string | null, data?: { __typename?: 'CombatResult', winnerName: string, loserName: string, totalDamageDealt: number, roundsCompleted: number, xpGained: number, message: string, success: boolean } | null } };
 
 export type GetPlayerQueryVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -575,33 +559,6 @@ export const AttackDocument = gql`
       xpGained
       message
       success
-      combatLog {
-        participant1
-        participant2
-        initiativeRolls {
-          name
-          roll
-          modifier
-          total
-        }
-        firstAttacker
-        rounds {
-          roundNumber
-          killed
-          attackerName
-          defenderName
-          attackRoll
-          attackModifier
-          totalAttack
-          defenderAC
-          hit
-          damage
-          defenderHpAfter
-        }
-        winner
-        loser
-        xpAwarded
-      }
     }
   }
 }

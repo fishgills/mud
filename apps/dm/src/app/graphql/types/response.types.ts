@@ -179,8 +179,8 @@ export class CombatResult {
   @Field()
   success!: boolean;
 
-  @Field(() => DetailedCombatLog)
-  combatLog!: DetailedCombatLog;
+  // @Field(() => DetailedCombatLog)
+  // combatLog!: DetailedCombatLog;
 
   @Field()
   winnerName!: string;
@@ -200,7 +200,6 @@ export class CombatResult {
   @Field()
   message!: string;
 }
-
 @ObjectType()
 export class CombatResponse extends SuccessResponse {
   @Field(() => CombatResult, { nullable: true })

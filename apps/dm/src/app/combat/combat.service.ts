@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { getPrismaClient, CombatLog as PrismaCombatLog } from '@mud/database';
 import { PlayerService } from '../player/player.service';
+import { AiService } from '../../openai/ai.service';
+import { CombatResult, CombatRound, DetailedCombatLog } from '../graphql';
 
 export interface Combatant {
   id: number;
@@ -17,56 +19,15 @@ export interface Combatant {
   slackId?: string; // Only for players
 }
 
-export interface CombatRound {
-  roundNumber: number;
-  attackerName: string;
-  defenderName: string;
-  attackRoll: number;
-  attackModifier: number;
-  totalAttack: number;
-  defenderAC: number;
-  hit: boolean;
-  damage: number;
-  defenderHpAfter: number;
-  killed: boolean;
-}
-
-export interface DetailedCombatLog {
-  combatId: string;
-  participant1: string;
-  participant2: string;
-  initiativeRolls: {
-    name: string;
-    roll: number;
-    modifier: number;
-    total: number;
-  }[];
-  firstAttacker: string;
-  rounds: CombatRound[];
-  winner: string;
-  loser: string;
-  xpAwarded: number;
-  timestamp: Date;
-  location: { x: number; y: number };
-}
-
-export interface CombatResult {
-  success: boolean;
-  combatLog: DetailedCombatLog;
-  winnerName: string;
-  loserName: string;
-  totalDamageDealt: number;
-  roundsCompleted: number;
-  xpGained: number;
-  message: string;
-}
-
 @Injectable()
 export class CombatService {
   private readonly logger = new Logger(CombatService.name);
   private prisma = getPrismaClient();
 
-  constructor(private playerService: PlayerService) {}
+  constructor(
+    private playerService: PlayerService,
+    private aiService: AiService,
+  ) {}
 
   // Roll 1d20
   private rollD20(): number {
@@ -138,6 +99,71 @@ export class CombatService {
       `XP calculation: (${loserLevel}/${winnerLevel}) * ${baseXp} = ${finalXp} (min 10)`,
     );
     return finalXp;
+  }
+
+  // Generate AI-enhanced combat message
+  private async generateCombatMessage(
+    combatLog: DetailedCombatLog,
+  ): Promise<string> {
+    try {
+      const context = {
+        combat: {
+          id: combatLog.combatId,
+          participant1: combatLog.participant1,
+          participant2: combatLog.participant2,
+          winner: combatLog.winner,
+          loser: combatLog.loser,
+          roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
+          xpAwarded: combatLog.xpAwarded,
+          totalDamageDealt: combatLog.rounds.reduce(
+            (sum, round) => sum + round.damage,
+            0,
+          ),
+          initiativeWinner: combatLog.firstAttacker,
+          location: combatLog.location,
+          rounds: combatLog.rounds.map((round) => ({
+            number: round.roundNumber,
+            attacker: round.attackerName,
+            defender: round.defenderName,
+            hit: round.hit,
+            damage: round.damage,
+            killed: round.killed,
+          })),
+        },
+      };
+
+      const prompt = [
+        'Write a dramatic combat summary (2-3 sentences) based on the combat data.',
+        'Focus on the overall battle flow, who won, and make it engaging.',
+        'Mention the winner, loser, and general combat outcome.',
+        'Use action words and make it feel like a fantasy battle report.',
+        'Do NOT mention specific dice rolls or numbers - keep it narrative.',
+        'Examples: "Alice charges into battle against the fierce Goblin, trading blows in a deadly dance. After a brutal exchange, Alice emerges victorious!"',
+        'Context:',
+        JSON.stringify(context, null, 2),
+      ].join('\n');
+
+      this.logger.debug(`Combat message AI prompt: ${prompt}`);
+
+      const ai = await this.aiService.getText(prompt, {
+        timeoutMs: 1500,
+        cacheKey: `combat:${combatLog.winner}:${combatLog.loser}:${combatLog.rounds.length}:${combatLog.xpAwarded}`,
+        maxTokens: 80,
+      });
+
+      const aiText = (ai?.output_text ?? '').trim();
+      if (aiText) {
+        this.logger.debug(`AI combat message generated: ${aiText}`);
+        return aiText;
+      }
+    } catch (error) {
+      this.logger.debug(`AI combat message generation failed: ${error}`);
+    }
+
+    // Fallback message
+    const fallback = `${combatLog.winner} defeats ${combatLog.loser} after ${Math.ceil(combatLog.rounds.length / 2)} rounds of combat!`;
+    this.logger.debug(`Using fallback combat message: ${fallback}`);
+    return fallback;
   }
 
   // Convert Player/Monster to Combatant interface
@@ -346,7 +372,9 @@ export class CombatService {
     this.logger.debug(`Updating loser ${loser.name} HP to ${loser.hp}...`);
     if (loser.type === 'player') {
       if (!loser.slackId) {
-        throw new Error(`Player ${loser.name} missing slackId in combat results`);
+        throw new Error(
+          `Player ${loser.name} missing slackId in combat results`,
+        );
       }
       await this.playerService.updatePlayerStats(loser.slackId, {
         hp: loser.hp,
@@ -368,7 +396,9 @@ export class CombatService {
     // Award XP to winner if they're a player
     if (winner.type === 'player') {
       if (!winner.slackId) {
-        throw new Error(`Player ${winner.name} missing slackId in combat results`);
+        throw new Error(
+          `Player ${winner.name} missing slackId in combat results`,
+        );
       }
       this.logger.debug(
         `Awarding ${combatLog.xpAwarded} XP to winner ${winner.name}...`,
@@ -445,15 +475,16 @@ export class CombatService {
       .filter((round) => round.attackerName === player.name)
       .reduce((total, round) => total + round.damage, 0);
 
+    const aiMessage = await this.generateCombatMessage(combatLog);
+
     const result = {
       success: true,
-      combatLog,
       winnerName: combatLog.winner,
       loserName: combatLog.loser,
       totalDamageDealt: totalDamage,
       roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
       xpGained: combatLog.winner === player.name ? combatLog.xpAwarded : 0,
-      message: `${combatLog.winner} defeats ${combatLog.loser} after ${Math.ceil(combatLog.rounds.length / 2)} rounds of combat!`,
+      message: aiMessage,
     };
 
     this.logger.log(`✅ Player vs Monster combat completed: ${result.message}`);
@@ -490,6 +521,8 @@ export class CombatService {
       .filter((round) => round.attackerName === monster.name)
       .reduce((total, round) => total + round.damage, 0);
 
+    const aiMessage = await this.generateCombatMessage(combatLog);
+
     const result = {
       success: true,
       combatLog,
@@ -498,7 +531,7 @@ export class CombatService {
       totalDamageDealt: totalDamage,
       roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
       xpGained: combatLog.winner === player.name ? combatLog.xpAwarded : 0,
-      message: `${combatLog.winner} defeats ${combatLog.loser} after ${Math.ceil(combatLog.rounds.length / 2)} rounds of combat!`,
+      message: aiMessage,
     };
 
     this.logger.log(`✅ Monster vs Player combat completed: ${result.message}`);
@@ -543,6 +576,8 @@ export class CombatService {
       .filter((round) => round.attackerName === attacker.name)
       .reduce((total, round) => total + round.damage, 0);
 
+    const aiMessage = await this.generateCombatMessage(combatLog);
+
     const result = {
       success: true,
       combatLog,
@@ -551,7 +586,7 @@ export class CombatService {
       totalDamageDealt: totalDamage,
       roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
       xpGained: combatLog.winner === attacker.name ? combatLog.xpAwarded : 0,
-      message: `${combatLog.winner} defeats ${combatLog.loser} after ${Math.ceil(combatLog.rounds.length / 2)} rounds of combat!`,
+      message: aiMessage,
     };
 
     this.logger.log(`✅ Player vs Player combat completed: ${result.message}`);
