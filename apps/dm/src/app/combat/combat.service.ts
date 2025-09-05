@@ -14,6 +14,7 @@ export interface Combatant {
   isAlive: boolean;
   x: number;
   y: number;
+  slackId?: string; // Only for players
 }
 
 export interface CombatRound {
@@ -154,6 +155,7 @@ export class CombatService {
       isAlive: player.isAlive,
       x: player.x,
       y: player.y,
+      slackId: slackId, // Store the Slack ID for later use
     };
     this.logger.debug(
       `Player combatant: ${combatant.name} (Str:${combatant.strength}, Agi:${combatant.agility}, HP:${combatant.hp}/${combatant.maxHp}, Lvl:${combatant.level})`,
@@ -343,12 +345,15 @@ export class CombatService {
     // Update loser's HP
     this.logger.debug(`Updating loser ${loser.name} HP to ${loser.hp}...`);
     if (loser.type === 'player') {
-      await this.playerService.updatePlayerStats(loser.id.toString(), {
+      if (!loser.slackId) {
+        throw new Error(`Player ${loser.name} missing slackId in combat results`);
+      }
+      await this.playerService.updatePlayerStats(loser.slackId, {
         hp: loser.hp,
       });
       if (!loser.isAlive) {
         this.logger.log(`🏥 Respawning defeated player ${loser.name}`);
-        await this.playerService.respawnPlayer(loser.id.toString());
+        await this.playerService.respawnPlayer(loser.slackId);
       }
     } else {
       await this.prisma.monster.update({
@@ -362,14 +367,15 @@ export class CombatService {
 
     // Award XP to winner if they're a player
     if (winner.type === 'player') {
+      if (!winner.slackId) {
+        throw new Error(`Player ${winner.name} missing slackId in combat results`);
+      }
       this.logger.debug(
         `Awarding ${combatLog.xpAwarded} XP to winner ${winner.name}...`,
       );
-      const currentPlayer = await this.playerService.getPlayer(
-        winner.id.toString(),
-      );
+      const currentPlayer = await this.playerService.getPlayer(winner.slackId);
       const newXp = currentPlayer.xp + combatLog.xpAwarded;
-      await this.playerService.updatePlayerStats(winner.id.toString(), {
+      await this.playerService.updatePlayerStats(winner.slackId, {
         xp: newXp,
       });
       this.logger.log(

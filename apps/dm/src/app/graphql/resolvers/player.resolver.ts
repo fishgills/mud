@@ -179,7 +179,9 @@ export class PlayerResolver {
     return players as Player[];
   }
 
-  @Mutation(() => CombatResponse)
+  @Mutation(() => CombatResponse, {
+    description: 'Attack a monster or another player at your current location',
+  })
   async attack(
     @Args('slackId') slackId: string,
     @Args('input') input: AttackInput,

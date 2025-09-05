@@ -220,6 +220,7 @@ export type MovePlayerInput = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  /** Attack a monster or another player at your current location */
   attack: CombatResponse;
   createPlayer: PlayerResponse;
   damagePlayer: PlayerResponse;

@@ -53,6 +53,11 @@ export class PlayerService {
     });
   }
 
+  /**
+   *
+   * @param slackId The Slack ID of the player to retrieve
+   * @returns
+   */
   async getPlayer(slackId: string): Promise<Player> {
     this.logger.log(`[DM-DB] Looking up player with slackId: ${slackId}`);
     const player = await this.prisma.player.findUnique({

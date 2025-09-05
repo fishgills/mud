@@ -301,6 +301,8 @@ type Mutation {
   rerollPlayerStats(slackId: String!): PlayerResponse!
   healPlayer(slackId: String!, amount: Float!): PlayerResponse!
   damagePlayer(slackId: String!, damage: Float!): PlayerResponse!
+
+  """Attack a monster or another player at your current location"""
   attack(slackId: String!, input: AttackInput!): CombatResponse!
   respawn(slackId: String!): PlayerResponse!
   deletePlayer(slackId: String!): PlayerResponse!
