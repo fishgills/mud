@@ -25,11 +25,6 @@ export function isRunningInGcp(): boolean {
   const kService = process.env.K_SERVICE;
   const isGcp = gcpCloudRun === 'true' || !!kService;
 
-  console.log(`[GCP-AUTH] Environment detection:`);
-  console.log(`[GCP-AUTH]   GCP_CLOUD_RUN: "${gcpCloudRun}"`);
-  console.log(`[GCP-AUTH]   K_SERVICE: "${kService}"`);
-  console.log(`[GCP-AUTH]   isRunningInGcp: ${isGcp}`);
-
   // Prefer explicit flag set by our infra, fall back to Cloud Run's K_SERVICE
   return isGcp;
 }
@@ -53,30 +48,20 @@ export async function getCloudRunAuthHeaders(
 ): Promise<Record<string, string>> {
   const url = new URL(urlStr);
   if (isLocalhost(url.hostname)) {
-    console.log(`[GCP-AUTH] Localhost detected, skipping auth for: ${urlStr}`);
     return {};
   }
 
   const audience = audienceFromUrl(urlStr);
-  console.log(`[GCP-AUTH] Using Cloud Run audience: ${audience}`);
 
   try {
     // Get or create IdTokenClient for the given audience
     const client = await getIdTokenClient(audience);
-    console.log(
-      `[GCP-AUTH] Successfully created IdTokenClient for audience: ${audience}`,
-    );
 
     // getRequestHeaders uses the previously set audience and signs an ID token
     const headers = await client.getRequestHeaders(urlStr);
-    console.log(`[GCP-AUTH] Obtained auth headers:`, Object.keys(headers));
-
     // Normalize header keys to standard casing
     const authHeader = headers['Authorization'] ?? headers['authorization'];
     if (authHeader) {
-      console.log(
-        `[GCP-AUTH] Successfully obtained Authorization header (length: ${String(authHeader).length})`,
-      );
       return { Authorization: String(authHeader) };
     } else {
       console.error(
@@ -117,17 +102,6 @@ export async function authorizedFetch(
     return String(input);
   })();
 
-  console.log(`[GCP-AUTH] authorizedFetch called for URL: ${urlStr}`);
-  console.log(`[GCP-AUTH] isRunningInGcp(): ${isRunningInGcp()}`);
-
-  // Log environment variable values for debugging
-  console.log(`[GCP-AUTH] Environment variables:`);
-  console.log(`[GCP-AUTH]   PORT: "${process.env.PORT}"`);
-  console.log(`[GCP-AUTH]   K_SERVICE: "${process.env.K_SERVICE}"`);
-  console.log(`[GCP-AUTH]   K_REVISION: "${process.env.K_REVISION}"`);
-  console.log(`[GCP-AUTH]   K_CONFIGURATION: "${process.env.K_CONFIGURATION}"`);
-  console.log(`[GCP-AUTH]   GCP_CLOUD_RUN: "${process.env.GCP_CLOUD_RUN}"`);
-
   // Only apply identity-based auth when running in GCP/Cloud Run
   if (!isRunningInGcp()) {
     console.log(`[GCP-AUTH] Not running in GCP, using standard fetch`);
@@ -165,22 +139,10 @@ export async function authorizedFetch(
     // Ensure GraphQL requests have the correct content type if caller didn't set it
     if (urlStr.includes('/graphql') && !merged.has('content-type')) {
       merged.set('content-type', 'application/json');
-      console.log(
-        `[GCP-AUTH] Setting Content-Type to application/json for GraphQL request`,
-      );
     }
-
-    console.log(
-      `[GCP-AUTH] Making authenticated request to ${urlStr} with headers:`,
-      Array.from(merged.keys()),
-    );
 
     // Defer to node-fetch with merged headers
     const response = await fetch(input, { ...init, headers: merged });
-
-    console.log(
-      `[GCP-AUTH] Response status: ${response.status} ${response.statusText}`,
-    );
 
     if (!response.ok) {
       console.error(
