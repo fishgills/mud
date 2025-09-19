@@ -219,11 +219,9 @@ export class CombatService {
 
     const prompt = [
       'You are a fantasy combat narrator transforming structured battle data into an exciting Slack message.',
-      'Respond ONLY with minified JSON that matches this TypeScript type: { "summary": string, "rounds": string[] }.',
-      'Summary rules: 1-2 sentences highlighting momentum, the victor, and dramatic flair.',
-      'Round rules: Provide one entry per round in order. Mention who attacks whom, whether it hits or misses, include damage numbers for hits, and note if the defender is defeated.',
+      'Respond with a engaging 2 or 3 sentence summary followed by a concise round-by-round log.',
       instructions,
-      'Keep the language vivid but concise. Do not invent events that are not in the data.',
+      'Use only facts from the combat data. Keep language vivid but concise and avoid dice roll jargon.',
       'Combat data:',
       JSON.stringify(context, null, 2),
     ].join('\n');
@@ -232,31 +230,23 @@ export class CombatService {
 
     try {
       const ai = await this.aiService.getText(prompt, {
-        timeoutMs: 1500,
-        cacheKey: `combat:${combatLog.winner}:${combatLog.loser}:${combatLog.rounds.length}:${combatLog.xpAwarded}:${options.secondPersonName ?? 'neutral'}`,
-        maxTokens: 500,
+        timeoutMs: 20000,
       });
 
       const rawText = (ai?.output_text ?? '').trim();
       if (rawText) {
         this.logger.debug(`AI combat narrative generated: ${rawText}`);
         const cleaned = rawText
-          .replace(/^```json\s*/i, '')
+          .replace(/^```(json)?\s*/i, '')
           .replace(/```$/i, '')
           .trim();
-        const parsed = JSON.parse(cleaned) as Partial<CombatNarrative>;
-        if (
-          parsed.summary &&
-          typeof parsed.summary === 'string' &&
-          Array.isArray(parsed.rounds) &&
-          parsed.rounds.every((round) => typeof round === 'string')
-        ) {
-          return this.formatCombatNarrative({
-            summary: parsed.summary,
-            rounds: parsed.rounds,
-          });
+
+        if (cleaned) {
+          return cleaned;
         }
-        this.logger.debug('AI combat narrative response missing required fields, using fallback.');
+        this.logger.debug(
+          'AI combat narrative response was empty after cleaning, using fallback.',
+        );
       }
     } catch (error) {
       this.logger.debug(`AI combat narrative generation failed: ${error}`);

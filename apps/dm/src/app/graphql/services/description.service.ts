@@ -193,7 +193,7 @@ export class DescriptionService {
 
       const topBiomes = biomeSummary.slice(0, 2).map((b) => b.biomeName);
       const ai = await this.aiService.getText(prompt, {
-        timeoutMs: 1200,
+        timeoutMs: 3000,
         cacheKey: `look:${centerTile.x},${centerTile.y}:${visibilityRadius}:${topBiomes.join(',')}:${visiblePeaks
           .map((p) => p.direction)
           .join('/')}:${visibleSettlements
@@ -201,7 +201,6 @@ export class DescriptionService {
           .join(
             '/',
           )}::${currentSettlement?.name ?? 'none'}:${inSettlement ? 'in' : 'out'}:${densityBucket}`,
-        maxTokens: 300,
       });
 
       timing.tAiMs = Date.now() - tAiStart;

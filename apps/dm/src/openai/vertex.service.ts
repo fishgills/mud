@@ -1,164 +1,98 @@
-import { Injectable, Logger } from '@nestjs/common';
-
-// Vertex AI SDK
-// Uses Application Default Credentials on Cloud Run/GCP and supports local dev via GOOGLE_APPLICATION_CREDENTIALS
+import { Injectable } from '@nestjs/common';
 import { VertexAI } from '@google-cloud/vertexai';
 
-@Injectable()
-export class VertexAiService {
-  private readonly logger = new Logger(VertexAiService.name);
+import { AiTextOptions, BaseAiService } from './base-ai.service';
 
+@Injectable()
+export class VertexAiService extends BaseAiService {
   private readonly projectId =
     process.env.GCP_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
   private readonly location =
     process.env.GCP_REGION || process.env.VERTEX_LOCATION || 'us-central1';
-  private readonly model = 'gemini-2.5-flash-lite';
+  private readonly modelName = 'gemini-2.5-flash-lite';
+  private modelInstance:
+    | ReturnType<VertexAI['getGenerativeModel']>
+    | null
+    | undefined;
 
-  // Simple in-memory cache similar to OpenAI service
-  private cache = new Map<string, { ts: number; text: string }>();
-  private readonly CACHE_TTL_MS = Number.parseInt(
-    process.env.DM_OPENAI_CACHE_TTL_MS || '300000',
-    10,
-  );
-  private readonly MAX_CACHE_ENTRIES = Number.parseInt(
-    process.env.DM_OPENAI_CACHE_MAX || '200',
-    10,
-  );
-  private readonly DEFAULT_TIMEOUT_MS = Number.parseInt(
-    process.env.DM_OPENAI_TIMEOUT_MS || '800',
-    10,
-  );
-
-  private getModel() {
-    if (!this.projectId) {
-      this.logger.warn(
-        'GCP_PROJECT_ID/GOOGLE_CLOUD_PROJECT not set; Vertex AI may fail to initialize. Falling back to mock responses.',
-      );
-      return null;
-    }
-    const vertex = new VertexAI({
-      project: this.projectId,
-      location: this.location,
-    });
-    return vertex.getGenerativeModel({ model: this.model });
+  constructor() {
+    super(VertexAiService.name);
   }
 
-  async getText(
-    prompt: string,
-    options?: { timeoutMs?: number; cacheKey?: string; maxTokens?: number },
-  ) {
-    const cacheKey = options?.cacheKey || `vertex:${prompt}`;
-    const now = Date.now();
-    const cached = this.cache.get(cacheKey);
-    if (cached && now - cached.ts < this.CACHE_TTL_MS) {
-      return { output_text: cached.text };
-    }
+  protected get providerLabel(): string {
+    return 'VertexAI';
+  }
 
+  protected get cachePrefix(): string {
+    return 'vertex';
+  }
+
+  protected isConfigured(): boolean {
+    return Boolean(this.projectId);
+  }
+
+  protected configurationWarning(): string | undefined {
+    return 'GCP_PROJECT_ID/GOOGLE_CLOUD_PROJECT not set; returning mock response';
+  }
+
+  protected async invokeModel(
+    prompt: string,
+    systemMessage: string,
+    options?: AiTextOptions,
+  ): Promise<string> {
     const model = this.getModel();
     if (!model) {
-      this.logger.warn(
-        'Vertex AI model not configured properly; returning mock response',
-      );
-      // Cache mock too to keep consistency within TTL
-      const mock = this.generateMockResponse(prompt);
-      this.setCache(cacheKey, mock);
-      return { output_text: mock };
+      throw new Error('Vertex AI model not configured');
+    }
+
+    const result = await model.generateContent({
+      contents: [
+        { role: 'user', parts: [{ text: `${systemMessage}\n${prompt}` }] },
+      ],
+      generationConfig: options?.maxTokens
+        ? { maxOutputTokens: options.maxTokens }
+        : undefined,
+    });
+
+    const response = result.response as unknown as {
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+      }>;
+    };
+
+    const parts = response.candidates?.[0]?.content?.parts ?? [];
+    const text = parts.map((part) => part.text || '').join('');
+    return text || 'No description generated.';
+  }
+
+  private getModel() {
+    if (this.modelInstance !== undefined) {
+      return this.modelInstance;
+    }
+
+    if (!this.projectId) {
+      this.modelInstance = null;
+      return this.modelInstance;
     }
 
     try {
-      const systemMessage = `You narrate scenes and combat in a fantasy world.
-        - Output MUST be plain text, no code blocks or Slack formatting.
-        - If the prompt is about a location, describe the environment in 1-3 vivid sentences and prefer general distance terms (near/far) over specific numbers; temperature, height, and moisture values range from 0 (low) to 1 (high).
-        - If the prompt is about combat, craft a punchy 2-3 sentence battle summary that names combatants, who won, and the overall flow of the fight; avoid citing dice rolls or numeric stats.
-        - When unsure, favor immersive storytelling while staying concise and consistent with the provided context.`;
-
-      const call = async () => {
-        const result = await model.generateContent({
-          contents: [
-            { role: 'user', parts: [{ text: `${systemMessage}\n${prompt}` }] },
-          ],
-          generationConfig: {
-            maxOutputTokens: options?.maxTokens ?? 500,
-          },
-        });
-        const resp = result.response as unknown as {
-          candidates?: Array<{
-            content?: { parts?: Array<{ text?: string }> };
-          }>;
-        };
-        // Aggregate all parts text
-        const parts: Array<{ text?: string }> =
-          resp.candidates?.[0]?.content?.parts || [];
-        const text =
-          parts.map((p: { text?: string }) => p.text || '').join('') ||
-          'No description generated.';
-        return text;
-      };
-
-      const timeoutMs = options?.timeoutMs ?? this.DEFAULT_TIMEOUT_MS;
-      const TIMEOUT_SENTINEL = '__timeout__';
-      const timeoutPromise = new Promise<string>((resolve) =>
-        setTimeout(() => resolve(TIMEOUT_SENTINEL), timeoutMs),
-      );
-
-      const callPromise = call();
-
-      const startTime = Date.now();
-      const raced = await Promise.race([callPromise, timeoutPromise]);
-      const elapsedMs = Date.now() - startTime;
-      this.logger.debug(`VertexAI call resolved in ${elapsedMs}ms`);
-
-      if (raced !== TIMEOUT_SENTINEL) {
-        this.logger.log(
-          `VertexAI response received (within ${timeoutMs}ms budget)`,
-        );
-        this.setCache(cacheKey, raced as string);
-        return { output_text: raced as string };
-      }
-
-      this.logger.warn(
-        `VertexAI timed out after ${timeoutMs}ms; returning fallback`,
-      );
-      callPromise
-        .then((text) => this.setCache(cacheKey, text))
-        .catch(() => undefined);
-      const fallback = this.generateMockResponse(prompt);
-      return { output_text: fallback };
+      const vertex = new VertexAI({
+        project: this.projectId,
+        location: this.location,
+      });
+      this.modelInstance = vertex.getGenerativeModel({ model: this.modelName });
+      return this.modelInstance;
     } catch (error) {
       if (error instanceof Error) {
-        this.logger.error(`Error calling VertexAI: ${error.message}`);
-        this.logger.debug(error);
+        this.logger.error(
+          `Failed to initialize VertexAI client: ${error.message}`,
+          error.stack,
+        );
       } else {
-        this.logger.error(`Error calling VertexAI: Unknown error`);
+        this.logger.error('Failed to initialize VertexAI client');
       }
-      const fallback = this.generateMockResponse(prompt);
-      this.setCache(cacheKey, fallback);
-      return { output_text: fallback };
+      this.modelInstance = null;
+      return this.modelInstance;
     }
-  }
-
-  private setCache(key: string, text: string) {
-    try {
-      this.cache.set(key, { ts: Date.now(), text });
-      if (this.cache.size > this.MAX_CACHE_ENTRIES) {
-        const oldestKey = this.cache.keys().next().value as string | undefined;
-        if (oldestKey !== undefined) this.cache.delete(oldestKey);
-      }
-    } catch {
-      // no-op
-    }
-  }
-
-  private generateMockResponse(prompt: string): string {
-    if (prompt.includes('players')) {
-      return 'You sense other adventurers nearby, their presence adding life to this area.';
-    }
-    if (prompt.includes('Alpine')) {
-      return 'The crisp mountain air fills your lungs as you stand among towering peaks dusted with snow. Hardy alpine plants cling to rocky outcroppings, and the view stretches for miles across the rugged landscape.';
-    }
-    if (prompt.includes('grassland')) {
-      return 'Rolling green hills stretch before you, dotted with wildflowers swaying in the gentle breeze. The grass whispers softly underfoot as you move through this peaceful meadow.';
-    }
-    return 'You find yourself in a mysterious landscape, filled with unknown wonders waiting to be discovered.';
   }
 }
