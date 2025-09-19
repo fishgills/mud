@@ -66,13 +66,11 @@ export class VertexAiService {
     }
 
     try {
-      const systemMessage = `You describe locations in a fantasy world.
+      const systemMessage = `You narrate scenes and combat in a fantasy world.
         - Output MUST be plain text, no code blocks or Slack formatting.
-        - Focus on the environment only; do NOT mention dynamic entities like players or monsters.
-        - Be vivid and cohesive with nearby context; keep to 1-3 sentences.
-        - Temperature, Height, and Moisture are 0-1 scales (0 cold/low/dry, 1 hot/high/wet).
-        - Each x/y coordinate is a tile in a grid, with each tile representing a 100m x 100m area. If a distance is '28', it refers to 28 tiles (2800m).
-        - Use general terms for distance (near/far), avoid specific numbers.`;
+        - If the prompt is about a location, describe the environment in 1-3 vivid sentences and prefer general distance terms (near/far) over specific numbers; temperature, height, and moisture values range from 0 (low) to 1 (high).
+        - If the prompt is about combat, craft a punchy 2-3 sentence battle summary that names combatants, who won, and the overall flow of the fight; avoid citing dice rolls or numeric stats.
+        - When unsure, favor immersive storytelling while staying concise and consistent with the provided context.`;
 
       const call = async () => {
         const result = await model.generateContent({
@@ -80,7 +78,7 @@ export class VertexAiService {
             { role: 'user', parts: [{ text: `${systemMessage}\n${prompt}` }] },
           ],
           generationConfig: {
-            maxOutputTokens: options?.maxTokens ?? 120,
+            maxOutputTokens: options?.maxTokens ?? 500,
           },
         });
         const resp = result.response as unknown as {

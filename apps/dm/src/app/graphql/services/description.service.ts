@@ -201,7 +201,7 @@ export class DescriptionService {
           .join(
             '/',
           )}::${currentSettlement?.name ?? 'none'}:${inSettlement ? 'in' : 'out'}:${densityBucket}`,
-        maxTokens: 120,
+        maxTokens: 300,
       });
 
       timing.tAiMs = Date.now() - tAiStart;

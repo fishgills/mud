@@ -148,7 +148,7 @@ export class CombatService {
       const ai = await this.aiService.getText(prompt, {
         timeoutMs: 1500,
         cacheKey: `combat:${combatLog.winner}:${combatLog.loser}:${combatLog.rounds.length}:${combatLog.xpAwarded}`,
-        maxTokens: 80,
+        maxTokens: 300,
       });
 
       const aiText = (ai?.output_text ?? '').trim();

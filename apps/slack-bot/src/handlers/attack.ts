@@ -88,7 +88,7 @@ export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
     msg += `\nCombat lasted ${combat.roundsCompleted} rounds.\n`;
 
     // Add some combat details
-    // msg += `\n\n**Combat Summary:**`;
+    msg += `\n\n**Combat Summary:**`;
     msg += combat.message;
     await say({ text: msg });
     console.log(JSON.stringify(combat, null, 2));
