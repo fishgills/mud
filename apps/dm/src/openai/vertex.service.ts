@@ -23,7 +23,7 @@ export class VertexAiService extends BaseAiService {
     return 'VertexAI';
   }
 
-  protected get cachePrefix(): string {
+  protected override get cachePrefix(): string {
     return 'vertex';
   }
 

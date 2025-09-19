@@ -95,15 +95,13 @@ export abstract class BaseAiService {
         .catch(() => undefined);
       return { output_text: '' };
     } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error(
-          `Error calling ${this.providerLabel}: ${error.message}`,
-        );
-        if (error.stack) {
-          this.logger.debug(error.stack);
-        }
-      } else {
-        this.logger.error(`Error calling ${this.providerLabel}: Unknown error`);
+      const err =
+        error instanceof Error ? error : new Error(String(error ?? 'Unknown'));
+      this.logger.error(
+        `Error calling ${this.providerLabel}: ${err.message}`,
+      );
+      if (err.stack) {
+        this.logger.debug(err.stack);
       }
       return { output_text: '' };
     }
