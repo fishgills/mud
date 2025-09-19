@@ -487,13 +487,20 @@ export class CombatService {
         await this.playerService.respawnPlayer(loser.slackId);
       }
     } else {
-      await this.prisma.monster.update({
-        where: { id: loser.id },
-        data: { hp: loser.hp, isAlive: loser.isAlive },
-      });
-      this.logger.debug(
-        `Monster ${loser.name} updated: HP=${loser.hp}, alive=${loser.isAlive}`,
-      );
+      if (!loser.isAlive) {
+        await this.prisma.monster.delete({ where: { id: loser.id } });
+        this.logger.log(
+          `🗑️ Removed defeated monster ${loser.name} from the world`,
+        );
+      } else {
+        await this.prisma.monster.update({
+          where: { id: loser.id },
+          data: { hp: loser.hp, isAlive: loser.isAlive },
+        });
+        this.logger.debug(
+          `Monster ${loser.name} updated: HP=${loser.hp}, alive=${loser.isAlive}`,
+        );
+      }
     }
 
     // Award XP to winner if they're a player
