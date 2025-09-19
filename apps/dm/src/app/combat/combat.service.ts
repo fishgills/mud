@@ -4,6 +4,15 @@ import { PlayerService } from '../player/player.service';
 import { AiService } from '../../openai/ai.service';
 import { CombatResult, CombatRound, DetailedCombatLog } from '../graphql';
 
+interface CombatNarrative {
+  summary: string;
+  rounds: string[];
+}
+
+interface NarrativeOptions {
+  secondPersonName?: string;
+}
+
 export interface Combatant {
   id: number;
   name: string;
@@ -101,69 +110,163 @@ export class CombatService {
     return finalXp;
   }
 
-  // Generate AI-enhanced combat message
-  private async generateCombatMessage(
-    combatLog: DetailedCombatLog,
-  ): Promise<string> {
-    try {
-      const context = {
-        combat: {
-          id: combatLog.combatId,
-          participant1: combatLog.participant1,
-          participant2: combatLog.participant2,
-          winner: combatLog.winner,
-          loser: combatLog.loser,
-          roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
-          xpAwarded: combatLog.xpAwarded,
-          totalDamageDealt: combatLog.rounds.reduce(
-            (sum, round) => sum + round.damage,
-            0,
-          ),
-          initiativeWinner: combatLog.firstAttacker,
-          location: combatLog.location,
-          rounds: combatLog.rounds.map((round) => ({
-            number: round.roundNumber,
-            attacker: round.attackerName,
-            defender: round.defenderName,
-            hit: round.hit,
-            damage: round.damage,
-            killed: round.killed,
-          })),
-        },
-      };
+  private formatCombatNarrative(narrative: CombatNarrative): string {
+    const lines = ['**Combat Summary:**', narrative.summary.trim()];
 
-      const prompt = [
-        'Write a dramatic combat summary (2-3 sentences) based on the combat data.',
-        'Focus on the overall battle flow, who won, and make it engaging.',
-        'Mention the winner, loser, and general combat outcome.',
-        'Use action words and make it feel like a fantasy battle report.',
-        'Do NOT mention specific dice rolls or numbers - keep it narrative.',
-        'Examples: "Alice charges into battle against the fierce Goblin, trading blows in a deadly dance. After a brutal exchange, Alice emerges victorious!"',
-        'Context:',
-        JSON.stringify(context, null, 2),
-      ].join('\n');
-
-      this.logger.debug(`Combat message AI prompt: ${prompt}`);
-
-      const ai = await this.aiService.getText(prompt, {
-        timeoutMs: 1500,
-        cacheKey: `combat:${combatLog.winner}:${combatLog.loser}:${combatLog.rounds.length}:${combatLog.xpAwarded}`,
-        maxTokens: 300,
+    if (narrative.rounds.length) {
+      lines.push('', '**Combat Log:**');
+      narrative.rounds.forEach((line, index) => {
+        lines.push(`Round ${index + 1}: ${line.trim()}`);
       });
-
-      const aiText = (ai?.output_text ?? '').trim();
-      if (aiText) {
-        this.logger.debug(`AI combat message generated: ${aiText}`);
-        return aiText;
-      }
-    } catch (error) {
-      this.logger.debug(`AI combat message generation failed: ${error}`);
     }
 
-    // Fallback message
-    const fallback = `${combatLog.winner} defeats ${combatLog.loser} after ${Math.ceil(combatLog.rounds.length / 2)} rounds of combat!`;
-    this.logger.debug(`Using fallback combat message: ${fallback}`);
-    return fallback;
+    return lines.join('\n');
+  }
+
+  private describeRound(
+    round: CombatRound,
+    options: NarrativeOptions = {},
+  ): string {
+    const { secondPersonName } = options;
+    const attackerIsYou = secondPersonName === round.attackerName;
+    const defenderIsYou = secondPersonName === round.defenderName;
+
+    if (round.hit) {
+      if (attackerIsYou) {
+        const base = `You strike ${round.defenderName} for ${round.damage} damage`;
+        if (round.killed) {
+          return `${base}, defeating them!`;
+        }
+        return `${base}!`;
+      }
+
+      if (defenderIsYou) {
+        const base = `${round.attackerName} hits you for ${round.damage} damage`;
+        if (round.killed) {
+          return `${base}, leaving you defeated!`;
+        }
+        return `${base}!`;
+      }
+
+      const base = `${round.attackerName} hits ${round.defenderName} for ${round.damage} damage`;
+      if (round.killed) {
+        return `${base}, slaying them!`;
+      }
+      return `${base}!`;
+    }
+
+    if (attackerIsYou) {
+      return `You swing at ${round.defenderName} but miss.`;
+    }
+
+    if (defenderIsYou) {
+      return `${round.attackerName} swings at you but misses.`;
+    }
+
+    return `${round.attackerName} swings at ${round.defenderName} but misses.`;
+  }
+
+  private createFallbackNarrative(
+    combatLog: DetailedCombatLog,
+    options: NarrativeOptions = {},
+  ): CombatNarrative {
+    const summary = `${combatLog.winner} defeats ${combatLog.loser} after ${Math.ceil(combatLog.rounds.length / 2)} rounds of combat.`;
+    const rounds = combatLog.rounds.map((round) =>
+      this.describeRound(round, options),
+    );
+
+    return { summary, rounds };
+  }
+
+  private async generateCombatNarrative(
+    combatLog: DetailedCombatLog,
+    options: NarrativeOptions = {},
+  ): Promise<string> {
+    const context = {
+      combat: {
+        id: combatLog.combatId,
+        participant1: combatLog.participant1,
+        participant2: combatLog.participant2,
+        winner: combatLog.winner,
+        loser: combatLog.loser,
+        roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
+        xpAwarded: combatLog.xpAwarded,
+        totalDamageDealt: combatLog.rounds.reduce(
+          (sum, round) => sum + round.damage,
+          0,
+        ),
+        initiativeWinner: combatLog.firstAttacker,
+        location: combatLog.location,
+        rounds: combatLog.rounds.map((round) => ({
+          number: round.roundNumber,
+          attacker: round.attackerName,
+          defender: round.defenderName,
+          hit: round.hit,
+          damage: round.damage,
+          killed: round.killed,
+        })),
+      },
+      perspective: options.secondPersonName
+        ? {
+            treatAsYou: options.secondPersonName,
+          }
+        : undefined,
+    };
+
+    const instructions = options.secondPersonName
+      ? `Refer to "${options.secondPersonName}" as "you" when narrating and use their opponents' names normally.`
+      : 'Use third-person narration for all combatants.';
+
+    const prompt = [
+      'You are a fantasy combat narrator transforming structured battle data into an exciting Slack message.',
+      'Respond ONLY with minified JSON that matches this TypeScript type: { "summary": string, "rounds": string[] }.',
+      'Summary rules: 1-2 sentences highlighting momentum, the victor, and dramatic flair.',
+      'Round rules: Provide one entry per round in order. Mention who attacks whom, whether it hits or misses, include damage numbers for hits, and note if the defender is defeated.',
+      instructions,
+      'Keep the language vivid but concise. Do not invent events that are not in the data.',
+      'Combat data:',
+      JSON.stringify(context, null, 2),
+    ].join('\n');
+
+    this.logger.debug(`Combat narrative AI prompt: ${prompt}`);
+
+    try {
+      const ai = await this.aiService.getText(prompt, {
+        timeoutMs: 1500,
+        cacheKey: `combat:${combatLog.winner}:${combatLog.loser}:${combatLog.rounds.length}:${combatLog.xpAwarded}:${options.secondPersonName ?? 'neutral'}`,
+        maxTokens: 500,
+      });
+
+      const rawText = (ai?.output_text ?? '').trim();
+      if (rawText) {
+        this.logger.debug(`AI combat narrative generated: ${rawText}`);
+        const cleaned = rawText
+          .replace(/^```json\s*/i, '')
+          .replace(/```$/i, '')
+          .trim();
+        const parsed = JSON.parse(cleaned) as Partial<CombatNarrative>;
+        if (
+          parsed.summary &&
+          typeof parsed.summary === 'string' &&
+          Array.isArray(parsed.rounds) &&
+          parsed.rounds.every((round) => typeof round === 'string')
+        ) {
+          return this.formatCombatNarrative({
+            summary: parsed.summary,
+            rounds: parsed.rounds,
+          });
+        }
+        this.logger.debug('AI combat narrative response missing required fields, using fallback.');
+      }
+    } catch (error) {
+      this.logger.debug(`AI combat narrative generation failed: ${error}`);
+    }
+
+    const fallback = this.createFallbackNarrative(combatLog, options);
+    this.logger.debug(
+      `Using fallback combat narrative: ${JSON.stringify(fallback)}`,
+    );
+    return this.formatCombatNarrative(fallback);
   }
 
   // Convert Player/Monster to Combatant interface
@@ -475,7 +578,9 @@ export class CombatService {
       .filter((round) => round.attackerName === player.name)
       .reduce((total, round) => total + round.damage, 0);
 
-    const aiMessage = await this.generateCombatMessage(combatLog);
+    const aiMessage = await this.generateCombatNarrative(combatLog, {
+      secondPersonName: player.name,
+    });
 
     const result = {
       success: true,
@@ -521,7 +626,9 @@ export class CombatService {
       .filter((round) => round.attackerName === monster.name)
       .reduce((total, round) => total + round.damage, 0);
 
-    const aiMessage = await this.generateCombatMessage(combatLog);
+    const aiMessage = await this.generateCombatNarrative(combatLog, {
+      secondPersonName: player.name,
+    });
 
     const result = {
       success: true,
@@ -585,7 +692,9 @@ export class CombatService {
       .filter((round) => round.attackerName === attacker.name)
       .reduce((total, round) => total + round.damage, 0);
 
-    const aiMessage = await this.generateCombatMessage(combatLog);
+    const aiMessage = await this.generateCombatNarrative(combatLog, {
+      secondPersonName: attacker.name,
+    });
 
     const result = {
       success: true,
