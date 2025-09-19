@@ -62,8 +62,17 @@ export class AttackInput {
   @Field(() => TargetType)
   targetType!: TargetType;
 
-  @Field(() => Int)
-  targetId!: number;
+  // For monsters, target by numeric ID
+  @Field(() => Int, { nullable: true })
+  targetId?: number;
+
+  // For players, allow targeting by Slack ID (within same workspace)
+  @Field({ nullable: true })
+  targetSlackId?: string;
+
+  // When attacking by Slack ID, allow bypassing location restriction
+  @Field({ nullable: true })
+  ignoreLocation?: boolean;
 }
 
 @InputType()

@@ -18,10 +18,10 @@
             "cjs"
           ],
           "bundle": false,
-          "main": "apps/slack-bot/src/main.ts",
+          "main": "src/main.ts",
           "tsConfig": "apps/slack-bot/tsconfig.app.json",
           "assets": [
-            "apps/slack-bot/src/assets"
+            "src/assets"
           ],
           "esbuildOptions": {
             "sourcemap": true,

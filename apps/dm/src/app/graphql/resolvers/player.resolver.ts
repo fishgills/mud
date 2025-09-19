@@ -190,22 +190,39 @@ export class PlayerResolver {
       let result;
 
       if (input.targetType === TargetType.MONSTER) {
+        if (typeof input.targetId !== 'number') {
+          throw new Error('targetId is required for monster attacks');
+        }
         result = await this.combatService.playerAttackMonster(
           slackId,
           input.targetId,
         );
       } else if (input.targetType === TargetType.PLAYER) {
-        // For player vs player, we need to find the target player by ID
-        const allPlayers = await this.playerService.getAllPlayers();
-        const targetPlayer = allPlayers.find((p) => p.id === input.targetId);
-
-        if (!targetPlayer) {
-          throw new Error('Target player not found');
+        // Support targeting by slackId or numeric ID
+        let targetSlackId: string | undefined =
+          input.targetSlackId ?? undefined;
+        if (!targetSlackId) {
+          if (typeof input.targetId === 'number') {
+            const allPlayers = await this.playerService.getAllPlayers();
+            const targetPlayer = allPlayers.find(
+              (p) => p.id === input.targetId,
+            );
+            if (!targetPlayer) {
+              throw new Error('Target player not found');
+            }
+            targetSlackId = targetPlayer.slackId;
+          } else {
+            throw new Error(
+              'Must provide targetSlackId or targetId for player attacks',
+            );
+          }
         }
 
+        const ignoreLocation = input.ignoreLocation === true;
         result = await this.combatService.playerAttackPlayer(
           slackId,
-          targetPlayer.slackId,
+          targetSlackId,
+          ignoreLocation,
         );
       } else {
         throw new Error('Invalid target type');
@@ -215,10 +232,10 @@ export class PlayerResolver {
         success: true,
         data: result as CombatResult,
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Attack failed',
+        message: _error instanceof Error ? _error.message : 'Attack failed',
       };
     }
   }
@@ -232,10 +249,10 @@ export class PlayerResolver {
         data: player as Player,
         message: 'You have been resurrected at the starting location!',
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Respawn failed',
+        message: _error instanceof Error ? _error.message : 'Respawn failed',
       };
     }
   }
@@ -251,11 +268,13 @@ export class PlayerResolver {
         data: player as Player,
         message: 'Character has been successfully deleted.',
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         success: false,
         message:
-          error instanceof Error ? error.message : 'Failed to delete character',
+          _error instanceof Error
+            ? _error.message
+            : 'Failed to delete character',
       };
     }
   }

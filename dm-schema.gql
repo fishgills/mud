@@ -287,7 +287,9 @@ type Mutation {
   healPlayer(slackId: String!, amount: Float!): PlayerResponse!
   damagePlayer(slackId: String!, damage: Float!): PlayerResponse!
 
-  """Attack a monster or another player at your current location"""
+  """
+  Attack a monster or another player at your current location
+  """
   attack(slackId: String!, input: AttackInput!): CombatResponse!
   respawn(slackId: String!): PlayerResponse!
   deletePlayer(slackId: String!): PlayerResponse!
@@ -312,7 +314,9 @@ input PlayerStatsInput {
 
 input AttackInput {
   targetType: TargetType!
-  targetId: Int!
+  targetId: Int
+  targetSlackId: String
+  ignoreLocation: Boolean
 }
 
 enum TargetType {
@@ -324,7 +328,9 @@ input MovePlayerInput {
   direction: Direction!
 }
 
-"""Cardinal directions for player movement"""
+"""
+Cardinal directions for player movement
+"""
 enum Direction {
   NORTH
   EAST

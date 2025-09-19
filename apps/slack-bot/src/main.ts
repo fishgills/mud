@@ -113,7 +113,12 @@ app.message(async ({ message, say }) => {
       lowerText.endsWith(' ' + key.toLowerCase())
     ) {
       console.log(`Dispatching to handler for: ${key}`);
-      await handler({ userId, say: sayVoid, text });
+      // Minimal resolver: supports <@U123> mentions already parsed by Slack. Advanced username lookup would require Web API users.list which we avoid here.
+      const resolveUserId = async (nameOrMention: string) => {
+        const m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
+        return m ? m[1] : undefined;
+      };
+      await handler({ userId, say: sayVoid, text, resolveUserId });
       return;
     }
   }

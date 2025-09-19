@@ -541,6 +541,7 @@ export class CombatService {
   async playerAttackPlayer(
     attackerSlackId: string,
     defenderSlackId: string,
+    ignoreLocation = false,
   ): Promise<CombatResult> {
     this.logger.log(
       `⚔️ Player vs Player combat initiated: ${attackerSlackId} attacking ${defenderSlackId}`,
@@ -560,12 +561,20 @@ export class CombatService {
       throw new Error('One or both players are dead');
     }
 
-    // Check if players are at the same location
-    if (attacker.x !== defender.x || attacker.y !== defender.y) {
+    // Check if players are at the same location unless overridden
+    if (
+      !ignoreLocation &&
+      (attacker.x !== defender.x || attacker.y !== defender.y)
+    ) {
       this.logger.warn(
         `❌ Combat blocked: Location mismatch - Attacker at (${attacker.x},${attacker.y}), Defender at (${defender.x},${defender.y})`,
       );
       throw new Error('Defender is not at your location');
+    }
+    if (ignoreLocation) {
+      this.logger.debug(
+        'Ignoring location check for PvP attack (workspace attack).',
+      );
     }
 
     this.logger.debug(`✅ Pre-combat checks passed, starting PvP combat...`);

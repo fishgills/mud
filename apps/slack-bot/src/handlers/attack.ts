@@ -5,11 +5,50 @@ import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS } from '../commands';
 
-export const attackHandlerHelp = `Attack the nearest monster using "attack". Example: Send "attack" to fight nearby enemies.`;
+export const attackHandlerHelp = `Attack the nearest monster using "attack". Or attack a player in this workspace from anywhere: "attack @username" or "attack username".`;
 
-export const attackHandler = async ({ userId, say }: HandlerContext) => {
+export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
   // For demo: attack the first nearby monster (could be improved with more context)
   try {
+    // Try to parse a player target by username/mention
+    const parts = text.trim().split(/\s+/);
+    const maybeTarget = parts.length > 1 ? parts.slice(1).join(' ') : '';
+    const mentionMatch = maybeTarget.match(/^<@([A-Z0-9]+)>$/i);
+    const atNameMatch = maybeTarget.match(/^@([A-Za-z0-9._-]+)$/);
+
+    if (mentionMatch || atNameMatch) {
+      // Attack player by Slack identifier within this workspace
+      const targetSlackId = mentionMatch ? mentionMatch[1] : undefined;
+      // If we only have a username, we can't resolve to Slack ID here without Web API; delegate to DM by username support later if added.
+      if (!targetSlackId) {
+        await say({
+          text: 'Please mention the user like "attack @username" so I can identify them.',
+        });
+        return;
+      }
+      const attackResult = await dmSdk.Attack({
+        slackId: userId,
+        input: {
+          targetType: TargetType.Player,
+          targetSlackId,
+          ignoreLocation: true,
+        },
+      });
+      if (!attackResult.attack.success) {
+        await say({ text: `Attack failed: ${attackResult.attack.message}` });
+        return;
+      }
+      const combat = attackResult.attack.data;
+      if (!combat) {
+        await say({ text: 'Attack succeeded but no combat data returned.' });
+        return;
+      }
+      const msg = combat.message;
+      await say({ text: msg });
+      console.log(JSON.stringify(combat, null, 2));
+      return;
+    }
+
     // Get player info to find nearby monsters
     const playerResult = await dmSdk.GetPlayer({ slackId: userId });
     const player = playerResult.getPlayer.data;
