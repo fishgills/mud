@@ -44,6 +44,15 @@
       },
       "codegen": {
         "command": "npx graphql-codegen --config {projectRoot}/codegen.ts"
+      },
+      "test": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{workspaceRoot}/coverage/apps/dm"
+        ],
+        "options": {
+          "jestConfig": "apps/dm/jest.config.js"
+        }
       }
     }
   },

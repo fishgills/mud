@@ -69,8 +69,12 @@
         "command": "npx graphql-codegen --config {projectRoot}/codegen.ts"
       },
       "test": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{workspaceRoot}/coverage/apps/slack-bot"
+        ],
         "options": {
-          "passWithNoTests": true
+          "jestConfig": "apps/slack-bot/jest.config.js"
         }
       },
       "docker-build": {
