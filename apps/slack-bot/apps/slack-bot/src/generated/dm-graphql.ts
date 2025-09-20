@@ -63,6 +63,7 @@ export type CombatResponse = {
 
 export type CombatResult = {
   __typename?: 'CombatResult';
+  goldGained: Scalars['Float']['output'];
   loserName: Scalars['String']['output'];
   message: Scalars['String']['output'];
   roundsCompleted: Scalars['Float']['output'];
