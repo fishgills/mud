@@ -81,6 +81,9 @@ export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
       if (combat.xpGained > 0) {
         msg += `\nYou gained ${combat.xpGained} XP!`;
       }
+      if (combat.goldGained > 0) {
+        msg += `\nYou collected ${combat.goldGained} gold!`;
+      }
     } else {
       msg += `\n${defenderName} defeated you!`;
     }

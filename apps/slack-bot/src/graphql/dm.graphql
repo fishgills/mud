@@ -27,6 +27,7 @@ mutation Attack($slackId: String!, $input: AttackInput!) {
       totalDamageDealt
       roundsCompleted
       xpGained
+      goldGained
       message
       success
     }
