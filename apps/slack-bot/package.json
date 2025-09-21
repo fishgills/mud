@@ -74,7 +74,7 @@
           "{workspaceRoot}/coverage/apps/slack-bot"
         ],
         "options": {
-          "jestConfig": "apps/slack-bot/jest.config.js"
+          "jestConfig": "apps/slack-bot/jest.config.ts"
         }
       },
       "docker-build": {

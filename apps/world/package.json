@@ -56,7 +56,7 @@
           "{workspaceRoot}/coverage/apps/world"
         ],
         "options": {
-          "jestConfig": "apps/world/jest.config.js"
+          "jestConfig": "apps/world/jest.config.ts"
         }
       }
     }

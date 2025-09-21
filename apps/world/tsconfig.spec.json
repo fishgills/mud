@@ -9,7 +9,7 @@
     "moduleResolution": "NodeNext"
   },
   "include": [
-    "jest.config.js",
+    "jest.config.ts",
     "src/**/*.test.ts",
     "src/**/*.spec.ts",
     "src/**/*.d.ts"
