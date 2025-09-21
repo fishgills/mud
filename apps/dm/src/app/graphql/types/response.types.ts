@@ -168,6 +168,9 @@ export class DetailedCombatLog {
   xpAwarded!: number;
 
   @Field()
+  goldAwarded!: number;
+
+  @Field()
   timestamp!: Date;
 
   @Field(() => CombatLocation)
@@ -196,6 +199,9 @@ export class CombatResult {
 
   @Field()
   xpGained!: number;
+
+  @Field()
+  goldGained!: number;
 
   @Field()
   message!: string;

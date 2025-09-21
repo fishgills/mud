@@ -49,6 +49,15 @@
             "buildTarget": "@mud/world:build:production"
           }
         }
+      },
+      "test": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{workspaceRoot}/coverage/apps/world"
+        ],
+        "options": {
+          "jestConfig": "apps/world/jest.config.js"
+        }
       }
     }
   },

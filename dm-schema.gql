@@ -143,6 +143,7 @@ type CombatResult {
   totalDamageDealt: Float!
   roundsCompleted: Float!
   xpGained: Float!
+  goldGained: Float!
   message: String!
 }
 

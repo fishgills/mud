@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { getPrismaClient, CombatLog as PrismaCombatLog } from '@mud/database';
 import { PlayerService } from '../player/player.service';
+import { PlayerStatsDto } from '../player/dto/player.dto';
 import { AiService } from '../../openai/ai.service';
 import { CombatResult, CombatRound, DetailedCombatLog } from '../graphql';
 
@@ -108,6 +109,22 @@ export class CombatService {
       `XP calculation: (${loserLevel}/${winnerLevel}) * ${baseXp} = ${finalXp} (min 10)`,
     );
     return finalXp;
+  }
+
+  private calculateGoldReward(
+    victorLevel: number,
+    targetLevel: number,
+  ): number {
+    const baseGold = this.rollDice(5, 6); // 5d6 baseline treasure
+    const levelDifference = targetLevel - victorLevel;
+    const modifier = Math.max(0.5, 1 + levelDifference * 0.1);
+    const finalGold = Math.max(5, Math.floor(baseGold * modifier));
+    this.logger.debug(
+      `Gold calculation: base ${baseGold}, level diff ${levelDifference} -> modifier ${modifier.toFixed(
+        2,
+      )}, final ${finalGold}`,
+    );
+    return finalGold;
   }
 
   private formatCombatNarrative(narrative: CombatNarrative): string {
@@ -415,6 +432,7 @@ export class CombatService {
     const winner = combatant1.isAlive ? combatant1 : combatant2;
     const loser = combatant1.isAlive ? combatant2 : combatant1;
     const xpAwarded = this.calculateXpGain(loser.level, winner.level);
+    const goldAwarded = this.calculateGoldReward(winner.level, loser.level);
 
     this.logger.log(`🏆 Winner: ${winner.name} (${winner.hp} HP remaining)`);
     this.logger.log(`💀 Loser: ${loser.name} (${loser.hp} HP remaining)`);
@@ -432,6 +450,7 @@ export class CombatService {
       winner: winner.name,
       loser: loser.name,
       xpAwarded,
+      goldAwarded,
       timestamp: new Date(),
       location: { x: combatant1.x, y: combatant1.y },
     };
@@ -505,14 +524,26 @@ export class CombatService {
       );
       const currentPlayer = await this.playerService.getPlayer(winner.slackId);
       const newXp = currentPlayer.xp + combatLog.xpAwarded;
-      await this.playerService.updatePlayerStats(winner.slackId, {
-        xp: newXp,
-      });
+      const goldAwarded = Math.max(0, combatLog.goldAwarded ?? 0);
+      const updatedStats: PlayerStatsDto = { xp: newXp };
+      let newGoldTotal = currentPlayer.gold;
+      if (goldAwarded > 0) {
+        newGoldTotal = currentPlayer.gold + goldAwarded;
+        updatedStats.gold = newGoldTotal;
+      }
+      await this.playerService.updatePlayerStats(winner.slackId, updatedStats);
       this.logger.log(
         `📈 ${winner.name} gained ${combatLog.xpAwarded} XP! Total XP: ${currentPlayer.xp} -> ${newXp}`,
       );
+      if (goldAwarded > 0) {
+        this.logger.log(
+          `💰 ${winner.name} gained ${goldAwarded} gold! Total Gold: ${currentPlayer.gold} -> ${newGoldTotal}`,
+        );
+      }
     } else {
-      this.logger.debug(`Winner ${winner.name} is a monster, no XP awarded`);
+      this.logger.debug(
+        `Winner ${winner.name} is a monster, no XP or gold awarded`,
+      );
     }
 
     // Log to database for history
@@ -586,6 +617,8 @@ export class CombatService {
       totalDamageDealt: totalDamage,
       roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
       xpGained: combatLog.winner === player.name ? combatLog.xpAwarded : 0,
+      goldGained:
+        combatLog.winner === player.name ? combatLog.goldAwarded : 0,
       message: aiMessage,
     };
 
@@ -635,6 +668,8 @@ export class CombatService {
       totalDamageDealt: totalDamage,
       roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
       xpGained: combatLog.winner === player.name ? combatLog.xpAwarded : 0,
+      goldGained:
+        combatLog.winner === player.name ? combatLog.goldAwarded : 0,
       message: aiMessage,
     };
 
@@ -701,6 +736,8 @@ export class CombatService {
       totalDamageDealt: totalDamage,
       roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
       xpGained: combatLog.winner === attacker.name ? combatLog.xpAwarded : 0,
+      goldGained:
+        combatLog.winner === attacker.name ? combatLog.goldAwarded : 0,
       message: aiMessage,
     };
 
