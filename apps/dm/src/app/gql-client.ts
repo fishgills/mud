@@ -1,5 +1,4 @@
 import { GraphQLClient } from 'graphql-request';
-import type { RequestInfo, RequestInit, Response } from 'node-fetch';
 import { authorizedFetch } from '@mud/gcp-auth';
 import { env } from '../env';
 import { getSdk, Sdk } from '../generated/world-graphql';
@@ -21,10 +20,8 @@ function ensureGraphQLEndpoint(urlStr: string): string {
   }
 }
 
-type FetchLike = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
-
 export const worldSdk: Sdk = getSdk(
   new GraphQLClient(ensureGraphQLEndpoint(env.WORLD_SERVICE_URL), {
-    fetch: authorizedFetch as FetchLike,
+    fetch: authorizedFetch,
   }),
 );

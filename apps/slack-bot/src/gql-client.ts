@@ -1,5 +1,4 @@
 import { GraphQLClient } from 'graphql-request';
-import type { RequestInfo, RequestInit, Response } from 'node-fetch';
 import { authorizedFetch } from '@mud/gcp-auth';
 import { env } from './env';
 import { getSdk as getDmSdk } from './generated/dm-graphql';
@@ -21,15 +20,13 @@ function ensureGraphQLEndpoint(urlStr: string): string {
   }
 }
 
-type FetchLike = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
-
 export const dmSdk = getDmSdk(
   new GraphQLClient(ensureGraphQLEndpoint(env.DM_GQL_ENDPOINT), {
-    fetch: authorizedFetch as FetchLike,
+    fetch: authorizedFetch,
   }),
 );
 export const worldSdk = getWorldSdk(
   new GraphQLClient(ensureGraphQLEndpoint(env.WORLD_GQL_ENDPOINT), {
-    fetch: authorizedFetch as FetchLike,
+    fetch: authorizedFetch,
   }),
 );

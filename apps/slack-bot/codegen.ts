@@ -10,7 +10,6 @@ const config: CodegenConfig = {
       schema: 'dm-schema.gql',
       documents: 'apps/slack-bot/src/graphql/dm.graphql',
       plugins: [
-        { add: { content: "import type { RequestInit } from 'node-fetch';" } },
         'typescript',
         'typescript-operations',
         'typescript-graphql-request',
@@ -21,7 +20,6 @@ const config: CodegenConfig = {
       schema: 'world-schema.gql',
       documents: 'apps/slack-bot/src/graphql/world.graphql',
       plugins: [
-        { add: { content: "import type { RequestInit } from 'node-fetch';" } },
         'typescript',
         'typescript-operations',
         'typescript-graphql-request',

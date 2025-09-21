@@ -1,5 +1,6 @@
 import { GoogleAuth, IdTokenClient } from 'google-auth-library';
-import fetch, { RequestInfo, RequestInit, Response, Headers } from 'node-fetch';
+
+type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
 
 // Cache IdTokenClient per audience to avoid re-creating on every call
 const clientCache = new Map<string, Promise<IdTokenClient>>();
@@ -83,10 +84,7 @@ export async function getCloudRunAuthHeaders(
  * Fetch implementation that injects Cloud Run ID token Authorization header automatically.
  * Pass this to libraries (e.g., graphql-request) that accept a custom fetch.
  */
-export async function authorizedFetch(
-  input: RequestInfo,
-  init?: RequestInit,
-): Promise<Response> {
+export const authorizedFetch: typeof fetch = async (input, init) => {
   // Resolve URL string from the input variant
   const urlStr = (() => {
     if (typeof input === 'string') return input;
@@ -103,9 +101,11 @@ export async function authorizedFetch(
   })();
 
   // Only apply identity-based auth when running in GCP/Cloud Run
+  const initOptions: FetchInit = init ? { ...init } : {};
+
   if (!isRunningInGcp()) {
     console.log(`[GCP-AUTH] Not running in GCP, using standard fetch`);
-    return fetch(input, init);
+    return fetch(input, initOptions);
   }
 
   try {
@@ -113,26 +113,14 @@ export async function authorizedFetch(
 
     // Normalize and merge headers preserving originals (Headers, array, or record)
     // Convert incoming headers (string[][] | Record<string,string> | Headers | undefined) to Headers
-    const toHeaders = (
-      h?:
-        | Headers
-        | Record<string, string>
-        | Array<[string, string]>
-        | undefined,
-    ): Headers => {
+    const toHeaders = (h?: FetchInit['headers']): Headers => {
       if (!h) return new Headers();
       if (h instanceof Headers) return new Headers(h);
       if (Array.isArray(h)) return new Headers(h);
-      return new Headers(Object.entries(h));
+      return new Headers(Object.entries(h as Record<string, string>));
     };
 
-    const merged = toHeaders(
-      init?.headers as
-        | Headers
-        | Record<string, string>
-        | Array<[string, string]>
-        | undefined,
-    );
+    const merged = toHeaders(initOptions.headers);
     // Apply auth header (overrides if already present)
     for (const [k, v] of Object.entries(authHeaders)) merged.set(k, v);
 
@@ -141,8 +129,8 @@ export async function authorizedFetch(
       merged.set('content-type', 'application/json');
     }
 
-    // Defer to node-fetch with merged headers
-    const response = await fetch(input, { ...init, headers: merged });
+    // Defer to fetch with merged headers
+    const response = await fetch(input, { ...initOptions, headers: merged });
 
     if (!response.ok) {
       console.error(
@@ -155,7 +143,7 @@ export async function authorizedFetch(
     console.error(`[GCP-AUTH] Error in authorizedFetch for ${urlStr}:`, error);
     throw error;
   }
-}
+};
 
 /**
  * Utility to clear the internal auth client cache (useful for tests).
