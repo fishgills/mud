@@ -131,6 +131,7 @@ jobs:
       id-token: write
     env:
       BUILD_VERSION: ${{ needs.build-and-push.outputs.build_version }}
+      TF_PLUGIN_CACHE_DIR: ${{ runner.temp }}/terraform-plugin-cache
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -171,6 +172,17 @@ jobs:
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
+
+      - name: Prepare Terraform plugin cache directory
+        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
+
+      - name: Cache Terraform plugin directory
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.TF_PLUGIN_CACHE_DIR }}
+          key: ${{ runner.os }}-terraform-${{ hashFiles('infra/terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-
 
       - name: Ensure terraform.tfvars exists
         run: |
@@ -214,9 +226,17 @@ if not found:
 path.write_text("\n".join([l.rstrip() for l in lines if l is not None]) + "\n")
 PY
 
+      - name: Terraform fmt check
+        working-directory: infra/terraform
+        run: terraform fmt -check -recursive
+
       - name: Terraform init
         working-directory: infra/terraform
         run: terraform init -input=false
+
+      - name: Terraform validate
+        working-directory: infra/terraform
+        run: terraform validate
 
       - name: Terraform plan
         working-directory: infra/terraform
@@ -225,17 +245,21 @@ PY
             -input=false \
             -var=project_id="$GCP_PROJECT_ID" \
             -var=region="$GCP_REGION" \
-            -var=image_version="$BUILD_VERSION"
+            -var=image_version="$BUILD_VERSION" \
+            -out=tfplan
 
       - name: Terraform apply
         working-directory: infra/terraform
         run: |
           terraform apply \
             -input=false \
-            -var=project_id="$GCP_PROJECT_ID" \
-            -var=region="$GCP_REGION" \
-            -var=image_version="$BUILD_VERSION" \
-            -auto-approve
+            -auto-approve \
+            tfplan
+
+      - name: Clean up Terraform plan
+        if: always()
+        working-directory: infra/terraform
+        run: rm -f tfplan
 
       - name: Update service endpoints
         run: |
