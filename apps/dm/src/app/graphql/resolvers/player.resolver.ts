@@ -51,17 +51,33 @@ export class PlayerResolver {
   }
 
   @Query(() => PlayerResponse)
-  async getPlayer(@Args('slackId') slackId: string): Promise<PlayerResponse> {
+  async getPlayer(
+    @Args('slackId', { nullable: true }) slackId?: string,
+    @Args('name', { nullable: true }) name?: string,
+  ): Promise<PlayerResponse> {
+    if (!slackId && !name) {
+      return {
+        success: false,
+        message: 'A Slack ID or player name must be provided',
+      };
+    }
+
+    const identifier = slackId
+      ? `slackId: ${slackId}`
+      : `name: ${name ?? 'unknown'}`;
     this.logger.log(
-      `[DM-AUTH] Received getPlayer request for slackId: ${slackId}`,
+      `[DM-AUTH] Received getPlayer request for ${identifier}`,
     );
     try {
       this.logger.log(
-        `[DM-AUTH] Calling playerService.getPlayer for slackId: ${slackId}`,
+        `[DM-AUTH] Calling playerService.getPlayer for ${identifier}`,
       );
-      const player = await this.playerService.getPlayer(slackId);
+      const player = await this.playerService.getPlayerByIdentifier({
+        slackId,
+        name,
+      });
       this.logger.log(
-        `[DM-AUTH] Successfully retrieved player for slackId: ${slackId}, player ID: ${player.id}`,
+        `[DM-AUTH] Successfully retrieved player for ${identifier}, player ID: ${player.id}`,
       );
       return {
         success: true,
@@ -69,7 +85,7 @@ export class PlayerResolver {
       };
     } catch (error) {
       this.logger.error(
-        `[DM-AUTH] Error getting player for slackId: ${slackId}`,
+        `[DM-AUTH] Error getting player for ${identifier}`,
         error instanceof Error ? error.stack : error,
       );
       return {
@@ -280,8 +296,14 @@ export class PlayerResolver {
   }
 
   @Query(() => PlayerStats)
-  async getPlayerStats(@Args('slackId') slackId: string): Promise<PlayerStats> {
-    const player = await this.playerService.getPlayer(slackId);
+  async getPlayerStats(
+    @Args('slackId', { nullable: true }) slackId?: string,
+    @Args('name', { nullable: true }) name?: string,
+  ): Promise<PlayerStats> {
+    const player = await this.playerService.getPlayerByIdentifier({
+      slackId,
+      name,
+    });
 
     // Calculate D&D-like modifiers
     const strengthModifier = Math.floor((player.strength - 10) / 2);

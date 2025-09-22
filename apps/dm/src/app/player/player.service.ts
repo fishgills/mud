@@ -75,6 +75,76 @@ export class PlayerService {
     return player;
   }
 
+  async getPlayerByName(name: string): Promise<Player> {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      throw new GraphQLError('Player name is required', {
+        extensions: {
+          code: 'PLAYER_NAME_REQUIRED',
+        },
+      });
+    }
+
+    this.logger.log(`[DM-DB] Looking up player with name: ${trimmedName}`);
+    const matches = await this.prisma.player.findMany({
+      where: {
+        name: {
+          equals: trimmedName,
+          mode: 'insensitive',
+        },
+      },
+      orderBy: { id: 'asc' },
+    });
+
+    if (matches.length === 0) {
+      this.logger.warn(`[DM-DB] Player not found for name: ${trimmedName}`);
+      throw new NotFoundException(`Player not found`);
+    }
+
+    if (matches.length > 1) {
+      this.logger.warn(
+        `[DM-DB] Multiple players found for name: ${trimmedName} (count: ${matches.length})`,
+      );
+      throw new GraphQLError(
+        `Multiple players found with the name "${trimmedName}". Please specify the player's Slack handle instead.`,
+        {
+          extensions: {
+            code: 'PLAYER_NAME_AMBIGUOUS',
+            name: trimmedName,
+            matches: matches.map((player) => player.id),
+          },
+        },
+      );
+    }
+
+    const player = matches[0];
+    this.logger.log(
+      `[DM-DB] Found player for name: ${trimmedName}, player ID: ${player.id}, slackId: ${player.slackId}`,
+    );
+    return player;
+  }
+
+  async getPlayerByIdentifier({
+    slackId,
+    name,
+  }: {
+    slackId?: string | null;
+    name?: string | null;
+  }): Promise<Player> {
+    if (slackId) {
+      return this.getPlayer(slackId);
+    }
+    if (name) {
+      return this.getPlayerByName(name);
+    }
+
+    throw new GraphQLError('A Slack ID or player name must be provided', {
+      extensions: {
+        code: 'PLAYER_IDENTIFIER_REQUIRED',
+      },
+    });
+  }
+
   async getAllPlayers(): Promise<Player[]> {
     return this.prisma.player.findMany({
       where: { isAlive: true },

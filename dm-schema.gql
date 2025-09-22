@@ -270,10 +270,10 @@ type LookViewResponse {
 }
 
 type Query {
-  getPlayer(slackId: String!): PlayerResponse!
+  getPlayer(slackId: String, name: String): PlayerResponse!
   getAllPlayers: [Player!]!
   getPlayersAtLocation(x: Float!, y: Float!): [Player!]!
-  getPlayerStats(slackId: String!): PlayerStats!
+  getPlayerStats(slackId: String, name: String): PlayerStats!
   getLookView(slackId: String!): LookViewResponse!
   health: HealthCheck!
   getGameState: GameStateResponse!
