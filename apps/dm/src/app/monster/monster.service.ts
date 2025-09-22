@@ -6,6 +6,7 @@ import {
   getMonsterTemplate,
   pickTypeForBiome,
 } from './monster.types';
+import { isWaterBiome } from '../shared/biome.util';
 
 @Injectable()
 export class MonsterService {
@@ -13,6 +14,13 @@ export class MonsterService {
   constructor(private worldService: WorldService) {}
 
   async spawnMonster(x: number, y: number, biomeId: number): Promise<Monster> {
+    const tile = await this.worldService.getTileInfo(x, y);
+    if (isWaterBiome(tile.biomeName)) {
+      throw new Error('Cannot spawn monsters in water.');
+    }
+
+    const resolvedBiomeId = tile.biomeId ?? biomeId;
+
     // Choose a random template from the global set
     const monsterTemplate =
       MONSTER_TEMPLATES[Math.floor(Math.random() * MONSTER_TEMPLATES.length)];
@@ -36,7 +44,7 @@ export class MonsterService {
         health,
         x,
         y,
-        biomeId,
+        biomeId: resolvedBiomeId,
         isAlive: true,
       },
     });
@@ -97,6 +105,14 @@ export class MonsterService {
     const direction = directions[Math.floor(Math.random() * directions.length)];
     const newX = monster.x + direction.dx;
     const newY = monster.y + direction.dy;
+
+    const targetTile = await this.worldService.getTileInfo(newX, newY);
+    if (isWaterBiome(targetTile.biomeName)) {
+      return this.prisma.monster.update({
+        where: { id: monsterId },
+        data: { lastMove: new Date() },
+      });
+    }
 
     return this.prisma.monster.update({
       where: { id: monsterId },
@@ -165,6 +181,10 @@ export class MonsterService {
 
       // Fetch tile and nearby from world to decide biome and safety
       const center = await this.worldService.getTileInfoWithNearby(x, y);
+
+      if (isWaterBiome(center.tile.biomeName)) {
+        continue;
+      }
 
       // settlement avoidance
       const avoidR = constraints?.avoidSettlementsWithin ?? 3;
