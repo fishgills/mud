@@ -7,11 +7,15 @@ import {
   PlayerStatsDto,
 } from './dto/player.dto';
 import { GraphQLError } from 'graphql';
+import { WorldService } from '../world/world.service';
+import { isWaterBiome } from '../shared/biome.util';
 
 @Injectable()
 export class PlayerService {
   private readonly logger = new Logger(PlayerService.name);
   private prisma = getPrismaClient();
+
+  constructor(private readonly worldService: WorldService) {}
 
   async createPlayer(createPlayerDto: CreatePlayerDto): Promise<Player> {
     const { slackId, name, x, y } = createPlayerDto;
@@ -105,6 +109,13 @@ export class PlayerService {
         break;
       default:
         throw new Error('Invalid direction. Use n, s, e, w');
+    }
+
+    const targetTile = await this.worldService.getTileInfo(newX, newY);
+    if (isWaterBiome(targetTile.biomeName)) {
+      throw new Error(
+        `You cannot move into water (${targetTile.biomeName || 'unknown biome'}).`,
+      );
     }
 
     return this.prisma.player.update({
