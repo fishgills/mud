@@ -63,11 +63,29 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Authenticate to Google Cloud
-        id: auth
+      - name: Ensure authentication inputs are configured
+        if: ${{ (secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '') && secrets.GCP_SA_KEY == '' }}
+        run: |
+          echo "No Google Cloud authentication secrets configured."
+          echo "Provide either workload identity inputs or a service account key."
+          exit 1
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Authenticate to Google Cloud (Service Account Key)
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '' }}
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
+          create_credentials_file: true
+          export_environment_variables: true
 
       - name: Set up gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -117,10 +135,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
+      - name: Ensure authentication inputs are configured
+        if: ${{ (secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '') && secrets.GCP_SA_KEY == '' }}
+        run: |
+          echo "No Google Cloud authentication secrets configured."
+          echo "Provide either workload identity inputs or a service account key."
+          exit 1
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Authenticate to Google Cloud (Service Account Key)
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '' }}
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
+          create_credentials_file: true
+          export_environment_variables: true
 
       - name: Set up gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -141,13 +178,19 @@ jobs:
             cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
           fi
 
+      - name: Fetch database password secret
+        id: db-secret
+        uses: google-github-actions/get-secretmanager-secrets@v1
+        with:
+          secrets: |
+            db_password:projects/${{ env.GCP_PROJECT_ID }}/secrets/cloud-sql-db-password/versions/latest
+
       - name: Inject database password into Terraform vars
         env:
-          SECRET_NAME: cloud-sql-db-password
+          DB_PASSWORD: ${{ steps.db-secret.outputs.db_password }}
         run: |
           set -Eeuo pipefail
-          DB_PASSWORD=$(gcloud secrets versions access latest --secret="$SECRET_NAME")
-          export DB_PASSWORD
+          echo "::add-mask::${DB_PASSWORD}"
           python3 - <<'PY'
 import os
 from pathlib import Path
@@ -240,10 +283,29 @@ PY
       - name: Install dependencies
         run: npm ci
 
-      - name: Authenticate to Google Cloud
+      - name: Ensure authentication inputs are configured
+        if: ${{ (secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '') && secrets.GCP_SA_KEY == '' }}
+        run: |
+          echo "No Google Cloud authentication secrets configured."
+          echo "Provide either workload identity inputs or a service account key."
+          exit 1
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Authenticate to Google Cloud (Service Account Key)
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '' }}
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
+          create_credentials_file: true
+          export_environment_variables: true
 
       - name: Set up gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -255,12 +317,19 @@ PY
           gcloud config set project "$GCP_PROJECT_ID"
           gcloud config set compute/region "$GCP_REGION"
 
+      - name: Fetch database password secret
+        id: migration-secret
+        uses: google-github-actions/get-secretmanager-secrets@v1
+        with:
+          secrets: |
+            db_password:projects/${{ env.GCP_PROJECT_ID }}/secrets/cloud-sql-db-password/versions/latest
+
       - name: Run Prisma migrations
         env:
-          SECRET_NAME: cloud-sql-db-password
+          DB_PASSWORD: ${{ steps.migration-secret.outputs.db_password }}
         run: |
           set -Eeuo pipefail
-          DB_PASSWORD=$(gcloud secrets versions access latest --secret="$SECRET_NAME")
+          echo "::add-mask::${DB_PASSWORD}"
           CONNECTION_NAME="${CLOUD_SQL_CONNECTION_NAME:-battleforge-444008:us-central1:mud-postgres}"
           PROXY_PATH="scripts/cloud-sql-proxy"
           if [ ! -f "$PROXY_PATH" ]; then
@@ -278,5 +347,4 @@ PY
           trap cleanup EXIT
           sleep 5
           export DATABASE_URL="postgresql://mud:${DB_PASSWORD}@127.0.0.1:5432/mud_dev?schema=public&sslmode=disable&connect_timeout=60"
-          echo "Using DATABASE_URL=$DATABASE_URL"
           npx prisma migrate deploy --schema=libs/database/prisma/schema.prisma
