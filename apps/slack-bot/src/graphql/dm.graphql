@@ -34,8 +34,8 @@ mutation Attack($slackId: String!, $input: AttackInput!) {
   }
 }
 
-query GetPlayer($slackId: String!) {
-  getPlayer(slackId: $slackId) {
+query GetPlayer($slackId: String, $name: String) {
+  getPlayer(slackId: $slackId, name: $name) {
     success
     message
     data {
@@ -59,6 +59,38 @@ query GetPlayer($slackId: String!) {
         isAlive
       }
     }
+  }
+}
+
+query GetLocationEntities($x: Float!, $y: Float!) {
+  getPlayersAtLocation(x: $x, y: $y) {
+    id
+    slackId
+    name
+    x
+    y
+    hp
+    maxHp
+    strength
+    agility
+    health
+    gold
+    xp
+    level
+    isAlive
+  }
+  getMonstersAtLocation(x: $x, y: $y) {
+    id
+    name
+    type
+    hp
+    maxHp
+    strength
+    agility
+    health
+    x
+    y
+    isAlive
   }
 }
 
