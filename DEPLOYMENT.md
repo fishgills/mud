@@ -75,6 +75,48 @@ ssl_certificate_email = "admin@battleforge.app"
 image_version = "latest"
 ```
 
+### 2b. Configure GitHub Actions authentication (recommended)
+
+Enable Workload Identity Federation so GitHub Actions can impersonate a short-lived service account without storing JSON keys:
+
+1. In `infra/terraform/terraform.tfvars`, set:
+
+   ```hcl
+   enable_github_actions_workload_identity = true
+   github_actions_owner                     = "your-github-org-or-user"
+   github_actions_repository                = "mud"
+   # Optionally restrict to a different branch or tag
+   github_actions_ref                       = "refs/heads/main"
+   ```
+
+2. From your local machine (before the workflow has access), apply the Terraform changes to create the pool, provider, and service account:
+
+   ```bash
+   cd infra/terraform
+   terraform apply \
+     -target=google_service_account.github_actions \
+     -target=google_project_iam_member.github_actions_roles \
+     -target=google_iam_workload_identity_pool.github_actions \
+     -target=google_iam_workload_identity_pool_provider.github_actions \
+     -target=google_service_account_iam_member.github_actions_wi_user
+   ```
+
+   Running a full `terraform apply` is also fine if the rest of the infrastructure is ready.
+
+3. Capture the outputs for your GitHub secrets:
+
+   ```bash
+   terraform output github_actions_service_account_email
+   terraform output github_actions_workload_identity_provider
+   ```
+
+4. In GitHub, add repository secrets:
+
+   - `GCP_WORKLOAD_IDENTITY_PROVIDER` → the provider output
+   - `GCP_SERVICE_ACCOUNT` → the service account email output
+
+   You can remove the legacy `GCP_SA_KEY` secret once federation is configured.
+
 ### 3. Deploy Everything
 
 ```bash

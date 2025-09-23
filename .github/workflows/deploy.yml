@@ -1,0 +1,361 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      build_version:
+        description: "Optional image tag override"
+        required: false
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ secrets.GCP_REGION }}
+  REGISTRY_NAME: mud-registry
+  TF_IN_AUTOMATION: true
+  CLOUD_SQL_CONNECTION_NAME: ${{ secrets.CLOUD_SQL_CONNECTION_NAME }}
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    name: Build and Push Images
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      build_version: ${{ steps.version.outputs.build_version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine build version
+        id: version
+        run: |
+          set -eo pipefail
+          VERSION_INPUT="${{ inputs.build_version }}"
+          if [ -n "$VERSION_INPUT" ]; then
+            VERSION="$VERSION_INPUT"
+          else
+            if git rev-parse --short HEAD >/tmp/short_sha 2>/dev/null; then
+              VERSION=$(cat /tmp/short_sha)
+            else
+              VERSION=$(date -u +"%Y%m%d%H%M%S")
+            fi
+          fi
+          echo "Using build version: $VERSION"
+          echo "BUILD_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "build_version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Ensure authentication inputs are configured
+        if: ${{ (secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '') && secrets.GCP_SA_KEY == '' }}
+        run: |
+          echo "No Google Cloud authentication secrets configured."
+          echo "Provide either workload identity inputs or a service account key."
+          echo "If you enabled Workload Identity with Terraform, use the github_actions_workload_identity_provider and github_actions_service_account_email outputs for GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT."
+          exit 1
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Authenticate to Google Cloud (Service Account Key)
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Configure gcloud defaults
+        run: |
+          gcloud config set project "$GCP_PROJECT_ID"
+          gcloud config set compute/region "$GCP_REGION"
+
+      - name: Configure Docker authentication
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Sync Nx workspace
+        run: npx nx sync
+
+      - name: Build and push service images
+        env:
+          BUILD_VERSION: ${{ steps.version.outputs.build_version }}
+        run: |
+          set -Eeuo pipefail
+          REGISTRY_URL="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}"
+          SERVICES=(dm world slack-bot tick)
+          for svc in "${SERVICES[@]}"; do
+            echo "Building $svc image..."
+            IMAGE_TAG="${REGISTRY_URL}/${svc}:${BUILD_VERSION}"
+            IMAGE_LATEST="${REGISTRY_URL}/${svc}:latest"
+            DOCKERFILE="apps/${svc}/Dockerfile"
+            docker build -t "$IMAGE_TAG" -t "$IMAGE_LATEST" -f "$DOCKERFILE" .
+            echo "Pushing $svc image..."
+            docker push "$IMAGE_TAG"
+            docker push "$IMAGE_LATEST"
+          done
+
+  deploy-infra:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      BUILD_VERSION: ${{ needs.build-and-push.outputs.build_version }}
+      TF_PLUGIN_CACHE_DIR: ${{ runner.temp }}/terraform-plugin-cache
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure authentication inputs are configured
+        if: ${{ (secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '') && secrets.GCP_SA_KEY == '' }}
+        run: |
+          echo "No Google Cloud authentication secrets configured."
+          echo "Provide either workload identity inputs or a service account key."
+          echo "If you enabled Workload Identity with Terraform, use the github_actions_workload_identity_provider and github_actions_service_account_email outputs for GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT."
+          exit 1
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Authenticate to Google Cloud (Service Account Key)
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Configure gcloud defaults
+        run: |
+          gcloud config set project "$GCP_PROJECT_ID"
+          gcloud config set compute/region "$GCP_REGION"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Prepare Terraform plugin cache directory
+        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
+
+      - name: Cache Terraform plugin directory
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.TF_PLUGIN_CACHE_DIR }}
+          key: ${{ runner.os }}-terraform-${{ hashFiles('infra/terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-
+
+      - name: Ensure terraform.tfvars exists
+        run: |
+          if [ ! -f infra/terraform/terraform.tfvars ]; then
+            cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
+          fi
+
+      - name: Fetch database password secret
+        id: db-secret
+        uses: google-github-actions/get-secretmanager-secrets@v1
+        with:
+          secrets: |
+            db_password:projects/${{ env.GCP_PROJECT_ID }}/secrets/cloud-sql-db-password/versions/latest
+
+      - name: Create Terraform secret overrides
+        env:
+          DB_PASSWORD: ${{ steps.db-secret.outputs.db_password }}
+        run: |
+          set -Eeuo pipefail
+          echo "::add-mask::${DB_PASSWORD}"
+          printf 'db_password = "%s"\n' "${DB_PASSWORD//"/\\"}" > infra/terraform/secret.auto.tfvars
+
+      - name: Terraform fmt check
+        working-directory: infra/terraform
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init
+        working-directory: infra/terraform
+        run: terraform init -input=false
+
+      - name: Terraform validate
+        working-directory: infra/terraform
+        run: terraform validate
+
+      - name: Terraform plan
+        working-directory: infra/terraform
+        run: |
+          terraform plan \
+            -input=false \
+            -var=project_id="$GCP_PROJECT_ID" \
+            -var=region="$GCP_REGION" \
+            -var=image_version="$BUILD_VERSION" \
+            -out=tfplan
+
+      - name: Terraform apply
+        working-directory: infra/terraform
+        run: |
+          terraform apply \
+            -input=false \
+            -auto-approve \
+            tfplan
+
+      - name: Clean up Terraform plan
+        if: always()
+        working-directory: infra/terraform
+        run: rm -f tfplan
+
+      - name: Clean up Terraform secret overrides
+        if: always()
+        working-directory: infra/terraform
+        run: rm -f secret.auto.tfvars
+
+      - name: Update service endpoints
+        run: |
+          set -Eeuo pipefail
+          DM_URL=$(gcloud run services describe mud-dm --region "$GCP_REGION" --project "$GCP_PROJECT_ID" --format="value(status.url)")
+          WORLD_URL=$(gcloud run services describe mud-world --region "$GCP_REGION" --project "$GCP_PROJECT_ID" --format="value(status.url)")
+          if [ -z "$DM_URL" ] || [ -z "$WORLD_URL" ]; then
+            echo "Could not retrieve dm/world service URLs. Skipping endpoint update."
+            exit 0
+          fi
+          DM_GQL="${DM_URL}/graphql"
+          WORLD_GQL="${WORLD_URL}/graphql"
+          WORLD_BASE="${WORLD_URL}/world"
+          echo "Resolved endpoints:"
+          echo "  DM_GQL_ENDPOINT=$DM_GQL"
+          echo "  WORLD_GQL_ENDPOINT=$WORLD_GQL"
+          echo "  WORLD_BASE_URL=$WORLD_BASE"
+          gcloud run services update mud-slack-bot \
+            --region="$GCP_REGION" \
+            --project="$GCP_PROJECT_ID" \
+            --update-env-vars="DM_GQL_ENDPOINT=${DM_GQL},WORLD_GQL_ENDPOINT=${WORLD_GQL}"
+          gcloud run services update mud-tick \
+            --region="$GCP_REGION" \
+            --project="$GCP_PROJECT_ID" \
+            --update-env-vars="DM_GRAPHQL_URL=${DM_GQL}"
+
+  run-migrations:
+    name: Run Database Migrations
+    runs-on: ubuntu-latest
+    needs:
+      - deploy-infra
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Ensure authentication inputs are configured
+        if: ${{ (secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '') && secrets.GCP_SA_KEY == '' }}
+        run: |
+          echo "No Google Cloud authentication secrets configured."
+          echo "Provide either workload identity inputs or a service account key."
+          echo "If you enabled Workload Identity with Terraform, use the github_actions_workload_identity_provider and github_actions_service_account_email outputs for GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT."
+          exit 1
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Authenticate to Google Cloud (Service Account Key)
+        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Configure gcloud defaults
+        run: |
+          gcloud config set project "$GCP_PROJECT_ID"
+          gcloud config set compute/region "$GCP_REGION"
+
+      - name: Fetch database password secret
+        id: migration-secret
+        uses: google-github-actions/get-secretmanager-secrets@v1
+        with:
+          secrets: |
+            db_password:projects/${{ env.GCP_PROJECT_ID }}/secrets/cloud-sql-db-password/versions/latest
+
+      - name: Run Prisma migrations
+        env:
+          DB_PASSWORD: ${{ steps.migration-secret.outputs.db_password }}
+        run: |
+          set -Eeuo pipefail
+          echo "::add-mask::${DB_PASSWORD}"
+          CONNECTION_NAME="${CLOUD_SQL_CONNECTION_NAME:-battleforge-444008:us-central1:mud-postgres}"
+          PROXY_PATH="scripts/cloud-sql-proxy"
+          if [ ! -f "$PROXY_PATH" ]; then
+            curl -sSL -o "$PROXY_PATH" "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.18.1/cloud-sql-proxy.linux.amd64"
+            chmod +x "$PROXY_PATH"
+          fi
+          "$PROXY_PATH" --address=127.0.0.1 --port=5432 "$CONNECTION_NAME" &
+          PROXY_PID=$!
+          cleanup() {
+            if kill -0 "$PROXY_PID" 2>/dev/null; then
+              kill "$PROXY_PID"
+              wait "$PROXY_PID" || true
+            fi
+          }
+          trap cleanup EXIT
+          sleep 5
+          export DATABASE_URL="postgresql://mud:${DB_PASSWORD}@127.0.0.1:5432/mud_dev?schema=public&sslmode=disable&connect_timeout=60"
+          npx prisma migrate deploy --schema=libs/database/prisma/schema.prisma

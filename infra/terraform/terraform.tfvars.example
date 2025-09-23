@@ -11,6 +11,12 @@ db_password = "your-secure-database-password-here"
 redis_memory_size_gb = 1
 db_tier = "db-f1-micro"
 
+# Enable GitHub Actions Workload Identity Federation once the repo is ready to deploy
+# enable_github_actions_workload_identity = true
+# github_actions_owner                     = "your-github-org-or-user"
+# github_actions_repository                = "mud"
+# github_actions_ref                       = "refs/heads/main"
+
 # Service configurations - adjust CPU, memory, and scaling as needed
 services = {
   dm = {

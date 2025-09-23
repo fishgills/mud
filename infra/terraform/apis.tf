@@ -12,6 +12,8 @@ resource "google_project_service" "apis" {
     "containerregistry.googleapis.com",
     "artifactregistry.googleapis.com",
     "aiplatform.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "sts.googleapis.com",
   ])
 
   service            = each.key

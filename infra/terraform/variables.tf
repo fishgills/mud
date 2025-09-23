@@ -71,6 +71,81 @@ variable "image_version" {
   default     = "latest"
 }
 
+# GitHub Actions Workload Identity Federation
+variable "enable_github_actions_workload_identity" {
+  description = "Create the Workload Identity Federation pool, provider, and deployer service account for GitHub Actions."
+  type        = bool
+  default     = false
+}
+
+variable "github_actions_owner" {
+  description = "GitHub organization or user that owns the repository used for deployments."
+  type        = string
+  default     = null
+  validation {
+    condition     = !var.enable_github_actions_workload_identity || (var.github_actions_owner != null && trim(var.github_actions_owner) != "")
+    error_message = "Set github_actions_owner when enable_github_actions_workload_identity is true."
+  }
+}
+
+variable "github_actions_repository" {
+  description = "Repository name (without the owner) used for deployments."
+  type        = string
+  default     = null
+  validation {
+    condition     = !var.enable_github_actions_workload_identity || (var.github_actions_repository != null && trim(var.github_actions_repository) != "")
+    error_message = "Set github_actions_repository when enable_github_actions_workload_identity is true."
+  }
+}
+
+variable "github_actions_ref" {
+  description = "Git ref (branch, tag, or environment) that is allowed to authenticate via Workload Identity Federation."
+  type        = string
+  default     = "refs/heads/main"
+}
+
+variable "github_actions_attribute_condition" {
+  description = "Optional CEL condition that further restricts which GitHub workflows can authenticate. Overrides the default repo/ref check when provided."
+  type        = string
+  default     = null
+}
+
+variable "github_actions_workload_identity_pool_id" {
+  description = "Identifier for the Workload Identity pool that GitHub Actions uses."
+  type        = string
+  default     = "github-actions"
+}
+
+variable "github_actions_workload_identity_provider_id" {
+  description = "Identifier for the Workload Identity provider inside the pool."
+  type        = string
+  default     = "github"
+}
+
+variable "github_actions_service_account_id" {
+  description = "Service account ID (without the domain) that GitHub Actions impersonates."
+  type        = string
+  default     = "github-actions-deployer"
+}
+
+variable "github_actions_service_account_roles" {
+  description = "Project-level IAM roles to grant to the GitHub Actions deployer service account."
+  type        = list(string)
+  default = [
+    "roles/artifactregistry.writer",
+    "roles/cloudsql.admin",
+    "roles/compute.networkAdmin",
+    "roles/dns.admin",
+    "roles/iam.serviceAccountUser",
+    "roles/resourcemanager.projectIamAdmin",
+    "roles/run.admin",
+    "roles/secretmanager.admin",
+    "roles/serviceusage.serviceUsageAdmin",
+    "roles/redis.admin",
+    "roles/certificatemanager.admin",
+  ]
+}
+
 # Toggle to enable or disable the external HTTPS Load Balancer stack.
 # When false, all LB-related resources (IP, forwarding rules, proxies, URL maps,
 # backend services, NEGs, and DNS A records) are not created.
