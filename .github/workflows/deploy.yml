@@ -108,7 +108,7 @@ jobs:
             SERVICES=("${ALL_SERVICES[@]}")
           else
             NX_OUTPUT_FILE=$(mktemp)
-            if npx nx print-affected --type=apps --select=projects --base="$BASE_SHA" --head="$HEAD_SHA" >"$NX_OUTPUT_FILE"; then
+            if npx nx print-affected --type=app --select=projects --base="$BASE_SHA" --head="$HEAD_SHA" >"$NX_OUTPUT_FILE"; then
               while IFS= read -r project; do
                 [ -n "$project" ] || continue
                 mapped=""
@@ -361,7 +361,7 @@ jobs:
 
       - name: Terraform fmt check
         working-directory: infra/terraform
-        run: terraform f mt -check -recursive
+        run: terraform fmt -check -recursive
 
       - name: Terraform init
         working-directory: infra/terraform
