@@ -16,6 +16,8 @@ env:
   REGISTRY_NAME: mud-registry
   TF_IN_AUTOMATION: true
   CLOUD_SQL_CONNECTION_NAME: ${{ secrets.CLOUD_SQL_CONNECTION_NAME }}
+  GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
 concurrency:
   group: deploy-${{ github.ref_name }}
@@ -63,27 +65,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Ensure authentication inputs are configured
-        if: ${{ (secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '') && secrets.GCP_SA_KEY == '' }}
+      - name: Ensure Workload Identity secrets are configured
+        env:
+          WORKLOAD_IDENTITY_PROVIDER: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          WORKLOAD_IDENTITY_SERVICE_ACCOUNT: ${{ env.GCP_SERVICE_ACCOUNT }}
         run: |
-          echo "No Google Cloud authentication secrets configured."
-          echo "Provide either workload identity inputs or a service account key."
-          exit 1
+          set -Eeuo pipefail
+          if [ -z "$WORKLOAD_IDENTITY_PROVIDER" ] || [ -z "$WORKLOAD_IDENTITY_SERVICE_ACCOUNT" ]; then
+            echo "Missing workload identity federation secrets."
+            echo "Set both GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT secrets."
+            exit 1
+          fi
 
-      - name: Authenticate to Google Cloud (Workload Identity Federation)
-        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
+      - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          create_credentials_file: true
-          export_environment_variables: true
-
-      - name: Authenticate to Google Cloud (Service Account Key)
-        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '' }}
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
           create_credentials_file: true
           export_environment_variables: true
 
@@ -136,27 +134,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Ensure authentication inputs are configured
-        if: ${{ (secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '') && secrets.GCP_SA_KEY == '' }}
+      - name: Ensure Workload Identity secrets are configured
+        env:
+          WORKLOAD_IDENTITY_PROVIDER: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          WORKLOAD_IDENTITY_SERVICE_ACCOUNT: ${{ env.GCP_SERVICE_ACCOUNT }}
         run: |
-          echo "No Google Cloud authentication secrets configured."
-          echo "Provide either workload identity inputs or a service account key."
-          exit 1
+          set -Eeuo pipefail
+          if [ -z "$WORKLOAD_IDENTITY_PROVIDER" ] || [ -z "$WORKLOAD_IDENTITY_SERVICE_ACCOUNT" ]; then
+            echo "Missing workload identity federation secrets."
+            echo "Set both GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT secrets."
+            exit 1
+          fi
 
-      - name: Authenticate to Google Cloud (Workload Identity Federation)
-        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
+      - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          create_credentials_file: true
-          export_environment_variables: true
-
-      - name: Authenticate to Google Cloud (Service Account Key)
-        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '' }}
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
           create_credentials_file: true
           export_environment_variables: true
 
@@ -293,27 +287,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Ensure authentication inputs are configured
-        if: ${{ (secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '') && secrets.GCP_SA_KEY == '' }}
+      - name: Ensure Workload Identity secrets are configured
+        env:
+          WORKLOAD_IDENTITY_PROVIDER: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          WORKLOAD_IDENTITY_SERVICE_ACCOUNT: ${{ env.GCP_SERVICE_ACCOUNT }}
         run: |
-          echo "No Google Cloud authentication secrets configured."
-          echo "Provide either workload identity inputs or a service account key."
-          exit 1
+          set -Eeuo pipefail
+          if [ -z "$WORKLOAD_IDENTITY_PROVIDER" ] || [ -z "$WORKLOAD_IDENTITY_SERVICE_ACCOUNT" ]; then
+            echo "Missing workload identity federation secrets."
+            echo "Set both GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT secrets."
+            exit 1
+          fi
 
-      - name: Authenticate to Google Cloud (Workload Identity Federation)
-        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
+      - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          create_credentials_file: true
-          export_environment_variables: true
-
-      - name: Authenticate to Google Cloud (Service Account Key)
-        if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER == '' || secrets.GCP_SERVICE_ACCOUNT == '' }}
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
           create_credentials_file: true
           export_environment_variables: true
 
