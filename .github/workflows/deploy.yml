@@ -33,6 +33,10 @@ jobs:
       id-token: write
     outputs:
       build_version: ${{ steps.version.outputs.build_version }}
+      services: ${{ steps.affected.outputs.services_csv }}
+      has_service_changes: ${{ steps.affected.outputs.has_service_changes }}
+      infra_changed: ${{ steps.affected.outputs.infra_changed }}
+      should_deploy: ${{ steps.affected.outputs.should_deploy }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -65,7 +69,107 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Determine affected deployment scope
+        id: affected
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -Eeuo pipefail
+          ALL_SERVICES=(dm world slack-bot tick)
+          FORCE_ALL=0
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            FORCE_ALL=1
+          fi
+
+          BASE_SHA="$BEFORE_SHA"
+          HEAD_SHA="${GITHUB_SHA}"
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+              BASE_SHA=$(git rev-parse HEAD^)
+            else
+              BASE_SHA=$HEAD_SHA
+            fi
+          fi
+          echo "Comparing changes between $BASE_SHA and $HEAD_SHA"
+
+          INFRA_CHANGED=0
+          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep '^infra/terraform/' >/dev/null; then
+            INFRA_CHANGED=1
+            echo "Detected infrastructure changes under infra/terraform/."
+          fi
+
+          SERVICES=()
+          declare -A seen=()
+
+          if [ $FORCE_ALL -eq 1 ]; then
+            echo "workflow_dispatch event detected; deploying all services."
+            SERVICES=("${ALL_SERVICES[@]}")
+          else
+            NX_OUTPUT_FILE=$(mktemp)
+            if npx nx print-affected --type=apps --select=projects --base="$BASE_SHA" --head="$HEAD_SHA" >"$NX_OUTPUT_FILE"; then
+              while IFS= read -r project; do
+                [ -n "$project" ] || continue
+                mapped=""
+                case "$project" in
+                  "@mud/dm"|"dm") mapped="dm" ;;
+                  "@mud/world"|"world") mapped="world" ;;
+                  "@mud/slack-bot"|"slack-bot") mapped="slack-bot" ;;
+                  "@mud/tick"|"tick") mapped="tick" ;;
+                esac
+                if [ -n "$mapped" ] && [ -z "${seen[$mapped]:-}" ]; then
+                  SERVICES+=("$mapped")
+                  seen[$mapped]=1
+                fi
+              done <"$NX_OUTPUT_FILE"
+            else
+              echo "nx print-affected failed; defaulting to all services."
+              SERVICES=("${ALL_SERVICES[@]}")
+            fi
+            rm -f "$NX_OUTPUT_FILE"
+          fi
+
+          if [ ${#SERVICES[@]} -gt 0 ]; then
+            IFS=$'\n' SERVICES=($(printf '%s\n' "${SERVICES[@]}" | sort))
+          fi
+
+          if [ ${#SERVICES[@]} -gt 0 ]; then
+            HAS_SERVICE_CHANGES=true
+            echo "Affected services: ${SERVICES[*]}"
+          else
+            HAS_SERVICE_CHANGES=false
+            echo "No Nx-affected services detected."
+          fi
+
+          if [ $INFRA_CHANGED -eq 1 ]; then
+            echo "Infrastructure changes detected."
+          fi
+
+          if [ "$HAS_SERVICE_CHANGES" = "true" ] || [ $INFRA_CHANGED -eq 1 ] || [ $FORCE_ALL -eq 1 ]; then
+            SHOULD_DEPLOY=true
+          else
+            SHOULD_DEPLOY=false
+          fi
+
+          if [ "$SHOULD_DEPLOY" = "false" ]; then
+            echo "No deployable changes detected; subsequent deployment steps will be skipped."
+          fi
+
+          if [ ${#SERVICES[@]} -gt 0 ]; then
+            SERVICES_CSV=$(IFS=,; echo "${SERVICES[*]}")
+          else
+            SERVICES_CSV=""
+          fi
+
+          {
+            echo "services_csv=$SERVICES_CSV"
+            echo "has_service_changes=$HAS_SERVICE_CHANGES"
+            echo "infra_changed=$([ $INFRA_CHANGED -eq 1 ] && echo true || echo false)"
+            echo "should_deploy=$SHOULD_DEPLOY"
+          } >>"$GITHUB_OUTPUT"
+
       - name: Ensure Workload Identity secrets are configured
+        if: steps.affected.outputs.has_service_changes == 'true'
         env:
           WORKLOAD_IDENTITY_PROVIDER: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           WORKLOAD_IDENTITY_SERVICE_ACCOUNT: ${{ env.GCP_SERVICE_ACCOUNT }}
@@ -78,6 +182,7 @@ jobs:
           fi
 
       - name: Authenticate to Google Cloud
+        if: steps.affected.outputs.has_service_changes == 'true'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -86,29 +191,40 @@ jobs:
           export_environment_variables: true
 
       - name: Set up gcloud SDK
+        if: steps.affected.outputs.has_service_changes == 'true'
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
 
       - name: Configure gcloud defaults
+        if: steps.affected.outputs.has_service_changes == 'true'
         run: |
           gcloud config set project "$GCP_PROJECT_ID"
           gcloud config set compute/region "$GCP_REGION"
 
       - name: Configure Docker authentication
+        if: steps.affected.outputs.has_service_changes == 'true'
         run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
 
       - name: Sync Nx workspace
+        if: steps.affected.outputs.has_service_changes == 'true'
         run: npx nx sync
 
       - name: Build and push service images
+        if: steps.affected.outputs.has_service_changes == 'true'
         env:
           BUILD_VERSION: ${{ steps.version.outputs.build_version }}
         run: |
           set -Eeuo pipefail
+          SERVICES_CSV="${{ steps.affected.outputs.services_csv }}"
+          if [ -z "$SERVICES_CSV" ]; then
+            echo "No service changes detected; skipping image build."
+            exit 0
+          fi
+          IFS=',' read -ra SERVICES <<< "$SERVICES_CSV"
           REGISTRY_URL="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}"
-          SERVICES=(dm world slack-bot tick)
           for svc in "${SERVICES[@]}"; do
+            [ -n "$svc" ] || continue
             echo "Building $svc image..."
             IMAGE_TAG="${REGISTRY_URL}/${svc}:${BUILD_VERSION}"
             IMAGE_LATEST="${REGISTRY_URL}/${svc}:latest"
@@ -123,6 +239,7 @@ jobs:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
     needs: build-and-push
+    if: needs.build-and-push.outputs.should_deploy == 'true'
     environment: production
     permissions:
       contents: read
@@ -206,6 +323,41 @@ jobs:
           install -m 0644 "$TMP_FILE" "$TFVARS"
           rm -f "$TMP_FILE"
 
+      - name: Prepare service image overrides
+        env:
+          BUILD_VERSION: ${{ needs.build-and-push.outputs.build_version }}
+          SERVICES_CSV: ${{ needs.build-and-push.outputs.services }}
+        run: |
+          set -Eeuo pipefail
+          REGISTRY_URL="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}"
+          declare -A changed=()
+          if [ -n "$SERVICES_CSV" ]; then
+            IFS=',' read -ra CHANGED <<< "$SERVICES_CSV"
+            for svc in "${CHANGED[@]}"; do
+              [ -n "$svc" ] || continue
+              changed[$svc]=1
+            done
+          fi
+
+          SERVICES=(dm world slack-bot tick)
+          TF_FILE="infra/terraform/service-overrides.auto.tfvars"
+          {
+            echo "service_image_overrides = {"
+            for svc in "${SERVICES[@]}"; do
+              if [ -n "${changed[$svc]:-}" ]; then
+                image="${REGISTRY_URL}/${svc}:${BUILD_VERSION}"
+              else
+                image=$(gcloud run services describe "mud-${svc}" --region "$GCP_REGION" --project "$GCP_PROJECT_ID" --format="value(template.containers[0].image)" || true)
+                if [ -z "$image" ]; then
+                  image="${REGISTRY_URL}/${svc}:latest"
+                fi
+              fi
+              echo "  \"${svc}\" = \"${image}\""
+            done
+            echo "}"
+          } > "$TF_FILE"
+          echo "Pinned service images written to $TF_FILE"
+
       - name: Terraform fmt check
         working-directory: infra/terraform
         run: terraform f mt -check -recursive
@@ -240,6 +392,10 @@ jobs:
         if: always()
         working-directory: infra/terraform
         run: rm -f tfplan
+
+      - name: Clean up service image overrides
+        if: always()
+        run: rm -f infra/terraform/service-overrides.auto.tfvars
 
       - name: Update service endpoints
         run: |

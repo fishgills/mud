@@ -65,6 +65,12 @@ variable "services" {
   }))
 }
 
+variable "service_image_overrides" {
+  description = "Optional map of explicit container image references per service. When provided, these values take precedence over computed image tags."
+  type        = map(string)
+  default     = {}
+}
+
 variable "image_version" {
   description = "The version tag for Docker images"
   type        = string
