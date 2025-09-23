@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       build_version:
-        description: "Optional image tag override"
+        description: 'Optional image tag override'
         required: false
 
 env:
@@ -203,32 +203,18 @@ jobs:
         run: |
           set -Eeuo pipefail
           echo "::add-mask::${DB_PASSWORD}"
-          python3 - <<'PY'
-import os
-from pathlib import Path
-
-path = Path("infra/terraform/terraform.tfvars")
-db_password = os.environ["DB_PASSWORD"]
-lines = []
-if path.exists():
-    contents = path.read_text().splitlines()
-else:
-    contents = []
-found = False
-for line in contents:
-    if line.strip().startswith("db_password"):
-        lines.append(f'db_password = "{db_password}"')
-        found = True
-    else:
-        lines.append(line)
-if not found:
-    lines.append(f'db_password = "{db_password}"')
-path.write_text("\n".join([l.rstrip() for l in lines if l is not None]) + "\n")
-PY
+          TFVARS="infra/terraform/terraform.tfvars"
+          TMP_FILE="$(mktemp)"
+          if [ -f "$TFVARS" ]; then
+            grep -v '^[[:space:]]*db_password[[:space:]]*=' "$TFVARS" > "$TMP_FILE"
+          fi
+          printf 'db_password = "%s"\n' "$DB_PASSWORD" >> "$TMP_FILE"
+          install -m 0644 "$TMP_FILE" "$TFVARS"
+          rm -f "$TMP_FILE"
 
       - name: Terraform fmt check
         working-directory: infra/terraform
-        run: terraform fmt -check -recursive
+        run: terraform f mt -check -recursive
 
       - name: Terraform init
         working-directory: infra/terraform

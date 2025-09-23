@@ -63,3 +63,8 @@ services = {
     }
   }
 }
+
+# GitHub Actions Workload Identity Federation (optional customization)
+github_repository = "fishgills/mud"
+# workload_identity_pool_id     = "github-actions"
+# workload_identity_provider_id = "github-actions"

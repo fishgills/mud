@@ -112,6 +112,18 @@ Add these DNS records to your domain:
 npx prisma migrate deploy
 ```
 
+## GitHub Actions Workload Identity Federation
+
+To allow GitHub Actions to deploy without storing long-lived service account keys:
+
+1. Set `github_repository = "fishgills/mud"` (or your repository) in `infra/terraform/terraform.tfvars`.
+2. Apply Terraform so it can create the Workload Identity pool, provider, and deployment service account.
+3. After `terraform apply`, capture the `github_actions_service_account_email` and `github_actions_workload_identity_provider` outputs.
+4. Add the following secrets to your GitHub repository:
+   - `GCP_SERVICE_ACCOUNT` → the service account email output.
+   - `GCP_WORKLOAD_IDENTITY_PROVIDER` → the provider resource name output.
+Refer to the [Google Cloud Run deployment guide](https://cloud.google.com/blog/products/devops-sre/deploy-to-cloud-run-with-github-actions/) and [Workload Identity federation best practices](https://cloud.google.com/blog/products/identity-security/secure-your-use-of-third-party-tools-with-identity-federation) for additional context.
+
 ## Development Workflow
 
 ### Local Development Setup

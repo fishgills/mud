@@ -1,9 +1,9 @@
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
-import { formatPlayerStats } from './stats';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS } from '../commands';
+import { formatPlayerStats } from './stats/format';
 
 export const createHandlerHelp = `Create a new character with "new". Example: Send "new AwesomeDude" to create a character named AwesomeDude.`;
 
