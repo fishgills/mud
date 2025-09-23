@@ -201,7 +201,9 @@ export type MonsterResponse = {
 };
 
 export type MovePlayerInput = {
-  direction: Direction;
+  direction?: InputMaybe<Direction>;
+  x?: InputMaybe<Scalars['Int']['input']>;
+  y?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type Mutation = {

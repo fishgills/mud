@@ -8,6 +8,7 @@ export const COMMANDS = {
   ATTACK: 'attack',
   STATS: 'stats',
   MAP: 'map',
+  MOVE: 'move',
   DELETE: 'delete',
   COMPLETE: 'complete',
   REROLL: 'reroll',

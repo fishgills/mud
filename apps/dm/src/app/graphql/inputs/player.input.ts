@@ -38,8 +38,14 @@ export class CreatePlayerInput {
 
 @InputType()
 export class MovePlayerInput {
-  @Field(() => Direction)
-  direction!: Direction;
+  @Field(() => Direction, { nullable: true })
+  direction?: Direction;
+
+  @Field(() => Int, { nullable: true })
+  x?: number;
+
+  @Field(() => Int, { nullable: true })
+  y?: number;
 }
 
 @InputType()
