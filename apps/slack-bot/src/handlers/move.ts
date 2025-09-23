@@ -25,30 +25,47 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
   let pngMs = 0;
   let finalMsgMs = 0;
   let totalMs = 0;
-  // Normalize input for matching
-  const lowerText = text.toLowerCase();
-  const found = Object.entries(directionMap).find(([key]) =>
-    lowerText.includes(key),
-  );
-  if (!found) {
-    await say({
-      text: 'Please use a direction: up, down, left, right, north, south, east, or west.',
-    });
-    return;
+  const trimmedText = text.trim();
+  const coordinateMatch = trimmedText.match(/^move\s+(-?\d+)\s+(-?\d+)$/i);
+
+  let direction: Direction | undefined;
+  let targetX: number | undefined;
+  let targetY: number | undefined;
+  let movementLabel = 'unknown';
+
+  if (coordinateMatch) {
+    targetX = Number.parseInt(coordinateMatch[1], 10);
+    targetY = Number.parseInt(coordinateMatch[2], 10);
+    movementLabel = `(${targetX}, ${targetY})`;
+  } else {
+    // Normalize input for matching
+    const lowerText = text.toLowerCase();
+    const found = Object.entries(directionMap).find(([key]) =>
+      lowerText.includes(key),
+    );
+    if (!found) {
+      await say({
+        text: 'Please use a direction: up, down, left, right, north, south, east, or west.',
+      });
+      return;
+    }
+    [, direction] = found;
+    movementLabel = direction.toLowerCase();
   }
-  const [, direction] = found;
   try {
     const tDmStart = Date.now();
     const result = await dmSdk.MovePlayer({
       slackId: userId,
-      input: { direction },
+      input: direction
+        ? { direction }
+        : { x: targetX as number, y: targetY as number },
     });
     dmMs = Date.now() - tDmStart;
     if (!result.movePlayer.success) {
       await say({ text: `Move failed: ${result.movePlayer.message}` });
       totalMs = Date.now() - t0;
       console.log(
-        `move timing (fail): user=${userId} dir=${direction.toLowerCase()} dmMs=${dmMs} totalMs=${totalMs}`,
+        `move timing (fail): user=${userId} move=${movementLabel} dmMs=${dmMs} totalMs=${totalMs}`,
       );
       return;
     }
@@ -57,7 +74,7 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
       await say({ text: 'Move succeeded but no data returned.' });
       totalMs = Date.now() - t0;
       console.log(
-        `move timing (nodata): user=${userId} dir=${direction.toLowerCase()} dmMs=${dmMs} totalMs=${totalMs}`,
+        `move timing (nodata): user=${userId} move=${movementLabel} dmMs=${dmMs} totalMs=${totalMs}`,
       );
       return;
     }
@@ -78,19 +95,21 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
     pngMs = Date.now() - tPngStart;
     const tMsgStart = Date.now();
     await say({
-      text: `You moved ${direction.toLowerCase()}. You are now at (${data.x}, ${data.y}).`,
+      text: direction
+        ? `You moved ${direction.toLowerCase()}. You are now at (${data.x}, ${data.y}).`
+        : `You moved directly to (${data.x}, ${data.y}).`,
     });
     finalMsgMs = Date.now() - tMsgStart;
     totalMs = Date.now() - t0;
     console.log(
-      `move timing: user=${userId} dir=${direction.toLowerCase()} dmMs=${dmMs} pngMs=${pngMs} finalMsgMs=${finalMsgMs} totalMs=${totalMs}`,
+      `move timing: user=${userId} move=${movementLabel} dmMs=${dmMs} pngMs=${pngMs} finalMsgMs=${finalMsgMs} totalMs=${totalMs}`,
     );
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(err, 'Failed to move');
     await say({ text: errorMessage });
     totalMs = Date.now() - t0;
     console.log(
-      `move timing (error): user=${userId} dir=${direction.toLowerCase()} dmMs=${dmMs} pngMs=${pngMs} finalMsgMs=${finalMsgMs} totalMs=${totalMs}`,
+      `move timing (error): user=${userId} move=${movementLabel} dmMs=${dmMs} pngMs=${pngMs} finalMsgMs=${finalMsgMs} totalMs=${totalMs}`,
     );
   }
 };
@@ -99,3 +118,4 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
 Object.keys(directionMap).forEach((key) => {
   registerHandler(key, moveHandler);
 });
+registerHandler(COMMANDS.MOVE, moveHandler);
