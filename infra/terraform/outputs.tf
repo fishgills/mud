@@ -45,3 +45,13 @@ output "cloud_run_services" {
     }
   }
 }
+
+output "github_actions_service_account_email" {
+  description = "Service account email used by GitHub Actions when Workload Identity Federation is enabled."
+  value       = try(google_service_account.github_actions[0].email, null)
+}
+
+output "github_actions_workload_identity_provider" {
+  description = "Full resource name of the Workload Identity Provider for GitHub Actions."
+  value       = try(google_iam_workload_identity_pool_provider.github_actions[0].name, null)
+}

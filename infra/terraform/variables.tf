@@ -109,3 +109,21 @@ variable "slack_app_token" {
   default     = null
   sensitive   = true
 }
+
+variable "github_repository" {
+  description = "GitHub repository (OWNER/REPO) that is allowed to access Workload Identity Federation. Leave null to skip creation."
+  type        = string
+  default     = null
+}
+
+variable "workload_identity_pool_id" {
+  description = "Identifier for the Workload Identity Pool used by GitHub Actions."
+  type        = string
+  default     = "github-actions"
+}
+
+variable "workload_identity_provider_id" {
+  description = "Identifier for the Workload Identity Provider used by GitHub Actions."
+  type        = string
+  default     = "github-actions"
+}
