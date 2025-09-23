@@ -129,7 +129,7 @@ jobs:
       id-token: write
     env:
       BUILD_VERSION: ${{ needs.build-and-push.outputs.build_version }}
-      TF_PLUGIN_CACHE_DIR: ${{ runner.temp }}/terraform-plugin-cache
+      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.terraform.d/plugin-cache
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
