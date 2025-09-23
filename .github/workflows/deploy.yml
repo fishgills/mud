@@ -300,6 +300,7 @@ jobs:
         run: |
           if [ ! -f infra/terraform/terraform.tfvars ]; then
             cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
+            terraform fmt -recursive infra/terraform/terraform.tfvars
           fi
 
       - name: Fetch database password secret
