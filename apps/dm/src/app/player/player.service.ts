@@ -7,11 +7,15 @@ import {
   PlayerStatsDto,
 } from './dto/player.dto';
 import { GraphQLError } from 'graphql';
+import { WorldService } from '../world/world.service';
+import { isWaterBiome } from '../shared/biome.util';
 
 @Injectable()
 export class PlayerService {
   private readonly logger = new Logger(PlayerService.name);
   private prisma = getPrismaClient();
+
+  constructor(private readonly worldService: WorldService) {}
 
   async createPlayer(createPlayerDto: CreatePlayerDto): Promise<Player> {
     const { slackId, name, x, y } = createPlayerDto;
@@ -75,6 +79,76 @@ export class PlayerService {
     return player;
   }
 
+  async getPlayerByName(name: string): Promise<Player> {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      throw new GraphQLError('Player name is required', {
+        extensions: {
+          code: 'PLAYER_NAME_REQUIRED',
+        },
+      });
+    }
+
+    this.logger.log(`[DM-DB] Looking up player with name: ${trimmedName}`);
+    const matches = await this.prisma.player.findMany({
+      where: {
+        name: {
+          equals: trimmedName,
+          mode: 'insensitive',
+        },
+      },
+      orderBy: { id: 'asc' },
+    });
+
+    if (matches.length === 0) {
+      this.logger.warn(`[DM-DB] Player not found for name: ${trimmedName}`);
+      throw new NotFoundException(`Player not found`);
+    }
+
+    if (matches.length > 1) {
+      this.logger.warn(
+        `[DM-DB] Multiple players found for name: ${trimmedName} (count: ${matches.length})`,
+      );
+      throw new GraphQLError(
+        `Multiple players found with the name "${trimmedName}". Please specify the player's Slack handle instead.`,
+        {
+          extensions: {
+            code: 'PLAYER_NAME_AMBIGUOUS',
+            name: trimmedName,
+            matches: matches.map((player) => player.id),
+          },
+        },
+      );
+    }
+
+    const player = matches[0];
+    this.logger.log(
+      `[DM-DB] Found player for name: ${trimmedName}, player ID: ${player.id}, slackId: ${player.slackId}`,
+    );
+    return player;
+  }
+
+  async getPlayerByIdentifier({
+    slackId,
+    name,
+  }: {
+    slackId?: string | null;
+    name?: string | null;
+  }): Promise<Player> {
+    if (slackId) {
+      return this.getPlayer(slackId);
+    }
+    if (name) {
+      return this.getPlayerByName(name);
+    }
+
+    throw new GraphQLError('A Slack ID or player name must be provided', {
+      extensions: {
+        code: 'PLAYER_IDENTIFIER_REQUIRED',
+      },
+    });
+  }
+
   async getAllPlayers(): Promise<Player[]> {
     return this.prisma.player.findMany({
       where: { isAlive: true },
@@ -105,6 +179,13 @@ export class PlayerService {
         break;
       default:
         throw new Error('Invalid direction. Use n, s, e, w');
+    }
+
+    const targetTile = await this.worldService.getTileInfo(newX, newY);
+    if (isWaterBiome(targetTile.biomeName)) {
+      throw new Error(
+        `You cannot move into water (${targetTile.biomeName || 'unknown biome'}).`,
+      );
     }
 
     return this.prisma.player.update({

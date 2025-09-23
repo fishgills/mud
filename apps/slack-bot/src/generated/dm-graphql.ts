@@ -391,12 +391,14 @@ export type QueryGetMonstersAtLocationArgs = {
 
 
 export type QueryGetPlayerArgs = {
-  slackId: Scalars['String']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  slackId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type QueryGetPlayerStatsArgs = {
-  slackId: Scalars['String']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  slackId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -479,7 +481,8 @@ export type AttackMutationVariables = Exact<{
 export type AttackMutation = { __typename?: 'Mutation', attack: { __typename?: 'CombatResponse', success: boolean, message?: string | null, data?: { __typename?: 'CombatResult', winnerName: string, loserName: string, totalDamageDealt: number, roundsCompleted: number, xpGained: number, goldGained: number, message: string, success: boolean } | null } };
 
 export type GetPlayerQueryVariables = Exact<{
-  slackId: Scalars['String']['input'];
+  slackId?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
@@ -491,6 +494,14 @@ export type GetPlayerWithLocationQueryVariables = Exact<{
 
 
 export type GetPlayerWithLocationQuery = { __typename?: 'Query', getPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean, nearbyMonsters?: Array<{ __typename?: 'Monster', id: string, name: string, hp: number, isAlive: boolean }> | null, currentTile?: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number } | null, nearbyPlayers?: Array<{ __typename?: 'Player', id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
+
+export type GetLocationEntitiesQueryVariables = Exact<{
+  x: Scalars['Float']['input'];
+  y: Scalars['Float']['input'];
+}>;
+
+
+export type GetLocationEntitiesQuery = { __typename?: 'Query', getPlayersAtLocation: Array<{ __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean }>, getMonstersAtLocation: Array<{ __typename?: 'Monster', id: string, name: string, type: string, hp: number, maxHp: number, strength: number, agility: number, health: number, x: number, y: number, isAlive: boolean }> }>;
 
 export type GetLookViewQueryVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -567,8 +578,8 @@ export const AttackDocument = gql`
 }
     `;
 export const GetPlayerDocument = gql`
-    query GetPlayer($slackId: String!) {
-  getPlayer(slackId: $slackId) {
+    query GetPlayer($slackId: String, $name: String) {
+  getPlayer(slackId: $slackId, name: $name) {
     success
     message
     data {
@@ -636,6 +647,39 @@ export const GetPlayerWithLocationDocument = gql`
         isAlive
       }
     }
+  }
+}
+    `;
+export const GetLocationEntitiesDocument = gql`
+    query GetLocationEntities($x: Float!, $y: Float!) {
+  getPlayersAtLocation(x: $x, y: $y) {
+    id
+    slackId
+    name
+    x
+    y
+    hp
+    maxHp
+    strength
+    agility
+    health
+    gold
+    xp
+    level
+    isAlive
+  }
+  getMonstersAtLocation(x: $x, y: $y) {
+    id
+    name
+    type
+    hp
+    maxHp
+    strength
+    agility
+    health
+    x
+    y
+    isAlive
   }
 }
     `;
@@ -784,6 +828,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     GetPlayerWithLocation(variables: GetPlayerWithLocationQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetPlayerWithLocationQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<GetPlayerWithLocationQuery>({ document: GetPlayerWithLocationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetPlayerWithLocation', 'query', variables);
+    },
+    GetLocationEntities(variables: GetLocationEntitiesQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetLocationEntitiesQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<GetLocationEntitiesQuery>({ document: GetLocationEntitiesDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetLocationEntities', 'query', variables);
     },
     GetLookView(variables: GetLookViewQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetLookViewQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<GetLookViewQuery>({ document: GetLookViewDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetLookView', 'query', variables);
