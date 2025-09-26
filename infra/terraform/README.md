@@ -9,30 +9,37 @@ GitHub Actions share the same view of resources. The backend is configured via
 `backend.hcl`, which is **not** committed to the repository.
 
 1. Create the state bucket once (skip if it already exists):
+
    ```bash
    gcloud storage buckets create gs://mud-terraform-state \
      --project "${GCP_PROJECT_ID}" \
      --location "${GCP_REGION}"
    ```
+
    Replace the bucket name, project, and region as appropriate for your environment.
 
 2. Copy the example backend configuration and edit it with your bucket details:
+
    ```bash
    cp backend.hcl.example backend.hcl
    ```
+
    Update `backend.hcl` with your bucket name and an appropriate prefix, for example:
+
    ```hcl
    bucket = "mud-terraform-state"
    prefix = "prod"
    ```
 
 3. When running Terraform locally, initialize the workspace with the backend config:
+
    ```bash
    terraform init -backend-config=backend.hcl
    ```
 
    If you previously used local state files, pass `-migrate-state` once during
    initialization to move the existing state to the bucket:
+
    ```bash
    terraform init -backend-config=backend.hcl -migrate-state
    ```
@@ -46,6 +53,23 @@ The deployment workflow expects the following repository secrets:
 
 During the workflow, these secrets are used to generate `infra/terraform/backend.hcl`
 so `terraform init` uses the same remote state.
+
+Grant read/write permissions on the bucket to every identity that will run
+Terraform (for example, your GitHub Actions service account and your personal
+user account). Each identity needs `storage.objects.list`, `get`, and
+`create`, which can be satisfied with the `roles/storage.objectAdmin` role:
+
+```bash
+gcloud storage buckets add-iam-policy-binding gs://mud-terraform-state \
+   --member="serviceAccount:${GCP_SERVICE_ACCOUNT}" \
+   --role="roles/storage.objectAdmin"
+
+gcloud storage buckets add-iam-policy-binding gs://mud-terraform-state \
+   --member="user:you@example.com" \
+   --role="roles/storage.objectAdmin"
+```
+
+Adjust the bucket name and members as needed.
 
 ## Local Usage
 
