@@ -358,6 +358,7 @@ jobs:
             done
             echo "}"
           } > "$TF_FILE"
+          terraform -chdir=infra/terraform fmt "$(basename "$TF_FILE")"
           echo "Pinned service images written to $TF_FILE"
 
       - name: Terraform fmt check
