@@ -57,19 +57,39 @@ so `terraform init` uses the same remote state.
 Grant read/write permissions on the bucket to every identity that will run
 Terraform (for example, your GitHub Actions service account and your personal
 user account). Each identity needs `storage.objects.list`, `get`, and
-`create`, which can be satisfied with the `roles/storage.objectAdmin` role:
+`create`, which can be satisfied with the `roles/storage.objectAdmin` role.
+
+### One-time IAM Bootstrap
+
+The helper script `scripts/bootstrap-terraform.sh` applies all required IAM
+bindings so Terraform and GitHub Actions can manage infrastructure:
 
 ```bash
-gcloud storage buckets add-iam-policy-binding gs://mud-terraform-state \
-   --member="serviceAccount:${GCP_SERVICE_ACCOUNT}" \
-   --role="roles/storage.objectAdmin"
+terraform output -raw github_actions_service_account_email
+terraform output -raw github_actions_workload_identity_provider
 
-gcloud storage buckets add-iam-policy-binding gs://mud-terraform-state \
-   --member="user:you@example.com" \
-   --role="roles/storage.objectAdmin"
+./scripts/bootstrap-terraform.sh \
+   --project battleforge-444008 \
+   --bucket mud-terraform-state \
+  --tf-service-account github-actions@battleforge-444008.iam.gserviceaccount.com \
+  --user-email you@example.com \
+  --runtime-service-account custom-runtime@battleforge-444008.iam.gserviceaccount.com
 ```
 
-Adjust the bucket name and members as needed.
+The script performs the following:
+
+- Grants `roles/storage.objectAdmin` on the Terraform state bucket to the
+  GitHub Actions service account (and optionally a local user).
+- Grants `roles/iam.serviceAccountAdmin` and `roles/iam.workloadIdentityPoolAdmin`
+  on the project so Terraform can create/update the deployer service account and
+  Workload Identity pool.
+- Grants `roles/iam.serviceAccountUser` on the Cloud Run runtime service account
+  (default Compute Engine service account) so Terraform can deploy Cloud Run
+  services. Pass `--runtime-service-account` to grant the same role on any
+  additional runtime service accounts that your services use.
+
+You can re-run the script any time to add new users or after recreating the
+service account/bucket.
 
 ## Local Usage
 
