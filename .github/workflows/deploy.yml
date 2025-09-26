@@ -19,6 +19,8 @@ env:
   CLOUD_SQL_CONNECTION_NAME: ${{ secrets.CLOUD_SQL_CONNECTION_NAME }}
   GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
   GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+  TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
+  TF_BACKEND_PREFIX: ${{ secrets.TF_BACKEND_PREFIX }}
 
 concurrency:
   group: deploy-${{ github.ref_name }}
@@ -361,13 +363,27 @@ jobs:
           terraform -chdir=infra/terraform fmt "$(basename "$TF_FILE")"
           echo "Pinned service images written to $TF_FILE"
 
+      - name: Write Terraform backend config
+        env:
+          TF_BACKEND_BUCKET: ${{ env.TF_BACKEND_BUCKET }}
+          TF_BACKEND_PREFIX: ${{ env.TF_BACKEND_PREFIX }}
+        run: |
+          set -Eeuo pipefail
+          if [ -z "$TF_BACKEND_BUCKET" ] || [ -z "$TF_BACKEND_PREFIX" ]; then
+            echo "Missing TF_BACKEND_BUCKET or TF_BACKEND_PREFIX secrets."
+            exit 1
+          fi
+          printf 'bucket = "%s"\n' "$TF_BACKEND_BUCKET" > infra/terraform/backend.hcl
+          printf 'prefix = "%s"\n' "$TF_BACKEND_PREFIX" >> infra/terraform/backend.hcl
+          echo "Terraform backend config written to infra/terraform/backend.hcl"
+
       - name: Terraform fmt check
         working-directory: infra/terraform
         run: terraform fmt -check -recursive
 
       - name: Terraform init
         working-directory: infra/terraform
-        run: terraform init -input=false
+        run: terraform init -input=false -backend-config=backend.hcl
 
       - name: Terraform validate
         working-directory: infra/terraform
