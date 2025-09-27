@@ -1,4 +1,5 @@
-import { App, KnownBlock } from '@slack/bolt';
+import { App } from '@slack/bolt';
+import type { KnownBlock } from '@slack/types';
 import { COMMANDS } from '../commands';
 import { buildHelpBlocks } from './help';
 
@@ -7,7 +8,11 @@ export const buildAppHomeBlocks = (): KnownBlock[] => {
   return [
     {
       type: 'header',
-      text: { type: 'plain_text', text: '🌟 Welcome to the MUD Adventure!', emoji: true },
+      text: {
+        type: 'plain_text',
+        text: '🌟 Welcome to the MUD Adventure!',
+        emoji: true,
+      },
     },
     {
       type: 'section',
