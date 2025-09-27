@@ -1,8 +1,140 @@
 import { CombatService, Combatant } from './combat.service';
-import { Player } from '@mud/database';
-import { PlayerService } from '../player/player.service';
-import { AiService } from '../../openai/ai.service';
-import { CombatResult, DetailedCombatLog } from '../graphql';
+import type { Player } from '@mud/database';
+import type { PlayerService } from '../player/player.service';
+import type { AiService } from '../../openai/ai.service';
+import type { CombatResult, DetailedCombatLog } from '../graphql';
+
+const mockPrisma = {
+  combatLog: {
+    findMany: jest.fn(),
+    create: jest.fn(),
+  },
+  monster: {
+    findUnique: jest.fn(),
+    delete: jest.fn(),
+    update: jest.fn(),
+  },
+};
+
+jest.mock('@mud/database', () => ({
+  getPrismaClient: () => mockPrisma,
+}));
+
+const accessPrivate = <T>(instance: object, key: string): T =>
+  (instance as Record<string, unknown>)[key] as T;
+
+const createHelperService = () => {
+  const playerService = {
+    getPlayer: jest.fn(),
+    updatePlayerStats: jest.fn(),
+    respawnPlayer: jest.fn(),
+  } as unknown as PlayerService;
+
+  const aiService = {
+    getText: jest.fn(),
+  } as unknown as AiService;
+
+  const service = new CombatService(playerService, aiService);
+  return { service, aiService: aiService as unknown as { getText: jest.Mock } };
+};
+
+describe('CombatService helpers', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('describes combat rounds from the second-person perspective', () => {
+    const { service } = createHelperService();
+    const describeRound = accessPrivate<
+      (
+        round: {
+          roundNumber: number;
+          attackerName: string;
+          defenderName: string;
+          hit: boolean;
+          damage: number;
+          killed: boolean;
+        },
+        options?: { secondPersonName?: string },
+      ) => string
+    >(service, 'describeRound').bind(service);
+
+    const hitRound = {
+      roundNumber: 1,
+      attackerName: 'Hero',
+      defenderName: 'Goblin',
+      hit: true,
+      damage: 6,
+      killed: false,
+    };
+
+    expect(describeRound(hitRound, { secondPersonName: 'Hero' })).toContain(
+      'You strike Goblin',
+    );
+    expect(describeRound(hitRound)).toContain('Hero hits Goblin');
+  });
+
+  it('falls back to deterministic combat narrative when AI response is empty', async () => {
+    const { service, aiService } = createHelperService();
+    aiService.getText.mockResolvedValue({ output_text: '' });
+
+    const generateCombatNarrative = accessPrivate<
+      (
+        log: DetailedCombatLog,
+        options?: { secondPersonName?: string },
+      ) => Promise<string>
+    >(service, 'generateCombatNarrative').bind(service);
+
+    const narrative = await generateCombatNarrative({
+      combatId: 'test',
+      participant1: 'Hero',
+      participant2: 'Goblin',
+      initiativeRolls: [],
+      firstAttacker: 'Hero',
+      rounds: [
+        {
+          roundNumber: 1,
+          attackerName: 'Hero',
+          defenderName: 'Goblin',
+          attackRoll: 15,
+          attackModifier: 2,
+          totalAttack: 17,
+          defenderAC: 12,
+          hit: true,
+          damage: 5,
+          defenderHpAfter: 3,
+          killed: false,
+        },
+      ],
+      winner: 'Hero',
+      loser: 'Goblin',
+      xpAwarded: 12,
+      goldAwarded: 4,
+      timestamp: new Date('2023-01-01T00:00:00Z'),
+      location: { x: 0, y: 0 },
+    });
+
+    expect(aiService.getText).toHaveBeenCalled();
+    expect(narrative).toContain('**Combat Summary:**');
+    expect(narrative).toContain('Round 1:');
+  });
+
+  it('returns combat logs for a location via the prisma client', async () => {
+    const { service } = createHelperService();
+    const expected = [{ id: 1 }];
+    mockPrisma.combatLog.findMany.mockResolvedValue(expected);
+
+    await expect(service.getCombatLogForLocation(3, 4, 2)).resolves.toBe(
+      expected,
+    );
+
+    expect(mockPrisma.combatLog.findMany).toHaveBeenCalledWith({
+      where: { x: 3, y: 4 },
+      orderBy: { timestamp: 'desc' },
+      take: 2,
+    });
+  });
+});
 
 const createPlayer = (overrides: Partial<Player>): Player => ({
   id: overrides.id ?? 1,
