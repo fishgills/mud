@@ -19,6 +19,7 @@ resource "google_cloud_run_v2_service" "services" {
     containers {
       image = coalesce(
         try(each.value.image, null),
+        try(var.service_image_overrides[each.key], null),
         "${var.region}-docker.pkg.dev/${var.project_id}/${data.google_artifact_registry_repository.repo.repository_id}/${each.value.name}:${var.image_version}"
       )
 
@@ -47,7 +48,7 @@ resource "google_cloud_run_v2_service" "services" {
       # Inject a deploy stamp to force a new revision whenever the image tag changes
       env {
         name  = "DEPLOY_STAMP"
-        value = var.image_version
+        value = try(var.service_image_overrides[each.key], var.image_version)
       }
 
       dynamic "env" {

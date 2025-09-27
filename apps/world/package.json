@@ -1,10 +1,7 @@
 {
   "name": "@mud/world",
   "version": "0.0.1",
-  "description": "",
-  "author": "",
   "private": true,
-  "license": "UNLICENSED",
   "nx": {
     "targets": {
       "build": {
@@ -12,34 +9,62 @@
         "options": {
           "command": "webpack-cli build",
           "args": [
-            "node-env=production"
-          ]
+            "--node-env=production"
+          ],
+          "cwd": "apps/world"
         },
         "configurations": {
           "development": {
             "args": [
-              "node-env=development"
-            ]
-          },
-          "production": {
-            "args": [
-              "node-env=production"
+              "--node-env=development"
             ]
           }
         }
+      },
+      "prune-lockfile": {
+        "dependsOn": [
+          "build"
+        ],
+        "cache": true,
+        "executor": "@nx/js:prune-lockfile",
+        "outputs": [
+          "{workspaceRoot}/apps/world/dist/package.json",
+          "{workspaceRoot}/apps/world/dist/package-lock.json"
+        ],
+        "options": {
+          "buildTarget": "build"
+        }
+      },
+      "copy-workspace-modules": {
+        "dependsOn": [
+          "build"
+        ],
+        "cache": true,
+        "outputs": [
+          "{workspaceRoot}/apps/world/dist/workspace_modules"
+        ],
+        "executor": "@nx/js:copy-workspace-modules",
+        "options": {
+          "buildTarget": "build"
+        }
+      },
+      "prune": {
+        "dependsOn": [
+          "prune-lockfile",
+          "copy-workspace-modules"
+        ],
+        "executor": "nx:noop"
       },
       "serve": {
         "continuous": true,
         "executor": "@nx/js:node",
         "defaultConfiguration": "development",
         "dependsOn": [
-          "typecheck",
           "build"
         ],
         "options": {
           "buildTarget": "@mud/world:build",
-          "runBuildTargetDependencies": false,
-          "port": 9231
+          "runBuildTargetDependencies": false
         },
         "configurations": {
           "development": {
@@ -51,16 +76,26 @@
         }
       },
       "test": {
+        "options": {
+          "passWithNoTests": true,
+          "jestConfig": "apps/world/jest.config.js",
+          "codeCoverage": true,
+          "coverageReporters": [
+            "text"
+          ]
+        },
         "executor": "@nx/jest:jest",
         "outputs": [
-          "{workspaceRoot}/coverage/apps/world"
-        ],
-        "options": {
-          "jestConfig": "apps/world/jest.config.ts"
-        }
+          "{projectRoot}/coverage"
+        ]
+      },
+      "docker:build": {
+        "dependsOn": [
+          "build",
+          "prune"
+        ]
       }
     }
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {}
 }

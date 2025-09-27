@@ -65,7 +65,7 @@ app.event('app_mention', async ({ event, say }) => {
 
 registerAppHome(app);
 
-app.message(async ({ message, say }) => {
+app.message(async ({ message, say, client }) => {
   // Only handle direct user messages (not message_changed, etc)
   if (
     message.type !== 'message' ||
@@ -120,7 +120,7 @@ app.message(async ({ message, say }) => {
         const m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
         return m ? m[1] : undefined;
       };
-      await handler({ userId, say: sayVoid, text, resolveUserId });
+      await handler({ userId, say: sayVoid, text, resolveUserId, client });
       return;
     }
   }

@@ -1,15 +1,17 @@
-project_id = "battleforge-444008"
-region = "us-central1"
-zone = "us-central1-a"
-domain = "battleforge.app"
+project_id    = "battleforge-444008"
+region        = "us-central1"
+zone          = "us-central1-a"
+domain        = "battleforge.app"
 dns_zone_name = "battleforge-app"
 
 # Set this to a secure password for the database
-db_password = "your-secure-database-password-here"
+db_password = "change-me"
 
 # Adjust resource sizes as needed
 redis_memory_size_gb = 1
-db_tier = "db-f1-micro"
+db_tier              = "db-f1-micro"
+
+github_repository = "fishgills/mud"
 
 # Service configurations - adjust CPU, memory, and scaling as needed
 services = {
@@ -19,11 +21,11 @@ services = {
     cpu       = "1000m"
     memory    = "512Mi"
     min_scale = 0
-    max_scale = 10
-    # Optional: override image instead of using var.image_version tag from Artifact Registry
-    # image = "us-central1-docker.pkg.dev/${project_id}/mud-repo/dm:my-tag"
+    max_scale = 2
+    internal  = true
     env_vars = {
-      NODE_ENV = "production"
+      NODE_ENV         = "production"
+      DM_USE_VERTEX_AI = "true"
     }
   }
   world = {
@@ -32,22 +34,22 @@ services = {
     cpu       = "1000m"
     memory    = "512Mi"
     min_scale = 0
-    max_scale = 10
-    # image = "us-central1-docker.pkg.dev/${project_id}/mud-repo/world:my-tag"
+    max_scale = 2
+    internal  = false
     env_vars = {
       NODE_ENV = "production"
     }
   }
-  bot = {
-    name      = "bot"
+  slack-bot = {
+    name      = "slack-bot"
     port      = 3002
     cpu       = "500m"
     memory    = "256Mi"
     min_scale = 0
-    max_scale = 5
-    # image = "us-central1-docker.pkg.dev/${project_id}/mud-repo/bot:my-tag"
+    max_scale = 2
     env_vars = {
-      NODE_ENV = "production"
+      NODE_ENV       = "production"
+      WORLD_BASE_URL = "https://world.battleforge.app/world"
     }
   }
   tick = {
@@ -55,16 +57,11 @@ services = {
     port      = 3003
     cpu       = "500m"
     memory    = "256Mi"
-    min_scale = 0
-    max_scale = 3
-    # image = "us-central1-docker.pkg.dev/${project_id}/mud-repo/tick:my-tag"
+    min_scale = 1
+    max_scale = 1
+    internal  = true
     env_vars = {
       NODE_ENV = "production"
     }
   }
 }
-
-# GitHub Actions Workload Identity Federation (optional customization)
-github_repository = "fishgills/mud"
-# workload_identity_pool_id     = "github-actions"
-# workload_identity_provider_id = "github-actions"

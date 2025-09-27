@@ -1,7 +1,58 @@
-import { CombatService } from './combat.service';
+import { CombatService, Combatant } from './combat.service';
+import { Player } from '@mud/database';
 import { PlayerService } from '../player/player.service';
 import { AiService } from '../../openai/ai.service';
+import { CombatResult, DetailedCombatLog } from '../graphql';
 
+const createPlayer = (overrides: Partial<Player>): Player => ({
+  id: overrides.id ?? 1,
+  slackId: overrides.slackId ?? 'player',
+  name: overrides.name ?? 'Player',
+  x: overrides.x ?? 0,
+  y: overrides.y ?? 0,
+  hp: overrides.hp ?? 10,
+  maxHp: overrides.maxHp ?? 10,
+  strength: overrides.strength ?? 10,
+  agility: overrides.agility ?? 10,
+  health: overrides.health ?? 10,
+  gold: overrides.gold ?? 0,
+  xp: overrides.xp ?? 0,
+  level: overrides.level ?? 1,
+  isAlive: overrides.isAlive ?? true,
+  lastAction: overrides.lastAction ?? new Date(),
+  createdAt: overrides.createdAt ?? new Date(),
+  updatedAt: overrides.updatedAt ?? new Date(),
+  worldTileId: overrides.worldTileId ?? null,
+});
+
+type CombatServiceInternals = {
+  generateCombatNarrative: (
+    combatLog: DetailedCombatLog,
+    options?: { secondPersonName?: string },
+  ) => Promise<string>;
+  applyCombatResults: (
+    combatLog: DetailedCombatLog,
+    combatant1: Combatant,
+    combatant2: Combatant,
+  ) => Promise<void>;
+  rollInitiative: (agility: number) => {
+    roll: number;
+    modifier: number;
+    total: number;
+  };
+  rollD20: () => number;
+  calculateDamage: (strength: number) => number;
+  calculateXpGain: (winnerLevel: number, loserLevel: number) => number;
+  calculateGoldReward: (victorLevel: number, targetLevel: number) => number;
+  runCombat: (
+    combatant1: Combatant,
+    combatant2: Combatant,
+  ) => Promise<DetailedCombatLog>;
+  playerToCombatant: (slackId: string) => Promise<Combatant>;
+  monsterToCombatant: (monsterId: number) => Promise<Combatant>;
+};
+
+type CombatResultWithLog = CombatResult & { combatLog: DetailedCombatLog };
 
 type MockPlayerService = Pick<
   PlayerService,
@@ -14,6 +65,8 @@ describe('CombatService', () => {
   let service: CombatService;
   let playerService: jest.Mocked<MockPlayerService>;
   let aiService: jest.Mocked<MockAiService>;
+
+  const getInternals = () => service as unknown as CombatServiceInternals;
 
   beforeEach(() => {
     playerService = {
@@ -37,7 +90,7 @@ describe('CombatService', () => {
   });
 
   it('resolves player vs player combat with deterministic rolls', async () => {
-    const attackerPlayer = {
+    const attackerPlayer = createPlayer({
       id: 1,
       name: 'Attacker',
       slackId: 'attacker',
@@ -46,12 +99,11 @@ describe('CombatService', () => {
       strength: 16,
       agility: 12,
       level: 3,
-      isAlive: true,
       x: 5,
       y: 5,
-    } as any;
+    });
 
-    const defenderPlayer = {
+    const defenderPlayer = createPlayer({
       id: 2,
       name: 'Defender',
       slackId: 'defender',
@@ -60,42 +112,43 @@ describe('CombatService', () => {
       strength: 10,
       agility: 10,
       level: 2,
-      isAlive: true,
       x: 5,
       y: 5,
-    } as any;
-
-    playerService.getPlayer.mockImplementation(async (slackId) => {
-      if (slackId === 'attacker') {
-        return attackerPlayer;
-      }
-      return defenderPlayer;
     });
 
+    playerService.getPlayer.mockImplementation(async (slackId: string) =>
+      slackId === 'attacker' ? attackerPlayer : defenderPlayer,
+    );
+
+    const internals = getInternals();
+
     const narrativeSpy = jest
-      .spyOn<any, any>(service as any, 'generateCombatNarrative')
-      .mockResolvedValue('Victory!');
+      .spyOn(internals, 'generateCombatNarrative')
+      .mockImplementation(async (_combatLog, options) =>
+        options?.secondPersonName === 'Attacker'
+          ? 'Attacker POV summary'
+          : 'Defender POV summary',
+      );
     const applyResultsSpy = jest
-      .spyOn<any, any>(service as any, 'applyCombatResults')
+      .spyOn(internals, 'applyCombatResults')
       .mockResolvedValue(undefined);
     const initiativeSpy = jest
-      .spyOn<any, any>(service as any, 'rollInitiative')
+      .spyOn(internals, 'rollInitiative')
       .mockImplementationOnce(() => ({ roll: 15, modifier: 2, total: 17 }))
       .mockImplementationOnce(() => ({ roll: 5, modifier: 0, total: 5 }));
-    const attackRollSpy = jest
-      .spyOn<any, any>(service as any, 'rollD20')
-      .mockReturnValue(12);
+    const attackRollSpy = jest.spyOn(internals, 'rollD20').mockReturnValue(12);
     const damageSpy = jest
-      .spyOn<any, any>(service as any, 'calculateDamage')
+      .spyOn(internals, 'calculateDamage')
       .mockReturnValue(9);
-    const xpSpy = jest
-      .spyOn<any, any>(service as any, 'calculateXpGain')
-      .mockReturnValue(120);
+    const xpSpy = jest.spyOn(internals, 'calculateXpGain').mockReturnValue(120);
     const goldSpy = jest
-      .spyOn<any, any>(service as any, 'calculateGoldReward')
+      .spyOn(internals, 'calculateGoldReward')
       .mockReturnValue(45);
 
-    const result = await service.playerAttackPlayer('attacker', 'defender');
+    const result = (await service.playerAttackPlayer(
+      'attacker',
+      'defender',
+    )) as CombatResultWithLog;
 
     expect(result.success).toBe(true);
     expect(result.winnerName).toBe('Attacker');
@@ -104,7 +157,22 @@ describe('CombatService', () => {
     expect(result.goldGained).toBe(45);
     expect(result.roundsCompleted).toBe(1);
     expect(result.totalDamageDealt).toBe(9);
-    expect(result.message).toBe('Victory!');
+    expect(result.message).toBe('Attacker POV summary');
+    expect(result.playerMessages).toHaveLength(2);
+    expect(result.playerMessages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slackId: 'attacker',
+          name: 'Attacker',
+          message: 'Attacker POV summary',
+        }),
+        expect.objectContaining({
+          slackId: 'defender',
+          name: 'Defender',
+          message: 'Defender POV summary',
+        }),
+      ]),
+    );
 
     expect(result.combatLog.winner).toBe('Attacker');
     expect(result.combatLog.loser).toBe('Defender');
@@ -127,56 +195,437 @@ describe('CombatService', () => {
     expect(initiativeSpy).toHaveBeenCalledTimes(2);
     expect(attackRollSpy).toHaveBeenCalledTimes(1);
     expect(damageSpy).toHaveBeenCalledTimes(1);
-    expect(xpSpy).toHaveBeenCalledWith(defenderPlayer.level, attackerPlayer.level);
-    expect(goldSpy).toHaveBeenCalledWith(attackerPlayer.level, defenderPlayer.level);
+    expect(xpSpy).toHaveBeenCalledWith(
+      defenderPlayer.level,
+      attackerPlayer.level,
+    );
+    expect(goldSpy).toHaveBeenCalledWith(
+      attackerPlayer.level,
+      defenderPlayer.level,
+    );
     expect(applyResultsSpy).toHaveBeenCalledWith(
       expect.objectContaining({ winner: 'Attacker', loser: 'Defender' }),
       expect.objectContaining({ name: 'Attacker' }),
       expect.objectContaining({ name: 'Defender' }),
     );
-    expect(narrativeSpy).toHaveBeenCalledWith(result.combatLog, {
+    expect(narrativeSpy).toHaveBeenNthCalledWith(1, result.combatLog, {
       secondPersonName: 'Attacker',
+    });
+    expect(narrativeSpy).toHaveBeenNthCalledWith(2, result.combatLog, {
+      secondPersonName: 'Defender',
     });
   });
 
   it('throws when players are in different locations', async () => {
-    const attackerPlayer = {
+    const attackerPlayer = createPlayer({
       id: 1,
       name: 'Attacker',
       slackId: 'attacker',
       hp: 10,
-      maxHp: 10,
+      level: 2,
       strength: 12,
       agility: 12,
-      level: 2,
-      isAlive: true,
       x: 1,
       y: 1,
-    } as any;
+    });
 
-    const defenderPlayer = {
+    const defenderPlayer = createPlayer({
       id: 2,
       name: 'Defender',
       slackId: 'defender',
       hp: 10,
-      maxHp: 10,
+      level: 2,
       strength: 12,
       agility: 12,
-      level: 2,
-      isAlive: true,
       x: 2,
       y: 3,
-    } as any;
-
-    playerService.getPlayer.mockImplementation(async (slackId) => {
-      if (slackId === 'attacker') {
-        return attackerPlayer;
-      }
-      return defenderPlayer;
     });
+
+    playerService.getPlayer.mockImplementation(async (slackId: string) =>
+      slackId === 'attacker' ? attackerPlayer : defenderPlayer,
+    );
 
     await expect(
       service.playerAttackPlayer('attacker', 'defender'),
     ).rejects.toThrow('Defender is not at your location');
+  });
+
+  it('throws when either combatant is dead', async () => {
+    const attackerPlayer = createPlayer({
+      id: 1,
+      name: 'Attacker',
+      slackId: 'attacker',
+      hp: 0,
+      isAlive: false,
+      x: 3,
+      y: 3,
+    });
+
+    const defenderPlayer = createPlayer({
+      id: 2,
+      name: 'Defender',
+      slackId: 'defender',
+      hp: 10,
+      isAlive: true,
+      x: 3,
+      y: 3,
+    });
+
+    playerService.getPlayer.mockImplementation(async (slackId: string) =>
+      slackId === 'attacker' ? attackerPlayer : defenderPlayer,
+    );
+
+    await expect(
+      service.playerAttackPlayer('attacker', 'defender'),
+    ).rejects.toThrow('One or both players are dead');
+  });
+
+  it('allows workspace attacks when ignoring location mismatch', async () => {
+    const attackerPlayer = createPlayer({
+      id: 1,
+      name: 'Attacker',
+      slackId: 'attacker',
+      hp: 14,
+      maxHp: 14,
+      strength: 14,
+      agility: 13,
+      level: 4,
+      x: 1,
+      y: 1,
+    });
+
+    const defenderPlayer = createPlayer({
+      id: 2,
+      name: 'Defender',
+      slackId: 'defender',
+      hp: 12,
+      maxHp: 12,
+      strength: 13,
+      agility: 11,
+      level: 4,
+      x: 10,
+      y: 10,
+    });
+
+    const combatLog: DetailedCombatLog = {
+      combatId: 'combat-123',
+      participant1: 'Attacker',
+      participant2: 'Defender',
+      initiativeRolls: [],
+      firstAttacker: 'Attacker',
+      rounds: [
+        {
+          roundNumber: 1,
+          attackerName: 'Attacker',
+          defenderName: 'Defender',
+          attackRoll: 15,
+          attackModifier: 2,
+          totalAttack: 17,
+          defenderAC: 12,
+          hit: true,
+          damage: 5,
+          defenderHpAfter: 7,
+          killed: false,
+        },
+        {
+          roundNumber: 2,
+          attackerName: 'Defender',
+          defenderName: 'Attacker',
+          attackRoll: 18,
+          attackModifier: 3,
+          totalAttack: 21,
+          defenderAC: 14,
+          hit: true,
+          damage: 10,
+          defenderHpAfter: 0,
+          killed: true,
+        },
+      ],
+      winner: 'Defender',
+      loser: 'Attacker',
+      xpAwarded: 120,
+      goldAwarded: 75,
+      timestamp: new Date(),
+      location: { x: 5, y: 5 },
+    };
+
+    playerService.getPlayer.mockImplementation(async (slackId: string) =>
+      slackId === 'attacker' ? attackerPlayer : defenderPlayer,
+    );
+
+    const internals = getInternals();
+
+    jest
+      .spyOn(internals, 'playerToCombatant')
+      .mockImplementation(async (slackId: string) =>
+        slackId === 'attacker'
+          ? {
+              id: attackerPlayer.id,
+              name: attackerPlayer.name,
+              type: 'player',
+              hp: attackerPlayer.hp,
+              maxHp: attackerPlayer.maxHp,
+              strength: attackerPlayer.strength,
+              agility: attackerPlayer.agility,
+              level: attackerPlayer.level,
+              isAlive: attackerPlayer.isAlive,
+              x: attackerPlayer.x,
+              y: attackerPlayer.y,
+              slackId: attackerPlayer.slackId,
+            }
+          : {
+              id: defenderPlayer.id,
+              name: defenderPlayer.name,
+              type: 'player',
+              hp: defenderPlayer.hp,
+              maxHp: defenderPlayer.maxHp,
+              strength: defenderPlayer.strength,
+              agility: defenderPlayer.agility,
+              level: defenderPlayer.level,
+              isAlive: defenderPlayer.isAlive,
+              x: defenderPlayer.x,
+              y: defenderPlayer.y,
+            },
+      );
+
+    const runCombatSpy = jest
+      .spyOn(internals, 'runCombat')
+      .mockResolvedValue(combatLog);
+    const applyResultsSpy = jest
+      .spyOn(internals, 'applyCombatResults')
+      .mockResolvedValue(undefined);
+    const narrativeSpy = jest
+      .spyOn(internals, 'generateCombatNarrative')
+      .mockImplementation(async (_combatLog, options) =>
+        options?.secondPersonName === 'Attacker'
+          ? 'Attacker perspective'
+          : 'Defender perspective',
+      );
+
+    const result = await service.playerAttackPlayer(
+      'attacker',
+      'defender',
+      true,
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.winnerName).toBe('Defender');
+    expect(result.loserName).toBe('Attacker');
+    expect(result.totalDamageDealt).toBe(5);
+    expect(result.roundsCompleted).toBe(1);
+    expect(result.xpGained).toBe(0);
+    expect(result.goldGained).toBe(0);
+    expect(result.message).toBe('Attacker perspective');
+    expect(result.playerMessages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slackId: 'attacker',
+          name: 'Attacker',
+          message: 'Attacker perspective',
+        }),
+      ]),
+    );
+
+    expect(runCombatSpy).toHaveBeenCalledTimes(1);
+    expect(applyResultsSpy).toHaveBeenCalledTimes(1);
+    expect(narrativeSpy).toHaveBeenNthCalledWith(1, combatLog, {
+      secondPersonName: 'Attacker',
+    });
+    expect(narrativeSpy).toHaveBeenNthCalledWith(2, combatLog, {
+      secondPersonName: 'Defender',
+    });
+  });
+
+  it('omits defender message when slackId is missing', async () => {
+    const attackerPlayer = createPlayer({
+      id: 1,
+      name: 'Attacker',
+      slackId: 'attacker',
+      hp: 15,
+      maxHp: 15,
+      strength: 14,
+      agility: 12,
+      level: 5,
+      x: 4,
+      y: 4,
+    });
+
+    const defenderPlayer = createPlayer({
+      id: 2,
+      name: 'Defender',
+      slackId: undefined,
+      hp: 15,
+      maxHp: 15,
+      strength: 12,
+      agility: 10,
+      level: 4,
+      x: 4,
+      y: 4,
+    });
+
+    const combatLog: DetailedCombatLog = {
+      combatId: 'combat-456',
+      participant1: 'Attacker',
+      participant2: 'Defender',
+      initiativeRolls: [],
+      firstAttacker: 'Attacker',
+      rounds: [
+        {
+          roundNumber: 1,
+          attackerName: 'Attacker',
+          defenderName: 'Defender',
+          attackRoll: 19,
+          attackModifier: 4,
+          totalAttack: 23,
+          defenderAC: 11,
+          hit: true,
+          damage: 7,
+          defenderHpAfter: 8,
+          killed: false,
+        },
+        {
+          roundNumber: 2,
+          attackerName: 'Attacker',
+          defenderName: 'Defender',
+          attackRoll: 16,
+          attackModifier: 4,
+          totalAttack: 20,
+          defenderAC: 11,
+          hit: true,
+          damage: 8,
+          defenderHpAfter: 0,
+          killed: true,
+        },
+      ],
+      winner: 'Attacker',
+      loser: 'Defender',
+      xpAwarded: 80,
+      goldAwarded: 30,
+      timestamp: new Date(),
+      location: { x: 4, y: 4 },
+    };
+
+    playerService.getPlayer.mockImplementation(async (slackId: string) =>
+      slackId === 'attacker' ? attackerPlayer : defenderPlayer,
+    );
+
+    const internals = getInternals();
+
+    const playerToCombatantSpy = jest
+      .spyOn(internals, 'playerToCombatant')
+      .mockImplementation(async (slackId: string) =>
+        slackId === 'attacker'
+          ? {
+              id: attackerPlayer.id,
+              name: attackerPlayer.name,
+              type: 'player',
+              hp: attackerPlayer.hp,
+              maxHp: attackerPlayer.maxHp,
+              strength: attackerPlayer.strength,
+              agility: attackerPlayer.agility,
+              level: attackerPlayer.level,
+              isAlive: attackerPlayer.isAlive,
+              x: attackerPlayer.x,
+              y: attackerPlayer.y,
+              slackId: attackerPlayer.slackId,
+            }
+          : {
+              id: defenderPlayer.id,
+              name: defenderPlayer.name,
+              type: 'player',
+              hp: defenderPlayer.hp,
+              maxHp: defenderPlayer.maxHp,
+              strength: defenderPlayer.strength,
+              agility: defenderPlayer.agility,
+              level: defenderPlayer.level,
+              isAlive: defenderPlayer.isAlive,
+              x: defenderPlayer.x,
+              y: defenderPlayer.y,
+              slackId: undefined,
+            },
+      );
+
+    const runCombatSpy = jest
+      .spyOn(internals, 'runCombat')
+      .mockResolvedValue(combatLog);
+    const applyResultsSpy = jest
+      .spyOn(internals, 'applyCombatResults')
+      .mockResolvedValue(undefined);
+    const narrativeSpy = jest
+      .spyOn(internals, 'generateCombatNarrative')
+      .mockImplementation(async (_combatLog, options) =>
+        options?.secondPersonName === 'Attacker'
+          ? 'Attacker recap'
+          : 'Defender recap',
+      );
+
+    const result = await service.playerAttackPlayer('attacker', 'defender');
+
+    expect(result.success).toBe(true);
+    expect(result.winnerName).toBe('Attacker');
+    expect(result.xpGained).toBe(80);
+    expect(result.goldGained).toBe(30);
+    expect(result.totalDamageDealt).toBe(15);
+    expect(result.roundsCompleted).toBe(1);
+    expect(result.message).toBe('Attacker recap');
+    expect(result.playerMessages).toHaveLength(1);
+    expect(result.playerMessages[0]).toMatchObject({
+      slackId: 'attacker',
+      name: 'Attacker',
+      message: 'Attacker recap',
+    });
+
+    expect(playerToCombatantSpy).toHaveBeenCalledTimes(2);
+    expect(runCombatSpy).toHaveBeenCalledTimes(1);
+    expect(applyResultsSpy).toHaveBeenCalledTimes(1);
+    expect(narrativeSpy).toHaveBeenNthCalledWith(1, combatLog, {
+      secondPersonName: 'Attacker',
+    });
+    expect(narrativeSpy).toHaveBeenNthCalledWith(2, combatLog, {
+      secondPersonName: 'Defender',
+    });
+  });
+
+  it('prevents player vs monster combat when they are apart', async () => {
+    const internals = getInternals();
+
+    const heroCombatant: Combatant = {
+      id: 1,
+      name: 'Hero',
+      type: 'player',
+      hp: 20,
+      maxHp: 20,
+      strength: 12,
+      agility: 12,
+      level: 3,
+      isAlive: true,
+      x: 1,
+      y: 1,
+      slackId: 'hero',
+    };
+
+    const goblinCombatant: Combatant = {
+      id: 99,
+      name: 'Goblin',
+      type: 'monster',
+      hp: 8,
+      maxHp: 8,
+      strength: 10,
+      agility: 10,
+      level: 1,
+      isAlive: true,
+      x: 2,
+      y: 3,
+    };
+
+    jest.spyOn(internals, 'playerToCombatant').mockResolvedValue(heroCombatant);
+
+    jest
+      .spyOn(internals, 'monsterToCombatant')
+      .mockResolvedValue(goblinCombatant);
+
+    await expect(service.playerAttackMonster('hero', 99)).rejects.toThrow(
+      'Monster is not at your location',
+    );
   });
 });
