@@ -77,12 +77,12 @@ export function getUserFriendlyErrorMessage(
     if (errors && errors.length > 0) {
       // Filter out any messages that might contain sensitive info like slackId
       const safeMessage = errors[0].message
-        .replace(/slackId\s+\w+/gi, 'player') // Remove slackId references
-        .replace(/with slackId.*?not found/gi, 'not found') // Clean up not found messages
         .replace(
           /Player with slackId.*?already exists/gi,
           'Player already exists',
-        );
+        )
+        .replace(/with slackId.*?not found/gi, 'not found')
+        .replace(/slackId\s+\w+/gi, 'player'); // Remove remaining slackId references
 
       return safeMessage || defaultMessage;
     }
@@ -91,12 +91,12 @@ export function getUserFriendlyErrorMessage(
   // Handle regular errors
   if (err instanceof Error) {
     const safeMessage = err.message
-      .replace(/slackId\s+\w+/gi, 'player') // Remove slackId references
-      .replace(/with slackId.*?not found/gi, 'not found') // Clean up not found messages
       .replace(
         /Player with slackId.*?already exists/gi,
         'Player already exists',
-      );
+      )
+      .replace(/with slackId.*?not found/gi, 'not found')
+      .replace(/slackId\s+\w+/gi, 'player');
 
     return safeMessage || defaultMessage;
   }

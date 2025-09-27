@@ -104,8 +104,17 @@
       },
       "test": {
         "options": {
-          "passWithNoTests": true
-        }
+          "passWithNoTests": true,
+          "jestConfig": "apps/slack-bot/jest.config.js",
+          "codeCoverage": true,
+          "coverageReporters": [
+            "text"
+          ]
+        },
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/coverage"
+        ]
       },
       "docker-build": {
         "dependsOn": [

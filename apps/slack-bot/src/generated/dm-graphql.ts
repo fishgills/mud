@@ -52,6 +52,13 @@ export type CombatLog = {
   y: Scalars['Int']['output'];
 };
 
+export type CombatPlayerMessage = {
+  __typename?: 'CombatPlayerMessage';
+  message: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  slackId: Scalars['String']['output'];
+};
+
 export type CombatResponse = {
   __typename?: 'CombatResponse';
   data?: Maybe<CombatResult>;
@@ -65,6 +72,7 @@ export type CombatResult = {
   goldGained: Scalars['Float']['output'];
   loserName: Scalars['String']['output'];
   message: Scalars['String']['output'];
+  playerMessages: Array<CombatPlayerMessage>;
   roundsCompleted: Scalars['Float']['output'];
   success: Scalars['Boolean']['output'];
   totalDamageDealt: Scalars['Float']['output'];
@@ -480,7 +488,7 @@ export type AttackMutationVariables = Exact<{
 }>;
 
 
-export type AttackMutation = { __typename?: 'Mutation', attack: { __typename?: 'CombatResponse', success: boolean, message?: string | null, data?: { __typename?: 'CombatResult', winnerName: string, loserName: string, totalDamageDealt: number, roundsCompleted: number, xpGained: number, goldGained: number, message: string, success: boolean } | null } };
+export type AttackMutation = { __typename?: 'Mutation', attack: { __typename?: 'CombatResponse', success: boolean, message?: string | null, data?: { __typename?: 'CombatResult', winnerName: string, loserName: string, totalDamageDealt: number, roundsCompleted: number, xpGained: number, goldGained: number, message: string, success: boolean, playerMessages: Array<{ __typename?: 'CombatPlayerMessage', slackId: string, name: string, message: string }> } | null } };
 
 export type GetPlayerQueryVariables = Exact<{
   slackId?: InputMaybe<Scalars['String']['input']>;
@@ -574,6 +582,11 @@ export const AttackDocument = gql`
       xpGained
       goldGained
       message
+      playerMessages {
+        slackId
+        name
+        message
+      }
       success
     }
   }

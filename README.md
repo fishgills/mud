@@ -1,82 +1,167 @@
 # Mud
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Mud is an AI-assisted multiplayer text adventure built as an Nx monorepo. The
+workspace hosts the services that generate the procedural world, orchestrate
+turn-based gameplay, and expose a Slack bot that players use to explore the
+world together. The core services are written with NestJS, communicate over
+GraphQL, and share a PostgreSQL + Redis backend through Prisma.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is almost ready ✨.
+## Monorepo structure
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/node?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+| Path | Description |
+| ---- | ----------- |
+| `apps/world` | World generation and rendering service. Exposes GraphQL queries and REST rendering endpoints backed by Redis caching and Prisma. |
+| `apps/dm` | "Dungeon master" API that drives game ticks, combat, and AI generated descriptions. Provides a GraphQL API consumed by the Slack bot. |
+| `apps/slack-bot` | Slack Bolt app that handles player commands, maps, and onboarding through Slack conversations. |
+| `apps/tick` | Lightweight worker that regularly calls the DM service to advance the world state. |
+| `libs/database` | Shared Prisma client and schema for PostgreSQL. |
+| `libs/gcp-auth` | Helpers for authenticating service-to-service calls on Google Cloud Run. |
+| `infra/terraform` | Infrastructure-as-code definitions for deploying the services. |
+| `scripts/` | Deployment and operational scripts (database migrations, certificate automation, etc.). |
 
-## Finish your CI setup
+Additional service-specific docs live alongside each app (for example
+`apps/dm/SETUP.md`, `apps/dm/GAME_FLOW.md`, and `apps/world/TILE_OPERATIONS.md`).
 
-[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/hnG21iuxXG)
+## Prerequisites
 
+* Node.js 20+ and npm 10+
+* Docker (optional but recommended for local PostgreSQL and Redis)
+* PostgreSQL 15+ (configured via `DATABASE_URL`)
+* Redis 7+ (configured via `REDIS_URL`)
+* OpenAI API key (for the DM service to synthesize descriptions)
+* Slack workspace and app credentials (for the Slack bot)
 
-## Run tasks
+## Environment variables
 
-To run the dev server for your app, use:
+All services rely on the following shared configuration:
 
-```sh
-npx nx serve game-engine
+| Variable | Description |
+| -------- | ----------- |
+| `DATABASE_URL` | PostgreSQL connection string used by Prisma. |
+| `REDIS_URL` | Redis connection string used by the world renderer and DM caches. |
+
+### DM service (`apps/dm`)
+
+| Variable | Description |
+| -------- | ----------- |
+| `OPENAI_API_KEY` | API key used for AI descriptions and responses. |
+| `WORLD_SERVICE_URL` | Base URL for the world service (e.g. `http://localhost:3001/world`). The DM app automatically appends `/graphql` when needed. |
+| `COORDINATION_PREFIX` | Redis key namespace for coordination locks (defaults to `dm:coord:`). |
+| `TILE_DESC_LOCK_TTL_MS` | TTL for tile description locks in Redis. |
+| `TILE_DESC_COOLDOWN_MS` | Cooldown before retrying tile descriptions. |
+| `TILE_DESC_MIN_RETRY_MS` | Minimum retry delay when description generation fails. |
+
+### World service (`apps/world`)
+
+| Variable | Description |
+| -------- | ----------- |
+| `CACHE_PREFIX` | Prefix for cached render artifacts. |
+| `WORLD_RENDER_CACHE_TTL_MS` | Cache lifetime for rendered map tiles (milliseconds). |
+| `WORLD_RENDER_COMPUTE_ON_THE_FLY` | When `true`, render missing tiles synchronously instead of requiring a warm cache. |
+
+### Slack bot (`apps/slack-bot`)
+
+| Variable | Description |
+| -------- | ----------- |
+| `SLACK_BOT_TOKEN` | Bot token for your Slack app. |
+| `SLACK_SIGNING_SECRET` | Signing secret for request verification. |
+| `SLACK_APP_TOKEN` | App-level token for the Bolt SDK. |
+| `DM_GQL_ENDPOINT` | URL of the DM GraphQL endpoint (local default `http://localhost:3000/graphql`). |
+| `WORLD_GQL_ENDPOINT` | URL of the world GraphQL endpoint (local default `http://localhost:3001/world/graphql`). |
+| `WORLD_BASE_URL` | Base REST URL for rendered assets (local default `http://localhost:3001/world`). |
+| `PORT` | Port the Slack bot listens on (default `3002`). |
+
+### Tick worker (`apps/tick`)
+
+| Variable | Description |
+| -------- | ----------- |
+| `DM_GRAPHQL_URL` | GraphQL endpoint that exposes the `processTick` mutation (local default `http://localhost:3000/graphql`). |
+| `PORT` | HTTP port for the lightweight health server (default `3003`). |
+
+The shared `@mud/gcp-auth` utilities also look for the `GCP_CLOUD_RUN` or
+`K_SERVICE` environment variables to determine when to mint Cloud Run identity
+tokens automatically.
+
+## Getting started
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Start PostgreSQL and Redis (via Docker or your preferred installation). For
+   Docker you can run:
+   ```bash
+   docker compose up -d postgres redis
+   ```
+3. Apply the Prisma schema to your database:
+   ```bash
+   npx prisma migrate deploy --schema=libs/database/prisma/schema.prisma
+   ```
+4. Export or define the environment variables described above. One convenient
+   approach for local development is to create a `.env.local` file and use
+   `npx dotenv -e .env.local -- <command>` when running Nx tasks.
+
+## Running the services locally
+
+Run each service in its own terminal (or use Nx's run-many support):
+
+```bash
+# World generation service (GraphQL on http://localhost:3001/world/graphql)
+npx nx serve world
+
+# DM GraphQL API (http://localhost:3000/graphql)
+npx nx serve dm
+
+# Slack bot (requires Slack credentials)
+npx nx serve slack-bot
+
+# Tick worker (advances the simulation every 30 seconds)
+npx nx serve tick
 ```
 
-To create a production bundle:
+The Slack bot registers handlers for mentions and direct messages. Once the DM
+and world services are online you can invite the bot to a channel and issue
+commands such as `new`, `north`, `look`, `attack`, and `map` to explore the
+world.
 
-```sh
-npx nx build game-engine
-```
+## Development workflows
 
-To see all available targets to run for a project, run:
+* **GraphQL code generation** – Regenerate typed GraphQL clients when schemas
+  change:
+  ```bash
+  npx nx run dm:codegen
+  npx nx run slack-bot:codegen
+  ```
+* **Testing** – Run Jest unit tests per project:
+  ```bash
+  npx nx test dm
+  npx nx test world
+  npx nx test slack-bot
+  npx nx test tick
+  ```
+  The DM service also ships an integration harness: `./apps/dm/test-dm.sh`.
+* **Linting** – Check code style with ESLint:
+  ```bash
+  npx nx lint dm
+  ```
+* **Database changes** – Update the Prisma schema in
+  `libs/database/prisma/schema.prisma` and run `npx prisma migrate dev` (for
+  local development) followed by `npx prisma generate` if you add new models.
 
-```sh
-npx nx show project game-engine
-```
+## Deployment
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+This repository includes Dockerfiles for each service and Terraform modules for
+GCP deployments. The `scripts/` directory contains helper scripts such as
+`scripts/deploy.py` for rolling out migrations and managing Cloud Run services,
+and `init-letsencrypt.sh` for provisioning HTTPS certificates when using the
+provided `docker-compose.yml` + Nginx setup.
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## Contributing
 
-## Add new projects
+Issues and pull requests are welcome! Please ensure code is formatted with the
+project's ESLint/Prettier configuration and that relevant tests pass before
+submitting changes.
 
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
+## License
 
-Use the plugin's generator to create new projects.
-
-To generate a new application, use:
-
-```sh
-npx nx g @nx/node:app demo
-```
-
-To generate a new library, use:
-
-```sh
-npx nx g @nx/node:lib mylib
-```
-
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
-
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/nx-api/node?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Mud is released under the MIT license.

@@ -14,6 +14,12 @@ interface NarrativeOptions {
   secondPersonName?: string;
 }
 
+interface PlayerCombatMessage {
+  slackId: string;
+  name: string;
+  message: string;
+}
+
 export interface Combatant {
   id: number;
   name: string;
@@ -610,6 +616,16 @@ export class CombatService {
       secondPersonName: player.name,
     });
 
+    const playerMessages: PlayerCombatMessage[] = player.slackId
+      ? [
+          {
+            slackId: player.slackId,
+            name: player.name,
+            message: aiMessage,
+          },
+        ]
+      : [];
+
     const result = {
       success: true,
       winnerName: combatLog.winner,
@@ -620,6 +636,7 @@ export class CombatService {
       goldGained:
         combatLog.winner === player.name ? combatLog.goldAwarded : 0,
       message: aiMessage,
+      playerMessages,
     };
 
     this.logger.log(`✅ Player vs Monster combat completed: ${result.message}`);
@@ -660,6 +677,16 @@ export class CombatService {
       secondPersonName: player.name,
     });
 
+    const playerMessages: PlayerCombatMessage[] = player.slackId
+      ? [
+          {
+            slackId: player.slackId,
+            name: player.name,
+            message: aiMessage,
+          },
+        ]
+      : [];
+
     const result = {
       success: true,
       combatLog,
@@ -671,6 +698,7 @@ export class CombatService {
       goldGained:
         combatLog.winner === player.name ? combatLog.goldAwarded : 0,
       message: aiMessage,
+      playerMessages,
     };
 
     this.logger.log(`✅ Monster vs Player combat completed: ${result.message}`);
@@ -724,9 +752,30 @@ export class CombatService {
       .filter((round) => round.attackerName === attacker.name)
       .reduce((total, round) => total + round.damage, 0);
 
-    const aiMessage = await this.generateCombatNarrative(combatLog, {
-      secondPersonName: attacker.name,
-    });
+    const [attackerMessage, defenderMessage] = await Promise.all([
+      this.generateCombatNarrative(combatLog, {
+        secondPersonName: attacker.name,
+      }),
+      this.generateCombatNarrative(combatLog, {
+        secondPersonName: defender.name,
+      }),
+    ]);
+
+    const playerMessages: PlayerCombatMessage[] = [];
+    if (attacker.slackId) {
+      playerMessages.push({
+        slackId: attacker.slackId,
+        name: attacker.name,
+        message: attackerMessage,
+      });
+    }
+    if (defender.slackId) {
+      playerMessages.push({
+        slackId: defender.slackId,
+        name: defender.name,
+        message: defenderMessage,
+      });
+    }
 
     const result = {
       success: true,
@@ -738,7 +787,8 @@ export class CombatService {
       xpGained: combatLog.winner === attacker.name ? combatLog.xpAwarded : 0,
       goldGained:
         combatLog.winner === attacker.name ? combatLog.goldAwarded : 0,
-      message: aiMessage,
+      message: attackerMessage,
+      playerMessages,
     };
 
     this.logger.log(`✅ Player vs Player combat completed: ${result.message}`);

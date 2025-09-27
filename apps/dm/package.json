@@ -54,13 +54,18 @@
         "command": "npx graphql-codegen --config {projectRoot}/codegen.ts"
       },
       "test": {
+        "options": {
+          "passWithNoTests": true,
+          "jestConfig": "apps/dm/jest.config.js",
+          "codeCoverage": true,
+          "coverageReporters": [
+            "text"
+          ]
+        },
         "executor": "@nx/jest:jest",
         "outputs": [
-          "{workspaceRoot}/coverage/apps/dm"
-        ],
-        "options": {
-          "jestConfig": "apps/world/jest.config.ts"
-        }
+          "{projectRoot}/coverage"
+        ]
       }
     }
   },

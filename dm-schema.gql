@@ -124,6 +124,12 @@ type CombatRound {
   killed: Boolean!
 }
 
+type CombatPlayerMessage {
+  slackId: String!
+  name: String!
+  message: String!
+}
+
 type InitiativeRoll {
   name: String!
   roll: Float!
@@ -145,6 +151,7 @@ type CombatResult {
   xpGained: Float!
   goldGained: Float!
   message: String!
+  playerMessages: [CombatPlayerMessage!]!
 }
 
 type CombatResponse {

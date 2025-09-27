@@ -1,0 +1,150 @@
+import { WorldService } from './world.service';
+
+jest.mock('../gql-client', () => ({
+  worldSdk: {
+    GetTile: jest.fn(),
+    GetChunk: jest.fn(),
+    GetTileWithNearby: jest.fn(),
+    HealthCheck: jest.fn(),
+  },
+}));
+
+const { worldSdk } = jest.requireMock('../gql-client') as {
+  worldSdk: {
+    GetTile: jest.Mock;
+    GetChunk: jest.Mock;
+    GetTileWithNearby: jest.Mock;
+    HealthCheck: jest.Mock;
+  };
+};
+
+describe('WorldService', () => {
+  const nowIso = new Date().toISOString();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.DM_CHUNK_CACHE_TTL_MS = '60000';
+    process.env.DM_CENTER_NEARBY_CACHE_TTL_MS = '60000';
+  });
+
+  const createService = () => new WorldService();
+
+  it('maps GraphQL tile data to WorldTile structure', async () => {
+    const tileResponse = {
+      id: 42,
+      x: 10,
+      y: -5,
+      biomeId: 7,
+      biomeName: 'forest',
+      description: 'lush',
+      height: 0.75,
+      temperature: 0.4,
+      moisture: 0.6,
+      seed: 123,
+      chunkX: 1,
+      chunkY: -1,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    worldSdk.GetTile.mockResolvedValue({ getTile: tileResponse });
+
+    const service = createService();
+    const result = await service.getTileInfo(tileResponse.x, tileResponse.y);
+
+    expect(result).toMatchObject({
+      id: 42,
+      biomeName: 'forest',
+      description: 'lush',
+      seed: 123,
+      chunkX: 1,
+      chunkY: -1,
+    });
+    expect(result.createdAt).toBeInstanceOf(Date);
+    expect(result.updatedAt).toBeInstanceOf(Date);
+  });
+
+  it('falls back to default tile when GraphQL returns nothing', async () => {
+    worldSdk.GetTile.mockResolvedValue({ getTile: null });
+
+    const service = createService();
+    const result = await service.getTileInfo(0, 0);
+
+    expect(result.biomeName).toBe('grassland');
+  });
+
+  it('caches chunk responses within the TTL', async () => {
+    const tiles = [{ x: 1, y: 2 }];
+    worldSdk.GetChunk.mockResolvedValue({ getChunk: { tiles } });
+
+    const service = createService();
+
+    const first = await service.getChunk(0, 0);
+    const second = await service.getChunk(0, 0);
+
+    expect(first).toHaveLength(tiles.length);
+    expect(second).toHaveLength(tiles.length);
+    expect(first.map(({ x, y }) => ({ x, y }))).toEqual(tiles);
+    expect(second.map(({ x, y }) => ({ x, y }))).toEqual(tiles);
+    expect(worldSdk.GetChunk).toHaveBeenCalledTimes(1);
+  });
+
+  it('deduplicates inflight chunk requests', async () => {
+    const tiles = [{ x: 3, y: 4 }];
+    worldSdk.GetChunk.mockResolvedValueOnce({ getChunk: { tiles } });
+
+    const service = createService();
+
+    const [a, b] = await Promise.all([
+      service.getChunk(1, 1),
+      service.getChunk(1, 1),
+    ]);
+
+    expect(a).toHaveLength(tiles.length);
+    expect(b).toHaveLength(tiles.length);
+    expect(a.map(({ x, y }) => ({ x, y }))).toEqual(tiles);
+    expect(b.map(({ x, y }) => ({ x, y }))).toEqual(tiles);
+    expect(worldSdk.GetChunk).toHaveBeenCalledTimes(1);
+  });
+
+  it('caches tile-with-nearby lookups', async () => {
+    const payload = {
+      getTile: {
+        id: 1,
+        x: 0,
+        y: 0,
+        biomeId: 2,
+        biomeName: 'desert',
+        description: 'dry',
+        height: 0.2,
+        temperature: 0.9,
+        moisture: 0.1,
+        seed: 321,
+        chunkX: 0,
+        chunkY: 0,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        nearbyBiomes: [{ biomeName: 'oasis', distance: 1, direction: 'north' }],
+        nearbySettlements: [],
+        currentSettlement: null,
+      },
+    };
+
+    worldSdk.GetTileWithNearby.mockResolvedValue(payload);
+
+    const service = createService();
+    const first = await service.getTileInfoWithNearby(0, 0);
+    const second = await service.getTileInfoWithNearby(0, 0);
+
+    expect(first.nearbyBiomes).toHaveLength(1);
+    expect(second.nearbyBiomes).toHaveLength(1);
+    expect(worldSdk.GetTileWithNearby).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns false when health check throws', async () => {
+    worldSdk.HealthCheck.mockRejectedValue(new Error('boom'));
+    const service = createService();
+
+    await expect(service.healthCheck()).resolves.toBe(false);
+  });
+});

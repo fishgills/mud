@@ -122,7 +122,16 @@ To allow GitHub Actions to deploy without storing long-lived service account key
 4. Add the following secrets to your GitHub repository:
    - `GCP_SERVICE_ACCOUNT` → the service account email output.
    - `GCP_WORKLOAD_IDENTITY_PROVIDER` → the provider resource name output.
-Refer to the [Google Cloud Run deployment guide](https://cloud.google.com/blog/products/devops-sre/deploy-to-cloud-run-with-github-actions/) and [Workload Identity federation best practices](https://cloud.google.com/blog/products/identity-security/secure-your-use-of-third-party-tools-with-identity-federation) for additional context.
+     Refer to the [Google Cloud Run deployment guide](https://cloud.google.com/blog/products/devops-sre/deploy-to-cloud-run-with-github-actions/) and [Workload Identity federation best practices](https://cloud.google.com/blog/products/identity-security/secure-your-use-of-third-party-tools-with-identity-federation) for additional context.
+
+### Parallel Image Builds
+
+The `deploy.yml` workflow now fans out Docker builds per service. The
+`build-and-push` job uses `nx print-affected` to compute the list of services
+that changed and emits a matrix describing them. A downstream `build-service`
+job consumes that matrix so each service builds and pushes its container image
+in parallel, dramatically reducing total build time. When no services change,
+the matrix resolves to a no-op entry so the job completes immediately.
 
 ## Development Workflow
 

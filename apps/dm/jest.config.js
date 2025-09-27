@@ -1,6 +1,7 @@
 /* eslint-disable */
 const { readFileSync } = require('fs');
 
+// Read the SWC compilation config for the spec files
 const swcJestConfig = JSON.parse(
   readFileSync(`${__dirname}/.spec.swcrc`, 'utf-8'),
 );
@@ -8,12 +9,14 @@ const swcJestConfig = JSON.parse(
 swcJestConfig.swcrc = false;
 
 module.exports = {
-  displayName: 'world',
+  displayName: '@mud/dm',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
-  coverageDirectory: '../../coverage/apps/dm',
+  transformIgnorePatterns: ['/node_modules/(?!(graphql-request)/)'],
+  coverageDirectory: 'test-output/jest/coverage',
+  collectCoverageFrom: ['src/**/*.{ts,js}'],
 };

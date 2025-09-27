@@ -4,9 +4,7 @@
     "outDir": "./out-tsc/jest",
     "types": ["jest", "node"],
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext"
+    "emitDecoratorMetadata": true
   },
   "include": [
     "jest.config.ts",
