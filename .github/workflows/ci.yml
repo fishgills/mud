@@ -25,5 +25,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=libs/database/prisma/schema.prisma
+
       - name: Run unit tests
         run: npx nx run-many -t test --all --parallel --no-cloud
