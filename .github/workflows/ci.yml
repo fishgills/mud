@@ -26,4 +26,4 @@ jobs:
         run: npm ci
 
       - name: Run unit tests
-        run: npx nx run-many -t test --all --parallel
+        run: npx nx run-many -t test --all --parallel --no-cloud
