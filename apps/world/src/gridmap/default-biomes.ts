@@ -152,7 +152,7 @@ export const DEFAULT_BIOMES: GridBiome[] = [
     id: 9,
   },
   {
-    name: 'savana',
+    name: 'savanna',
     color: '#98cb2a',
     coordinates: [
       {
