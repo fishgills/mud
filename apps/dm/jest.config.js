@@ -19,4 +19,5 @@ module.exports = {
   moduleFileExtensions: ['ts', 'js', 'html'],
   transformIgnorePatterns: ['/node_modules/(?!(graphql-request)/)'],
   coverageDirectory: 'test-output/jest/coverage',
+  collectCoverageFrom: ['src/**/*.{ts,js}'],
 };
