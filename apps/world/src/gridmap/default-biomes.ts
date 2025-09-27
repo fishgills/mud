@@ -88,7 +88,7 @@ export const DEFAULT_BIOMES: GridBiome[] = [
       },
     ],
     color: '#533e1a',
-    name: 'moutain',
+    name: 'mountain',
     id: 4,
   },
   {
