@@ -48,12 +48,30 @@ export class MovementResolver {
       ]);
 
       this.logger.debug(`Moved to (${player.x}, ${player.y})`);
-      return { success: true, player, monsters, playersAtLocation };
+      return {
+        success: true,
+        player,
+        monsters: monsters ?? [],
+        playersAtLocation: playersAtLocation ?? [],
+      };
     } catch (error) {
+      const fallbackPlayer = await this.playerService
+        .getPlayer(slackId)
+        .catch(() => null);
+
+      if (!fallbackPlayer) {
+        throw error instanceof Error
+          ? error
+          : new Error('Failed to move player');
+      }
+
       return {
         success: false,
         message:
           error instanceof Error ? error.message : 'Failed to move player',
+        player: fallbackPlayer,
+        monsters: [],
+        playersAtLocation: [],
       };
     }
   }

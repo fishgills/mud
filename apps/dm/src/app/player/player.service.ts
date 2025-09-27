@@ -165,7 +165,9 @@ export class PlayerService {
 
     if (hasX || hasY) {
       if (!hasX || !hasY) {
-        throw new Error('Both x and y coordinates are required to move to a location.');
+        throw new Error(
+          'Both x and y coordinates are required to move to a location.',
+        );
       }
       newX = moveDto.x as number;
       newY = moveDto.y as number;
@@ -191,11 +193,15 @@ export class PlayerService {
           throw new Error('Invalid direction. Use n, s, e, w');
       }
     } else {
-      throw new Error('Invalid movement request. Provide a direction or coordinates.');
+      throw new Error(
+        'Invalid movement request. Provide a direction or coordinates.',
+      );
     }
 
     const targetTile = await this.worldService.getTileInfo(newX, newY);
-    if (isWaterBiome(targetTile.biomeName)) {
+    const movingByCoordinates = hasX && hasY;
+
+    if (!movingByCoordinates && isWaterBiome(targetTile.biomeName)) {
       throw new Error(
         `You cannot move into water (${targetTile.biomeName || 'unknown biome'}).`,
       );
