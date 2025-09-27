@@ -326,13 +326,13 @@ export class NearbyPlayerInfo {
 @ObjectType()
 export class PlayerMoveResponse extends SuccessResponse {
   @Field(() => Player)
-  player?: Player;
+  player!: Player;
 
   @Field(() => [Monster])
-  monsters?: Monster[];
+  monsters: Monster[] = [];
 
   @Field(() => [Player])
-  playersAtLocation?: Player[];
+  playersAtLocation: Player[] = [];
 }
 
 // --- Look/Scenic View types ---

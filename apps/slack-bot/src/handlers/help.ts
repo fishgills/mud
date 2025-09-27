@@ -1,4 +1,4 @@
-import { KnownBlock } from '@slack/bolt';
+import type { KnownBlock } from '@slack/types';
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { COMMANDS, HELP_ACTIONS } from '../commands';

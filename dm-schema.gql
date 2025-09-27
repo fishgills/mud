@@ -124,12 +124,6 @@ type CombatRound {
   killed: Boolean!
 }
 
-type CombatPlayerMessage {
-  slackId: String!
-  name: String!
-  message: String!
-}
-
 type InitiativeRoll {
   name: String!
   roll: Float!
@@ -140,6 +134,12 @@ type InitiativeRoll {
 type CombatLocation {
   x: Float!
   y: Float!
+}
+
+type CombatPlayerMessage {
+  slackId: String!
+  name: String!
+  message: String!
 }
 
 type CombatResult {

@@ -1,16 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import {
-  ChunkData,
-  WorldSeedConfig,
-  DEFAULT_WORLD_CONFIG,
-  TileData,
-} from './types';
-import { NoiseGenerator } from '../noise-generator/noise-generator';
+import { ChunkData, TileData } from './types';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
-import { BiomeGenerator } from '../biome-generator/biome-generator';
 import { WorldUtilsService } from './world-utils.service';
 import { Settlement } from '@mud/database';
 import { WorldTile } from './models';
+import { GridMapGenerator } from '../gridmap/gridmap-generator';
+import { DEFAULT_BIOMES } from '../gridmap/default-biomes';
+import { mapGridBiomeToBiomeInfo } from '../gridmap/biome-mapper';
+import { buildGridConfigs, deriveTemperature } from '../gridmap/utils';
 @Injectable()
 export class ChunkGeneratorService {
   constructor(private worldUtils: WorldUtilsService) {}
@@ -24,14 +21,13 @@ export class ChunkGeneratorService {
   }
 
   generateChunk(chunkX: number, chunkY: number, seed: number): ChunkData {
-    const config: WorldSeedConfig = {
-      heightSeed: seed,
-      temperatureSeed: seed + 1000,
-      moistureSeed: seed + 2000,
-      ...DEFAULT_WORLD_CONFIG,
-    };
-
-    const noiseGenerator = new NoiseGenerator(config);
+    const { heightConfig, moistureConfig } = buildGridConfigs();
+    const gridGenerator = new GridMapGenerator(
+      heightConfig,
+      moistureConfig,
+      DEFAULT_BIOMES,
+      seed,
+    );
     const settlementGenerator = new SettlementGenerator(seed);
 
     const tiles: Partial<WorldTile>[] = [];
@@ -47,7 +43,7 @@ export class ChunkGeneratorService {
         const worldX = startX + localX;
         const worldY = startY + localY;
 
-        const tileData = this.generateTile(worldX, worldY, noiseGenerator);
+        const tileData = this.generateTile(worldX, worldY, gridGenerator);
 
         // Convert TileData to WorldTile format
         const worldTile: Partial<WorldTile> = {
@@ -96,14 +92,14 @@ export class ChunkGeneratorService {
 
   /** Compute a single tile deterministically from the given seed. */
   generateTileAt(x: number, y: number, seed: number) {
-    const config: WorldSeedConfig = {
-      heightSeed: seed,
-      temperatureSeed: seed + 1000,
-      moistureSeed: seed + 2000,
-      ...DEFAULT_WORLD_CONFIG,
-    };
-    const noiseGenerator = new NoiseGenerator(config);
-    const tileData = this.generateTile(x, y, noiseGenerator);
+    const { heightConfig, moistureConfig } = buildGridConfigs();
+    const gridGenerator = new GridMapGenerator(
+      heightConfig,
+      moistureConfig,
+      DEFAULT_BIOMES,
+      seed,
+    );
+    const tileData = this.generateTile(x, y, gridGenerator);
     const worldTile: Partial<WorldTile> = {
       id: this.computeId(tileData.x, tileData.y),
       x: tileData.x,
@@ -126,20 +122,19 @@ export class ChunkGeneratorService {
   private generateTile(
     x: number,
     y: number,
-    noiseGenerator: NoiseGenerator,
+    gridGenerator: GridMapGenerator,
   ): TileData {
-    const height = noiseGenerator.generateHeight(x, y);
-    const temperature = noiseGenerator.generateTemperature(x, y);
-    const moisture = noiseGenerator.generateMoisture(x, y);
-    const biome = BiomeGenerator.determineBiome(height, temperature, moisture);
+    const sample = gridGenerator.sampleTile(x, y);
+    const biomeInfo = mapGridBiomeToBiomeInfo(sample.biome);
+    const temperature = deriveTemperature(sample.rawHeight, sample.rawMoisture, y);
 
     return {
       x,
       y,
-      height,
+      height: sample.height,
       temperature,
-      moisture,
-      biome,
+      moisture: sample.moisture,
+      biome: biomeInfo,
     };
   }
 

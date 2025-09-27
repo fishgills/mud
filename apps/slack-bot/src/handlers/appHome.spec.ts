@@ -21,7 +21,15 @@ describe('buildAppHomeBlocks', () => {
     expect(contextBlock).toBeDefined();
     if (contextBlock && 'elements' in contextBlock) {
       const text = contextBlock.elements
-        ?.map((element: { text?: string }) => element.text ?? '')
+        ?.map((element) => {
+          if (
+            (element.type === 'mrkdwn' || element.type === 'plain_text') &&
+            typeof (element as any).text === 'string'
+          ) {
+            return (element as any).text;
+          }
+          return '';
+        })
         .join(' ');
       expect(text).toEqual(expect.stringContaining('Need a refresher'));
     }

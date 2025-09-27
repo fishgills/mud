@@ -32,6 +32,8 @@ export interface Settlement {
   isCenter: boolean;
 }
 
+const WORLD_CHUNK_SIZE = 50;
+
 @Injectable()
 export class WorldService {
   private readonly logger = new Logger(WorldService.name);
@@ -99,8 +101,8 @@ export class WorldService {
       temperature: 0.6,
       moisture: 0.5,
       seed: 12345,
-      chunkX: Math.floor(x / 16),
-      chunkY: Math.floor(y / 16),
+      chunkX: Math.floor(x / WORLD_CHUNK_SIZE),
+      chunkY: Math.floor(y / WORLD_CHUNK_SIZE),
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -209,7 +211,7 @@ export class WorldService {
     maxX: number,
     minY: number,
     maxY: number,
-    chunkSize = 50,
+    chunkSize = WORLD_CHUNK_SIZE,
   ): Promise<WorldTile[]> {
     const minChunkX = Math.floor(minX / chunkSize);
     const maxChunkX = Math.floor(maxX / chunkSize);
@@ -276,8 +278,8 @@ export class WorldService {
       temperature: 0.6,
       moisture: 0.5,
       seed: 12345,
-      chunkX: Math.floor(x / 16),
-      chunkY: Math.floor(y / 16),
+      chunkX: Math.floor(x / WORLD_CHUNK_SIZE),
+      chunkY: Math.floor(y / WORLD_CHUNK_SIZE),
       createdAt: new Date(),
       updatedAt: new Date(),
     };

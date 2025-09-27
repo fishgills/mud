@@ -1,7 +1,10 @@
 {
   "name": "@mud/dm",
   "version": "0.0.1",
+  "description": "",
+  "author": "",
   "private": true,
+  "license": "UNLICENSED",
   "nx": {
     "targets": {
       "build": {
@@ -17,6 +20,11 @@
             "args": [
               "node-env=development"
             ]
+          },
+          "production": {
+            "args": [
+              "node-env=production"
+            ]
           }
         }
       },
@@ -31,7 +39,7 @@
         "options": {
           "buildTarget": "@mud/dm:build",
           "runBuildTargetDependencies": false,
-          "port": 9230
+          "port": 9231
         },
         "configurations": {
           "development": {
