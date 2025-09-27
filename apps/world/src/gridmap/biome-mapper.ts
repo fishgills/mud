@@ -8,7 +8,7 @@ const GRID_TO_WORLD: Record<string, keyof typeof BIOMES> = {
   beach: 'BEACH',
   plain: 'GRASSLAND',
   forest: 'FOREST',
-  moutain: 'MOUNTAIN',
+  mountain: 'MOUNTAIN',
   'ice sea': 'TUNDRA',
   shore: 'SHALLOW_OCEAN',
   rock: 'MOUNTAIN',
