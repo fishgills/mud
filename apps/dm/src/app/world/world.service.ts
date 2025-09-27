@@ -167,8 +167,8 @@ export class WorldService {
           temperature: 0,
           moisture: 0,
           seed: 0,
-          chunkX: Math.floor(tile.x / 50),
-          chunkY: Math.floor(tile.y / 50),
+          chunkX: Math.floor(tile.x / WORLD_CHUNK_SIZE),
+          chunkY: Math.floor(tile.y / WORLD_CHUNK_SIZE),
           createdAt: new Date(),
           updatedAt: new Date(),
         }));
