@@ -48,7 +48,11 @@
       "test": {
         "options": {
           "passWithNoTests": true,
-          "jestConfig": "apps/dm/jest.config.js"
+          "jestConfig": "apps/dm/jest.config.js",
+          "codeCoverage": true,
+          "coverageReporters": [
+            "text-summary"
+          ]
         },
         "executor": "@nx/jest:jest",
         "outputs": [
