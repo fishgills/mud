@@ -74,7 +74,11 @@ describe('CombatService', () => {
 
     const narrativeSpy = jest
       .spyOn<any, any>(service as any, 'generateCombatNarrative')
-      .mockResolvedValue('Victory!');
+      .mockImplementation(async (_combatLog, options) =>
+        options?.secondPersonName === 'Attacker'
+          ? 'Attacker POV summary'
+          : 'Defender POV summary',
+      );
     const applyResultsSpy = jest
       .spyOn<any, any>(service as any, 'applyCombatResults')
       .mockResolvedValue(undefined);
@@ -104,19 +108,19 @@ describe('CombatService', () => {
     expect(result.goldGained).toBe(45);
     expect(result.roundsCompleted).toBe(1);
     expect(result.totalDamageDealt).toBe(9);
-    expect(result.message).toBe('Victory!');
+    expect(result.message).toBe('Attacker POV summary');
     expect(result.playerMessages).toHaveLength(2);
     expect(result.playerMessages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           slackId: 'attacker',
           name: 'Attacker',
-          message: 'Victory!',
+          message: 'Attacker POV summary',
         }),
         expect.objectContaining({
           slackId: 'defender',
           name: 'Defender',
-          message: 'Victory!',
+          message: 'Defender POV summary',
         }),
       ]),
     );

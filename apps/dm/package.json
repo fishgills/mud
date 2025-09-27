@@ -47,8 +47,13 @@
       },
       "test": {
         "options": {
-          "passWithNoTests": true
-        }
+          "passWithNoTests": true,
+          "jestConfig": "apps/dm/jest.config.js"
+        },
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/coverage"
+        ]
       }
     }
   },
