@@ -51,7 +51,7 @@
           "jestConfig": "apps/dm/jest.config.js",
           "codeCoverage": true,
           "coverageReporters": [
-            "text-summary"
+            "text"
           ]
         },
         "executor": "@nx/jest:jest",
