@@ -6,10 +6,11 @@ import { BIOMES } from '../constants';
 import { WorldService } from '../world/world-refactored.service';
 import { Settlement } from '@mud/database';
 import { CacheService } from '../shared/cache.service';
-import { NoiseGenerator } from '../noise-generator/noise-generator';
-import { BiomeGenerator } from '../biome-generator/biome-generator';
-import { DEFAULT_WORLD_CONFIG, WorldSeedConfig } from '../world/types';
 import { WorldTile } from '../world/models';
+import { GridMapGenerator } from '../gridmap/gridmap-generator';
+import { DEFAULT_BIOMES } from '../gridmap/default-biomes';
+import { buildGridConfigs, deriveTemperature } from '../gridmap/utils';
+import { mapGridBiomeToBiomeInfo } from '../gridmap/biome-mapper';
 
 @Injectable()
 export class RenderService {
@@ -467,13 +468,13 @@ export class RenderService {
     let tileMap: Map<string, WorldTile>;
     // Compute-on-the-fly path: only fetch descriptions for tiles that have them
     const seed = this.worldService.getCurrentSeed();
-    const config: WorldSeedConfig = {
-      heightSeed: seed,
-      temperatureSeed: seed + 1000,
-      moistureSeed: seed + 2000,
-      ...DEFAULT_WORLD_CONFIG,
-    } as WorldSeedConfig;
-    const noise = new NoiseGenerator(config);
+    const { heightConfig, moistureConfig } = buildGridConfigs();
+    const gridGenerator = new GridMapGenerator(
+      heightConfig,
+      moistureConfig,
+      DEFAULT_BIOMES,
+      seed,
+    );
 
     // Optionally fetch described tiles in bounds so we can attach descriptions if present
 
@@ -483,13 +484,12 @@ export class RenderService {
         const key = `${x},${y}` as string;
 
         // Compute tile deterministically
-        const height = noise.generateHeight(x, y);
-        const temperature = noise.generateTemperature(x, y);
-        const moisture = noise.generateMoisture(x, y);
-        const biomeInfo = BiomeGenerator.determineBiome(
-          height,
-          temperature,
-          moisture,
+        const sample = gridGenerator.sampleTile(x, y);
+        const biomeInfo = mapGridBiomeToBiomeInfo(sample.biome);
+        const temperature = deriveTemperature(
+          sample.rawHeight,
+          sample.rawMoisture,
+          y,
         );
         // Create a transient WorldTile-like shape (biome relation omitted; we’ll resolve via BIOMES)
         tileMap.set(key, {
@@ -499,9 +499,9 @@ export class RenderService {
           biomeId: biomeInfo.id,
           biomeName: biomeInfo.name,
           description: null,
-          height,
+          height: sample.height,
           temperature,
-          moisture,
+          moisture: sample.moisture,
           seed,
           chunkX: Math.floor(x / 50),
           chunkY: Math.floor(y / 50),
