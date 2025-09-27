@@ -11,6 +11,7 @@ import { GridMapGenerator } from '../gridmap/gridmap-generator';
 import { DEFAULT_BIOMES } from '../gridmap/default-biomes';
 import { buildGridConfigs, deriveTemperature } from '../gridmap/utils';
 import { mapGridBiomeToBiomeInfo } from '../gridmap/biome-mapper';
+import { WorldUtilsService } from '../world/world-utils.service';
 
 @Injectable()
 export class RenderService {
@@ -31,7 +32,7 @@ export class RenderService {
     debugOverlay = false,
   ) {
     // Attempt fast path: compose from cached chunk PNGs if all present
-    const chunkSize = 50;
+    const chunkSize = WorldUtilsService.CHUNK_SIZE;
     const p = Math.max(1, Math.floor(pixelsPerTile));
     this.logger.debug(
       `Attempting chunk-compose: bounds=(${minX},${minY})-(${maxX - 1},${
@@ -503,8 +504,8 @@ export class RenderService {
           temperature,
           moisture: sample.moisture,
           seed,
-          chunkX: Math.floor(x / 50),
-          chunkY: Math.floor(y / 50),
+          chunkX: Math.floor(x / WorldUtilsService.CHUNK_SIZE),
+          chunkY: Math.floor(y / WorldUtilsService.CHUNK_SIZE),
           createdAt: new Date(0) as any,
           updatedAt: new Date(0) as any,
           // These extra relations/fields from Prisma types are not used in rendering
