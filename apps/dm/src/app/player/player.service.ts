@@ -160,25 +160,38 @@ export class PlayerService {
     let newX = player.x;
     let newY = player.y;
 
-    switch (moveDto.direction.toLowerCase()) {
-      case 'n':
-      case 'north':
-        newY += 1;
-        break;
-      case 's':
-      case 'south':
-        newY -= 1;
-        break;
-      case 'e':
-      case 'east':
-        newX += 1;
-        break;
-      case 'w':
-      case 'west':
-        newX -= 1;
-        break;
-      default:
-        throw new Error('Invalid direction. Use n, s, e, w');
+    const hasX = typeof moveDto.x === 'number';
+    const hasY = typeof moveDto.y === 'number';
+
+    if (hasX || hasY) {
+      if (!hasX || !hasY) {
+        throw new Error('Both x and y coordinates are required to move to a location.');
+      }
+      newX = moveDto.x as number;
+      newY = moveDto.y as number;
+    } else if (moveDto.direction) {
+      switch (moveDto.direction.toLowerCase()) {
+        case 'n':
+        case 'north':
+          newY += 1;
+          break;
+        case 's':
+        case 'south':
+          newY -= 1;
+          break;
+        case 'e':
+        case 'east':
+          newX += 1;
+          break;
+        case 'w':
+        case 'west':
+          newX -= 1;
+          break;
+        default:
+          throw new Error('Invalid direction. Use n, s, e, w');
+      }
+    } else {
+      throw new Error('Invalid movement request. Provide a direction or coordinates.');
     }
 
     const targetTile = await this.worldService.getTileInfo(newX, newY);

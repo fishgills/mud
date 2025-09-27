@@ -35,13 +35,13 @@ import './handlers/create';
 import './handlers/reroll';
 import './handlers/complete';
 import './handlers/delete';
-import './handlers/help';
 import './handlers/map';
 import './handlers/stats';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { COMMANDS } from './commands';
 import { registerActions } from './actions';
 import { SayMessage } from './handlers/types';
+import { registerAppHome } from './handlers/appHome';
 
 app.event('app_mention', async ({ event, say }) => {
   await say(
@@ -62,6 +62,8 @@ app.event('app_mention', async ({ event, say }) => {
 💡 **Send me "${COMMANDS.HELP}" for the full command list!**`,
   );
 });
+
+registerAppHome(app);
 
 app.message(async ({ message, say, client }) => {
   // Only handle direct user messages (not message_changed, etc)

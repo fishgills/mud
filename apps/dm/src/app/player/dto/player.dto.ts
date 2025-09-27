@@ -6,7 +6,9 @@ export interface CreatePlayerDto {
 }
 
 export interface MovePlayerDto {
-  direction: string;
+  direction?: string;
+  x?: number;
+  y?: number;
 }
 
 export interface PlayerStatsDto {
