@@ -1,4 +1,5 @@
 import type { Block, KnownBlock } from '@slack/types';
+import type { WebClient } from '@slack/web-api';
 
 export type SayMessage = {
   text?: string;
@@ -16,4 +17,5 @@ export type HandlerContext = {
   text: string;
   // Helper to resolve a Slack username or mention to a Slack user ID within this workspace
   resolveUserId?: (nameOrMention: string) => Promise<string | undefined>;
+  client?: WebClient;
 };

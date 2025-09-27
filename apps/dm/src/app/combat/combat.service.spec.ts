@@ -105,6 +105,21 @@ describe('CombatService', () => {
     expect(result.roundsCompleted).toBe(1);
     expect(result.totalDamageDealt).toBe(9);
     expect(result.message).toBe('Victory!');
+    expect(result.playerMessages).toHaveLength(2);
+    expect(result.playerMessages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slackId: 'attacker',
+          name: 'Attacker',
+          message: 'Victory!',
+        }),
+        expect.objectContaining({
+          slackId: 'defender',
+          name: 'Defender',
+          message: 'Victory!',
+        }),
+      ]),
+    );
 
     expect(result.combatLog.winner).toBe('Attacker');
     expect(result.combatLog.loser).toBe('Defender');
@@ -134,8 +149,11 @@ describe('CombatService', () => {
       expect.objectContaining({ name: 'Attacker' }),
       expect.objectContaining({ name: 'Defender' }),
     );
-    expect(narrativeSpy).toHaveBeenCalledWith(result.combatLog, {
+    expect(narrativeSpy).toHaveBeenNthCalledWith(1, result.combatLog, {
       secondPersonName: 'Attacker',
+    });
+    expect(narrativeSpy).toHaveBeenNthCalledWith(2, result.combatLog, {
+      secondPersonName: 'Defender',
     });
   });
 

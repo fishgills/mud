@@ -178,6 +178,18 @@ export class DetailedCombatLog {
 }
 
 @ObjectType()
+export class CombatPlayerMessage {
+  @Field()
+  slackId!: string;
+
+  @Field()
+  name!: string;
+
+  @Field()
+  message!: string;
+}
+
+@ObjectType()
 export class CombatResult {
   @Field()
   success!: boolean;
@@ -205,6 +217,9 @@ export class CombatResult {
 
   @Field()
   message!: string;
+
+  @Field(() => [CombatPlayerMessage])
+  playerMessages!: CombatPlayerMessage[];
 }
 @ObjectType()
 export class CombatResponse extends SuccessResponse {

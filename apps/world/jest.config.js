@@ -15,5 +15,5 @@ module.exports = {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
-  coverageDirectory: '../../coverage/apps/world',
+  coverageDirectory: 'test-output/jest/coverage',
 };

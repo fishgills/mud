@@ -7,7 +7,12 @@ import { COMMANDS } from '../commands';
 
 export const attackHandlerHelp = `Attack the nearest monster using "attack". Or attack a player in this workspace from anywhere: "attack @username" or "attack username".`;
 
-export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
+export const attackHandler = async ({
+  userId,
+  say,
+  text,
+  client,
+}: HandlerContext) => {
   // For demo: attack the first nearby monster (could be improved with more context)
   try {
     // Try to parse a player target by username/mention
@@ -43,8 +48,33 @@ export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
         await say({ text: 'Attack succeeded but no combat data returned.' });
         return;
       }
-      const msg = combat.message;
-      await say({ text: msg });
+      const playerMessages = combat.playerMessages ?? [];
+      const attackerSummary =
+        playerMessages.find((msg) => msg.slackId === userId)?.message ??
+        combat.message;
+      await say({ text: attackerSummary });
+
+      const defenderSummary = playerMessages.find(
+        (msg) => msg.slackId === targetSlackId,
+      )?.message;
+
+      if (defenderSummary && client) {
+        try {
+          const dm = await client.conversations.open({ users: targetSlackId });
+          const channelId = dm.channel?.id as string | undefined;
+          if (channelId) {
+            await client.chat.postMessage({
+              channel: channelId,
+              text: defenderSummary,
+            });
+          }
+        } catch (notifyError) {
+          console.warn(
+            `Failed to deliver PvP combat summary to defender ${targetSlackId}:`,
+            notifyError,
+          );
+        }
+      }
       console.log(JSON.stringify(combat, null, 2));
       return;
     }
