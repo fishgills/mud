@@ -6,7 +6,7 @@ tmp
 out-tsc
 
 # dependencies
-/node_modules
+node_modules
 
 # IDEs and editors
 /.idea
@@ -102,3 +102,5 @@ terraform.rc
 # Uncomment the line below if you want to ignore planout files.
 # planout
 test-output
+tsconfig.tsbuildinfo
+.turbo

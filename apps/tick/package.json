@@ -3,5 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {},
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  }
 }

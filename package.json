@@ -3,6 +3,17 @@
   "version": "0.0.0",
   "license": "MIT",
   "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "db:migrate:deploy": "turbo run db:migrate:deploy",
+    "db:migrate:dev": "turbo run db:migrate:dev",
+    "db:push": "turbo run db:push",
+    "db:seed": "turbo run db:seed",
+    "serve": "turbo run serve",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "generate": "turbo run generate",
+    "lint": "turbo run lint"
+  },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
     "@graphql-codegen/cli": "^5.0.7",
@@ -10,6 +21,7 @@
     "@graphql-codegen/typescript-generic-sdk": "^4.0.2",
     "@graphql-codegen/typescript-graphql-request": "^6.3.0",
     "@graphql-codegen/typescript-operations": "^4.6.1",
+    "@nestjs/cli": "^11.0.10",
     "@nestjs/schematics": "^11.0.7",
     "@nestjs/testing": "^11.1.6",
     "@swc-node/register": "~1.9.1",
@@ -32,16 +44,10 @@
     "ts-jest": "^29.4.4",
     "ts-node": "10.9.1",
     "tslib": "^2.3.0",
+    "turbo": "^2.5.8",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.34.1",
     "webpack-cli": "^6.0.1"
-  },
-  "workspaces": [
-    "apps/*",
-    "libs/*"
-  ],
-  "engines": {
-    "yarn": "please-use-npm"
   },
   "dependencies": {
     "@apollo/server": "^4.12.2",
@@ -66,5 +72,10 @@
     "reflect-metadata": "^0.2.2",
     "seedrandom": "^3.0.5",
     "simplex-noise": "^4.0.3"
-  }
+  },
+  "workspaces": [
+    "apps/*",
+    "libs/*"
+  ],
+  "packageManager": "yarn@1.22.19"
 }
