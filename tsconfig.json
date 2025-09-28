@@ -23,6 +23,9 @@
     },
     {
       "path": "./libs/constants"
+    },
+    {
+      "path": "./libs/redis-client"
     }
   ]
 }

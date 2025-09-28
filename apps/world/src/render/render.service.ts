@@ -464,7 +464,7 @@ export class RenderService {
       : [];
     const settlementMap = new Map(settlements.map((s) => [`${s.x},${s.y}`, s]));
 
-    let tileMap: Map<string, WorldTile>;
+    const tileMap = new Map<string, WorldTile>();
     // Compute-on-the-fly path: only fetch descriptions for tiles that have them
     const seed = this.worldService.getCurrentSeed();
     const { heightConfig, moistureConfig } = buildGridConfigs();
@@ -475,9 +475,6 @@ export class RenderService {
       seed,
     );
 
-    // Optionally fetch described tiles in bounds so we can attach descriptions if present
-
-    tileMap = new Map();
     for (let y = minY; y < maxY; y++) {
       for (let x = minX; x < maxX; x++) {
         const key = `${x},${y}` as string;
