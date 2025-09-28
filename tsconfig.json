@@ -20,6 +20,9 @@
     },
     {
       "path": "./libs/gcp-auth"
+    },
+    {
+      "path": "./libs/shared-constants"
     }
   ]
 }

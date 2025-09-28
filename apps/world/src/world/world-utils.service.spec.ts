@@ -1,5 +1,6 @@
 import type { Settlement } from '@mud/database';
 import { WorldUtilsService } from './world-utils.service';
+import { WORLD_CHUNK_SIZE } from '@mud/shared-constants';
 
 describe('WorldUtilsService', () => {
   let service: WorldUtilsService;
@@ -30,8 +31,8 @@ describe('WorldUtilsService', () => {
   it('returns chunk coordinates using the global chunk size', () => {
     const coords = service.getChunkCoordinates(123, 87);
     expect(coords).toEqual({
-      chunkX: Math.floor(123 / WorldUtilsService.CHUNK_SIZE),
-      chunkY: Math.floor(87 / WorldUtilsService.CHUNK_SIZE),
+      chunkX: Math.floor(123 / WORLD_CHUNK_SIZE),
+      chunkY: Math.floor(87 / WORLD_CHUNK_SIZE),
     });
   });
 

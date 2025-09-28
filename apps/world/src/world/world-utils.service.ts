@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Settlement } from '@mud/database';
+import { WORLD_CHUNK_SIZE } from '@mud/shared-constants';
 @Injectable()
 export class WorldUtilsService {
-  static readonly CHUNK_SIZE = 50;
-
   /**
    * Calculate the minimum distance required between settlements based on size
    */
@@ -59,8 +58,8 @@ export class WorldUtilsService {
     y: number,
   ): { chunkX: number; chunkY: number } {
     return {
-      chunkX: Math.floor(x / WorldUtilsService.CHUNK_SIZE),
-      chunkY: Math.floor(y / WorldUtilsService.CHUNK_SIZE),
+      chunkX: Math.floor(x / WORLD_CHUNK_SIZE),
+      chunkY: Math.floor(y / WORLD_CHUNK_SIZE),
     };
   }
 

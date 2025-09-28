@@ -8,6 +8,7 @@ import { GridMapGenerator } from '../gridmap/gridmap-generator';
 import { DEFAULT_BIOMES } from '../gridmap/default-biomes';
 import { mapGridBiomeToBiomeInfo } from '../gridmap/biome-mapper';
 import { buildGridConfigs, deriveTemperature } from '../gridmap/utils';
+import { WORLD_CHUNK_SIZE } from '@mud/shared-constants';
 @Injectable()
 export class ChunkGeneratorService {
   constructor(private worldUtils: WorldUtilsService) {}
@@ -34,12 +35,12 @@ export class ChunkGeneratorService {
     const settlements: ChunkData['settlements'] = [];
     const stats = this.initializeStats();
 
-    const startX = chunkX * WorldUtilsService.CHUNK_SIZE;
-    const startY = chunkY * WorldUtilsService.CHUNK_SIZE;
+    const startX = chunkX * WORLD_CHUNK_SIZE;
+    const startY = chunkY * WORLD_CHUNK_SIZE;
 
     // Generate tiles
-    for (let localX = 0; localX < WorldUtilsService.CHUNK_SIZE; localX++) {
-      for (let localY = 0; localY < WorldUtilsService.CHUNK_SIZE; localY++) {
+    for (let localX = 0; localX < WORLD_CHUNK_SIZE; localX++) {
+      for (let localY = 0; localY < WORLD_CHUNK_SIZE; localY++) {
         const worldX = startX + localX;
         const worldY = startY + localY;
 
@@ -56,8 +57,8 @@ export class ChunkGeneratorService {
           temperature: tileData.temperature,
           moisture: tileData.moisture,
           seed: seed,
-          chunkX: Math.floor(tileData.x / WorldUtilsService.CHUNK_SIZE),
-          chunkY: Math.floor(tileData.y / WorldUtilsService.CHUNK_SIZE),
+          chunkX: Math.floor(tileData.x / WORLD_CHUNK_SIZE),
+          chunkY: Math.floor(tileData.y / WORLD_CHUNK_SIZE),
           description: null,
           createdAt: new Date(0),
           updatedAt: new Date(0),
@@ -110,8 +111,8 @@ export class ChunkGeneratorService {
       temperature: tileData.temperature,
       moisture: tileData.moisture,
       seed,
-      chunkX: Math.floor(tileData.x / WorldUtilsService.CHUNK_SIZE),
-      chunkY: Math.floor(tileData.y / WorldUtilsService.CHUNK_SIZE),
+      chunkX: Math.floor(tileData.x / WORLD_CHUNK_SIZE),
+      chunkY: Math.floor(tileData.y / WORLD_CHUNK_SIZE),
       description: null,
       createdAt: new Date(0),
       updatedAt: new Date(0),
