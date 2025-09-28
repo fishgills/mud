@@ -8,6 +8,7 @@ import { WorldUtilsService } from './world-utils.service';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
 import { Settlement } from '@mud/database';
 import { WorldTile } from './models';
+import { WORLD_CHUNK_SIZE } from '@mud/constants';
 
 @Injectable()
 export class WorldService {
@@ -173,7 +174,7 @@ export class WorldService {
     chunkY: number,
   ): Promise<Settlement[]> {
     // Get settlements in the chunk bounds
-    const chunkSize = 50; // Assuming 50x50 chunks
+    const chunkSize = WORLD_CHUNK_SIZE;
     const startX = chunkX * chunkSize;
     const startY = chunkY * chunkSize;
     const endX = startX + chunkSize - 1;

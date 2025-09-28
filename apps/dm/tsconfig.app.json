@@ -22,6 +22,9 @@
   ],
   "references": [
     {
+      "path": "../../libs/constants/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/gcp-auth/tsconfig.lib.json"
     },
     {

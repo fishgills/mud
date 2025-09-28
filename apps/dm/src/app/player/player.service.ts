@@ -9,6 +9,7 @@ import {
 import { GraphQLError } from 'graphql';
 import { WorldService } from '../world/world.service';
 import { isWaterBiome } from '../shared/biome.util';
+import { WORLD_CHUNK_SIZE } from '@mud/constants';
 
 @Injectable()
 export class PlayerService {
@@ -564,7 +565,7 @@ export class PlayerService {
           Math.pow(candidateX - player.x, 2) +
             Math.pow(candidateY - player.y, 2),
         );
-        return distanceToPlayer >= 50; // At least 50 tiles from any other player
+        return distanceToPlayer >= WORLD_CHUNK_SIZE; // At least 50 tiles from any other player
       });
 
       if (isValidPosition) {

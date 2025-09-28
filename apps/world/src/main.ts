@@ -1,10 +1,12 @@
 import './tracer';
 import './env';
 import { Logger } from '@nestjs/common';
+import { setAuthLogger } from '@mud/gcp-auth';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  setAuthLogger(new Logger('GCP-AUTH'));
   const app = await NestFactory.create(AppModule);
   const globalPrefix = 'world';
   app.setGlobalPrefix(globalPrefix);

@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Settlement } from '@mud/database';
+import { WORLD_CHUNK_SIZE } from '@mud/constants';
 @Injectable()
 export class WorldUtilsService {
-  static readonly CHUNK_SIZE = 50;
+  static readonly CHUNK_SIZE = WORLD_CHUNK_SIZE;
 
   /**
    * Calculate the minimum distance required between settlements based on size

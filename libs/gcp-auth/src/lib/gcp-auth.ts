@@ -2,8 +2,34 @@ import { GoogleAuth, IdTokenClient } from 'google-auth-library';
 
 type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
 
+export interface AuthLogger {
+  log: (...args: unknown[]) => void;
+  warn: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
+}
+
 // Cache IdTokenClient per audience to avoid re-creating on every call
 const clientCache = new Map<string, Promise<IdTokenClient>>();
+let currentLogger: AuthLogger = console;
+let hasLoggedLocalModeNotice = false;
+
+export function setAuthLogger(logger: AuthLogger | null | undefined): void {
+  currentLogger = logger ?? console;
+}
+
+function serialize(value: unknown): string {
+  if (value instanceof Error) {
+    return value.stack ? `${value.message}\n${value.stack}` : value.message;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
 
 function isLocalhost(hostname: string): boolean {
   return (
@@ -65,16 +91,14 @@ export async function getCloudRunAuthHeaders(
     if (authHeader) {
       return { Authorization: String(authHeader) };
     } else {
-      console.error(
-        `[GCP-AUTH] ERROR: No Authorization header found in response:`,
-        headers,
+      currentLogger.error(
+        `[GCP-AUTH] ERROR: No Authorization header found in response: ${serialize(headers)}`,
       );
       return {};
     }
   } catch (error) {
-    console.error(
-      `[GCP-AUTH] ERROR getting auth headers for ${urlStr}:`,
-      error,
+    currentLogger.error(
+      `[GCP-AUTH] ERROR getting auth headers for ${urlStr}: ${serialize(error)}`,
     );
     throw error;
   }
@@ -104,7 +128,10 @@ export const authorizedFetch: typeof fetch = async (input, init) => {
   const initOptions: FetchInit = init ? { ...init } : {};
 
   if (!isRunningInGcp()) {
-    console.log(`[GCP-AUTH] Not running in GCP, using standard fetch`);
+    if (!hasLoggedLocalModeNotice) {
+      currentLogger.log(`[GCP-AUTH] Not running in GCP, using standard fetch`);
+      hasLoggedLocalModeNotice = true;
+    }
     return fetch(input, initOptions);
   }
 
@@ -133,14 +160,16 @@ export const authorizedFetch: typeof fetch = async (input, init) => {
     const response = await fetch(input, { ...initOptions, headers: merged });
 
     if (!response.ok) {
-      console.error(
+      currentLogger.error(
         `[GCP-AUTH] Request failed with status ${response.status}: ${response.statusText}`,
       );
     }
 
     return response;
   } catch (error) {
-    console.error(`[GCP-AUTH] Error in authorizedFetch for ${urlStr}:`, error);
+    currentLogger.error(
+      `[GCP-AUTH] Error in authorizedFetch for ${urlStr}: ${serialize(error)}`,
+    );
     throw error;
   }
 };
@@ -150,4 +179,5 @@ export const authorizedFetch: typeof fetch = async (input, init) => {
  */
 export function __clearAuthClientCache(): void {
   clientCache.clear();
+  hasLoggedLocalModeNotice = false;
 }

@@ -14,10 +14,12 @@ In your HTTP client creation, pass `authorizedFetch`:
 
 ```ts
 import { GraphQLClient } from 'graphql-request';
-import { authorizedFetch } from '@mud/gcp-auth';
+import { authorizedFetch, setAuthLogger } from '@mud/gcp-auth';
+
+setAuthLogger(customLogger); // optional, defaults to console
 
 const client = new GraphQLClient('https://your-cloud-run-url.a.run.app/graphql', {
-  fetch: authorizedFetch as any,
+  fetch: authorizedFetch,
 });
 ```
 
@@ -25,6 +27,8 @@ The helper will:
 
 - For non-localhost URLs, derive the audience from the URL origin and sign an ID token using ADC.
 - For localhost (127.0.0.1, ::1), send the request without auth headers.
+
+`setAuthLogger` accepts any object with `log`, `warn`, and `error` methods (e.g., Nest `Logger`, Pino, Winston) so you can integrate with your service's structured logging.
 
 ## Requirements
 

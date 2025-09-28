@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { worldSdk } from '../gql-client';
 import { WorldTile } from '../../generated/world-graphql';
-
+import { WORLD_CHUNK_SIZE } from '@mud/constants';
 export interface Biome {
   id: number;
   name: string;
@@ -31,8 +31,6 @@ export interface Settlement {
   intensity: number;
   isCenter: boolean;
 }
-
-const WORLD_CHUNK_SIZE = 50;
 
 @Injectable()
 export class WorldService {
