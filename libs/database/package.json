@@ -1,9 +1,9 @@
 {
   "name": "@mud/database",
   "version": "1.0.0",
-  "exports": {
-    ".": "./src/index.ts"
-  },
+  "files": [
+    "dist/**"
+  ],
   "scripts": {
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
@@ -15,7 +15,8 @@
     "lint": "eslint . --max-warnings 0",
     "prebuild": "yarn run generate",
     "predev": "yarn run generate",
-    "studio": "prisma studio"
+    "studio": "prisma studio",
+    "build": "tsc"
   },
   "dependencies": {
     "@prisma/client": "latest"

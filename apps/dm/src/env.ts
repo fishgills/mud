@@ -1,4 +1,7 @@
+import { config as loadDotenv } from 'dotenv';
 import { cleanEnv, str, url, num } from 'envalid';
+
+loadDotenv();
 
 export const env = cleanEnv(process.env, {
   OPENAI_API_KEY: str({ devDefault: 'test-openai-key' }),

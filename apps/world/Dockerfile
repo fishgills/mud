@@ -1,9 +1,22 @@
 
+## --- Turbo prune stage ---
+FROM node:slim AS pruner
+WORKDIR /workspace
+
+COPY turbo.json package.json yarn.lock ./
+COPY tsconfig*.json ./
+COPY eslint.config.mjs ./
+COPY apps/world/package.json ./apps/world/package.json
+COPY libs/database/package.json ./libs/database/package.json
+COPY libs/gcp-auth/package.json ./libs/gcp-auth/package.json
+COPY libs/constants/package.json ./libs/constants/package.json
+
+RUN npx turbo prune --scope=@mud/world --docker
+
 ## --- Builder stage ---
 FROM node:slim AS builder
 WORKDIR /workspace
 
-ENV NX_DAEMON=false
 # Install build tools and headers for node-canvas
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -11,26 +24,19 @@ RUN apt-get update \
   libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package.json tsconfig* nx.json package-lock.json ./
-COPY eslint.config.mjs ./
+COPY --from=pruner /workspace/out/json/ ./
 
 # Install dependencies and build (allow scripts for native modules like canvas)
-RUN npm install
-
-# Copy all apps directory structure so Nx can detect projects
-COPY apps/world/package.json ./apps/world/package.json
-COPY apps/world/tsconfig*.json ./apps/world/
-COPY apps/world/webpack.config.js ./apps/world/
-COPY apps/world/eslint.config.mjs ./apps/world/
+RUN yarn install --frozen-lockfile
 
 # Copy libs and the actual source code
-COPY libs ./libs/
-COPY apps/world/src ./apps/world/src/
+COPY --from=pruner /workspace/out/full/ ./
 ## Generate Prisma Client for the workspace schema used by libs/database
-RUN npx prisma generate --schema=libs/database/prisma/schema.prisma
-## Sync the workspace to update TypeScript configuration
-RUN NX_DAEMON=false npx nx sync
-RUN NX_DAEMON=false npx nx run @mud/world:build:production
+RUN yarn prisma generate --schema=libs/database/prisma/schema.prisma
+RUN yarn tsc -p libs/database/tsconfig.lib.json
+RUN yarn tsc -p libs/gcp-auth/tsconfig.lib.json
+RUN yarn tsc -p libs/constants/tsconfig.lib.json
+RUN yarn workspace @mud/world build
 
 ## --- Runtime stage ---
 FROM node:slim AS runtime
@@ -49,9 +55,17 @@ COPY --from=builder /workspace/node_modules /app/node_modules
 COPY --from=builder /workspace/libs/database/dist /app/node_modules/@mud/database/dist
 COPY --from=builder /workspace/libs/database/package.json /app/node_modules/@mud/database/package.json
 
+# Include the internal @mud/gcp-auth library so runtime can resolve it
+COPY --from=builder /workspace/libs/gcp-auth/dist /app/node_modules/@mud/gcp-auth/dist
+COPY --from=builder /workspace/libs/gcp-auth/package.json /app/node_modules/@mud/gcp-auth/package.json
+
+# Include the internal @mud/constants library so runtime can resolve it
+COPY --from=builder /workspace/libs/constants/dist /app/node_modules/@mud/constants/dist
+COPY --from=builder /workspace/libs/constants/package.json /app/node_modules/@mud/constants/package.json
+
 # Copy built app from builder
 COPY --from=builder /workspace/apps/world/dist ./
-COPY apps/world/package.json ./app-package.json
+COPY --from=builder /workspace/apps/world/package.json ./app-package.json
 
 ARG PORT=3001
 ENV PORT=$PORT
