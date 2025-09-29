@@ -2,13 +2,14 @@
   "name": "@mud/constants",
   "version": "0.0.1",
   "private": true,
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/constants.js",
+  "module": "./dist/constants.js",
+  "types": "./dist/constants.d.ts",
   "scripts": {
     "check-types": "tsc --noEmit"
   },
   "exports": {
+    ".": "./src/constants.ts",
     "./constants": "./src/constants.ts"
   },
   "dependencies": {

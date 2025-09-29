@@ -3,10 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/gcp-auth.js",
+  "module": "./dist/gcp-auth.js",
+  "types": "./dist/gcp-auth.d.ts",
   "exports": {
+    ".": "./src/gcp-auth.ts",
     "./gcp-auth": "./src/gcp-auth.ts"
   },
   "dependencies": {

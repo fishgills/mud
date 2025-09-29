@@ -2,10 +2,11 @@
   "name": "@mud/redis-client",
   "version": "0.0.1",
   "private": true,
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/redis-client.js",
+  "module": "./dist/redis-client.js",
+  "types": "./dist/redis-client.d.ts",
   "exports": {
+    ".": "./src/redis-client.ts",
     "./redis-client*": "./src/redis-client.ts"
   },
   "dependencies": {
