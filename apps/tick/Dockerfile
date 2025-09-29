@@ -1,45 +1,34 @@
-FROM node:slim AS pruner
-WORKDIR /workspace
+FROM node:alpine AS base
 
-COPY turbo.json package.json yarn.lock ./
-COPY tsconfig*.json ./
-COPY eslint.config.mjs ./
-COPY apps/tick/package.json ./apps/tick/package.json
-COPY libs/gcp-auth/package.json ./libs/gcp-auth/package.json
+FROM base AS builder
+RUN apk update
+RUN apk add --no-cache libc6-compat
+# Set working directory
+WORKDIR /app
+RUN yarn global add turbo
+COPY . .
+RUN turbo prune @mud/tick --docker
 
-RUN npx turbo prune --scope=@mud/tick --docker
-
-FROM node:slim AS builder
-WORKDIR /workspace
-
-COPY --from=pruner /workspace/out/json/ ./
-RUN yarn install --frozen-lockfile
-COPY --from=pruner /workspace/out/full/ ./
-
-RUN yarn tsc -p libs/gcp-auth/tsconfig.lib.json
-RUN yarn workspace @mud/tick build
-
-## --- Runtime stage ---
-FROM node:alpine AS runtime
-ENV HOST=0.0.0.0
-ARG PORT=3002
-ENV PORT=$PORT
+# Add lockfile and package.json's of isolated subworkspace
+FROM base AS installer
+RUN apk update
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY --from=builder /workspace/package.json ./
-COPY --from=builder /workspace/yarn.lock ./
-RUN yarn install --frozen-lockfile --production --ignore-scripts
+# First install dependencies (as they change less often)
+COPY --from=builder /app/out/json/ .
+RUN yarn install
 
-# Include the internal @mud/gcp-auth library so runtime can resolve it
-COPY --from=builder /workspace/libs/gcp-auth/dist ./node_modules/@mud/gcp-auth/dist
-COPY --from=builder /workspace/libs/gcp-auth/package.json ./node_modules/@mud/gcp-auth/package.json
+COPY --from=builder /app/out/full/ .
+RUN yarn turbo build
 
-COPY --from=builder /workspace/apps/tick/dist ./tick
-COPY --from=builder /workspace/apps/tick/package.json ./tick/package.json
+FROM base AS runner
+WORKDIR /app
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "console.log('tick ok')" || exit 1
+# Don't run production as root
+RUN addgroup --system --gid 1001 expressjs
+RUN adduser --system --uid 1001 expressjs
+USER expressjs
+COPY --from=installer /app .
 
-EXPOSE $PORT
-# Run the compiled entrypoint
-CMD [ "node", "tick/main.js" ]
+CMD node apps/tick/dist/main.js

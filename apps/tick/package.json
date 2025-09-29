@@ -4,9 +4,15 @@
   "private": true,
   "dependencies": {},
   "devDependencies": {
-    "@tsconfig/node22": "^22.0.2"
+    "@mud/gcp-auth": "*",
+    "@tsconfig/node22": "^22.0.2",
+    "@types/node": "^24.5.2",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.9.2"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "serve": "ts-node-dev --respawn src/main.ts"
   }
 }
