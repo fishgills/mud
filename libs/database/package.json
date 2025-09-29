@@ -1,9 +1,9 @@
 {
   "name": "@mud/database",
   "version": "1.0.0",
-  "files": [
-    "dist/**"
-  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",

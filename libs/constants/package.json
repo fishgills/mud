@@ -6,17 +6,10 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
     "check-types": "tsc --noEmit"
   },
   "exports": {
-    "./package.json": "./package.json",
-    ".": {
-      "development": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
-    }
+    "./constants": "./src/constants.ts"
   },
   "dependencies": {
     "tslib": "^2.3.0"

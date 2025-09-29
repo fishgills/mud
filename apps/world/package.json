@@ -17,6 +17,18 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\""
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "@mud/database": "*",
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/core": "^11.1.6",
+    "dd-trace": "^5.67.0",
+    "dotenv": "^17.2.2",
+    "envalid": "^8.1.0",
+    "seedrandom": "^3.0.5",
+    "simplex-noise": "^4.0.3"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.10",
+    "typescript": "^5.9.2"
+  }
 }
