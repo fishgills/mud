@@ -1,17 +1,10 @@
-/* eslint-disable */
-const swcJestConfig = {
-  ...require('../../jest.swc.config.cjs'),
-  swcrc: false,
-};
-
 module.exports = {
-  displayName: 'world',
+  displayName: '@mud/tick',
   testEnvironment: 'node',
   transform: {
-    '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
+    '^.+\\.[tj]s$': ['@swc/jest', { ...require('../../jest.swc.config.cjs'), swcrc: false }],
   },
   transformIgnorePatterns: ['node_modules/(?!(graphql-request)/)'],
   moduleFileExtensions: ['ts', 'js', 'html'],
   coverageDirectory: 'test-output/jest/coverage',
-  collectCoverageFrom: ['src/**/*.{ts,js}'],
 };

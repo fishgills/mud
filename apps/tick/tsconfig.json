@@ -8,7 +8,7 @@
   "exclude": [
     "out-tsc",
     "dist",
-    "jest.config.ts",
+    "jest.config.js",
     "src/**/*.spec.ts",
     "src/**/*.test.ts",
     "eslint.config.js",
