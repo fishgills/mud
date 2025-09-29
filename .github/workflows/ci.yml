@@ -20,13 +20,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'yarn'
 
       - name: Install dependencies
-        run: npm install
+        run: yarn install --frozen-lockfile
+
+      - name: Restore Turborepo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .turbo
+            node_modules/.cache/turbo
+          key: ${{ runner.os }}-turbo-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-
+            ${{ runner.os }}-turbo-
 
       - name: Generate Prisma client
-        run: npx prisma generate --schema=libs/database/prisma/schema.prisma
+        run: yarn --cwd libs/database generate
 
       - name: Run unit tests
-        run: npx nx run-many -t test --all --parallel --no-cloud
+        run: yarn turbo run test --continue

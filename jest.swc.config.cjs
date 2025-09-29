@@ -1,0 +1,18 @@
+module.exports = {
+  sourceMaps: true,
+  module: {
+    type: 'commonjs',
+  },
+  jsc: {
+    target: 'es2022',
+    parser: {
+      syntax: 'typescript',
+      decorators: true,
+      dynamicImport: true,
+    },
+    transform: {
+      decoratorMetadata: true,
+    },
+    keepClassNames: true,
+  },
+};

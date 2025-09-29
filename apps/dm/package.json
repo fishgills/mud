@@ -17,23 +17,6 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\""
   },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
-    "collectCoverageFrom": [
-      "**/*.(t|j)s"
-    ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
-  },
   "dependencies": {
     "@apollo/server": "^4.11.3",
     "@google-cloud/vertexai": "^1.10.0",

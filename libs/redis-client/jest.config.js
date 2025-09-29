@@ -1,14 +1,8 @@
-/* eslint-disable */
-const swcJestConfig = {
-  ...require('../../jest.swc.config.cjs'),
-  swcrc: false,
-};
-
 module.exports = {
-  displayName: 'world',
+  displayName: '@mud/redis-client',
   testEnvironment: 'node',
   transform: {
-    '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
+    '^.+\\.[tj]s$': ['@swc/jest', { ...require('../../jest.swc.config.cjs'), swcrc: false }],
   },
   transformIgnorePatterns: ['node_modules/(?!(graphql-request)/)'],
   moduleFileExtensions: ['ts', 'js', 'html'],
