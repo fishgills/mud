@@ -25,10 +25,6 @@ RUN yarn turbo build
 FROM base AS runner
 WORKDIR /app
 
-# Don't run production as root
-RUN addgroup --system --gid 1001 expressjs
-RUN adduser --system --uid 1001 expressjs
-USER expressjs
 COPY --from=installer /app .
 
 CMD node apps/dm/dist/src/main.js
