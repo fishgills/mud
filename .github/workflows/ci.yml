@@ -12,20 +12,48 @@ jobs:
   unit-tests:
     name: Run unit tests
     runs-on: ubuntu-latest
+    env:
+      PR_HAS_OPEN: 'false'
     steps:
+      - name: Detect open pull request for branch
+        id: detect_pr
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const branch = context.ref.replace('refs/heads/', '');
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${branch}`,
+              state: 'open',
+            });
+            const isOpen = prs.length > 0;
+            core.setOutput('has_open_pr', isOpen);
+            core.exportVariable('PR_HAS_OPEN', isOpen ? 'true' : 'false');
+
+      - name: Skip duplicate run
+        if: ${{ github.event_name == 'push' && env.PR_HAS_OPEN == 'true' }}
+        run: echo "Open pull request detected for this branch; skipping push-triggered job."
+
       - name: Checkout repository
+        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
         uses: actions/checkout@v4
 
       - name: Set up Node.js
+        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'yarn'
 
       - name: Install dependencies
+        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
         run: yarn install --frozen-lockfile
 
       - name: Restore Turborepo cache
+        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
         uses: actions/cache@v4
         with:
           path: |
@@ -37,7 +65,9 @@ jobs:
             ${{ runner.os }}-turbo-
 
       - name: Generate Prisma client
+        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
         run: yarn --cwd libs/database generate
 
       - name: Run unit tests
+        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
         run: yarn turbo run test --continue
