@@ -100,8 +100,8 @@ export class CacheService implements OnModuleDestroy {
         COUNT: 1000,
       })) {
         const keys = Array.isArray(key) ? key : [key];
-        for (const value of keys) {
-          batch.push(String(value));
+        for (const currentKey of keys) {
+          batch.push(String(currentKey));
           if (batch.length >= 500) {
             await flush();
           }
