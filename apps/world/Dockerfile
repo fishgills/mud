@@ -36,7 +36,7 @@ COPY libs/database/prisma ./libs/database/prisma
 ## Build internal libraries (database build runs prisma generate via its prebuild hook)
 RUN yarn workspace @mud/database build
 RUN yarn workspace @mud/gcp-auth build
-RUN yarn tsc -p libs/constants/tsconfig.lib.json
+RUN yarn workspace @mud/constants build
 RUN yarn workspace @mud/world build
 
 ## --- Runtime stage ---
