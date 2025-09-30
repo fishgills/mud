@@ -24,22 +24,33 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Determine eligibility
+        id: eligibility
+        run: |
+          if [[ "${UPDATE_TYPE}" == "security" || "${UPDATE_TYPE}" == "version-update:semver-patch" ]]; then
+            echo "eligible=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "eligible=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+
       - name: Approve patch or security updates
-        if: ${{ steps.metadata.outputs.update-type == 'security' || steps.metadata.outputs.update-type == 'version-update:semver-patch' }}
+        if: ${{ steps.eligibility.outputs.eligible == 'true' }}
         run: gh pr review "$PR_URL" --approve --body "Automatically approved by Dependabot automation workflow."
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge for eligible updates
-        if: ${{ steps.metadata.outputs.update-type == 'security' || steps.metadata.outputs.update-type == 'version-update:semver-patch' }}
+        if: ${{ steps.eligibility.outputs.eligible == 'true' }}
         run: gh pr merge "$PR_URL" --auto --squash
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Add automerge label for visibility
-        if: ${{ steps.metadata.outputs.update-type == 'security' || steps.metadata.outputs.update-type == 'version-update:semver-patch' }}
+        if: ${{ steps.eligibility.outputs.eligible == 'true' }}
         run: gh pr edit "$PR_URL" --add-label "automerge"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
