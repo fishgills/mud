@@ -1,22 +1,11 @@
-/* eslint-disable */
-const { readFileSync } = require('fs');
-
-// Read the SWC compilation config for the spec files
-const swcJestConfig = JSON.parse(
-  readFileSync(`${__dirname}/.spec.swcrc`, 'utf-8'),
-);
-
-swcJestConfig.swcrc = false;
-
 module.exports = {
-  displayName: '@mud/dm',
-  preset: '../../jest.preset.js',
+  displayName: 'dm',
   testEnvironment: 'node',
   transform: {
-    '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
+    '^.+\\.[tj]s$': ['@swc/jest', { ...require('../../jest.swc.config.cjs'), swcrc: false }],
   },
+  transformIgnorePatterns: ['node_modules/(?!(graphql-request)/)'],
   moduleFileExtensions: ['ts', 'js', 'html'],
-  transformIgnorePatterns: ['/node_modules/(?!(graphql-request)/)'],
-  coverageDirectory: 'test-output/jest/coverage',
+  coverageDirectory: 'coverage',
   collectCoverageFrom: ['src/**/*.{ts,js}'],
 };

@@ -11,7 +11,7 @@ import { GridMapGenerator } from '../gridmap/gridmap-generator';
 import { DEFAULT_BIOMES } from '../gridmap/default-biomes';
 import { buildGridConfigs, deriveTemperature } from '../gridmap/utils';
 import { mapGridBiomeToBiomeInfo } from '../gridmap/biome-mapper';
-
+import { WORLD_CHUNK_SIZE } from '@mud/constants';
 @Injectable()
 export class RenderService {
   private readonly logger = new Logger(RenderService.name);
@@ -28,10 +28,9 @@ export class RenderService {
     minY: number,
     maxY: number,
     pixelsPerTile = 4,
-    debugOverlay = false,
   ) {
+    const chunkSize = WORLD_CHUNK_SIZE;
     // Attempt fast path: compose from cached chunk PNGs if all present
-    const chunkSize = 50;
     const p = Math.max(1, Math.floor(pixelsPerTile));
     this.logger.debug(
       `Attempting chunk-compose: bounds=(${minX},${minY})-(${maxX - 1},${
@@ -465,7 +464,7 @@ export class RenderService {
       : [];
     const settlementMap = new Map(settlements.map((s) => [`${s.x},${s.y}`, s]));
 
-    let tileMap: Map<string, WorldTile>;
+    const tileMap = new Map<string, WorldTile>();
     // Compute-on-the-fly path: only fetch descriptions for tiles that have them
     const seed = this.worldService.getCurrentSeed();
     const { heightConfig, moistureConfig } = buildGridConfigs();
@@ -476,9 +475,6 @@ export class RenderService {
       seed,
     );
 
-    // Optionally fetch described tiles in bounds so we can attach descriptions if present
-
-    tileMap = new Map();
     for (let y = minY; y < maxY; y++) {
       for (let x = minX; x < maxX; x++) {
         const key = `${x},${y}` as string;

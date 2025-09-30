@@ -5,70 +5,44 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
-  "nx": {
-    "targets": {
-      "build": {
-        "executor": "nx:run-commands",
-        "options": {
-          "command": "webpack-cli build",
-          "args": [
-            "node-env=production"
-          ]
-        },
-        "configurations": {
-          "development": {
-            "args": [
-              "node-env=development"
-            ]
-          },
-          "production": {
-            "args": [
-              "node-env=production"
-            ]
-          }
-        }
-      },
-      "serve": {
-        "continuous": true,
-        "executor": "@nx/js:node",
-        "defaultConfiguration": "development",
-        "dependsOn": [
-          "typecheck",
-          "build"
-        ],
-        "options": {
-          "buildTarget": "@mud/dm:build",
-          "runBuildTargetDependencies": false,
-          "port": 9231
-        },
-        "configurations": {
-          "development": {
-            "buildTarget": "@mud/dm:build:development"
-          },
-          "production": {
-            "buildTarget": "@mud/dm:build:production"
-          }
-        }
-      },
-      "codegen": {
-        "command": "npx graphql-codegen --config {projectRoot}/codegen.ts"
-      },
-      "test": {
-        "options": {
-          "passWithNoTests": true,
-          "jestConfig": "apps/dm/jest.config.js",
-          "codeCoverage": true,
-          "coverageReporters": [
-            "text"
-          ]
-        },
-        "executor": "@nx/jest:jest",
-        "outputs": [
-          "{projectRoot}/coverage"
-        ]
-      }
-    }
+  "scripts": {
+    "serve": "nest start --watch",
+    "build": "nest build",
+    "start": "nest start",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\""
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "@apollo/server": "^4.11.3",
+    "@google-cloud/vertexai": "^1.10.0",
+    "@mud/constants": "*",
+    "@mud/database": "*",
+    "@mud/gcp-auth": "*",
+    "@nestjs/apollo": "^13.1.0",
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/core": "^11.1.6",
+    "@nestjs/graphql": "^13.1.0",
+    "@nestjs/platform-express": "^11.1.6",
+    "dd-trace": "^5.67.0",
+    "dotenv": "^17.2.2",
+    "envalid": "^8.1.0",
+    "express": "^5.1.0",
+    "graphql": "^16.11.0",
+    "graphql-request": "^7.2.0",
+    "graphql-tag": "^2.12.6",
+    "openai": "^5.23.1",
+    "redis": "^5.8.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@graphql-codegen/cli": "^6.0.0",
+    "@nestjs/cli": "^11.0.10",
+    "typescript": "^5.9.2"
+  }
 }

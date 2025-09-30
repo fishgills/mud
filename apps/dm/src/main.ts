@@ -2,15 +2,18 @@ import './tracer';
 import './env';
 
 import { Logger } from '@nestjs/common';
+import { setAuthLogger } from '@mud/gcp-auth';
 
 import { NestFactory } from '@nestjs/core';
+import { Request, Response, NextFunction } from 'express';
 import { AppModule } from './app/app.module';
 
 async function bootstrap() {
+  setAuthLogger(new Logger('GCP-AUTH'));
   const app = await NestFactory.create(AppModule);
 
   // Add global request logging
-  app.use((req: any, res: any, next: any) => {
+  app.use((req: Request, res: Response, next: NextFunction) => {
     const logger = new Logger('HTTP');
     logger.log(`[DM-HTTP] ${req.method} ${req.url}`);
     logger.log(`[DM-HTTP] Headers: ${JSON.stringify(req.headers)}`);

@@ -69,9 +69,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'yarn'
 
       - name: Install dependencies
-        run: npm ci
+        run: yarn install --frozen-lockfile
+
+      - name: Restore Turborepo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .turbo
+            node_modules/.cache/turbo
+          key: ${{ runner.os }}-turbo-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-
+            ${{ runner.os }}-turbo-
 
       - name: Determine affected deployment scope
         id: affected
@@ -110,27 +122,51 @@ jobs:
             echo "workflow_dispatch event detected; deploying all services."
             SERVICES=("${ALL_SERVICES[@]}")
           else
-            NX_OUTPUT_FILE=$(mktemp)
-            if npx nx print-affected --type=app --select=projects --base="$BASE_SHA" --head="$HEAD_SHA" >"$NX_OUTPUT_FILE"; then
-              while IFS= read -r project; do
-                [ -n "$project" ] || continue
-                mapped=""
-                case "$project" in
-                  "@mud/dm"|"dm") mapped="dm" ;;
-                  "@mud/world"|"world") mapped="world" ;;
-                  "@mud/slack-bot"|"slack-bot") mapped="slack-bot" ;;
-                  "@mud/tick"|"tick") mapped="tick" ;;
-                esac
-                if [ -n "$mapped" ] && [ -z "${seen[$mapped]:-}" ]; then
-                  SERVICES+=("$mapped")
-                  seen[$mapped]=1
+            declare -A package_map=(
+              [dm]="@mud/dm"
+              [world]="@mud/world"
+              [slack-bot]="@mud/slack-bot"
+              [tick]="@mud/tick"
+            )
+
+            TURBO_BIN="./node_modules/.bin/turbo"
+            if [ ! -x "$TURBO_BIN" ]; then
+              TURBO_BIN=""
+            fi
+
+            run_turbo() {
+              if [ -n "$TURBO_BIN" ]; then
+                "$TURBO_BIN" "$@"
+              else
+                npx --yes turbo "$@"
+              fi
+            }
+
+            TURBO_FAILURE=0
+            for svc in "${ALL_SERVICES[@]}"; do
+              pkg="${package_map[$svc]}"
+              tmp_json=$(mktemp)
+              tmp_err=$(mktemp)
+              if run_turbo run build "--filter=${pkg}...[${BASE_SHA}]" --dry-run=json >"$tmp_json" 2>"$tmp_err"; then
+                task_count=$(jq '.tasks | length' "$tmp_json")
+                if [ "$task_count" -gt 0 ] && [ -z "${seen[$svc]:-}" ]; then
+                  SERVICES+=("$svc")
+                  seen[$svc]=1
                 fi
-              done <"$NX_OUTPUT_FILE"
-            else
-              echo "nx print-affected failed; defaulting to all services."
+              else
+                echo "Failed to evaluate turborepo changes for ${svc}."
+                cat "$tmp_err" || true
+                TURBO_FAILURE=1
+                rm -f "$tmp_json" "$tmp_err"
+                break
+              fi
+              rm -f "$tmp_json" "$tmp_err"
+            done
+
+            if [ $TURBO_FAILURE -eq 1 ]; then
+              echo "turborepo change detection failed; defaulting to all services."
               SERVICES=("${ALL_SERVICES[@]}")
             fi
-            rm -f "$NX_OUTPUT_FILE"
           fi
 
           if [ ${#SERVICES[@]} -gt 0 ]; then
@@ -155,7 +191,7 @@ jobs:
             echo "Affected services: ${SERVICES[*]}"
           else
             HAS_SERVICE_CHANGES=false
-            echo "No Nx-affected services detected."
+            echo "No Turborepo-affected services detected."
           fi
 
           if [ $INFRA_CHANGED -eq 1 ]; then
@@ -224,10 +260,6 @@ jobs:
       - name: Configure Docker authentication
         if: steps.affected.outputs.has_service_changes == 'true'
         run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
-
-      - name: Sync Nx workspace
-        if: steps.affected.outputs.has_service_changes == 'true'
-        run: npx nx sync
 
   build-service:
     name: Build and Push Service (${{ matrix.service }})
@@ -514,9 +546,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'yarn'
 
       - name: Install dependencies
-        run: npm ci
+        run: yarn install --frozen-lockfile
 
       - name: Ensure Workload Identity secrets are configured
         env:

@@ -1,4 +1,7 @@
+import { config as loadDotenv } from 'dotenv';
 import { cleanEnv, str, url, num, bool } from 'envalid';
+
+loadDotenv();
 
 export const env = cleanEnv(process.env, {
   DATABASE_URL: str(),

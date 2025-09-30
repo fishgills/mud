@@ -1,0 +1,18 @@
+{
+  "name": "@mud/redis-client",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/redis-client.js",
+  "module": "./dist/redis-client.js",
+  "types": "./dist/redis-client.d.ts",
+  "exports": {
+    ".": "./src/redis-client.ts",
+    "./redis-client*": "./src/redis-client.ts"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "scripts": {
+    "build": "tsc"
+  }
+}

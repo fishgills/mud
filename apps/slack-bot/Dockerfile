@@ -1,51 +1,34 @@
-FROM node:slim AS builder
-WORKDIR /workspace
+FROM node:alpine AS base
 
-# RUN apt-get update && apt-get install -y python3 make gcc g++ pkg-config
+FROM base AS builder
+RUN apk update
+RUN apk add --no-cache libc6-compat
+# Set working directory
+WORKDIR /app
+RUN yarn global add turbo
+COPY . .
+RUN turbo prune @mud/slack-bot --docker
 
-COPY package.json tsconfig* nx.json package-lock.json ./
-COPY eslint.config.mjs ./
-
-RUN npm install
-
-# Copy project configuration files so Nx can detect projects
-COPY apps/slack-bot/package.json ./apps/slack-bot/package.json
-COPY apps/slack-bot/tsconfig*.json ./apps/slack-bot/
-COPY apps/slack-bot/eslint.config.mjs ./apps/slack-bot/
-
-# Copy libs and source code
-COPY libs ./libs/
-COPY apps/slack-bot/src ./apps/slack-bot/src/
-COPY apps/slack-bot/codegen.ts ./apps/slack-bot/
-
-RUN NX_DAEMON=false npx nx sync
-# Build gcp-auth first and create a symlink to the dist in node_modules
-RUN NX_DAEMON=false npx nx build gcp-auth
-RUN mkdir -p node_modules/@mud/gcp-auth
-RUN cp libs/gcp-auth/package.json node_modules/@mud/gcp-auth/
-RUN ln -sf ../../../libs/gcp-auth/dist node_modules/@mud/gcp-auth/dist
-RUN NX_DAEMON=false npx nx run slack-bot:build:production
-
-## --- Runtime stage ---
-FROM node:alpine AS runtime
-ENV HOST=0.0.0.0
-ARG PORT=3002
-ENV PORT=$PORT
+# Add lockfile and package.json's of isolated subworkspace
+FROM base AS installer
+RUN apk update
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --only=production --ignore-scripts
+# First install dependencies (as they change less often)
+COPY --from=builder /app/out/json/ .
+RUN yarn install
 
-# Include the internal @mud/gcp-auth library so runtime can resolve it
-COPY --from=builder /workspace/libs/gcp-auth/dist ./node_modules/@mud/gcp-auth/dist
-COPY --from=builder /workspace/libs/gcp-auth/package.json ./node_modules/@mud/gcp-auth/package.json
+COPY --from=builder /app/out/full/ .
+RUN yarn turbo build
 
-COPY --from=builder /workspace/apps/slack-bot/dist ./slack-bot
-COPY apps/slack-bot/package.json ./slack-bot/package.json
+FROM base AS runner
+WORKDIR /app
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "console.log('slack-bot ok')" || exit 1
+# Don't run production as root
+RUN addgroup --system --gid 1001 expressjs
+RUN adduser --system --uid 1001 expressjs
+USER expressjs
+COPY --from=installer /app .
 
-EXPOSE $PORT
-# Run the compiled entrypoint
-CMD [ "node", "slack-bot/main.js" ]
+CMD node apps/slack-bot/dist/main.js

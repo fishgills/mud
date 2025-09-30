@@ -5,6 +5,7 @@ import { ChunkData } from './types';
 import { ChunkGeneratorService } from './chunk-generator.service';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
 import { WorldTile } from './models';
+import { WORLD_CHUNK_SIZE } from '@mud/constants';
 
 export interface TileWithNearbyBiomes extends WorldTile {
   nearbyBiomes: Array<{
@@ -159,7 +160,7 @@ export class TileService {
   }
 
   async analyzeSettlements(x: number, y: number) {
-    const radius = 50;
+    const radius = WORLD_CHUNK_SIZE;
     const settlements = await this.worldDatabase.getSettlementsInRadius(
       x,
       y,

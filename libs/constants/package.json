@@ -1,0 +1,18 @@
+{
+  "name": "@mud/constants",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/constants.js",
+  "module": "./dist/constants.js",
+  "types": "./dist/constants.d.ts",
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "exports": {
+    ".": "./src/constants.ts",
+    "./constants": "./src/constants.ts"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  }
+}

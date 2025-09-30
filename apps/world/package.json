@@ -1,101 +1,37 @@
 {
   "name": "@mud/world",
   "version": "0.0.1",
+  "description": "",
+  "author": "",
   "private": true,
-  "nx": {
-    "targets": {
-      "build": {
-        "executor": "nx:run-commands",
-        "options": {
-          "command": "webpack-cli build",
-          "args": [
-            "--node-env=production"
-          ],
-          "cwd": "apps/world"
-        },
-        "configurations": {
-          "development": {
-            "args": [
-              "--node-env=development"
-            ]
-          }
-        }
-      },
-      "prune-lockfile": {
-        "dependsOn": [
-          "build"
-        ],
-        "cache": true,
-        "executor": "@nx/js:prune-lockfile",
-        "outputs": [
-          "{workspaceRoot}/apps/world/dist/package.json",
-          "{workspaceRoot}/apps/world/dist/package-lock.json"
-        ],
-        "options": {
-          "buildTarget": "build"
-        }
-      },
-      "copy-workspace-modules": {
-        "dependsOn": [
-          "build"
-        ],
-        "cache": true,
-        "outputs": [
-          "{workspaceRoot}/apps/world/dist/workspace_modules"
-        ],
-        "executor": "@nx/js:copy-workspace-modules",
-        "options": {
-          "buildTarget": "build"
-        }
-      },
-      "prune": {
-        "dependsOn": [
-          "prune-lockfile",
-          "copy-workspace-modules"
-        ],
-        "executor": "nx:noop"
-      },
-      "serve": {
-        "continuous": true,
-        "executor": "@nx/js:node",
-        "defaultConfiguration": "development",
-        "dependsOn": [
-          "build"
-        ],
-        "options": {
-          "buildTarget": "@mud/world:build",
-          "runBuildTargetDependencies": false
-        },
-        "configurations": {
-          "development": {
-            "buildTarget": "@mud/world:build:development"
-          },
-          "production": {
-            "buildTarget": "@mud/world:build:production"
-          }
-        }
-      },
-      "test": {
-        "options": {
-          "passWithNoTests": true,
-          "jestConfig": "apps/world/jest.config.js",
-          "codeCoverage": true,
-          "coverageReporters": [
-            "text"
-          ]
-        },
-        "executor": "@nx/jest:jest",
-        "outputs": [
-          "{projectRoot}/coverage"
-        ]
-      },
-      "docker:build": {
-        "dependsOn": [
-          "build",
-          "prune"
-        ]
-      }
-    }
+  "license": "UNLICENSED",
+  "scripts": {
+    "serve": "nest start --watch",
+    "build": "nest build",
+    "start": "nest start",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\""
   },
-  "dependencies": {}
+  "dependencies": {
+    "@mud/constants": "*",
+    "@mud/database": "*",
+    "@mud/gcp-auth": "*",
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/core": "^11.1.6",
+    "canvas": "^3.2.0",
+    "dd-trace": "^5.67.0",
+    "dotenv": "^17.2.2",
+    "envalid": "^8.1.0",
+    "seedrandom": "^3.0.5",
+    "simplex-noise": "^4.0.3"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.10",
+    "typescript": "^5.9.2"
+  }
 }

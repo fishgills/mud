@@ -1,9 +1,15 @@
 import http from 'http';
-import { authorizedFetch } from '@mud/gcp-auth';
+import { authorizedFetch, setAuthLogger } from '@mud/gcp-auth';
 
 // DM GraphQL endpoint for processTick mutation
 const DM_GRAPHQL_URL =
   process.env.DM_GRAPHQL_URL || 'http://localhost:3000/graphql';
+
+setAuthLogger({
+  log: (...args: unknown[]) => console.log(String(args[0] ?? '')),
+  warn: (...args: unknown[]) => console.warn(String(args[0] ?? '')),
+  error: (...args: unknown[]) => console.error(String(args[0] ?? '')),
+});
 
 // GraphQL mutation for processing a tick
 const PROCESS_TICK_MUTATION = `mutation {  processTick {    success    message    result {      tick      gameHour      gameDay      monstersSpawned      monstersMoved      combatEvents      weatherUpdated    }   } }`;

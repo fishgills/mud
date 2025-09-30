@@ -1,4 +1,5 @@
 import { App } from '@slack/bolt';
+import { setAuthLogger } from '@mud/gcp-auth';
 import { env } from './env';
 
 const app = new App({
@@ -7,6 +8,12 @@ const app = new App({
   // logLevel: LogLevel.,
   socketMode: false,
   appToken: env.SLACK_APP_TOKEN,
+});
+
+setAuthLogger({
+  log: (...args: unknown[]) => app.logger.info(String(args[0] ?? '')),
+  warn: (...args: unknown[]) => app.logger.warn(String(args[0] ?? '')),
+  error: (...args: unknown[]) => app.logger.error(String(args[0] ?? '')),
 });
 
 // Absorb ACME HTTP-01 challenge probes from Google-managed certs for domain mappings.
