@@ -1,8 +1,28 @@
 {
   "name": "@mud/database",
-  "version": "1.0.0",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@prisma/client": "latest",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "prisma": "^6.16.2",
+    "rimraf": "^5.0.5",
+    "tsup": "^8.0.2",
+    "tsx": "4.19.1",
+    "typescript": "5.5.4"
   },
   "scripts": {
     "db:migrate:deploy": "prisma migrate deploy",
@@ -17,16 +37,5 @@
     "predev": "yarn run generate",
     "studio": "prisma studio",
     "build": "tsc"
-  },
-  "dependencies": {
-    "@prisma/client": "latest"
-  },
-  "devDependencies": {
-    "eslint": "^8.57.0",
-    "prisma": "^6.16.2",
-    "rimraf": "^5.0.5",
-    "tsup": "^8.0.2",
-    "tsx": "4.19.1",
-    "typescript": "5.5.4"
   }
 }

@@ -7,8 +7,14 @@
   "module": "./dist/gcp-auth.js",
   "types": "./dist/gcp-auth.d.ts",
   "exports": {
-    ".": "./src/gcp-auth.ts",
-    "./gcp-auth": "./src/gcp-auth.ts"
+    ".": {
+      "types": "./dist/gcp-auth.d.ts",
+      "default": "./dist/gcp-auth.js"
+    },
+    "./gcp-auth": {
+      "types": "./dist/gcp-auth.d.ts",
+      "default": "./dist/gcp-auth.js"
+    }
   },
   "dependencies": {
     "google-auth-library": "^9.15.1",

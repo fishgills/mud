@@ -27,6 +27,7 @@
     "@nestjs/common": "^11.1.6",
     "@nestjs/core": "^11.1.6",
     "@nestjs/graphql": "^13.1.0",
+    "@nestjs/platform-express": "^11.1.6",
     "dd-trace": "^5.67.0",
     "dotenv": "^17.2.2",
     "envalid": "^8.1.0",
