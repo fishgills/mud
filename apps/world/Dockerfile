@@ -31,10 +31,11 @@ RUN yarn install --frozen-lockfile
 
 # Copy libs and the actual source code
 COPY --from=pruner /workspace/out/full/ ./
-## Generate Prisma Client for the workspace schema used by libs/database
-RUN yarn prisma generate --schema=libs/database/prisma/schema.prisma
-RUN yarn tsc -p libs/database/tsconfig.lib.json
-RUN yarn tsc -p libs/gcp-auth/tsconfig.lib.json
+# Prisma schema is required for the database package's build step when running in CI
+COPY libs/database/prisma ./libs/database/prisma
+## Build internal libraries (database build runs prisma generate via its prebuild hook)
+RUN yarn workspace @mud/database build
+RUN yarn workspace @mud/gcp-auth build
 RUN yarn tsc -p libs/constants/tsconfig.lib.json
 RUN yarn workspace @mud/world build
 
