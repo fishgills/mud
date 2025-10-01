@@ -6,9 +6,9 @@ const config: CodegenConfig = {
   // schema: '../**/schema.gql',
   ignoreNoDocuments: true,
   generates: {
-    'apps/dm/src/generated/world-graphql.ts': {
-      schema: 'world-schema.gql',
-      documents: 'apps/dm/src/app/world/world.graphql',
+    'src/generated/world-graphql.ts': {
+      schema: '../../world-schema.gql',
+      documents: 'src/app/world/world.graphql',
       plugins: [
         'typescript',
         'typescript-operations',

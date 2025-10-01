@@ -6,9 +6,9 @@ const config: CodegenConfig = {
   // schema: '../**/schema.gql',
   ignoreNoDocuments: true,
   generates: {
-    'apps/slack-bot/src/generated/dm-graphql.ts': {
-      schema: 'dm-schema.gql',
-      documents: 'apps/slack-bot/src/graphql/dm.graphql',
+    'src/generated/dm-graphql.ts': {
+      schema: '../../dm-schema.gql',
+      documents: 'src/graphql/dm.graphql',
       plugins: [
         'typescript',
         'typescript-operations',
@@ -16,9 +16,9 @@ const config: CodegenConfig = {
         // 'typescript-generic-sdk',
       ],
     },
-    'apps/slack-bot/src/generated/world-graphql.ts': {
-      schema: 'world-schema.gql',
-      documents: 'apps/slack-bot/src/graphql/world.graphql',
+    'src/generated/world-graphql.ts': {
+      schema: '../../world-schema.gql',
+      documents: 'src/graphql/world.graphql',
       plugins: [
         'typescript',
         'typescript-operations',
