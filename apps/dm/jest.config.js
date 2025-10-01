@@ -13,13 +13,5 @@ module.exports = {
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
   coverageDirectory: 'coverage',
-  collectCoverageFrom: [
-    'src/env.ts',
-    'src/shared/**/*.ts',
-    'src/openai/**/*.ts',
-    'src/app/app.controller.ts',
-    'src/app/app.service.ts',
-    'src/app/shared/**/*.ts',
-    'src/app/gql-client.ts',
-  ],
+  collectCoverageFrom: ['src/**/*.{ts,js}'],
 };
