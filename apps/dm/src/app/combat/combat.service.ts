@@ -538,12 +538,23 @@ export class CombatService {
         updatedStats.gold = newGoldTotal;
       }
       await this.playerService.updatePlayerStats(winner.slackId, updatedStats);
+      
+      // Check for level-up
+      const levelUpResult = await this.playerService.checkAndApplyLevelUp(winner.slackId);
+      
       this.logger.log(
         `📈 ${winner.name} gained ${combatLog.xpAwarded} XP! Total XP: ${currentPlayer.xp} -> ${newXp}`,
       );
       if (goldAwarded > 0) {
         this.logger.log(
           `💰 ${winner.name} gained ${goldAwarded} gold! Total Gold: ${currentPlayer.gold} -> ${newGoldTotal}`,
+        );
+      }
+      
+      if (levelUpResult.leveledUp) {
+        this.logger.log(
+          `🎉 ${winner.name} leveled up to level ${levelUpResult.newLevel}! ` +
+          `Gained ${levelUpResult.healthGained} HP and ${levelUpResult.skillPointsGained} skill points!`,
         );
       }
     } else {

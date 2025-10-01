@@ -1,10 +1,17 @@
 import type { App } from '@slack/bolt';
-import { COMMANDS, HELP_ACTIONS, MOVE_ACTIONS, ATTACK_ACTIONS } from './commands';
+import {
+  COMMANDS,
+  HELP_ACTIONS,
+  MOVE_ACTIONS,
+  ATTACK_ACTIONS,
+  SKILL_ACTIONS,
+} from './commands';
 import { dmSdk } from './gql-client';
 import { TargetType } from './generated/dm-graphql';
 import { buildCombatSummary } from './handlers/attack';
 import { getUserFriendlyErrorMessage } from './handlers/errorUtils';
 import { getAllHandlers } from './handlers/handlerRegistry';
+import { formatPlayerStatsBlocks } from './handlers/stats/format';
 
 type SlackBlockState = Record<
   string,
@@ -238,5 +245,74 @@ export function registerActions(app: App) {
       const message = getUserFriendlyErrorMessage(err, 'Failed to attack');
       await client.chat.postMessage({ channel: channelId, text: message });
     }
+  });
+
+  // Skill increase actions
+  const handleSkillIncrease = async (
+    skill: string,
+    ack: any,
+    body: any,
+    client: any,
+  ) => {
+    await ack();
+
+    const userId = (body as any).user?.id as string | undefined;
+    const channelId =
+      ((body as any).channel?.id as string | undefined) ||
+      ((body as any).container?.channel_id as string | undefined);
+
+    if (!userId || !channelId) {
+      return;
+    }
+
+    try {
+      const result = await dmSdk.IncreaseSkill({
+        slackId: userId,
+        skill,
+      });
+
+      if (!result.increaseSkill.success) {
+        await client.chat.postMessage({
+          channel: channelId,
+          text: `Failed to increase ${skill}: ${result.increaseSkill.message}`,
+        });
+        return;
+      }
+
+      const player = result.increaseSkill.data;
+      if (!player) {
+        await client.chat.postMessage({
+          channel: channelId,
+          text: `Skill increased, but couldn't retrieve updated stats.`,
+        });
+        return;
+      }
+
+      // Show updated stats with blocks
+      const blocks = formatPlayerStatsBlocks(player);
+      await client.chat.postMessage({
+        channel: channelId,
+        text: `Successfully increased ${skill}! 🎉`,
+        blocks,
+      });
+    } catch (err) {
+      const message = getUserFriendlyErrorMessage(
+        err,
+        `Failed to increase ${skill}`,
+      );
+      await client.chat.postMessage({ channel: channelId, text: message });
+    }
+  };
+
+  app.action(SKILL_ACTIONS.INCREASE_STRENGTH, async ({ ack, body, client }) => {
+    await handleSkillIncrease('strength', ack, body, client);
+  });
+
+  app.action(SKILL_ACTIONS.INCREASE_AGILITY, async ({ ack, body, client }) => {
+    await handleSkillIncrease('agility', ack, body, client);
+  });
+
+  app.action(SKILL_ACTIONS.INCREASE_HEALTH, async ({ ack, body, client }) => {
+    await handleSkillIncrease('health', ack, body, client);
   });
 }

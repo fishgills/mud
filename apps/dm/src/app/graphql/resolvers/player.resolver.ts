@@ -295,6 +295,42 @@ export class PlayerResolver {
     }
   }
 
+  @Mutation(() => PlayerResponse, {
+    description:
+      'Increase a player skill (strength, agility, or health) by spending a skill point',
+  })
+  async increaseSkill(
+    @Args('slackId') slackId: string,
+    @Args('skill') skill: string,
+  ): Promise<PlayerResponse> {
+    try {
+      const validSkills = ['strength', 'agility', 'health'];
+      if (!validSkills.includes(skill)) {
+        return {
+          success: false,
+          message: `Invalid skill. Choose from: ${validSkills.join(', ')}`,
+        };
+      }
+
+      const player = await this.playerService.increaseSkill(
+        slackId,
+        skill as 'strength' | 'agility' | 'health',
+      );
+
+      return {
+        success: true,
+        data: player as Player,
+        message: `Successfully increased ${skill}!`,
+      };
+    } catch (_error) {
+      return {
+        success: false,
+        message:
+          _error instanceof Error ? _error.message : 'Failed to increase skill',
+      };
+    }
+  }
+
   @Query(() => PlayerStats)
   async getPlayerStats(
     @Args('slackId', { nullable: true }) slackId?: string,

@@ -248,17 +248,126 @@ export class PlayerService {
     slackId: string,
     statsDto: PlayerStatsDto,
   ): Promise<Player> {
+    const updateData: any = {
+      lastAction: new Date(),
+      updatedAt: new Date(),
+    };
+
+    if (statsDto.hp !== undefined) updateData.hp = statsDto.hp;
+    if (statsDto.xp !== undefined) updateData.xp = statsDto.xp;
+    if (statsDto.gold !== undefined) updateData.gold = statsDto.gold;
+    if (statsDto.level !== undefined) updateData.level = statsDto.level;
+    if (statsDto.skillPoints !== undefined)
+      updateData.skillPoints = statsDto.skillPoints;
+    if (statsDto.maxHp !== undefined) updateData.maxHp = statsDto.maxHp;
+    if (statsDto.strength !== undefined) updateData.strength = statsDto.strength;
+    if (statsDto.agility !== undefined) updateData.agility = statsDto.agility;
+    if (statsDto.health !== undefined) updateData.health = statsDto.health;
+
     return this.prisma.player.update({
       where: { slackId },
-      data: {
-        hp: statsDto.hp,
-        xp: statsDto.xp,
-        gold: statsDto.gold,
-        level: statsDto.level,
-        lastAction: new Date(),
-        updatedAt: new Date(),
-      },
+      data: updateData,
     });
+  }
+
+  /**
+   * Calculate XP required for a given level
+   * Using a simple formula: level * 100
+   */
+  private calculateXpForLevel(level: number): number {
+    return level * 100;
+  }
+
+  /**
+   * Check if player should level up and apply level-up benefits
+   * Returns updated player with level-up bonuses applied
+   */
+  async checkAndApplyLevelUp(slackId: string): Promise<{
+    player: Player;
+    leveledUp: boolean;
+    newLevel?: number;
+    skillPointsGained?: number;
+    healthGained?: number;
+  }> {
+    const player = await this.getPlayer(slackId);
+    const xpForNextLevel = this.calculateXpForLevel(player.level);
+
+    if (player.xp < xpForNextLevel) {
+      return { player, leveledUp: false };
+    }
+
+    // Calculate how many levels the player has gained
+    let newLevel = player.level;
+    let currentXp = player.xp;
+    while (currentXp >= this.calculateXpForLevel(newLevel)) {
+      newLevel++;
+    }
+
+    const levelsGained = newLevel - player.level;
+
+    // Award skill points: 1 point every 3 levels
+    let skillPointsGained = 0;
+    for (let i = player.level + 1; i <= newLevel; i++) {
+      if (i % 3 === 0) {
+        skillPointsGained++;
+      }
+    }
+
+    // Increase health: +10 HP per level (D&D Fighter-style)
+    const healthGained = levelsGained * 10;
+    const newMaxHp = player.maxHp + healthGained;
+
+    // Apply the level-up
+    const updatedPlayer = await this.updatePlayerStats(slackId, {
+      level: newLevel,
+      maxHp: newMaxHp,
+      hp: player.hp + healthGained, // Also increase current HP
+      skillPoints: player.skillPoints + skillPointsGained,
+    });
+
+    this.logger.log(
+      `🎉 ${player.name} leveled up from ${player.level} to ${newLevel}! ` +
+        `Gained ${healthGained} HP and ${skillPointsGained} skill points.`,
+    );
+
+    return {
+      player: updatedPlayer,
+      leveledUp: true,
+      newLevel,
+      skillPointsGained,
+      healthGained,
+    };
+  }
+
+  /**
+   * Increase a player's skill using available skill points
+   */
+  async increaseSkill(
+    slackId: string,
+    skill: 'strength' | 'agility' | 'health',
+  ): Promise<Player> {
+    const player = await this.getPlayer(slackId);
+
+    if (player.skillPoints <= 0) {
+      throw new Error('You have no skill points available to spend.');
+    }
+
+    const currentValue = player[skill];
+    if (currentValue >= 20) {
+      throw new Error(`Your ${skill} is already at maximum (20).`);
+    }
+
+    const updates: PlayerStatsDto = {
+      [skill]: currentValue + 1,
+      skillPoints: player.skillPoints - 1,
+    };
+
+    // If increasing health, also increase maxHp
+    if (skill === 'health') {
+      updates.maxHp = player.maxHp + 2; // +2 max HP per health point
+    }
+
+    return this.updatePlayerStats(slackId, updates);
   }
 
   async rerollPlayerStats(slackId: string): Promise<Player> {

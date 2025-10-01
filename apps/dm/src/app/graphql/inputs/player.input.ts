@@ -21,6 +21,17 @@ registerEnumType(Direction, {
   description: 'Cardinal directions for player movement',
 });
 
+export enum SkillType {
+  STRENGTH = 'strength',
+  AGILITY = 'agility',
+  HEALTH = 'health',
+}
+
+registerEnumType(SkillType, {
+  name: 'SkillType',
+  description: 'Player skills that can be increased',
+});
+
 @InputType()
 export class CreatePlayerInput {
   @Field()
@@ -88,4 +99,10 @@ export class SpawnMonsterInput {
 
   @Field(() => Int)
   y!: number;
+}
+
+@InputType()
+export class IncreaseSkillInput {
+  @Field(() => SkillType)
+  skill!: SkillType;
 }

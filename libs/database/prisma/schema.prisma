@@ -20,25 +20,26 @@ model GameState {
 }
 
 model Player {
-  id          Int        @id @default(autoincrement())
-  slackId     String     @unique // Slack user ID
-  name        String
-  x           Int // X coordinate
-  y           Int // Y coordinate
-  hp          Int // Hit points (current health)
-  maxHp       Int        @default(100) // Maximum health
-  strength    Int        @default(10) // Strength attribute (1-20)
-  agility     Int        @default(10) // Agility attribute (1-20)
-  health      Int        @default(10) // Health attribute (1-20, affects max HP)
-  gold        Int        @default(0)
-  xp          Int        @default(0)
-  level       Int        @default(1)
-  isAlive     Boolean    @default(true)
-  lastAction  DateTime   @default(now())
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  worldTile   WorldTile? @relation("PlayerLocation", fields: [worldTileId], references: [id])
-  worldTileId Int?
+  id              Int        @id @default(autoincrement())
+  slackId         String     @unique // Slack user ID
+  name            String
+  x               Int // X coordinate
+  y               Int // Y coordinate
+  hp              Int // Hit points (current health)
+  maxHp           Int        @default(100) // Maximum health
+  strength        Int        @default(10) // Strength attribute (1-20)
+  agility         Int        @default(10) // Agility attribute (1-20)
+  health          Int        @default(10) // Health attribute (1-20, affects max HP)
+  gold            Int        @default(0)
+  xp              Int        @default(0)
+  level           Int        @default(1)
+  skillPoints     Int        @default(0) // Available skill points for stat increases
+  isAlive         Boolean    @default(true)
+  lastAction      DateTime   @default(now())
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  worldTile       WorldTile? @relation("PlayerLocation", fields: [worldTileId], references: [id])
+  worldTileId     Int?
 }
 
 model WorldSeed {

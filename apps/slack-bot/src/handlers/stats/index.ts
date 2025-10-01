@@ -2,7 +2,11 @@ import { COMMANDS } from '../../commands';
 import { registerHandler } from '../handlerRegistry';
 import { getUserFriendlyErrorMessage } from '../errorUtils';
 import { HandlerContext } from '../types';
-import { formatMonsterStats, formatPlayerStats } from './format';
+import {
+  formatMonsterStats,
+  formatPlayerStats,
+  formatPlayerStatsBlocks,
+} from './format';
 import {
   fetchPlayerRecord,
   fetchPlayerWithLocation,
@@ -19,9 +23,16 @@ async function respondWithPlayer(
   player: PlayerStatsSource | undefined,
   message: string | undefined,
   fallbackMessage: string,
+  isSelf: boolean,
 ) {
   if (player) {
-    await say({ text: formatPlayerStats(player) });
+    // Use blocks for self stats, text for others
+    if (isSelf) {
+      const blocks = formatPlayerStatsBlocks(player);
+      await say({ text: `Stats for ${player.name}`, blocks });
+    } else {
+      await say({ text: formatPlayerStats(player) });
+    }
     return;
   }
 
@@ -45,7 +56,13 @@ export const statsHandler = async ({
         { slackId: userId },
         missingCharacterMessage,
       );
-      await respondWithPlayer(say, player, message, missingCharacterMessage);
+      await respondWithPlayer(
+        say,
+        player,
+        message,
+        missingCharacterMessage,
+        true,
+      );
       return;
     }
 
@@ -59,7 +76,13 @@ export const statsHandler = async ({
         { slackId: target.slackId },
         fallbackMessage,
       );
-      await respondWithPlayer(say, player, message, fallbackMessage);
+      await respondWithPlayer(
+        say,
+        player,
+        message,
+        fallbackMessage,
+        isSelfLookup,
+      );
       return;
     }
 
@@ -107,7 +130,7 @@ export const statsHandler = async ({
       { name: target.cleanedTarget },
       fallbackMessage,
     );
-    await respondWithPlayer(say, player, message, fallbackMessage);
+    await respondWithPlayer(say, player, message, fallbackMessage, false);
   } catch (err: unknown) {
     console.error('Error fetching player stats:', err);
     const errorMessage = getUserFriendlyErrorMessage(

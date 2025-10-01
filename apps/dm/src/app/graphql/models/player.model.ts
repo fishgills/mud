@@ -43,6 +43,9 @@ export class Player {
   @Field(() => Int)
   level!: number;
 
+  @Field(() => Int)
+  skillPoints!: number;
+
   @Field()
   isAlive!: boolean;
 

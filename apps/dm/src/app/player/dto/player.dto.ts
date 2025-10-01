@@ -16,6 +16,11 @@ export interface PlayerStatsDto {
   xp?: number;
   gold?: number;
   level?: number;
+  skillPoints?: number;
+  maxHp?: number;
+  strength?: number;
+  agility?: number;
+  health?: number;
 }
 
 export interface AttackDto {
