@@ -1,3 +1,14 @@
+// Mock env module before other imports
+jest.mock('../env', () => ({
+  env: {
+    DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
+    REDIS_URL: 'redis://localhost:6379',
+    CACHE_PREFIX: 'test:',
+    WORLD_RENDER_CACHE_TTL_MS: 30000,
+    WORLD_RENDER_COMPUTE_ON_THE_FLY: true,
+  },
+}));
+
 import { RenderController } from './render.controller';
 import { RenderService } from './render.service';
 import { CacheService } from '../shared/cache.service';
