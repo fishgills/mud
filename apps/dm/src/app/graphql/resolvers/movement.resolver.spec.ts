@@ -19,9 +19,12 @@ describe('MovementResolver', () => {
       movePlayer: jest.fn(),
       getPlayersAtLocation: jest.fn().mockResolvedValue([{ name: 'Other' }]),
       getPlayer: jest.fn(),
-      getNearbyPlayers: jest.fn().mockResolvedValue([
-        { slackId: 'S1', name: 'Scout', distance: 2, direction: 'north' },
-      ]),
+      getNearbyPlayers: jest
+        .fn()
+        .mockResolvedValue([
+          { slackId: 'S1', name: 'Scout', distance: 2, direction: 'north' },
+        ]),
+      updateLastAction: jest.fn().mockResolvedValue(undefined),
     };
     const worldService = {
       getTileInfoWithNearby: jest.fn().mockResolvedValue({
@@ -116,7 +119,9 @@ describe('MovementResolver', () => {
     const { resolver, playerService, monsterService } = createResolver();
     playerService.movePlayer.mockResolvedValue({ x: 1, y: 2 });
 
-    const result = await resolver.movePlayer('U1', { direction: 'north' } as any);
+    const result = await resolver.movePlayer('U1', {
+      direction: 'north',
+    } as any);
 
     expect(result.success).toBe(true);
     expect(playerService.movePlayer).toHaveBeenCalledWith('U1', {
@@ -130,7 +135,9 @@ describe('MovementResolver', () => {
     playerService.movePlayer.mockRejectedValue(new Error('nope'));
     playerService.getPlayer.mockResolvedValue({ x: 9, y: 9 });
 
-    const result = await resolver.movePlayer('U1', { direction: 'east' } as any);
+    const result = await resolver.movePlayer('U1', {
+      direction: 'east',
+    } as any);
 
     expect(result.success).toBe(false);
     expect(result.player).toEqual({ x: 9, y: 9 });

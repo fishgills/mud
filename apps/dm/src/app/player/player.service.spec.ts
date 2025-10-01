@@ -6,8 +6,9 @@ const players: any[] = [];
 jest.mock('@mud/database', () => ({
   getPrismaClient: () => ({
     player: {
-      findUnique: jest.fn(async ({ where: { slackId } }) =>
-        players.find((p) => p.slackId === slackId) ?? null,
+      findUnique: jest.fn(
+        async ({ where: { slackId } }) =>
+          players.find((p) => p.slackId === slackId) ?? null,
       ),
       findMany: jest.fn(async (args: any = {}) => {
         let result = [...players];
@@ -32,7 +33,14 @@ jest.mock('@mud/database', () => ({
           const equals = where.name.equals.toLowerCase();
           result = result.filter((p) => p.name.toLowerCase() === equals);
         }
-        if (where.x === undefined && where.y === undefined && where.name === undefined && where.isAlive === undefined && where.slackId === undefined && args.where?.id) {
+        if (
+          where.x === undefined &&
+          where.y === undefined &&
+          where.name === undefined &&
+          where.isAlive === undefined &&
+          where.slackId === undefined &&
+          args.where?.id
+        ) {
           result = result.filter((p) => p.id === args.where.id);
         }
         if (args.select) {
@@ -48,6 +56,16 @@ jest.mock('@mud/database', () => ({
         }
         return result;
       }),
+      count: jest.fn(async (args: any = {}) => {
+        let result = [...players];
+        const where = args.where ?? {};
+        if (where.lastAction?.gte) {
+          result = result.filter(
+            (p) => p.lastAction && p.lastAction >= where.lastAction.gte,
+          );
+        }
+        return result.length;
+      }),
       create: jest.fn(async ({ data }) => {
         const player = {
           id: players.length + 1,
@@ -55,6 +73,7 @@ jest.mock('@mud/database', () => ({
           updatedAt: new Date(),
           xp: 0,
           gold: 0,
+          lastAction: new Date(),
           ...data,
         };
         players.push(player);
@@ -135,17 +154,21 @@ describe('PlayerService', () => {
     await expect(service.getPlayerByName('missing')).rejects.toThrow();
 
     players.push({ ...players[0], id: 100, slackId: 'EX2', name: 'Existing' });
-    await expect(service.getPlayerByName('Existing')).rejects.toThrow(GraphQLError);
+    await expect(service.getPlayerByName('Existing')).rejects.toThrow(
+      GraphQLError,
+    );
   });
 
   it('moves players and validates movement', async () => {
     const service = new PlayerService(worldService);
-    const moved = await service.movePlayer('EXIST', { direction: 'east' } as any);
+    const moved = await service.movePlayer('EXIST', {
+      direction: 'east',
+    } as any);
     expect(moved.x).toBe(101);
 
-    await expect(
-      service.movePlayer('EXIST', { x: 1 } as any),
-    ).rejects.toThrow('Both x and y');
+    await expect(service.movePlayer('EXIST', { x: 1 } as any)).rejects.toThrow(
+      'Both x and y',
+    );
 
     await expect(
       service.movePlayer('EXIST', { direction: 'invalid' } as any),
@@ -223,5 +246,71 @@ describe('PlayerService', () => {
   it('calculates distance helper', () => {
     const service = new PlayerService(worldService);
     expect(service.calculateDistance(0, 0, 3, 4)).toBe(5);
+  });
+
+  it('checks for active players within time threshold', async () => {
+    const service = new PlayerService(worldService);
+
+    // Add a player with recent activity
+    players.push({
+      id: 103,
+      slackId: 'ACTIVE',
+      name: 'Active',
+      x: 0,
+      y: 0,
+      hp: 10,
+      maxHp: 10,
+      strength: 10,
+      agility: 10,
+      health: 10,
+      level: 1,
+      isAlive: true,
+      lastAction: new Date(),
+    });
+
+    const hasActive = await service.hasActivePlayers(30);
+    expect(hasActive).toBe(true);
+
+    // Check with old lastAction
+    players[players.length - 1].lastAction = new Date(
+      Date.now() - 60 * 60 * 1000,
+    );
+    const hasActiveOld = await service.hasActivePlayers(30);
+    expect(hasActiveOld).toBe(false);
+  });
+
+  it('updates lastAction timestamp', async () => {
+    const service = new PlayerService(worldService);
+    await service.updateLastAction('EXIST');
+
+    const player = await service.getPlayer('EXIST');
+    expect(player.lastAction).toBeDefined();
+  });
+
+  it('throws error when getPlayerByIdentifier receives no slackId or name', async () => {
+    const service = new PlayerService(worldService);
+    await expect(
+      service.getPlayerByIdentifier({ slackId: null, name: null }),
+    ).rejects.toThrow('A Slack ID or player name must be provided');
+  });
+
+  it('gets player by name via getPlayerByIdentifier', async () => {
+    const service = new PlayerService(worldService);
+    const player = await service.getPlayerByIdentifier({ name: 'Existing' });
+    expect(player.name).toBe('Existing');
+  });
+
+  it('throws error when movePlayer receives only x coordinate', async () => {
+    const service = new PlayerService(worldService);
+    await expect(service.movePlayer('EXIST', { x: 5 } as any)).rejects.toThrow(
+      'Both x and y coordinates are required',
+    );
+  });
+
+  it('throws error when movePlayer receives only y coordinate', async () => {
+    const service = new PlayerService(worldService);
+    await expect(service.movePlayer('EXIST', { y: 5 } as any)).rejects.toThrow(
+      'Both x and y coordinates are required',
+    );
   });
 });

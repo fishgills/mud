@@ -5,7 +5,8 @@
   "scripts": {
     "build": "tsc",
     "serve": "ts-node-dev --respawn src/main.ts",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "jest"
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.2",
