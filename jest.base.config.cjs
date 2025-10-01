@@ -11,6 +11,6 @@ module.exports = {
   transformIgnorePatterns: ['node_modules/(?!(graphql-request)/)'],
   moduleFileExtensions: ['ts', 'js', 'html'],
   collectCoverage: true,
-  coverageReporters: ['text-summary'],
+  coverageReporters: ['text-summary', 'lcov', 'html'],
   coverageDirectory: 'test-output/jest/coverage',
 };

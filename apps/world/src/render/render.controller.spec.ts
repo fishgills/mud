@@ -1,0 +1,233 @@
+import { RenderController } from './render.controller';
+import { RenderService } from './render.service';
+import { CacheService } from '../shared/cache.service';
+import { Response } from 'express';
+
+describe('RenderController', () => {
+  let controller: RenderController;
+  let renderService: any;
+  let cacheService: any;
+  let mockResponse: Partial<Response>;
+
+  beforeEach(() => {
+    const mockCanvas = {
+      toBuffer: jest.fn().mockReturnValue(Buffer.from('fake-png-data')),
+    };
+
+    renderService = {
+      renderMap: jest.fn().mockResolvedValue(mockCanvas),
+    };
+
+    cacheService = {
+      get: jest.fn(),
+      set: jest.fn(),
+    };
+
+    mockResponse = {
+      setHeader: jest.fn(),
+      send: jest.fn(),
+    };
+
+    controller = new RenderController(renderService, cacheService);
+  });
+
+  describe('getMapPng', () => {
+    it('should render map with default parameters', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng({}, mockResponse as Response);
+
+      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 4);
+      expect(mockResponse.setHeader).toHaveBeenCalledWith(
+        'Content-Type',
+        'image/png',
+      );
+      expect(mockResponse.send).toHaveBeenCalled();
+    });
+
+    it('should use provided x and y coordinates', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng(
+        { x: '100', y: '200' },
+        mockResponse as Response,
+      );
+
+      expect(renderService.renderMap).toHaveBeenCalledWith(
+        75,
+        125,
+        175,
+        225,
+        4,
+      );
+    });
+
+    it('should use provided pixels per tile', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng({ p: '8' }, mockResponse as Response);
+
+      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 8);
+    });
+
+    it('should handle pixelsPerTile parameter', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng(
+        { pixelsPerTile: '16' },
+        mockResponse as Response,
+      );
+
+      expect(renderService.renderMap).toHaveBeenCalledWith(
+        -25,
+        25,
+        -25,
+        25,
+        16,
+      );
+    });
+
+    it('should enforce minimum pixels per tile of 1', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng({ p: '0' }, mockResponse as Response);
+
+      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 1);
+    });
+
+    it('should enforce minimum pixels per tile for negative values', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng({ p: '-5' }, mockResponse as Response);
+
+      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 1);
+    });
+
+    it('should return cached image when available', async () => {
+      const cachedBase64 = Buffer.from('cached-png-data').toString('base64');
+      cacheService.get.mockResolvedValue(cachedBase64);
+
+      await controller.getMapPng({}, mockResponse as Response);
+
+      expect(renderService.renderMap).not.toHaveBeenCalled();
+      expect(mockResponse.send).toHaveBeenCalledWith(
+        Buffer.from(cachedBase64, 'base64'),
+      );
+    });
+
+    it('should set cache control headers', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng({}, mockResponse as Response);
+
+      expect(mockResponse.setHeader).toHaveBeenCalledWith(
+        'Cache-Control',
+        expect.stringContaining('public'),
+      );
+    });
+
+    it('should cache rendered image', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng({}, mockResponse as Response);
+
+      expect(cacheService.set).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(Number),
+      );
+    });
+
+    it('should handle non-numeric x coordinate', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng({ x: 'invalid' }, mockResponse as Response);
+
+      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 4);
+    });
+
+    it('should handle non-numeric y coordinate', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng({ y: 'invalid' }, mockResponse as Response);
+
+      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 4);
+    });
+
+    it('should handle non-numeric pixels per tile', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng({ p: 'invalid' }, mockResponse as Response);
+
+      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 4);
+    });
+
+    it('should use correct cache key format', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng(
+        { x: '10', y: '20', p: '8' },
+        mockResponse as Response,
+      );
+
+      const expectedKey = '-15,-5,35,45,p=8';
+      expect(cacheService.get).toHaveBeenCalledWith(expectedKey);
+    });
+
+    it('should use WORLD_RENDER_CACHE_TTL_MS from env', async () => {
+      process.env.WORLD_RENDER_CACHE_TTL_MS = '60000';
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng({}, mockResponse as Response);
+
+      expect(cacheService.set).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        60000,
+      );
+
+      delete process.env.WORLD_RENDER_CACHE_TTL_MS;
+    });
+
+    it('should use default TTL when env var not set', async () => {
+      delete process.env.WORLD_RENDER_CACHE_TTL_MS;
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng({}, mockResponse as Response);
+
+      expect(cacheService.set).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        30000,
+      );
+    });
+
+    it('should calculate correct bounds for positive coordinates', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng(
+        { x: '50', y: '100' },
+        mockResponse as Response,
+      );
+
+      expect(renderService.renderMap).toHaveBeenCalledWith(25, 75, 75, 125, 4);
+    });
+
+    it('should calculate correct bounds for negative coordinates', async () => {
+      cacheService.get.mockResolvedValue(null);
+
+      await controller.getMapPng(
+        { x: '-50', y: '-100' },
+        mockResponse as Response,
+      );
+
+      expect(renderService.renderMap).toHaveBeenCalledWith(
+        -75,
+        -25,
+        -125,
+        -75,
+        4,
+      );
+    });
+  });
+});
