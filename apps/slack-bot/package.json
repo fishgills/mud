@@ -6,7 +6,8 @@
     "build": "tsc",
     "serve": "ts-node-dev --respawn src/main.ts",
     "check-types": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "codegen": "graphql-codegen --config codegen.ts"
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.2",
