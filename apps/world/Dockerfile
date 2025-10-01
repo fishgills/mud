@@ -47,4 +47,4 @@ RUN apk update \
 
 COPY --from=installer /app .
 
-CMD node apps/world/dist/main.js
+CMD node apps/world/dist/src/main.js
