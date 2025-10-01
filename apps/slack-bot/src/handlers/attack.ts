@@ -1,9 +1,106 @@
+import type { AttackMutation } from '../generated/dm-graphql';
 import { TargetType } from '../generated/dm-graphql';
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
-import { COMMANDS } from '../commands';
+import { COMMANDS, ATTACK_ACTIONS } from '../commands';
+
+const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
+
+type AttackCombatResult = NonNullable<
+  NonNullable<AttackMutation['attack']['data']>
+>;
+
+type NearbyMonster = { id: string; name: string };
+
+export function buildMonsterSelectionMessage(monsters: NearbyMonster[]) {
+  const monsterList = monsters.map((m) => m.name).join(', ');
+  const firstMonster = monsters[0];
+
+  return {
+    text: `Choose a monster to attack: ${monsterList}`,
+    blocks: [
+      {
+        type: 'section' as const,
+        text: {
+          type: 'mrkdwn' as const,
+          text: `You see the following monsters at your location: ${monsterList}`,
+        },
+      },
+      {
+        type: 'actions' as const,
+        block_id: MONSTER_SELECTION_BLOCK_ID,
+        elements: [
+          {
+            type: 'static_select' as const,
+            action_id: ATTACK_ACTIONS.MONSTER_SELECT,
+            placeholder: {
+              type: 'plain_text' as const,
+              text: 'Select a monster',
+              emoji: true,
+            },
+            options: monsters.map((monster) => ({
+              text: {
+                type: 'plain_text' as const,
+                text: monster.name,
+                emoji: true,
+              },
+              value: monster.id,
+            })),
+            ...(firstMonster
+              ? {
+                  initial_option: {
+                    text: {
+                      type: 'plain_text' as const,
+                      text: firstMonster.name,
+                      emoji: true,
+                    },
+                    value: firstMonster.id,
+                  },
+                }
+              : {}),
+          },
+          {
+            type: 'button' as const,
+            action_id: ATTACK_ACTIONS.ATTACK_MONSTER,
+            text: {
+              type: 'plain_text' as const,
+              text: 'Attack',
+              emoji: true,
+            },
+            style: 'primary' as const,
+            value: 'attack_monster',
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function buildCombatSummary(
+  combat: AttackCombatResult,
+  monsterName: string,
+) {
+  const playerWon = combat.winnerName !== monsterName;
+
+  let msg = `You attacked ${monsterName}!`;
+  if (playerWon) {
+    msg += `\n${monsterName} was defeated!`;
+    if (combat.xpGained > 0) {
+      msg += `\nYou gained ${combat.xpGained} XP!`;
+    }
+    if (combat.goldGained > 0) {
+      msg += `\nYou collected ${combat.goldGained} gold!`;
+    }
+  } else {
+    msg += `\n${monsterName} defeated you!`;
+  }
+
+  msg += `\nCombat lasted ${combat.roundsCompleted} rounds.\n`;
+  msg += `\n${combat.message}`;
+  return msg;
+}
 
 export const attackHandlerHelp = `Attack the nearest monster using "attack". Or attack a player in this workspace from anywhere: "attack @username" or "attack username".`;
 
@@ -86,44 +183,7 @@ export const attackHandler = async ({
       await say({ text: 'No monsters nearby to attack!' });
       return;
     }
-    const monster = player.nearbyMonsters[0];
-    const attackResult = await dmSdk.Attack({
-      slackId: userId,
-      input: { targetType: TargetType.Monster, targetId: Number(monster.id) },
-    });
-    if (!attackResult.attack.success) {
-      await say({ text: `Attack failed: ${attackResult.attack.message}` });
-      return;
-    }
-    const combat = attackResult.attack.data;
-    if (!combat) {
-      await say({ text: 'Attack succeeded but no combat data returned.' });
-      return;
-    }
-
-    const isPlayerWinner = combat.winnerName === player.name;
-    const defenderName = combat.loserName;
-    // const playerDamage = combat.totalDamageDealt;
-
-    let msg = `You attacked ${defenderName}!`;
-    if (isPlayerWinner) {
-      msg += `\n${defenderName} was defeated!`;
-      if (combat.xpGained > 0) {
-        msg += `\nYou gained ${combat.xpGained} XP!`;
-      }
-      if (combat.goldGained > 0) {
-        msg += `\nYou collected ${combat.goldGained} gold!`;
-      }
-    } else {
-      msg += `\n${defenderName} defeated you!`;
-    }
-
-    msg += `\nCombat lasted ${combat.roundsCompleted} rounds.\n`;
-
-    // Add the AI-enhanced combat narrative
-    msg += `\n${combat.message}`;
-    await say({ text: msg });
-    console.log(JSON.stringify(combat, null, 2));
+    await say(buildMonsterSelectionMessage(player.nearbyMonsters));
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(err, 'Failed to attack');
     await say({ text: errorMessage });

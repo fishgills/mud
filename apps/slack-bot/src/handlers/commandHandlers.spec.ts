@@ -27,7 +27,7 @@ import { lookHandler } from './look';
 import { mapHandler } from './map';
 import { moveHandler } from './move';
 import { rerollHandler } from './reroll';
-import { COMMANDS } from '../commands';
+import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import type { HandlerContext, SayMessage } from './types';
 
 const mockedDmSdk = dmSdk as unknown as {
@@ -143,28 +143,17 @@ describe('attackHandler', () => {
     expect(mockedDmSdk.Attack).not.toHaveBeenCalled();
   });
 
-  it('attacks the first nearby monster when no mention is provided', async () => {
+  it('prompts the user to choose a monster when no mention is provided', async () => {
     const say = makeSay();
     mockedDmSdk.GetPlayer.mockResolvedValueOnce({
       getPlayer: {
         success: true,
         data: {
           name: 'Hero',
-          nearbyMonsters: [{ id: '42', name: 'Goblin' }],
-        },
-      },
-    });
-    mockedDmSdk.Attack.mockResolvedValueOnce({
-      attack: {
-        success: true,
-        message: 'done',
-        data: {
-          winnerName: 'Hero',
-          loserName: 'Goblin',
-          xpGained: 5,
-          goldGained: 2,
-          roundsCompleted: 3,
-          message: 'Hero victory',
+          nearbyMonsters: [
+            { id: '42', name: 'Goblin' },
+            { id: '43', name: 'Orc' },
+          ],
         },
       },
     });
@@ -175,13 +164,26 @@ describe('attackHandler', () => {
       say,
     } as HandlerContext);
 
-    expect(mockedDmSdk.Attack).toHaveBeenCalledWith({
-      slackId: 'U1',
-      input: { targetType: TargetType.Monster, targetId: 42 },
-    });
-    expect(say).toHaveBeenCalledWith({
-      text: expect.stringContaining('You attacked Goblin!'),
-    });
+    expect(mockedDmSdk.Attack).not.toHaveBeenCalled();
+    expect(say).toHaveBeenCalledTimes(1);
+    const message = say.mock.calls[0][0] as {
+      text?: string;
+      blocks?: Array<{ type: string; elements?: Array<Record<string, unknown>> }>;
+    };
+    expect(message.text).toContain('Choose a monster to attack');
+    const actionsBlock = message.blocks?.find((block) => block.type === 'actions');
+    expect(actionsBlock?.elements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'static_select',
+          action_id: ATTACK_ACTIONS.MONSTER_SELECT,
+        }),
+        expect.objectContaining({
+          type: 'button',
+          action_id: ATTACK_ACTIONS.ATTACK_MONSTER,
+        }),
+      ]),
+    );
   });
 
   it('informs the user when no monsters are nearby', async () => {

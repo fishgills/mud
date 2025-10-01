@@ -1,6 +1,47 @@
 import type { App } from '@slack/bolt';
-import { COMMANDS, HELP_ACTIONS, MOVE_ACTIONS } from './commands';
+import { COMMANDS, HELP_ACTIONS, MOVE_ACTIONS, ATTACK_ACTIONS } from './commands';
+import { dmSdk } from './gql-client';
+import { TargetType } from './generated/dm-graphql';
+import { buildCombatSummary } from './handlers/attack';
+import { getUserFriendlyErrorMessage } from './handlers/errorUtils';
 import { getAllHandlers } from './handlers/handlerRegistry';
+
+type SlackBlockState = Record<
+  string,
+  Record<
+    string,
+    {
+      selected_option?: {
+        value?: string | null;
+        text?: { text?: string | null };
+      };
+    }
+  >
+>;
+
+function extractSelectedMonster(values: SlackBlockState | undefined) {
+  if (!values) {
+    return null;
+  }
+
+  for (const block of Object.values(values)) {
+    const selection = block[ATTACK_ACTIONS.MONSTER_SELECT];
+    const option = selection?.selected_option;
+    if (!option?.value) {
+      continue;
+    }
+
+    const monsterId = Number(option.value);
+    if (Number.isNaN(monsterId)) {
+      continue;
+    }
+
+    const name = option.text?.text?.trim() || 'the monster';
+    return { id: monsterId, name };
+  }
+
+  return null;
+}
 
 // Helper to run an existing text command handler from a button click
 async function dispatchCommandViaDM(
@@ -137,5 +178,65 @@ export function registerActions(app: App) {
     const userId = (body as any).user?.id as string;
     if (!userId) return;
     await dispatchCommandViaDM(client, userId, COMMANDS.EAST);
+  });
+
+  app.action(ATTACK_ACTIONS.MONSTER_SELECT, async ({ ack }) => {
+    await ack();
+  });
+
+  app.action(ATTACK_ACTIONS.ATTACK_MONSTER, async ({ ack, body, client }) => {
+    await ack();
+
+    const userId = (body as any).user?.id as string | undefined;
+    const channelId =
+      ((body as any).channel?.id as string | undefined) ||
+      ((body as any).container?.channel_id as string | undefined);
+
+    if (!userId || !channelId) {
+      return;
+    }
+
+    const selected = extractSelectedMonster((body as any).state?.values);
+
+    if (!selected) {
+      await client.chat.postMessage({
+        channel: channelId,
+        text: 'Please select a monster to attack first!',
+      });
+      return;
+    }
+
+    try {
+      const attackResult = await dmSdk.Attack({
+        slackId: userId,
+        input: {
+          targetType: TargetType.Monster,
+          targetId: selected.id,
+        },
+      });
+
+      if (!attackResult.attack.success) {
+        await client.chat.postMessage({
+          channel: channelId,
+          text: `Attack failed: ${attackResult.attack.message}`,
+        });
+        return;
+      }
+
+      const combat = attackResult.attack.data;
+      if (!combat) {
+        await client.chat.postMessage({
+          channel: channelId,
+          text: 'Attack succeeded but no combat data returned.',
+        });
+        return;
+      }
+
+      const message = buildCombatSummary(combat, selected.name);
+      await client.chat.postMessage({ channel: channelId, text: message });
+    } catch (err) {
+      const message = getUserFriendlyErrorMessage(err, 'Failed to attack');
+      await client.chat.postMessage({ channel: channelId, text: message });
+    }
   });
 }

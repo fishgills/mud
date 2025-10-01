@@ -50,3 +50,8 @@ export const MOVE_ACTIONS = {
   EAST: 'move_action_east',
   WEST: 'move_action_west',
 } as const;
+
+export const ATTACK_ACTIONS = {
+  MONSTER_SELECT: 'attack_action_monster_select',
+  ATTACK_MONSTER: 'attack_action_attack_monster',
+} as const;
