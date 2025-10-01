@@ -63,8 +63,6 @@ export function formatPlayerStatsBlocks(player: PlayerStatsSource): any[] {
   const currentLevel = player.level ?? 1;
   const xp = player.xp ?? 0;
   const xpForNextLevel = currentLevel * 100;
-  const xpProgress = xp;
-  const xpNeeded = Math.max(0, xpForNextLevel - xp);
 
   // Main stats section
   blocks.push({

@@ -2,7 +2,6 @@ import { GraphQLClient } from 'graphql-request';
 import { authorizedFetch } from '@mud/gcp-auth';
 import { env } from './env';
 import * as DM from './generated/dm-graphql';
-import * as World from './generated/world-graphql';
 import gql from 'graphql-tag';
 
 // Ensure the provided endpoint URL targets the GraphQL path. This guards against
@@ -24,13 +23,6 @@ function ensureGraphQLEndpoint(urlStr: string): string {
 const dmClient = new GraphQLClient(ensureGraphQLEndpoint(env.DM_GQL_ENDPOINT), {
   fetch: authorizedFetch,
 });
-
-const worldClient = new GraphQLClient(
-  ensureGraphQLEndpoint(env.WORLD_GQL_ENDPOINT),
-  {
-    fetch: authorizedFetch,
-  },
-);
 
 // GraphQL Documents
 const MovePlayerDocument = gql`

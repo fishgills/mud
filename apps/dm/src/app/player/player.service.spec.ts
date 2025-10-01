@@ -313,4 +313,120 @@ describe('PlayerService', () => {
       'Both x and y coordinates are required',
     );
   });
+
+  describe('Level-up system', () => {
+    it('should level up player when XP threshold is reached', async () => {
+      const service = new PlayerService(worldService);
+      
+      // Create a player with enough XP to level up (100 XP = level 2)
+      players.push({
+        id: 999,
+        slackId: 'LEVELUP',
+        name: 'Leveler',
+        x: 0,
+        y: 0,
+        hp: 100,
+        maxHp: 100,
+        strength: 10,
+        agility: 10,
+        health: 10,
+        gold: 0,
+        xp: 150, // Enough for level 2 (100 XP needed)
+        level: 1,
+        skillPoints: 0,
+        isAlive: true,
+      });
+
+      const result = await service.checkAndApplyLevelUp('LEVELUP');
+      
+      expect(result.leveledUp).toBe(true);
+      expect(result.newLevel).toBe(2);
+      expect(result.healthGained).toBe(10); // 10 HP per level
+      expect(result.skillPointsGained).toBe(0); // No skill points at level 2 (only every 3 levels)
+    });
+
+    it('should award skill points every 3 levels', async () => {
+      const service = new PlayerService(worldService);
+      
+      // Create a player with enough XP to reach level 3 (300 XP)
+      players.push({
+        id: 1000,
+        slackId: 'SKILLUP',
+        name: 'Skilled',
+        x: 0,
+        y: 0,
+        hp: 100,
+        maxHp: 100,
+        strength: 10,
+        agility: 10,
+        health: 10,
+        gold: 0,
+        xp: 350, // Enough for level 3 (300 XP needed)
+        level: 1,
+        skillPoints: 0,
+        isAlive: true,
+      });
+
+      const result = await service.checkAndApplyLevelUp('SKILLUP');
+      
+      expect(result.leveledUp).toBe(true);
+      expect(result.newLevel).toBe(3);
+      expect(result.skillPointsGained).toBe(1); // 1 skill point at level 3
+    });
+
+    it('should increase skill and consume skill point', async () => {
+      const service = new PlayerService(worldService);
+      
+      // Create a player with a skill point
+      players.push({
+        id: 1001,
+        slackId: 'INCREASE',
+        name: 'Increaser',
+        x: 0,
+        y: 0,
+        hp: 100,
+        maxHp: 100,
+        strength: 10,
+        agility: 10,
+        health: 10,
+        gold: 0,
+        xp: 0,
+        level: 3,
+        skillPoints: 1,
+        isAlive: true,
+      });
+
+      const player = await service.increaseSkill('INCREASE', 'strength');
+      
+      expect(player.strength).toBe(11);
+      expect(player.skillPoints).toBe(0);
+    });
+
+    it('should throw error when trying to increase skill without skill points', async () => {
+      const service = new PlayerService(worldService);
+      
+      // Create a player without skill points
+      players.push({
+        id: 1002,
+        slackId: 'NOPOINTS',
+        name: 'NoPoints',
+        x: 0,
+        y: 0,
+        hp: 100,
+        maxHp: 100,
+        strength: 10,
+        agility: 10,
+        health: 10,
+        gold: 0,
+        xp: 0,
+        level: 1,
+        skillPoints: 0,
+        isAlive: true,
+      });
+
+      await expect(service.increaseSkill('NOPOINTS', 'strength')).rejects.toThrow(
+        'You have no skill points available to spend',
+      );
+    });
+  });
 });
