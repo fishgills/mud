@@ -13,4 +13,6 @@ module.exports = {
   collectCoverage: true,
   coverageReporters: ['text-summary', 'lcov', 'html'],
   coverageDirectory: 'test-output/jest/coverage',
+  // Prevent Jest from hanging on open handles
+  testTimeout: 10000,
 };

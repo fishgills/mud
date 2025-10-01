@@ -104,3 +104,4 @@ tsconfig.tsbuildinfo
 .turbo
 out
 test-output
+coverage
