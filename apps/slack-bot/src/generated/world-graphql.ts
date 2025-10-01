@@ -1,5 +1,3 @@
-import { GraphQLClient, RequestOptions } from 'graphql-request';
-import gql from 'graphql-tag';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
@@ -7,7 +5,6 @@ export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: 
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
 export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
-type GraphQLClientRequestHeaders = RequestOptions['requestHeaders'];
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
   ID: { input: string; output: string; }
@@ -236,52 +233,3 @@ export type GetTileQueryVariables = Exact<{
 
 
 export type GetTileQuery = { __typename?: 'Query', getTile: { __typename?: 'TileWithNearbyBiomes', x: number, y: number, biomeName: string, description?: string | null } };
-
-
-export const RenderAsciiDocument = gql`
-    query RenderAscii($x: Int, $y: Int) {
-  renderMapTiles(x: $x, y: $y) {
-    x
-    y
-    biomeName
-    symbol
-    hasSettlement
-    isSettlementCenter
-  }
-}
-    `;
-export const RenderPngMapDocument = gql`
-    query RenderPNGMap($x: Int, $y: Int, $pixelsPerTile: Int) {
-  renderMapPngBase64(x: $x, y: $y, pixelsPerTile: $pixelsPerTile)
-}
-    `;
-export const GetTileDocument = gql`
-    query GetTile($x: Int!, $y: Int!) {
-  getTile(x: $x, y: $y) {
-    x
-    y
-    biomeName
-    description
-  }
-}
-    `;
-
-export type SdkFunctionWrapper = <T>(action: (requestHeaders?:Record<string, string>) => Promise<T>, operationName: string, operationType?: string, variables?: any) => Promise<T>;
-
-
-const defaultWrapper: SdkFunctionWrapper = (action, _operationName, _operationType, _variables) => action();
-
-export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = defaultWrapper) {
-  return {
-    RenderAscii(variables?: RenderAsciiQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RenderAsciiQuery> {
-      return withWrapper((wrappedRequestHeaders) => client.request<RenderAsciiQuery>({ document: RenderAsciiDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RenderAscii', 'query', variables);
-    },
-    RenderPNGMap(variables?: RenderPngMapQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RenderPngMapQuery> {
-      return withWrapper((wrappedRequestHeaders) => client.request<RenderPngMapQuery>({ document: RenderPngMapDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RenderPNGMap', 'query', variables);
-    },
-    GetTile(variables: GetTileQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetTileQuery> {
-      return withWrapper((wrappedRequestHeaders) => client.request<GetTileQuery>({ document: GetTileDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetTile', 'query', variables);
-    }
-  };
-}
-export type Sdk = ReturnType<typeof getSdk>;

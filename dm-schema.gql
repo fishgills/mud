@@ -51,6 +51,7 @@ type Player {
   gold: Int!
   xp: Int!
   level: Int!
+  skillPoints: Int!
   isAlive: Boolean!
   lastAction: DateTime
   createdAt: DateTime
@@ -299,6 +300,10 @@ type Mutation {
   attack(slackId: String!, input: AttackInput!): CombatResponse!
   respawn(slackId: String!): PlayerResponse!
   deletePlayer(slackId: String!): PlayerResponse!
+  
+  """Increase a player skill (strength, agility, or health) by spending a skill point"""
+  increaseSkill(slackId: String!, skill: String!): PlayerResponse!
+  
   movePlayer(slackId: String!, input: MovePlayerInput!): PlayerMoveResponse!
   processTick: SuccessResponse!
   spawnMonster(input: SpawnMonsterInput!): MonsterResponse!

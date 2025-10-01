@@ -234,6 +234,10 @@ export class PlayerResolver {
           }
         }
 
+        if (!targetSlackId) {
+          throw new Error('Unable to determine target player');
+        }
+
         const ignoreLocation = input.ignoreLocation === true;
         result = await this.combatService.playerAttackPlayer(
           slackId,

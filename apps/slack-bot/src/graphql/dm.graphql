@@ -56,6 +56,7 @@ query GetPlayer($slackId: String, $name: String) {
       gold
       xp
       level
+      skillPoints
       isAlive
       nearbyMonsters {
         id
@@ -82,6 +83,7 @@ query GetLocationEntities($x: Float!, $y: Float!) {
     gold
     xp
     level
+    skillPoints
     isAlive
   }
   getMonstersAtLocation(x: $x, y: $y) {
@@ -116,6 +118,7 @@ query GetPlayerWithLocation($slackId: String!) {
       gold
       xp
       level
+      skillPoints
       isAlive
       nearbyMonsters {
         id
@@ -216,6 +219,7 @@ mutation CreatePlayer($input: CreatePlayerInput!) {
       gold
       xp
       level
+      skillPoints
       isAlive
       updatedAt
     }
@@ -259,6 +263,29 @@ mutation DeletePlayer($slackId: String!) {
       id
       slackId
       name
+    }
+  }
+}
+
+mutation IncreaseSkill($slackId: String!, $skill: String!) {
+  increaseSkill(slackId: $slackId, skill: $skill) {
+    success
+    message
+    data {
+      id
+      name
+      strength
+      agility
+      health
+      hp
+      maxHp
+      skillPoints
+      xp
+      level
+      gold
+      x
+      y
+      isAlive
     }
   }
 }
