@@ -147,4 +147,59 @@ describe('WorldService', () => {
 
     await expect(service.healthCheck()).resolves.toBe(false);
   });
+
+  it('handles empty getChunk response', async () => {
+    worldSdk.GetChunk.mockResolvedValue({ getChunk: null });
+    const service = createService();
+    const result = await service.getChunk(5, 5);
+    expect(result).toEqual([]);
+  });
+
+  it('handles getChunk with no tiles', async () => {
+    worldSdk.GetChunk.mockResolvedValue({ getChunk: { tiles: [] } });
+    const service = createService();
+    const result = await service.getChunk(6, 6);
+    expect(result).toEqual([]);
+  });
+
+  it('falls back to default tile when getTileInfoWithNearby returns null', async () => {
+    worldSdk.GetTileWithNearby.mockResolvedValue({ getTile: null });
+    const service = createService();
+    const result = await service.getTileInfoWithNearby(99, 99);
+    expect(result.tile.biomeName).toBe('grassland');
+    expect(result.nearbyBiomes).toEqual([]);
+    expect(result.nearbySettlements).toEqual([]);
+    expect(result.currentSettlement).toBeUndefined();
+  });
+
+  it('handles getTileInfoWithNearby with missing optional fields', async () => {
+    const payload = {
+      getTile: {
+        id: 1,
+        x: 10,
+        y: 10,
+        biomeId: 2,
+        biomeName: 'swamp',
+        description: 'murky',
+        height: 0.3,
+        temperature: 0.5,
+        moisture: 0.9,
+        seed: 456,
+        chunkX: 0,
+        chunkY: 0,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        // Missing nearbyBiomes, nearbySettlements, currentSettlement
+      },
+    };
+
+    worldSdk.GetTileWithNearby.mockResolvedValue(payload);
+    const service = createService();
+    const result = await service.getTileInfoWithNearby(10, 10);
+
+    expect(result.tile.biomeName).toBe('swamp');
+    expect(result.nearbyBiomes).toEqual([]);
+    expect(result.nearbySettlements).toEqual([]);
+    expect(result.currentSettlement).toBeUndefined();
+  });
 });

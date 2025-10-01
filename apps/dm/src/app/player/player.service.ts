@@ -151,9 +151,35 @@ export class PlayerService {
   }
 
   async getAllPlayers(): Promise<Player[]> {
-    return this.prisma.player.findMany({
-      where: { isAlive: true },
+    return this.prisma.player.findMany();
+  }
+
+  /**
+   * Update the lastAction timestamp for a player (used for activity tracking)
+   * @param slackId The Slack ID of the player
+   */
+  async updateLastAction(slackId: string): Promise<void> {
+    await this.prisma.player.update({
+      where: { slackId },
+      data: { lastAction: new Date() },
     });
+  }
+
+  /**
+   * Check if there are any players who have been active within the specified time window
+   * @param minutesThreshold How many minutes back to check for activity (default: 30)
+   * @returns true if any players have been active within the threshold
+   */
+  async hasActivePlayers(minutesThreshold: number = 30): Promise<boolean> {
+    const thresholdDate = new Date(Date.now() - minutesThreshold * 60 * 1000);
+    const count = await this.prisma.player.count({
+      where: {
+        lastAction: {
+          gte: thresholdDate,
+        },
+      },
+    });
+    return count > 0;
   }
 
   async movePlayer(slackId: string, moveDto: MovePlayerDto): Promise<Player> {
@@ -229,6 +255,7 @@ export class PlayerService {
         xp: statsDto.xp,
         gold: statsDto.gold,
         level: statsDto.level,
+        lastAction: new Date(),
         updatedAt: new Date(),
       },
     });

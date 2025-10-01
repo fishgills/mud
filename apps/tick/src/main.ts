@@ -5,6 +5,18 @@ import { authorizedFetch, setAuthLogger } from '@mud/gcp-auth';
 const DM_GRAPHQL_URL =
   process.env.DM_GRAPHQL_URL || 'http://localhost:3000/graphql';
 
+// Tick interval in milliseconds (default: 30 minutes)
+const TICK_INTERVAL_MS = parseInt(
+  process.env.TICK_INTERVAL_MS || '1800000',
+  10,
+);
+
+// How many minutes to check for player activity (default: 30 minutes)
+const ACTIVITY_THRESHOLD_MINUTES = parseInt(
+  process.env.ACTIVITY_THRESHOLD_MINUTES || '30',
+  10,
+);
+
 setAuthLogger({
   log: (...args: unknown[]) => console.log(String(args[0] ?? '')),
   warn: (...args: unknown[]) => console.warn(String(args[0] ?? '')),
@@ -14,7 +26,55 @@ setAuthLogger({
 // GraphQL mutation for processing a tick
 const PROCESS_TICK_MUTATION = `mutation {  processTick {    success    message    result {      tick      gameHour      gameDay      monstersSpawned      monstersMoved      combatEvents      weatherUpdated    }   } }`;
 
+// GraphQL query to check for active players
+const HAS_ACTIVE_PLAYERS_QUERY = `query HasActivePlayers($minutesThreshold: Float!) {
+  hasActivePlayers(minutesThreshold: $minutesThreshold)
+}`;
+
+async function hasActivePlayers(): Promise<boolean> {
+  try {
+    const res = await authorizedFetch(DM_GRAPHQL_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
+      },
+      body: JSON.stringify({
+        query: HAS_ACTIVE_PLAYERS_QUERY,
+        variables: { minutesThreshold: ACTIVITY_THRESHOLD_MINUTES },
+      }),
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      console.error(
+        `[tick] hasActivePlayers HTTP ${res.status}: ${text.slice(0, 500)}`,
+      );
+      return false;
+    }
+    const payload = JSON.parse(text) as {
+      data?: { hasActivePlayers?: boolean };
+    };
+    return payload.data?.hasActivePlayers ?? false;
+  } catch (err) {
+    console.error(
+      '[tick] Error checking active players:',
+      err instanceof Error ? err.message : err,
+    );
+    return false;
+  }
+}
+
 async function sendProcessTick() {
+  // First check if there are any active players
+  const hasActive = await hasActivePlayers();
+  if (!hasActive) {
+    console.log(
+      `[tick] No active players in last ${ACTIVITY_THRESHOLD_MINUTES} minutes, skipping tick`,
+    );
+    return;
+  }
+
+  console.log('[tick] Active players detected, processing tick...');
   try {
     const res = await authorizedFetch(DM_GRAPHQL_URL, {
       method: 'POST',
@@ -67,10 +127,14 @@ async function sendProcessTick() {
 
 // Start loop and lightweight HTTP server for Cloud Run health/readiness
 console.log('[tick] service starting — targeting DM at', DM_GRAPHQL_URL);
+console.log(
+  `[tick] Tick interval: ${TICK_INTERVAL_MS}ms (${TICK_INTERVAL_MS / 60000} minutes)`,
+);
+console.log(`[tick] Activity threshold: ${ACTIVITY_THRESHOLD_MINUTES} minutes`);
 // Kick one immediately on startup (optional)
 sendProcessTick().catch(() => void 0);
-// Then every 30 seconds
-const interval: NodeJS.Timeout = setInterval(sendProcessTick, 30 * 1000);
+// Then every configured interval
+const interval: NodeJS.Timeout = setInterval(sendProcessTick, TICK_INTERVAL_MS);
 
 // Minimal HTTP server to satisfy Cloud Run's requirement to listen on $PORT
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3003;

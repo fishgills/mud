@@ -105,6 +105,12 @@ export class MovementResolver {
       // Get player and center tile data
       const tPlayerStart = Date.now();
       const player = await this.playerService.getPlayer(slackId);
+
+      // Update lastAction for activity tracking (fire and forget)
+      this.playerService.updateLastAction(slackId).catch(() => {
+        // Ignore errors - activity tracking shouldn't block the request
+      });
+
       timing.tPlayerMs = Date.now() - tPlayerStart;
 
       // Start center-with-nearby immediately (single request for center + nearby)
