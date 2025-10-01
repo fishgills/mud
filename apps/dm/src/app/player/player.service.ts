@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { calculateDirection } from '../shared/direction.util';
-import { getPrismaClient, Player } from '@mud/database';
+import { getPrismaClient, Player, Prisma } from '@mud/database';
 import {
   CreatePlayerDto,
   MovePlayerDto,
@@ -16,7 +16,24 @@ export class PlayerService {
   private readonly logger = new Logger(PlayerService.name);
   private prisma = getPrismaClient();
 
+  private readonly SKILL_POINT_INTERVAL = 4;
+  private readonly SKILL_POINTS_PER_INTERVAL = 2;
+  private readonly HIT_DIE_AVERAGE = 6; // Average roll for a d10
+
   constructor(private readonly worldService: WorldService) {}
+
+  private getXpForNextLevel(level: number): number {
+    return level * 100;
+  }
+
+  private getConstitutionModifier(health: number): number {
+    return Math.floor((health - 10) / 2);
+  }
+
+  private calculateLevelUpHpGain(health: number): number {
+    const modifier = this.getConstitutionModifier(health);
+    return Math.max(1, this.HIT_DIE_AVERAGE + modifier);
+  }
 
   async createPlayer(createPlayerDto: CreatePlayerDto): Promise<Player> {
     const { slackId, name, x, y } = createPlayerDto;
@@ -248,17 +265,127 @@ export class PlayerService {
     slackId: string,
     statsDto: PlayerStatsDto,
   ): Promise<Player> {
-    return this.prisma.player.update({
+    const player = await this.getPlayer(slackId);
+    const updatedState: Player = { ...player };
+
+    const data: Prisma.PlayerUpdateInput = {
+      lastAction: new Date(),
+      updatedAt: new Date(),
+    };
+
+    if (typeof statsDto.hp === 'number') {
+      updatedState.hp = statsDto.hp;
+      data.hp = statsDto.hp;
+    }
+
+    if (typeof statsDto.gold === 'number') {
+      updatedState.gold = statsDto.gold;
+      data.gold = statsDto.gold;
+    }
+
+    if (typeof statsDto.level === 'number') {
+      updatedState.level = statsDto.level;
+      data.level = statsDto.level;
+    }
+
+    let leveledUp = false;
+    let levelsGained = 0;
+
+    if (typeof statsDto.xp === 'number') {
+      updatedState.xp = statsDto.xp;
+      data.xp = statsDto.xp;
+
+      while (updatedState.xp >= this.getXpForNextLevel(updatedState.level)) {
+        updatedState.level += 1;
+        levelsGained += 1;
+        leveledUp = true;
+
+        const hpGain = this.calculateLevelUpHpGain(updatedState.health);
+        updatedState.maxHp += hpGain;
+        updatedState.hp = Math.min(updatedState.hp + hpGain, updatedState.maxHp);
+
+        if (updatedState.level % this.SKILL_POINT_INTERVAL === 0) {
+          updatedState.skillPoints += this.SKILL_POINTS_PER_INTERVAL;
+        }
+      }
+
+      data.level = updatedState.level;
+      data.maxHp = updatedState.maxHp;
+      data.hp = updatedState.hp;
+      data.skillPoints = updatedState.skillPoints;
+    }
+
+    const result = await this.prisma.player.update({
       where: { slackId },
-      data: {
-        hp: statsDto.hp,
-        xp: statsDto.xp,
-        gold: statsDto.gold,
-        level: statsDto.level,
-        lastAction: new Date(),
-        updatedAt: new Date(),
-      },
+      data,
     });
+
+    if (leveledUp) {
+      this.logger.log(
+        `🎉 ${player.name} advanced ${levelsGained} level(s) to ${result.level}! Max HP is now ${result.maxHp}.`,
+      );
+      if (result.skillPoints > player.skillPoints) {
+        this.logger.log(
+          `🛡️ ${player.name} gained ${result.skillPoints - player.skillPoints} skill point(s).`,
+        );
+      }
+    }
+
+    return result;
+  }
+
+  async spendSkillPoint(
+    slackId: string,
+    attribute: 'strength' | 'agility' | 'health',
+  ): Promise<Player> {
+    const player = await this.getPlayer(slackId);
+
+    if (player.skillPoints <= 0) {
+      throw new Error('No skill points available.');
+    }
+
+    const data: Prisma.PlayerUpdateInput = {
+      skillPoints: player.skillPoints - 1,
+      lastAction: new Date(),
+      updatedAt: new Date(),
+    };
+
+    let newAttributeValue: number;
+
+    if (attribute === 'strength') {
+      newAttributeValue = player.strength + 1;
+      data.strength = newAttributeValue;
+    } else if (attribute === 'agility') {
+      newAttributeValue = player.agility + 1;
+      data.agility = newAttributeValue;
+    } else if (attribute === 'health') {
+      const newHealth = player.health + 1;
+      const previousModifier = this.getConstitutionModifier(player.health);
+      const newModifier = this.getConstitutionModifier(newHealth);
+      const modifierIncrease = Math.max(0, newModifier - previousModifier);
+      const hpIncrease = 2 + modifierIncrease * player.level;
+
+      newAttributeValue = newHealth;
+      data.health = newHealth;
+      data.maxHp = player.maxHp + hpIncrease;
+      data.hp = Math.min(
+        (data.maxHp as number) ?? player.maxHp + hpIncrease,
+        player.hp + hpIncrease,
+      );
+    } else {
+      throw new Error(`Unknown attribute: ${attribute}`);
+    }
+
+    const result = await this.prisma.player.update({
+      where: { slackId },
+      data,
+    });
+
+    this.logger.log(
+      `⚔️ ${player.name} increased ${attribute} to ${newAttributeValue}. Remaining skill points: ${result.skillPoints}.`,
+    );
+
+    return result;
   }
 
   async rerollPlayerStats(slackId: string): Promise<Player> {

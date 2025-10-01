@@ -55,3 +55,9 @@ export const ATTACK_ACTIONS = {
   MONSTER_SELECT: 'attack_action_monster_select',
   ATTACK_MONSTER: 'attack_action_attack_monster',
 } as const;
+
+export const STAT_ACTIONS = {
+  INCREASE_STRENGTH: 'stats_action_increase_strength',
+  INCREASE_AGILITY: 'stats_action_increase_agility',
+  INCREASE_HEALTH: 'stats_action_increase_health',
+} as const;

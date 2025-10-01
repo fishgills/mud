@@ -226,6 +226,7 @@ export type Mutation = {
   processTick: SuccessResponse;
   rerollPlayerStats: PlayerResponse;
   respawn: PlayerResponse;
+  spendSkillPoint: PlayerResponse;
   spawnMonster: MonsterResponse;
   updatePlayerStats: PlayerResponse;
 };
@@ -271,6 +272,12 @@ export type MutationRerollPlayerStatsArgs = {
 
 
 export type MutationRespawnArgs = {
+  slackId: Scalars['String']['input'];
+};
+
+
+export type MutationSpendSkillPointArgs = {
+  attribute: PlayerAttribute;
   slackId: Scalars['String']['input'];
 };
 
@@ -326,6 +333,7 @@ export type Player = {
   name: Scalars['String']['output'];
   nearbyMonsters?: Maybe<Array<Monster>>;
   nearbyPlayers?: Maybe<Array<Player>>;
+  skillPoints: Scalars['Int']['output'];
   slackId: Scalars['String']['output'];
   strength: Scalars['Int']['output'];
   updatedAt: Scalars['DateTime']['output'];
@@ -429,6 +437,12 @@ export type SuccessResponse = {
   success: Scalars['Boolean']['output'];
 };
 
+export enum PlayerAttribute {
+  Agility = 'AGILITY',
+  Health = 'HEALTH',
+  Strength = 'STRENGTH'
+}
+
 export enum TargetType {
   Monster = 'MONSTER',
   Player = 'PLAYER'
@@ -496,7 +510,7 @@ export type GetPlayerQueryVariables = Exact<{
 }>;
 
 
-export type GetPlayerQuery = { __typename?: 'Query', getPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean, nearbyMonsters?: Array<{ __typename?: 'Monster', id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
+export type GetPlayerQuery = { __typename?: 'Query', getPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, skillPoints: number, isAlive: boolean, nearbyMonsters?: Array<{ __typename?: 'Monster', id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
 
 export type GetLocationEntitiesQueryVariables = Exact<{
   x: Scalars['Float']['input'];
@@ -504,14 +518,14 @@ export type GetLocationEntitiesQueryVariables = Exact<{
 }>;
 
 
-export type GetLocationEntitiesQuery = { __typename?: 'Query', getPlayersAtLocation: Array<{ __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean }>, getMonstersAtLocation: Array<{ __typename?: 'Monster', id: string, name: string, type: string, hp: number, maxHp: number, strength: number, agility: number, health: number, x: number, y: number, isAlive: boolean }> };
+export type GetLocationEntitiesQuery = { __typename?: 'Query', getPlayersAtLocation: Array<{ __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, skillPoints: number, isAlive: boolean }>, getMonstersAtLocation: Array<{ __typename?: 'Monster', id: string, name: string, type: string, hp: number, maxHp: number, strength: number, agility: number, health: number, x: number, y: number, isAlive: boolean }> };
 
 export type GetPlayerWithLocationQueryVariables = Exact<{
   slackId: Scalars['String']['input'];
 }>;
 
 
-export type GetPlayerWithLocationQuery = { __typename?: 'Query', getPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean, nearbyMonsters?: Array<{ __typename?: 'Monster', id: string, name: string, hp: number, isAlive: boolean }> | null, currentTile?: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number } | null, nearbyPlayers?: Array<{ __typename?: 'Player', id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
+export type GetPlayerWithLocationQuery = { __typename?: 'Query', getPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, skillPoints: number, isAlive: boolean, nearbyMonsters?: Array<{ __typename?: 'Monster', id: string, name: string, hp: number, isAlive: boolean }> | null, currentTile?: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number } | null, nearbyPlayers?: Array<{ __typename?: 'Player', id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
 
 export type GetLookViewQueryVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -525,7 +539,7 @@ export type CreatePlayerMutationVariables = Exact<{
 }>;
 
 
-export type CreatePlayerMutation = { __typename?: 'Mutation', createPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, isAlive: boolean, updatedAt: any } | null } };
+export type CreatePlayerMutation = { __typename?: 'Mutation', createPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, skillPoints: number, isAlive: boolean, updatedAt: any } | null } };
 
 export type RerollPlayerStatsMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -533,6 +547,14 @@ export type RerollPlayerStatsMutationVariables = Exact<{
 
 
 export type RerollPlayerStatsMutation = { __typename?: 'Mutation', rerollPlayerStats: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, strength: number, agility: number, health: number, maxHp: number } | null } };
+
+export type SpendSkillPointMutationVariables = Exact<{
+  slackId: Scalars['String']['input'];
+  attribute: PlayerAttribute;
+}>;
+
+
+export type SpendSkillPointMutation = { __typename?: 'Mutation', spendSkillPoint: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, skillPoints: number } | null } };
 
 export type CompletePlayerMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
@@ -599,6 +621,7 @@ export const GetPlayerDocument = gql`
     message
     data {
       id
+      slackId
       name
       x
       y
@@ -610,6 +633,7 @@ export const GetPlayerDocument = gql`
       gold
       xp
       level
+      skillPoints
       isAlive
       nearbyMonsters {
         id
@@ -637,6 +661,7 @@ export const GetLocationEntitiesDocument = gql`
     gold
     xp
     level
+    skillPoints
     isAlive
   }
   getMonstersAtLocation(x: $x, y: $y) {
@@ -661,6 +686,7 @@ export const GetPlayerWithLocationDocument = gql`
     message
     data {
       id
+      slackId
       name
       x
       y
@@ -672,6 +698,7 @@ export const GetPlayerWithLocationDocument = gql`
       gold
       xp
       level
+      skillPoints
       isAlive
       nearbyMonsters {
         id
@@ -774,6 +801,7 @@ export const CreatePlayerDocument = gql`
       gold
       xp
       level
+      skillPoints
       isAlive
       updatedAt
     }
@@ -793,6 +821,28 @@ export const RerollPlayerStatsDocument = gql`
       agility
       health
       maxHp
+    }
+  }
+}
+    `;
+export const SpendSkillPointDocument = gql`
+    mutation SpendSkillPoint($slackId: String!, $attribute: PlayerAttribute!) {
+  spendSkillPoint(slackId: $slackId, attribute: $attribute) {
+    success
+    message
+    data {
+      id
+      slackId
+      name
+      hp
+      maxHp
+      strength
+      agility
+      health
+      gold
+      xp
+      level
+      skillPoints
     }
   }
 }
@@ -855,6 +905,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     RerollPlayerStats(variables: RerollPlayerStatsMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RerollPlayerStatsMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<RerollPlayerStatsMutation>({ document: RerollPlayerStatsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RerollPlayerStats', 'mutation', variables);
+    },
+    SpendSkillPoint(variables: SpendSkillPointMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<SpendSkillPointMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<SpendSkillPointMutation>({ document: SpendSkillPointDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'SpendSkillPoint', 'mutation', variables);
     },
     CompletePlayer(variables: CompletePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<CompletePlayerMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<CompletePlayerMutation>({ document: CompletePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CompletePlayer', 'mutation', variables);

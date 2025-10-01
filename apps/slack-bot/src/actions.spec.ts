@@ -1,6 +1,7 @@
 jest.mock('./gql-client', () => {
   const dmSdk = {
     Attack: jest.fn(),
+    SpendSkillPoint: jest.fn(),
   };
   return { dmSdk };
 });
@@ -11,13 +12,17 @@ import {
   HELP_ACTIONS,
   MOVE_ACTIONS,
   ATTACK_ACTIONS,
+  STAT_ACTIONS,
 } from './commands';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { HandlerContext } from './handlers/types';
 import { dmSdk } from './gql-client';
-import { TargetType } from './generated/dm-graphql';
+import { PlayerAttribute, TargetType } from './generated/dm-graphql';
 
-const mockedDmSdk = dmSdk as unknown as { Attack: jest.Mock };
+const mockedDmSdk = dmSdk as unknown as {
+  Attack: jest.Mock;
+  SpendSkillPoint: jest.Mock;
+};
 
 type AckMock = jest.Mock<Promise<void>, unknown[]>;
 type ConversationsOpenMock = jest.Mock<
@@ -25,11 +30,12 @@ type ConversationsOpenMock = jest.Mock<
   unknown[]
 >;
 type ChatPostMessageMock = jest.Mock<Promise<void>, unknown[]>;
+type ChatUpdateMock = jest.Mock<Promise<void>, unknown[]>;
 type ViewsOpenMock = jest.Mock<Promise<void>, unknown[]>;
 
 type MockSlackClient = {
   conversations: { open: ConversationsOpenMock };
-  chat: { postMessage: ChatPostMessageMock };
+  chat: { postMessage: ChatPostMessageMock; update: ChatUpdateMock };
   views?: { open: ViewsOpenMock };
 };
 
@@ -41,8 +47,10 @@ type SlackActionHandler = (args: {
     state?: { values?: Record<string, Record<string, unknown>> };
     container?: { channel_id?: string };
     channel?: { id?: string };
+    message?: { ts?: string };
   };
   client: MockSlackClient;
+  respond?: jest.Mock;
 }) => Promise<void> | void;
 
 type SlackViewHandler = (args: {
@@ -74,6 +82,7 @@ describe('registerActions', () => {
     actionHandlers = {};
     viewHandlers = {};
     mockedDmSdk.Attack.mockReset();
+    mockedDmSdk.SpendSkillPoint.mockReset();
     const app = {
       action: jest.fn((actionId: string, handler: SlackActionHandler) => {
         actionHandlers[actionId] = handler;
@@ -109,6 +118,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -147,6 +157,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -173,6 +184,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
       views: { open: viewsOpen },
     };
@@ -215,6 +227,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -270,6 +283,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -335,6 +349,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -360,6 +375,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -388,6 +404,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -412,6 +429,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -442,6 +460,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
       views: { open: viewsOpen },
     };
@@ -471,6 +490,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
       views: { open: viewsOpen },
     };
@@ -499,6 +519,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -531,6 +552,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -569,6 +591,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -602,6 +625,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -626,6 +650,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -659,6 +684,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -710,6 +736,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -761,6 +788,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -812,6 +840,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -849,6 +878,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -886,6 +916,7 @@ describe('registerActions', () => {
         postMessage: jest
           .fn()
           .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
     };
 
@@ -896,5 +927,102 @@ describe('registerActions', () => {
     });
 
     expect(ack).toHaveBeenCalled();
+  });
+
+  it('spends skill points and updates the stats message', async () => {
+    const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+    const respond = jest.fn();
+    mockedDmSdk.SpendSkillPoint.mockResolvedValue({
+      spendSkillPoint: {
+        success: true,
+        message: null,
+        data: {
+          id: '1',
+          slackId: 'U1',
+          name: 'Hero',
+          hp: 18,
+          maxHp: 18,
+          strength: 12,
+          agility: 10,
+          health: 11,
+          gold: 5,
+          xp: 150,
+          level: 2,
+          skillPoints: 1,
+        },
+      },
+    });
+
+    const client: MockSlackClient = {
+      conversations: {
+        open: jest.fn() as ConversationsOpenMock,
+      },
+      chat: {
+        postMessage: jest
+          .fn()
+          .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
+      },
+    };
+
+    await actionHandlers[STAT_ACTIONS.INCREASE_STRENGTH]({
+      ack,
+      body: {
+        user: { id: 'U1' },
+        channel: { id: 'C1' },
+        message: { ts: '123' },
+      },
+      client,
+      respond,
+    });
+
+    expect(mockedDmSdk.SpendSkillPoint).toHaveBeenCalledWith({
+      slackId: 'U1',
+      attribute: PlayerAttribute.Strength,
+    });
+    expect(client.chat.update).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'C1', ts: '123' }),
+    );
+    expect(respond).not.toHaveBeenCalled();
+  });
+
+  it('reports errors when spending skill points fails', async () => {
+    const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+    const respond = jest.fn();
+    mockedDmSdk.SpendSkillPoint.mockResolvedValue({
+      spendSkillPoint: { success: false, message: 'no points', data: null },
+    });
+
+    const client: MockSlackClient = {
+      conversations: {
+        open: jest.fn() as ConversationsOpenMock,
+      },
+      chat: {
+        postMessage: jest
+          .fn()
+          .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
+      },
+    };
+
+    await actionHandlers[STAT_ACTIONS.INCREASE_AGILITY]({
+      ack,
+      body: {
+        user: { id: 'U1' },
+        channel: { id: 'C1' },
+        message: { ts: '123' },
+      },
+      client,
+      respond,
+    });
+
+    expect(mockedDmSdk.SpendSkillPoint).toHaveBeenCalledWith({
+      slackId: 'U1',
+      attribute: PlayerAttribute.Agility,
+    });
+    expect(client.chat.update).not.toHaveBeenCalled();
+    expect(respond).toHaveBeenCalledWith(
+      expect.objectContaining({ response_type: 'ephemeral' }),
+    );
   });
 });

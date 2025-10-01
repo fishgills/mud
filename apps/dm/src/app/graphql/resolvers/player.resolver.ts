@@ -26,6 +26,7 @@ import {
   PlayerStatsInput,
   AttackInput,
   TargetType,
+  PlayerAttribute,
 } from '../inputs/player.input';
 
 @Resolver(() => Player)
@@ -121,6 +122,28 @@ export class PlayerResolver {
           error instanceof Error
             ? error.message
             : 'Failed to update player stats',
+      };
+    }
+  }
+
+  @Mutation(() => PlayerResponse)
+  async spendSkillPoint(
+    @Args('slackId') slackId: string,
+    @Args('attribute', { type: () => PlayerAttribute }) attribute: PlayerAttribute,
+  ): Promise<PlayerResponse> {
+    try {
+      const player = await this.playerService.spendSkillPoint(slackId, attribute);
+      return {
+        success: true,
+        data: player as Player,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to spend skill point',
       };
     }
   }

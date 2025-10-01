@@ -33,6 +33,7 @@ model Player {
   gold        Int        @default(0)
   xp          Int        @default(0)
   level       Int        @default(1)
+  skillPoints Int        @default(0)
   isAlive     Boolean    @default(true)
   lastAction  DateTime   @default(now())
   createdAt   DateTime   @default(now())

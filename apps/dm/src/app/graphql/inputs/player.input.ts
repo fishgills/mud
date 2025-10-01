@@ -21,6 +21,16 @@ registerEnumType(Direction, {
   description: 'Cardinal directions for player movement',
 });
 
+export enum PlayerAttribute {
+  STRENGTH = 'strength',
+  AGILITY = 'agility',
+  HEALTH = 'health',
+}
+
+registerEnumType(PlayerAttribute, {
+  name: 'PlayerAttribute',
+});
+
 @InputType()
 export class CreatePlayerInput {
   @Field()
