@@ -288,7 +288,6 @@ describe('registerActions', () => {
           xpGained: 2,
           goldGained: 1,
           message: 'Hero strikes down the goblin.',
-          success: true,
         },
       },
     });
