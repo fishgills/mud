@@ -1,6 +1,7 @@
 import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { MonsterService } from '../../monster/monster.service';
 import { GameTickService } from '../../game-tick/game-tick.service';
+import { PlayerService } from '../../player/player.service';
 import { Monster } from '../models/monster.model';
 import {
   HealthCheck,
@@ -16,6 +17,7 @@ export class SystemResolver {
   constructor(
     private monsterService: MonsterService,
     private gameTickService: GameTickService,
+    private playerService: PlayerService,
   ) {}
 
   @Query(() => HealthCheck)
@@ -24,6 +26,14 @@ export class SystemResolver {
       status: 'healthy',
       timestamp: new Date().toISOString(),
     };
+  }
+
+  @Query(() => Boolean)
+  async hasActivePlayers(
+    @Args('minutesThreshold', { type: () => Number, defaultValue: 30 })
+    minutesThreshold: number,
+  ): Promise<boolean> {
+    return this.playerService.hasActivePlayers(minutesThreshold);
   }
 
   @Mutation(() => SuccessResponse)
