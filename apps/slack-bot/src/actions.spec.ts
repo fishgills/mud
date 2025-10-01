@@ -1,7 +1,18 @@
+jest.mock('./gql-client', () => {
+  const dmSdk = {
+    Attack: jest.fn(),
+  };
+  return { dmSdk };
+});
+
 import { registerActions } from './actions';
-import { COMMANDS, HELP_ACTIONS, MOVE_ACTIONS } from './commands';
+import { COMMANDS, HELP_ACTIONS, MOVE_ACTIONS, ATTACK_ACTIONS } from './commands';
 import { getAllHandlers } from './handlers/handlerRegistry';
-import type { HandlerContext } from './handlers/types';
+import { HandlerContext } from './handlers/types';
+import { dmSdk } from './gql-client';
+import { TargetType } from './generated/dm-graphql';
+
+const mockedDmSdk = dmSdk as unknown as { Attack: jest.Mock };
 
 type AckMock = jest.Mock<Promise<void>, unknown[]>;
 type ConversationsOpenMock = jest.Mock<
@@ -19,7 +30,13 @@ type MockSlackClient = {
 
 type SlackActionHandler = (args: {
   ack: AckMock;
-  body: { user?: { id?: string }; trigger_id?: string };
+  body: {
+    user?: { id?: string };
+    trigger_id?: string;
+    state?: { values?: Record<string, Record<string, unknown>> };
+    container?: { channel_id?: string };
+    channel?: { id?: string };
+  };
   client: MockSlackClient;
 }) => Promise<void> | void;
 
@@ -51,6 +68,7 @@ describe('registerActions', () => {
     resetHandlers();
     actionHandlers = {};
     viewHandlers = {};
+    mockedDmSdk.Attack.mockReset();
     const app = {
       action: jest.fn((actionId: string, handler: SlackActionHandler) => {
         actionHandlers[actionId] = handler;
@@ -240,6 +258,72 @@ describe('registerActions', () => {
     );
     expect(client.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ channel: 'C4' }),
+    );
+  });
+
+  it('attacks the selected monster when the attack button is clicked', async () => {
+    const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+    const client: MockSlackClient = {
+      conversations: {
+        open: jest.fn().mockResolvedValue({
+          channel: { id: 'C5' },
+        }) as ConversationsOpenMock,
+      },
+      chat: {
+        postMessage: jest
+          .fn()
+          .mockResolvedValue(undefined) as ChatPostMessageMock,
+      },
+    };
+
+    mockedDmSdk.Attack.mockResolvedValueOnce({
+      attack: {
+        success: true,
+        message: 'done',
+        data: {
+          winnerName: 'Hero',
+          loserName: 'Goblin',
+          totalDamageDealt: 5,
+          roundsCompleted: 3,
+          xpGained: 2,
+          goldGained: 1,
+          message: 'Hero strikes down the goblin.',
+          success: true,
+        },
+      },
+    });
+
+    await actionHandlers[ATTACK_ACTIONS.ATTACK_MONSTER]({
+      ack,
+      body: {
+        user: { id: 'U1' },
+        container: { channel_id: 'D1' },
+        state: {
+          values: {
+            attack_monster_selection_block: {
+              [ATTACK_ACTIONS.MONSTER_SELECT]: {
+                selected_option: {
+                  value: '42',
+                  text: { text: 'Goblin' },
+                },
+              },
+            },
+          },
+        },
+      },
+      client,
+    });
+
+    expect(ack).toHaveBeenCalled();
+    expect(mockedDmSdk.Attack).toHaveBeenCalledWith({
+      slackId: 'U1',
+      input: { targetType: TargetType.Monster, targetId: 42 },
+    });
+    expect(client.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: 'D1',
+        text: expect.stringContaining('You attacked Goblin!'),
+      }),
     );
   });
 });
