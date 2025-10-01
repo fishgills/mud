@@ -1,17 +1,7 @@
-/* eslint-disable */
-const swcJestConfig = {
-  ...require('../../jest.swc.config.cjs'),
-  swcrc: false,
-};
+const baseConfig = require('../../jest.base.config.cjs');
 
 module.exports = {
+  ...baseConfig,
   displayName: 'world',
-  testEnvironment: 'node',
-  transform: {
-    '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
-  },
-  transformIgnorePatterns: ['node_modules/(?!(graphql-request)/)'],
-  moduleFileExtensions: ['ts', 'js', 'html'],
-  coverageDirectory: 'test-output/jest/coverage',
   collectCoverageFrom: ['src/**/*.{ts,js}'],
 };
