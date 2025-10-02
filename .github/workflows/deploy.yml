@@ -43,8 +43,12 @@ jobs:
       - name: Get affected applications
         id: affected
         run: |
-          # Get affected projects using turbo
-          AFFECTED_OUTPUT=$(yarn turbo run build --affected --dry=json 2>/dev/null || echo '{"tasks":[]}')
+          # Get affected projects using turbo and extract the JSON payload only
+          RAW_OUTPUT=$(yarn --silent turbo run build --affected --dry=json || true)
+          AFFECTED_OUTPUT=$(python3 -c 'import json, sys; data = sys.stdin.read(); start = data.find("{"); end = data.rfind("}"); print(json.dumps({"tasks": []}) if start == -1 or end == -1 or end < start else data[start:end+1])' <<< "$RAW_OUTPUT")
+          if [ -z "$AFFECTED_OUTPUT" ]; then
+            AFFECTED_OUTPUT='{"tasks":[]}'
+          fi
 
           # Extract application names from affected tasks
           APPS=$(echo "$AFFECTED_OUTPUT" | jq -r '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique | map(select(. == "dm" or . == "slack-bot" or . == "tick" or . == "world"))')
