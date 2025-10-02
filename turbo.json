@@ -35,6 +35,7 @@
       "dependsOn": ["^codegen"]
     },
     "lint": {
+      "dependsOn": ["^generate"],
       "cache": false
     },
     "test": {
