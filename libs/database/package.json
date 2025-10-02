@@ -33,6 +33,7 @@
     "lint": "eslint",
     "prebuild": "yarn run generate",
     "predev": "yarn run generate",
+    "prelint": "yarn run generate",
     "studio": "prisma studio",
     "build": "tsc"
   }
