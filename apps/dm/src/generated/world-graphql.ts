@@ -2,34 +2,21 @@ import { GraphQLClient, RequestOptions } from 'graphql-request';
 import gql from 'graphql-tag';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
-export type Exact<T extends { [key: string]: unknown }> = {
-  [K in keyof T]: T[K];
-};
-export type MakeOptional<T, K extends keyof T> = Omit<T, K> & {
-  [SubKey in K]?: Maybe<T[SubKey]>;
-};
-export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & {
-  [SubKey in K]: Maybe<T[SubKey]>;
-};
-export type MakeEmpty<
-  T extends { [key: string]: unknown },
-  K extends keyof T,
-> = { [_ in K]?: never };
-export type Incremental<T> =
-  | T
-  | {
-      [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never;
-    };
+export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
+export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
+export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
+export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
+export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 type GraphQLClientRequestHeaders = RequestOptions['requestHeaders'];
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
-  ID: { input: string; output: string };
-  String: { input: string; output: string };
-  Boolean: { input: boolean; output: boolean };
-  Int: { input: number; output: number };
-  Float: { input: number; output: number };
+  ID: { input: string; output: string; }
+  String: { input: string; output: string; }
+  Boolean: { input: boolean; output: boolean; }
+  Int: { input: number; output: number; }
+  Float: { input: number; output: number; }
   /** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
-  DateTime: { input: any; output: any };
+  DateTime: { input: any; output: any; }
 };
 
 export type Biome = {
@@ -55,6 +42,7 @@ export type ChunkData = {
   stats?: Maybe<ChunkStats>;
   tiles?: Maybe<Array<WorldTile>>;
 };
+
 
 export type ChunkDataPaginatedTilesArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
@@ -92,6 +80,7 @@ export type Mutation = {
   /** Clears the render cache in Redis. Returns number of keys removed. */
   clearRenderCache: Scalars['Int']['output'];
 };
+
 
 export type MutationClearRenderCacheArgs = {
   pattern?: InputMaybe<Scalars['String']['input']>;
@@ -137,26 +126,31 @@ export type Query = {
   renderMapTiles: Array<Array<MapTile>>;
 };
 
+
 export type QueryGetChunkArgs = {
   chunkX: Scalars['Float']['input'];
   chunkY: Scalars['Float']['input'];
 };
+
 
 export type QueryGetTileArgs = {
   x: Scalars['Int']['input'];
   y: Scalars['Int']['input'];
 };
 
+
 export type QueryRenderMapAsciiArgs = {
   x?: InputMaybe<Scalars['Int']['input']>;
   y?: InputMaybe<Scalars['Int']['input']>;
 };
+
 
 export type QueryRenderMapPngBase64Args = {
   pixelsPerTile?: InputMaybe<Scalars['Int']['input']>;
   x?: InputMaybe<Scalars['Int']['input']>;
   y?: InputMaybe<Scalars['Int']['input']>;
 };
+
 
 export type QueryRenderMapTilesArgs = {
   x?: InputMaybe<Scalars['Int']['input']>;
@@ -232,6 +226,7 @@ export type __Directive = {
   args: Array<__InputValue>;
 };
 
+
 /**
  * A Directive provides a way to describe alternate runtime execution and type validation behavior in a GraphQL document.
  *
@@ -280,7 +275,7 @@ export enum __DirectiveLocation {
   /** Location adjacent to an input object type definition. */
   InputObject = 'INPUT_OBJECT',
   /** Location adjacent to an input object field definition. */
-  InputFieldDefinition = 'INPUT_FIELD_DEFINITION',
+  InputFieldDefinition = 'INPUT_FIELD_DEFINITION'
 }
 
 /** One possible value for a given Enum. Enum values are unique values, not a placeholder for a string or numeric value. However an Enum value is returned in a JSON response as a string. */
@@ -302,6 +297,7 @@ export type __Field = {
   isDeprecated: Scalars['Boolean']['output'];
   deprecationReason?: Maybe<Scalars['String']['output']>;
 };
+
 
 /** Object and Interface types are described by a list of Fields, each of which has a name, potentially a list of arguments, and a return type. */
 export type __FieldArgsArgs = {
@@ -356,6 +352,7 @@ export type __Type = {
   isOneOf?: Maybe<Scalars['Boolean']['output']>;
 };
 
+
 /**
  * The fundamental unit of any GraphQL Schema is the type. There are many kinds of types in GraphQL as represented by the `__TypeKind` enum.
  *
@@ -365,6 +362,7 @@ export type __TypeFieldsArgs = {
   includeDeprecated?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
+
 /**
  * The fundamental unit of any GraphQL Schema is the type. There are many kinds of types in GraphQL as represented by the `__TypeKind` enum.
  *
@@ -373,6 +371,7 @@ export type __TypeFieldsArgs = {
 export type __TypeEnumValuesArgs = {
   includeDeprecated?: InputMaybe<Scalars['Boolean']['input']>;
 };
+
 
 /**
  * The fundamental unit of any GraphQL Schema is the type. There are many kinds of types in GraphQL as represented by the `__TypeKind` enum.
@@ -400,7 +399,7 @@ export enum __TypeKind {
   /** Indicates this type is a list. `ofType` is a valid field. */
   List = 'LIST',
   /** Indicates this type is a non-null. `ofType` is a valid field. */
-  NonNull = 'NON_NULL',
+  NonNull = 'NON_NULL'
 }
 
 export type GetTileQueryVariables = Exact<{
@@ -408,286 +407,136 @@ export type GetTileQueryVariables = Exact<{
   y: Scalars['Int']['input'];
 }>;
 
-export type GetTileQuery = {
-  __typename?: 'Query';
-  getTile: {
-    __typename?: 'TileWithNearbyBiomes';
-    id: number;
-    x: number;
-    y: number;
-    biomeId: number;
-    biomeName: string;
-    description?: string | null;
-    height: number;
-    temperature: number;
-    moisture: number;
-    seed: number;
-    chunkX: number;
-    chunkY: number;
-    createdAt: any;
-    updatedAt: any;
-  };
-};
+
+export type GetTileQuery = { __typename?: 'Query', getTile: { __typename?: 'TileWithNearbyBiomes', id: number, x: number, y: number, biomeId: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number, seed: number, chunkX: number, chunkY: number, createdAt: any, updatedAt: any } };
 
 export type GetChunkQueryVariables = Exact<{
   chunkX: Scalars['Float']['input'];
   chunkY: Scalars['Float']['input'];
 }>;
 
-export type GetChunkQuery = {
-  __typename?: 'Query';
-  getChunk: {
-    __typename?: 'ChunkData';
-    chunkX: number;
-    chunkY: number;
-    tiles?: Array<{
-      __typename?: 'WorldTile';
-      x: number;
-      y: number;
-      biomeName: string;
-      height: number;
-    }> | null;
-  };
-};
 
-export type HealthCheckQueryVariables = Exact<{ [key: string]: never }>;
+export type GetChunkQuery = { __typename?: 'Query', getChunk: { __typename?: 'ChunkData', chunkX: number, chunkY: number, tiles?: Array<{ __typename?: 'WorldTile', x: number, y: number, biomeName: string, height: number }> | null } };
 
-export type HealthCheckQuery = {
-  __typename?: 'Query';
-  __schema: {
-    __typename?: '__Schema';
-    queryType: { __typename?: '__Type'; name?: string | null };
-  };
-};
+export type HealthCheckQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type HealthCheckQuery = { __typename?: 'Query', __schema: { __typename?: '__Schema', queryType: { __typename?: '__Type', name?: string | null } } };
 
 export type GetTileWithNearbyQueryVariables = Exact<{
   x: Scalars['Int']['input'];
   y: Scalars['Int']['input'];
 }>;
 
-export type GetTileWithNearbyQuery = {
-  __typename?: 'Query';
-  getTile: {
-    __typename?: 'TileWithNearbyBiomes';
-    id: number;
-    x: number;
-    y: number;
-    biomeId: number;
-    biomeName: string;
-    description?: string | null;
-    height: number;
-    temperature: number;
-    moisture: number;
-    seed: number;
-    chunkX: number;
-    chunkY: number;
-    createdAt: any;
-    updatedAt: any;
-    nearbyBiomes: Array<{
-      __typename?: 'NearbyBiome';
-      biomeName: string;
-      distance: number;
-      direction: string;
-    }>;
-    nearbySettlements: Array<{
-      __typename?: 'NearbySettlement';
-      name: string;
-      type: string;
-      size: string;
-      population: number;
-      x: number;
-      y: number;
-      description: string;
-      distance: number;
-    }>;
-    currentSettlement?: {
-      __typename?: 'CurrentSettlement';
-      name: string;
-      type: string;
-      size: string;
-      intensity: number;
-      isCenter: boolean;
-    } | null;
-  };
-};
+
+export type GetTileWithNearbyQuery = { __typename?: 'Query', getTile: { __typename?: 'TileWithNearbyBiomes', id: number, x: number, y: number, biomeId: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number, seed: number, chunkX: number, chunkY: number, createdAt: any, updatedAt: any, nearbyBiomes: Array<{ __typename?: 'NearbyBiome', biomeName: string, distance: number, direction: string }>, nearbySettlements: Array<{ __typename?: 'NearbySettlement', name: string, type: string, size: string, population: number, x: number, y: number, description: string, distance: number }>, currentSettlement?: { __typename?: 'CurrentSettlement', name: string, type: string, size: string, intensity: number, isCenter: boolean } | null } };
+
 
 export const GetTileDocument = gql`
-  query GetTile($x: Int!, $y: Int!) {
-    getTile(x: $x, y: $y) {
-      id
-      x
-      y
-      biomeId
-      biomeName
-      description
-      height
-      temperature
-      moisture
-      seed
-      chunkX
-      chunkY
-      createdAt
-      updatedAt
-    }
+    query GetTile($x: Int!, $y: Int!) {
+  getTile(x: $x, y: $y) {
+    id
+    x
+    y
+    biomeId
+    biomeName
+    description
+    height
+    temperature
+    moisture
+    seed
+    chunkX
+    chunkY
+    createdAt
+    updatedAt
   }
-`;
+}
+    `;
 export const GetChunkDocument = gql`
-  query GetChunk($chunkX: Float!, $chunkY: Float!) {
-    getChunk(chunkX: $chunkX, chunkY: $chunkY) {
-      chunkX
-      chunkY
-      tiles {
-        x
-        y
-        biomeName
-        height
-      }
-    }
-  }
-`;
-export const HealthCheckDocument = gql`
-  query HealthCheck {
-    __schema {
-      queryType {
-        name
-      }
-    }
-  }
-`;
-export const GetTileWithNearbyDocument = gql`
-  query GetTileWithNearby($x: Int!, $y: Int!) {
-    getTile(x: $x, y: $y) {
-      id
+    query GetChunk($chunkX: Float!, $chunkY: Float!) {
+  getChunk(chunkX: $chunkX, chunkY: $chunkY) {
+    chunkX
+    chunkY
+    tiles {
       x
       y
-      biomeId
       biomeName
-      description
       height
-      temperature
-      moisture
-      seed
-      chunkX
-      chunkY
-      createdAt
-      updatedAt
-      nearbyBiomes {
-        biomeName
-        distance
-        direction
-      }
-      nearbySettlements {
-        name
-        type
-        size
-        population
-        x
-        y
-        description
-        distance
-      }
-      currentSettlement {
-        name
-        type
-        size
-        intensity
-        isCenter
-      }
     }
   }
-`;
+}
+    `;
+export const HealthCheckDocument = gql`
+    query HealthCheck {
+  __schema {
+    queryType {
+      name
+    }
+  }
+}
+    `;
+export const GetTileWithNearbyDocument = gql`
+    query GetTileWithNearby($x: Int!, $y: Int!) {
+  getTile(x: $x, y: $y) {
+    id
+    x
+    y
+    biomeId
+    biomeName
+    description
+    height
+    temperature
+    moisture
+    seed
+    chunkX
+    chunkY
+    createdAt
+    updatedAt
+    nearbyBiomes {
+      biomeName
+      distance
+      direction
+    }
+    nearbySettlements {
+      name
+      type
+      size
+      population
+      x
+      y
+      description
+      distance
+    }
+    currentSettlement {
+      name
+      type
+      size
+      intensity
+      isCenter
+    }
+  }
+}
+    `;
 
-export type SdkFunctionWrapper = <T>(
-  action: (requestHeaders?: Record<string, string>) => Promise<T>,
-  operationName: string,
-  operationType?: string,
-  variables?: any,
-) => Promise<T>;
+export type SdkFunctionWrapper = <T>(action: (requestHeaders?:Record<string, string>) => Promise<T>, operationName: string, operationType?: string, variables?: any) => Promise<T>;
 
-const defaultWrapper: SdkFunctionWrapper = (
-  action,
-  _operationName,
-  _operationType,
-  _variables,
-) => action();
 
-export function getSdk(
-  client: GraphQLClient,
-  withWrapper: SdkFunctionWrapper = defaultWrapper,
-) {
+const defaultWrapper: SdkFunctionWrapper = (action, _operationName, _operationType, _variables) => action();
+
+export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = defaultWrapper) {
   return {
-    GetTile(
-      variables: GetTileQueryVariables,
-      requestHeaders?: GraphQLClientRequestHeaders,
-      signal?: RequestInit['signal'],
-    ): Promise<GetTileQuery> {
-      return withWrapper(
-        (wrappedRequestHeaders) =>
-          client.request<GetTileQuery>({
-            document: GetTileDocument,
-            variables,
-            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
-            signal,
-          }),
-        'GetTile',
-        'query',
-        variables,
-      );
+    GetTile(variables: GetTileQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetTileQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<GetTileQuery>({ document: GetTileDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetTile', 'query', variables);
     },
-    GetChunk(
-      variables: GetChunkQueryVariables,
-      requestHeaders?: GraphQLClientRequestHeaders,
-      signal?: RequestInit['signal'],
-    ): Promise<GetChunkQuery> {
-      return withWrapper(
-        (wrappedRequestHeaders) =>
-          client.request<GetChunkQuery>({
-            document: GetChunkDocument,
-            variables,
-            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
-            signal,
-          }),
-        'GetChunk',
-        'query',
-        variables,
-      );
+    GetChunk(variables: GetChunkQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetChunkQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<GetChunkQuery>({ document: GetChunkDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetChunk', 'query', variables);
     },
-    HealthCheck(
-      variables?: HealthCheckQueryVariables,
-      requestHeaders?: GraphQLClientRequestHeaders,
-      signal?: RequestInit['signal'],
-    ): Promise<HealthCheckQuery> {
-      return withWrapper(
-        (wrappedRequestHeaders) =>
-          client.request<HealthCheckQuery>({
-            document: HealthCheckDocument,
-            variables,
-            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
-            signal,
-          }),
-        'HealthCheck',
-        'query',
-        variables,
-      );
+    HealthCheck(variables?: HealthCheckQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<HealthCheckQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<HealthCheckQuery>({ document: HealthCheckDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'HealthCheck', 'query', variables);
     },
-    GetTileWithNearby(
-      variables: GetTileWithNearbyQueryVariables,
-      requestHeaders?: GraphQLClientRequestHeaders,
-      signal?: RequestInit['signal'],
-    ): Promise<GetTileWithNearbyQuery> {
-      return withWrapper(
-        (wrappedRequestHeaders) =>
-          client.request<GetTileWithNearbyQuery>({
-            document: GetTileWithNearbyDocument,
-            variables,
-            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
-            signal,
-          }),
-        'GetTileWithNearby',
-        'query',
-        variables,
-      );
-    },
+    GetTileWithNearby(variables: GetTileWithNearbyQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetTileWithNearbyQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<GetTileWithNearbyQuery>({ document: GetTileWithNearbyDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetTileWithNearby', 'query', variables);
+    }
   };
 }
 export type Sdk = ReturnType<typeof getSdk>;

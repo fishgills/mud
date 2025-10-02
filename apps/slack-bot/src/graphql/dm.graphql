@@ -236,6 +236,8 @@ mutation SpendSkillPoint($slackId: String!, $attribute: PlayerAttribute!) {
       id
       slackId
       name
+      x
+      y
       hp
       maxHp
       strength
@@ -245,6 +247,7 @@ mutation SpendSkillPoint($slackId: String!, $attribute: PlayerAttribute!) {
       xp
       level
       skillPoints
+      isAlive
     }
   }
 }
