@@ -116,7 +116,7 @@ export function registerActions(app: App) {
           ],
         },
       });
-    } catch (e) {
+    } catch {
       // Fallback: DM prompt if opening modal fails (e.g., missing views:write scope)
       const userId = (body as any).user?.id as string;
       if (!userId) return;
