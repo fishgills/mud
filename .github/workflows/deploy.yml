@@ -1,0 +1,264 @@
+name: Deploy to GCP
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ secrets.GCP_REGION }}
+  REGISTRY: gcr.io
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  # Determine which apps are affected by changes
+  detect-changes:
+    name: Detect affected applications
+    runs-on: ubuntu-latest
+    outputs:
+      affected-apps: ${{ steps.affected.outputs.apps }}
+      affected-packages: ${{ steps.affected.outputs.packages }}
+      has-affected-apps: ${{ steps.affected.outputs.has-apps }}
+      has-affected-packages: ${{ steps.affected.outputs.has-packages }}
+      infra-changed: ${{ steps.check-infra.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Get affected applications
+        id: affected
+        run: |
+          # Get affected projects using turbo
+          AFFECTED_OUTPUT=$(yarn turbo run build --affected --dry=json 2>/dev/null || echo '{"tasks":[]}')
+
+          # Extract application names from affected tasks
+          APPS=$(echo "$AFFECTED_OUTPUT" | jq -r '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique | map(select(. == "dm" or . == "slack-bot" or . == "tick" or . == "world"))')
+
+          echo "Affected apps: $APPS"
+          echo "apps=$APPS" >> $GITHUB_OUTPUT
+
+          # Check if we have any affected apps
+          HAS_APPS=$(echo "$APPS" | jq 'length > 0')
+          echo "has-apps=$HAS_APPS" >> $GITHUB_OUTPUT
+
+          # Extract all packages (including libs) for testing
+          PACKAGES=$(echo "$AFFECTED_OUTPUT" | jq -r '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique')
+
+          echo "Affected packages: $PACKAGES"
+          echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
+
+          # Check if we have any affected packages
+          HAS_PACKAGES=$(echo "$PACKAGES" | jq 'length > 0')
+          echo "has-packages=$HAS_PACKAGES" >> $GITHUB_OUTPUT
+
+      - name: Check infrastructure changes
+        id: check-infra
+        run: |
+          # Check if any files in infra/ have changed
+          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^infra/"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Infrastructure changes detected"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No infrastructure changes"
+          fi
+
+  # Run tests for affected packages on main branch
+  test:
+    name: Test ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-affected-packages == 'true'
+    strategy:
+      matrix:
+        package: ${{ fromJson(needs.detect-changes.outputs.affected-packages) }}
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run tests
+        run: yarn turbo run test --filter=@mud/${{ matrix.package }}
+
+  # Apply Terraform changes if infrastructure was affected
+  terraform:
+    name: Apply Terraform
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.infra-changed == 'true'
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.0'
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
+            -backend-config="prefix=${{ secrets.TF_BACKEND_PREFIX }}"
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -out=tfplan -no-color
+        continue-on-error: true
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if terraform show -no-color tfplan | grep -q "No changes"; then
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+            echo "No infrastructure changes to apply"
+          else
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+            echo "Infrastructure changes detected in plan"
+          fi
+
+      - name: Terraform Apply
+        if: steps.check-changes.outputs.has-changes == 'true'
+        run: terraform apply -auto-approve tfplan
+
+  # Build and push Docker images for affected apps
+  build-and-push:
+    name: Build and push ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test, terraform]
+    if: |
+      always() && 
+      needs.detect-changes.outputs.has-affected-apps == 'true' &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (needs.terraform.result == 'success' || needs.terraform.result == 'skipped')
+    strategy:
+      matrix:
+        app: ${{ fromJson(needs.detect-changes.outputs.affected-apps) }}
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Build Docker image
+        run: |
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ matrix.app }}:${{ github.sha }}"
+          IMAGE_LATEST="${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ matrix.app }}:latest"
+
+          docker build \
+            -f apps/${{ matrix.app }}/Dockerfile \
+            -t $IMAGE_TAG \
+            -t $IMAGE_LATEST \
+            .
+
+      - name: Push Docker image
+        run: |
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ matrix.app }}:${{ github.sha }}"
+          IMAGE_LATEST="${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ matrix.app }}:latest"
+
+          docker push $IMAGE_TAG
+          docker push $IMAGE_LATEST
+
+      - name: Deploy to Cloud Run
+        run: |
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ matrix.app }}:${{ github.sha }}"
+
+          gcloud run deploy ${{ matrix.app }} \
+            --image=$IMAGE_TAG \
+            --region=${{ env.GCP_REGION }} \
+            --platform=managed \
+            --quiet
+
+  # Summary job to report deployment status
+  deploy-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test, terraform, build-and-push]
+    if: always()
+    steps:
+      - name: Report Summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 🧪 Tests" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.detect-changes.outputs.has-affected-packages }}" == "true" ]; then
+            if [ "${{ needs.test.result }}" == "success" ]; then
+              echo "✅ All tests passed" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ needs.test.result }}" == "skipped" ]; then
+              echo "⏭️ Tests skipped" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "ℹ️ No packages affected" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.detect-changes.outputs.infra-changed }}" == "true" ]; then
+            echo "### 🏗️ Infrastructure" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ needs.terraform.result }}" == "success" ]; then
+              echo "✅ Terraform applied successfully" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ needs.terraform.result }}" == "skipped" ]; then
+              echo "⏭️ Terraform skipped (no changes)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ Terraform failed" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "### 🚀 Applications" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.detect-changes.outputs.has-affected-apps }}" == "true" ]; then
+            echo "Affected apps: ${{ needs.detect-changes.outputs.affected-apps }}" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ needs.build-and-push.result }}" == "success" ]; then
+              echo "✅ All applications deployed successfully" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ Some applications failed to deploy" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "ℹ️ No applications affected by this push" >> $GITHUB_STEP_SUMMARY
+          fi
