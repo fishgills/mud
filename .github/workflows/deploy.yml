@@ -136,7 +136,14 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -out=tfplan -no-color
+        run: |
+          terraform plan \
+            -input=false \
+            -var="project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var="region=${{ env.GCP_REGION }}" \
+            -var="image_version=${{ github.sha }}" \
+            -out=tfplan \
+            -no-color
         continue-on-error: true
 
       - name: Check for changes
@@ -206,8 +213,11 @@ jobs:
       - name: Deploy to Cloud Run
         run: |
           IMAGE_TAG="${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ matrix.app }}:${{ github.sha }}"
+          SERVICE_NAME="mud-${{ matrix.app }}"
 
-          gcloud run deploy ${{ matrix.app }} \
+          # Update the existing Cloud Run service image
+          # This only updates the container image, preserving all other Terraform-managed settings
+          gcloud run services update $SERVICE_NAME \
             --image=$IMAGE_TAG \
             --region=${{ env.GCP_REGION }} \
             --platform=managed \
