@@ -5,7 +5,7 @@ jest.mock('@mud/database', () => ({
 }));
 
 import { PlayerResolver } from './player.resolver';
-import { TargetType } from '../inputs/player.input';
+import { PlayerAttribute, TargetType } from '../inputs/player.input';
 
 describe('PlayerResolver', () => {
   const basePlayer = {
@@ -22,6 +22,7 @@ describe('PlayerResolver', () => {
     hp: 10,
     maxHp: 12,
     isAlive: true,
+    skillPoints: 0,
   };
 
   const createResolver = () => {
@@ -39,7 +40,7 @@ describe('PlayerResolver', () => {
       deletePlayer: jest.fn().mockResolvedValue(basePlayer),
       getPlayersAtLocation: jest.fn().mockResolvedValue([basePlayer]),
       getPlayer: jest.fn().mockResolvedValue(basePlayer),
-      rerollPlayerStats: jest.fn().mockResolvedValue(basePlayer),
+      spendSkillPoint: jest.fn().mockResolvedValue({ ...basePlayer, strength: 13 }),
     } as any;
 
     const monsterService = {
@@ -127,6 +128,16 @@ describe('PlayerResolver', () => {
     playerService.damagePlayer.mockRejectedValueOnce(new Error('hurt'));
     const damageFail = await resolver.damagePlayer('U1', 1);
     expect(damageFail.success).toBe(false);
+  });
+
+  it('spends skill points and reports failures', async () => {
+    const { resolver, playerService } = createResolver();
+    const result = await resolver.spendSkillPoint('U1', PlayerAttribute.STRENGTH);
+    expect(result.success).toBe(true);
+
+    playerService.spendSkillPoint.mockRejectedValueOnce(new Error('no points'));
+    const failure = await resolver.spendSkillPoint('U1', PlayerAttribute.HEALTH);
+    expect(failure.success).toBe(false);
   });
 
   it('handles attacks against monsters and players', async () => {

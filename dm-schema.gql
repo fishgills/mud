@@ -51,6 +51,7 @@ type Player {
   gold: Int!
   xp: Int!
   level: Int!
+  skillPoints: Int!
   isAlive: Boolean!
   lastAction: DateTime
   createdAt: DateTime
@@ -291,6 +292,7 @@ type Query {
 type Mutation {
   createPlayer(input: CreatePlayerInput!): PlayerResponse!
   updatePlayerStats(slackId: String!, input: PlayerStatsInput!): PlayerResponse!
+  spendSkillPoint(slackId: String!, attribute: PlayerAttribute!): PlayerResponse!
   rerollPlayerStats(slackId: String!): PlayerResponse!
   healPlayer(slackId: String!, amount: Float!): PlayerResponse!
   damagePlayer(slackId: String!, damage: Float!): PlayerResponse!
@@ -342,6 +344,12 @@ enum Direction {
   EAST
   SOUTH
   WEST
+}
+
+enum PlayerAttribute {
+  STRENGTH
+  AGILITY
+  HEALTH
 }
 
 input SpawnMonsterInput {

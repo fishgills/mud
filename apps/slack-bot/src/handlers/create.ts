@@ -3,7 +3,7 @@ import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS } from '../commands';
-import { formatPlayerStats } from './stats/format';
+import { buildPlayerStatsMessage } from './stats/format';
 
 export const createHandlerHelp = `Create a new character with "new". Example: Send "new AwesomeDude" to create a character named AwesomeDude.`;
 
@@ -37,9 +37,25 @@ export const createHandler = async ({ userId, say, text }: HandlerContext) => {
   try {
     const result = await dmSdk.CreatePlayer({ input });
     if (result.createPlayer.success && result.createPlayer.data) {
-      const statsMsg = formatPlayerStats(result.createPlayer.data);
+      const introText = `Welcome <@${userId}>! Your character creation has started.`;
+      const instructions =
+        'Use "reroll" to reroll your stats, and "complete" when you are done.';
+      const statsMessage = buildPlayerStatsMessage(result.createPlayer.data, {
+        isSelf: true,
+      });
       await say({
-        text: `Welcome <@${userId}>! Your character creation has started.\n${statsMsg}\nSend "reroll" to reroll your stats, and "complete" when you are done.`,
+        text: `${introText} ${instructions} ${statsMessage.text}`,
+        blocks: [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `${introText}\n${instructions}`,
+            },
+          },
+          { type: 'divider' },
+          ...statsMessage.blocks,
+        ],
       });
     } else {
       console.log('CreatePlayer error:', result.createPlayer);

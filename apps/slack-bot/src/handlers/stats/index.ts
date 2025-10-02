@@ -2,7 +2,10 @@ import { COMMANDS } from '../../commands';
 import { registerHandler } from '../handlerRegistry';
 import { getUserFriendlyErrorMessage } from '../errorUtils';
 import { HandlerContext } from '../types';
-import { formatMonsterStats, formatPlayerStats } from './format';
+import {
+  buildMonsterStatsMessage,
+  buildPlayerStatsMessage,
+} from './format';
 import {
   fetchPlayerRecord,
   fetchPlayerWithLocation,
@@ -19,9 +22,10 @@ async function respondWithPlayer(
   player: PlayerStatsSource | undefined,
   message: string | undefined,
   fallbackMessage: string,
+  options: { isSelf?: boolean } = {},
 ) {
   if (player) {
-    await say({ text: formatPlayerStats(player) });
+    await say(buildPlayerStatsMessage(player, { isSelf: options.isSelf }));
     return;
   }
 
@@ -45,7 +49,9 @@ export const statsHandler = async ({
         { slackId: userId },
         missingCharacterMessage,
       );
-      await respondWithPlayer(say, player, message, missingCharacterMessage);
+      await respondWithPlayer(say, player, message, missingCharacterMessage, {
+        isSelf: true,
+      });
       return;
     }
 
@@ -59,7 +65,9 @@ export const statsHandler = async ({
         { slackId: target.slackId },
         fallbackMessage,
       );
-      await respondWithPlayer(say, player, message, fallbackMessage);
+      await respondWithPlayer(say, player, message, fallbackMessage, {
+        isSelf: isSelfLookup,
+      });
       return;
     }
 
@@ -86,11 +94,15 @@ export const statsHandler = async ({
 
     if (totalMatches === 1) {
       if (matchingPlayers.length === 1) {
-        await say({ text: formatPlayerStats(matchingPlayers[0]) });
+        await say(
+          buildPlayerStatsMessage(matchingPlayers[0], {
+            isSelf: matchingPlayers[0].slackId === userId,
+          }),
+        );
         return;
       }
       if (matchingMonsters.length === 1) {
-        await say({ text: formatMonsterStats(matchingMonsters[0]) });
+        await say(buildMonsterStatsMessage(matchingMonsters[0]));
         return;
       }
     }
@@ -107,7 +119,9 @@ export const statsHandler = async ({
       { name: target.cleanedTarget },
       fallbackMessage,
     );
-    await respondWithPlayer(say, player, message, fallbackMessage);
+    await respondWithPlayer(say, player, message, fallbackMessage, {
+      isSelf: player?.slackId === userId,
+    });
   } catch (err: unknown) {
     console.error('Error fetching player stats:', err);
     const errorMessage = getUserFriendlyErrorMessage(

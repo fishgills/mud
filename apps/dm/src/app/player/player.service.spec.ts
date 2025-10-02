@@ -71,11 +71,12 @@ jest.mock('@mud/database', () => ({
           id: players.length + 1,
           createdAt: new Date(),
           updatedAt: new Date(),
-          xp: 0,
-          gold: 0,
-          lastAction: new Date(),
-          ...data,
-        };
+      xp: 0,
+      gold: 0,
+      lastAction: new Date(),
+      skillPoints: 0,
+      ...data,
+    };
         players.push(player);
         return player;
       }),
@@ -119,6 +120,7 @@ describe('PlayerService', () => {
       agility: 10,
       health: 10,
       level: 1,
+      skillPoints: 0,
       isAlive: true,
     });
     jest.spyOn(global.Math, 'random').mockImplementation(() => 0.25);
@@ -198,6 +200,35 @@ describe('PlayerService', () => {
 
     const damaged = await service.damagePlayer('EXIST', 200);
     expect(damaged.isAlive).toBe(false);
+  });
+
+  it('levels up and awards skill points based on XP thresholds', async () => {
+    const service = new PlayerService(worldService);
+    const leveled = await service.updatePlayerStats('EXIST', { xp: 450 } as any);
+
+    expect(leveled.level).toBe(5);
+    expect(leveled.maxHp).toBe(34);
+    expect(leveled.hp).toBe(34);
+    expect(leveled.skillPoints).toBe(2);
+  });
+
+  it('spends skill points to increase attributes', async () => {
+    const service = new PlayerService(worldService);
+    players[0].skillPoints = 2;
+
+    const afterStrength = await service.spendSkillPoint('EXIST', 'strength');
+    expect(afterStrength.skillPoints).toBe(1);
+    expect(afterStrength.strength).toBe(11);
+
+    const maxHpBeforeHealth = players[0].maxHp;
+    const afterHealth = await service.spendSkillPoint('EXIST', 'health');
+    expect(afterHealth.skillPoints).toBe(0);
+    expect(afterHealth.health).toBe(11);
+    expect(afterHealth.maxHp).toBeGreaterThan(maxHpBeforeHealth);
+
+    await expect(
+      service.spendSkillPoint('EXIST', 'agility'),
+    ).rejects.toThrow('No skill points available.');
   });
 
   it('respawns, deletes, and finds players nearby', async () => {

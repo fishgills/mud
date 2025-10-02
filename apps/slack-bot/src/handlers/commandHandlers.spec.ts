@@ -49,7 +49,10 @@ type MockSlackClient = {
   conversations: {
     open: jest.Mock<Promise<{ channel: { id: string } }>, [{ users: string }]>;
   };
-  chat: { postMessage: jest.Mock<Promise<void>, [Record<string, unknown>]> };
+  chat: {
+    postMessage: jest.Mock<Promise<void>, [Record<string, unknown>]>;
+    update: jest.Mock<Promise<void>, [Record<string, unknown>]>;
+  };
 };
 
 const makeSay = () =>
@@ -67,6 +70,9 @@ const makeClient = (channelId = 'D1'): MockSlackClient => ({
     postMessage: jest
       .fn<Promise<void>, [Record<string, unknown>]>()
       .mockResolvedValue(undefined),
+    update: jest
+      .fn<Promise<void>, [Record<string, unknown>]>()
+      .mockResolvedValue(undefined),
   },
 });
 
@@ -76,10 +82,14 @@ beforeEach(() => {
     getPlayer: {
       success: true,
       data: {
+        id: '1',
+        slackId: 'U1',
         name: 'Hero',
         hp: 1,
+        maxHp: 10,
         level: 1,
         xp: 0,
+        skillPoints: 0,
         x: 0,
         y: 0,
         nearbyMonsters: [],
@@ -267,6 +277,7 @@ describe('createHandler', () => {
           gold: 0,
           xp: 0,
           level: 1,
+          skillPoints: 0,
           x: 0,
           y: 0,
         },
@@ -285,6 +296,14 @@ describe('createHandler', () => {
     expect(say).toHaveBeenLastCalledWith(
       expect.objectContaining({
         text: expect.stringContaining('Welcome <@U1>!'),
+        blocks: expect.arrayContaining([
+          expect.objectContaining({
+            type: 'section',
+            text: expect.objectContaining({
+              text: expect.stringContaining('Welcome <@U1>!'),
+            }),
+          }),
+        ]),
       }),
     );
   });

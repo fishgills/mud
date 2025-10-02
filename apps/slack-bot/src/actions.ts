@@ -1,10 +1,17 @@
 import type { App } from '@slack/bolt';
-import { COMMANDS, HELP_ACTIONS, MOVE_ACTIONS, ATTACK_ACTIONS } from './commands';
+import {
+  COMMANDS,
+  HELP_ACTIONS,
+  MOVE_ACTIONS,
+  ATTACK_ACTIONS,
+  STAT_ACTIONS,
+} from './commands';
 import { dmSdk } from './gql-client';
-import { TargetType } from './generated/dm-graphql';
+import { PlayerAttribute, TargetType } from './generated/dm-graphql';
 import { buildCombatSummary } from './handlers/attack';
 import { getUserFriendlyErrorMessage } from './handlers/errorUtils';
 import { getAllHandlers } from './handlers/handlerRegistry';
+import { buildPlayerStatsMessage } from './handlers/stats/format';
 
 type SlackBlockState = Record<
   string,
@@ -239,4 +246,68 @@ export function registerActions(app: App) {
       await client.chat.postMessage({ channel: channelId, text: message });
     }
   });
+
+  const skillActionMap: Record<string, PlayerAttribute> = {
+    [STAT_ACTIONS.INCREASE_STRENGTH]: PlayerAttribute.Strength,
+    [STAT_ACTIONS.INCREASE_AGILITY]: PlayerAttribute.Agility,
+    [STAT_ACTIONS.INCREASE_HEALTH]: PlayerAttribute.Health,
+  };
+
+  for (const [actionId, attribute] of Object.entries(skillActionMap)) {
+    app.action(actionId, async ({ ack, body, client, respond }) => {
+      await ack();
+
+      const userId = (body as any).user?.id as string | undefined;
+      const channelId =
+        ((body as any).channel?.id as string | undefined) ||
+        ((body as any).container?.channel_id as string | undefined);
+      const messageTs =
+        ((body as any).message?.ts as string | undefined) ||
+        ((body as any).container?.message_ts as string | undefined);
+
+      if (!userId) {
+        return;
+      }
+
+      try {
+        const result = await dmSdk.SpendSkillPoint({ slackId: userId, attribute });
+        if (!result.spendSkillPoint.success || !result.spendSkillPoint.data) {
+          const errorText =
+            result.spendSkillPoint.message ?? 'Unable to spend a skill point right now.';
+          if (respond) {
+            await respond({
+              text: errorText,
+              response_type: 'ephemeral',
+              replace_original: false,
+            });
+          }
+          return;
+        }
+
+        if (channelId && messageTs) {
+          const statsMessage = buildPlayerStatsMessage(result.spendSkillPoint.data, {
+            isSelf: true,
+          });
+          await client.chat.update({
+            channel: channelId,
+            ts: messageTs,
+            text: statsMessage.text,
+            blocks: statsMessage.blocks as any,
+          });
+        }
+      } catch (err) {
+        const errorMessage = getUserFriendlyErrorMessage(
+          err,
+          'Failed to spend a skill point',
+        );
+        if (respond) {
+          await respond({
+            text: errorMessage,
+            response_type: 'ephemeral',
+            replace_original: false,
+          });
+        }
+      }
+    });
+  }
 }
