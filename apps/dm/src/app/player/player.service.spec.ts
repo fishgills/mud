@@ -71,12 +71,12 @@ jest.mock('@mud/database', () => ({
           id: players.length + 1,
           createdAt: new Date(),
           updatedAt: new Date(),
-      xp: 0,
-      gold: 0,
-      lastAction: new Date(),
-      skillPoints: 0,
-      ...data,
-    };
+          xp: 0,
+          gold: 0,
+          lastAction: new Date(),
+          skillPoints: 0,
+          ...data,
+        };
         players.push(player);
         return player;
       }),
@@ -204,7 +204,9 @@ describe('PlayerService', () => {
 
   it('levels up and awards skill points based on XP thresholds', async () => {
     const service = new PlayerService(worldService);
-    const leveled = await service.updatePlayerStats('EXIST', { xp: 450 } as any);
+    const leveled = await service.updatePlayerStats('EXIST', {
+      xp: 450,
+    } as any);
 
     expect(leveled.level).toBe(5);
     expect(leveled.maxHp).toBe(34);
@@ -226,9 +228,9 @@ describe('PlayerService', () => {
     expect(afterHealth.health).toBe(11);
     expect(afterHealth.maxHp).toBeGreaterThan(maxHpBeforeHealth);
 
-    await expect(
-      service.spendSkillPoint('EXIST', 'agility'),
-    ).rejects.toThrow('No skill points available.');
+    await expect(service.spendSkillPoint('EXIST', 'agility')).rejects.toThrow(
+      'No skill points available.',
+    );
   });
 
   it('respawns, deletes, and finds players nearby', async () => {

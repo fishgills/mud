@@ -633,8 +633,7 @@ export class CombatService {
       totalDamageDealt: totalDamage,
       roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
       xpGained: combatLog.winner === player.name ? combatLog.xpAwarded : 0,
-      goldGained:
-        combatLog.winner === player.name ? combatLog.goldAwarded : 0,
+      goldGained: combatLog.winner === player.name ? combatLog.goldAwarded : 0,
       message: aiMessage,
       playerMessages,
     };
@@ -695,8 +694,7 @@ export class CombatService {
       totalDamageDealt: totalDamage,
       roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
       xpGained: combatLog.winner === player.name ? combatLog.xpAwarded : 0,
-      goldGained:
-        combatLog.winner === player.name ? combatLog.goldAwarded : 0,
+      goldGained: combatLog.winner === player.name ? combatLog.goldAwarded : 0,
       message: aiMessage,
       playerMessages,
     };

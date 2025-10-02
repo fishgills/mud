@@ -97,9 +97,7 @@ export abstract class BaseAiService {
     } catch (error) {
       const err =
         error instanceof Error ? error : new Error(String(error ?? 'Unknown'));
-      this.logger.error(
-        `Error calling ${this.providerLabel}: ${err.message}`,
-      );
+      this.logger.error(`Error calling ${this.providerLabel}: ${err.message}`);
       if (err.stack) {
         this.logger.debug(err.stack);
       }

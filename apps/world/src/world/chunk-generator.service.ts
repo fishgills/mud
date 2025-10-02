@@ -126,7 +126,11 @@ export class ChunkGeneratorService {
   ): TileData {
     const sample = gridGenerator.sampleTile(x, y);
     const biomeInfo = mapGridBiomeToBiomeInfo(sample.biome);
-    const temperature = deriveTemperature(sample.rawHeight, sample.rawMoisture, y);
+    const temperature = deriveTemperature(
+      sample.rawHeight,
+      sample.rawMoisture,
+      y,
+    );
 
     return {
       x,

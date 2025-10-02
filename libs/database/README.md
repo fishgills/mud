@@ -31,6 +31,7 @@ const player = await prisma.player.findFirst();
 ## Database Schema
 
 The schema includes models for:
+
 - **Player**: Game player data with location tracking
 - **WorldTile**: Game world tiles with biome relationships
 - **Biome**: Environment types and descriptions

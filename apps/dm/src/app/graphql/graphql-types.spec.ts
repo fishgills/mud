@@ -135,12 +135,14 @@ describe('GraphQL response and model classes', () => {
       success: true,
       data: Object.assign(new LookViewData(), {
         location: locationInfo.location,
-        nearbyPlayers: [Object.assign(new NearbyPlayerInfo(), {
-          slackId: 'U123',
-          name: 'Friend',
-          distance: 2,
-          direction: 'north',
-        })],
+        nearbyPlayers: [
+          Object.assign(new NearbyPlayerInfo(), {
+            slackId: 'U123',
+            name: 'Friend',
+            distance: 2,
+            direction: 'north',
+          }),
+        ],
         visibilityRadius: 5,
         biomeSummary: [],
         visiblePeaks: [],

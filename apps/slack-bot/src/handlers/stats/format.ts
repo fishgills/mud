@@ -83,8 +83,7 @@ export function buildPlayerStatsMessage(
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text:
-          '_Character creation not complete! Use "reroll" to reroll stats, "complete" to finish._',
+        text: '_Character creation not complete! Use "reroll" to reroll stats, "complete" to finish._',
       },
     });
   }
@@ -149,7 +148,9 @@ export function buildPlayerStatsMessage(
   };
 }
 
-export function buildMonsterStatsMessage(monster: MonsterStatsSource): SayMessage {
+export function buildMonsterStatsMessage(
+  monster: MonsterStatsSource,
+): SayMessage {
   const name = displayValue(monster.name);
   const hpText = `${displayValue(monster.hp)}/${displayValue(monster.maxHp)}`;
   const blocks: (KnownBlock | Block)[] = [

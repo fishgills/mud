@@ -41,7 +41,9 @@ describe('AppModule definition', () => {
     const module = await import('./app.module');
     const { MODULE_METADATA } = await import('@nestjs/common/constants');
     const { APP_INTERCEPTOR } = await import('@nestjs/core');
-    const { LoggingInterceptor } = await import('./interceptors/logging.interceptor');
+    const { LoggingInterceptor } = await import(
+      './interceptors/logging.interceptor'
+    );
     const { AiModule } = await import('../openai/ai.module');
 
     expect(module.AppModule).toBeDefined();
@@ -50,13 +52,24 @@ describe('AppModule definition', () => {
       autoSchemaFile: 'dm-schema.gql',
     });
 
-    const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, module.AppModule);
-    const providers = Reflect.getMetadata(MODULE_METADATA.PROVIDERS, module.AppModule);
+    const imports = Reflect.getMetadata(
+      MODULE_METADATA.IMPORTS,
+      module.AppModule,
+    );
+    const providers = Reflect.getMetadata(
+      MODULE_METADATA.PROVIDERS,
+      module.AppModule,
+    );
 
-    expect(imports).toEqual(expect.arrayContaining(['GraphQLModuleMock', AiModule]));
+    expect(imports).toEqual(
+      expect.arrayContaining(['GraphQLModuleMock', AiModule]),
+    );
     expect(providers).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ provide: APP_INTERCEPTOR, useClass: LoggingInterceptor }),
+        expect.objectContaining({
+          provide: APP_INTERCEPTOR,
+          useClass: LoggingInterceptor,
+        }),
       ]),
     );
   });

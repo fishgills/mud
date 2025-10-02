@@ -36,5 +36,7 @@ declare module 'canvas' {
   export function createCanvas(width: number, height: number): Canvas;
   export function loadImage(
     src: string | URL | Buffer,
-  ): Promise<ImageSource & { data?: Uint8ClampedArray } & Record<string, unknown>>;
+  ): Promise<
+    ImageSource & { data?: Uint8ClampedArray } & Record<string, unknown>
+  >;
 }

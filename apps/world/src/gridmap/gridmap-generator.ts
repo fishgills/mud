@@ -46,8 +46,10 @@ export class GridMapGenerator {
   }
 
   private sampleHeight(x: number, y: number): number {
-    const wavelengthX = this.heightMapConfig.width / this.heightMapConfig.frequency;
-    const wavelengthY = this.heightMapConfig.height / this.heightMapConfig.frequency;
+    const wavelengthX =
+      this.heightMapConfig.width / this.heightMapConfig.frequency;
+    const wavelengthY =
+      this.heightMapConfig.height / this.heightMapConfig.frequency;
 
     const nx = x / wavelengthX;
     const ny = y / wavelengthY;
@@ -64,8 +66,10 @@ export class GridMapGenerator {
   }
 
   private sampleMoisture(x: number, y: number): number {
-    const wavelengthX = this.heightMapConfig.width / this.moistureMapConfig.frequency;
-    const wavelengthY = this.heightMapConfig.height / this.moistureMapConfig.frequency;
+    const wavelengthX =
+      this.heightMapConfig.width / this.moistureMapConfig.frequency;
+    const wavelengthY =
+      this.heightMapConfig.height / this.moistureMapConfig.frequency;
 
     const nx = x / wavelengthX;
     const ny = y / wavelengthY;

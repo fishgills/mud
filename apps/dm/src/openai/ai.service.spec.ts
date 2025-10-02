@@ -29,7 +29,9 @@ describe('AiService', () => {
 
     openai.getText.mockResolvedValue('openai response');
 
-    await expect(service.getText(prompt, options)).resolves.toBe('openai response');
+    await expect(service.getText(prompt, options)).resolves.toBe(
+      'openai response',
+    );
 
     expect(openai.getText).toHaveBeenCalledWith(prompt, options);
     expect(vertex.getText).not.toHaveBeenCalled();

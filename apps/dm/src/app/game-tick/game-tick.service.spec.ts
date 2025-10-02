@@ -31,10 +31,17 @@ function createPrismaMock() {
     },
   };
 
-  return { prisma, setGameState: (state: any) => (currentGameState = state), getGameState: () => currentGameState };
+  return {
+    prisma,
+    setGameState: (state: any) => (currentGameState = state),
+    getGameState: () => currentGameState,
+  };
 }
 
-const prismaHolder: { prisma?: PrismaMock['prisma']; controller?: ReturnType<typeof createPrismaMock> } = {};
+const prismaHolder: {
+  prisma?: PrismaMock['prisma'];
+  controller?: ReturnType<typeof createPrismaMock>;
+} = {};
 
 jest.mock('@mud/database', () => ({
   getPrismaClient: () => {
@@ -52,12 +59,12 @@ describe('GameTickService', () => {
       monsterAttackPlayer: jest.fn(),
     } as any;
     const playerService = {
-      getAllPlayers: jest.fn().mockResolvedValue([
-        { slackId: 'U1', x: 1, y: 1, isAlive: true },
-      ]),
-      getPlayersAtLocation: jest.fn().mockResolvedValue([
-        { slackId: 'U1', isAlive: true },
-      ]),
+      getAllPlayers: jest
+        .fn()
+        .mockResolvedValue([{ slackId: 'U1', x: 1, y: 1, isAlive: true }]),
+      getPlayersAtLocation: jest
+        .fn()
+        .mockResolvedValue([{ slackId: 'U1', isAlive: true }]),
     } as any;
     const populationService = {
       enforceDensityAround: jest.fn().mockResolvedValue({
@@ -104,17 +111,26 @@ describe('GameTickService', () => {
     prismaHolder.controller = undefined;
     prismaHolder.prisma = undefined;
     const randomValues = [
-      0.3, 0.6, // monster move checks
-      0.1, 0.9, // combat chances
-      0.2, 0.4, // weather change and branch
-      0.3, 0.6,
-      0.1, 0.9,
-      0.2, 0.4,
-      0.5, 0.5,
+      0.3,
+      0.6, // monster move checks
+      0.1,
+      0.9, // combat chances
+      0.2,
+      0.4, // weather change and branch
+      0.3,
+      0.6,
+      0.1,
+      0.9,
+      0.2,
+      0.4,
+      0.5,
+      0.5,
     ];
     jest
       .spyOn(global.Math, 'random')
-      .mockImplementation(() => (randomValues.length ? randomValues.shift()! : 0.1));
+      .mockImplementation(() =>
+        randomValues.length ? randomValues.shift()! : 0.1,
+      );
   });
 
   afterEach(() => {
@@ -122,7 +138,8 @@ describe('GameTickService', () => {
   });
 
   it('processes ticks and updates weather', async () => {
-    const { service, populationService, monsterService, combatService } = createService();
+    const { service, populationService, monsterService, combatService } =
+      createService();
     // First tick with no existing game state
     const result1 = await service.processTick();
     expect(result1.tick).toBe(1);
