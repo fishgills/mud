@@ -44,7 +44,7 @@ jobs:
           fi
 
           # Extract all package names from affected tasks (including libs)
-          PACKAGES=$(echo "$AFFECTED_OUTPUT" | jq -r '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique')
+          PACKAGES=$(echo "$AFFECTED_OUTPUT" | jq -c '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique')
 
           echo "Affected packages: $PACKAGES"
           echo "packages=$PACKAGES" >> $GITHUB_OUTPUT

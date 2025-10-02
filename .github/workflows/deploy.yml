@@ -51,7 +51,7 @@ jobs:
           fi
 
           # Extract application names from affected tasks
-          APPS=$(echo "$AFFECTED_OUTPUT" | jq -r '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique | map(select(. == "dm" or . == "slack-bot" or . == "tick" or . == "world"))')
+          APPS=$(echo "$AFFECTED_OUTPUT" | jq -c '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique | map(select(. == "dm" or . == "slack-bot" or . == "tick" or . == "world"))')
 
           echo "Affected apps: $APPS"
           echo "apps=$APPS" >> $GITHUB_OUTPUT
@@ -61,7 +61,7 @@ jobs:
           echo "has-apps=$HAS_APPS" >> $GITHUB_OUTPUT
 
           # Extract all packages (including libs) for testing
-          PACKAGES=$(echo "$AFFECTED_OUTPUT" | jq -r '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique')
+          PACKAGES=$(echo "$AFFECTED_OUTPUT" | jq -c '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique')
 
           echo "Affected packages: $PACKAGES"
           echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
