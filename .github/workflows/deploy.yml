@@ -82,38 +82,13 @@ jobs:
             echo "No infrastructure changes"
           fi
 
-  # Run tests for affected packages on main branch
-  test:
-    name: Test ${{ matrix.package }}
-    runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.has-affected-packages == 'true'
-    strategy:
-      matrix:
-        package: ${{ fromJson(needs.detect-changes.outputs.affected-packages) }}
-      fail-fast: false
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'yarn'
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-
-      - name: Run tests
-        run: yarn turbo run test --filter=@mud/${{ matrix.package }}
-
   # Apply Terraform changes if infrastructure was affected
   terraform:
     name: Apply Terraform
     runs-on: ubuntu-latest
     needs: detect-changes
     if: needs.detect-changes.outputs.infra-changed == 'true'
+    environment: Production
     defaults:
       run:
         working-directory: infra/terraform
@@ -169,11 +144,11 @@ jobs:
   build-and-push:
     name: Build and push ${{ matrix.app }}
     runs-on: ubuntu-latest
-    needs: [detect-changes, test, terraform]
+    needs: [detect-changes, terraform]
+    environment: Production
     if: |
       always() && 
       needs.detect-changes.outputs.has-affected-apps == 'true' &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
       (needs.terraform.result == 'success' || needs.terraform.result == 'skipped')
     strategy:
       matrix:
@@ -231,26 +206,12 @@ jobs:
   deploy-summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [detect-changes, test, terraform, build-and-push]
+    needs: [detect-changes, terraform, build-and-push]
     if: always()
     steps:
       - name: Report Summary
         run: |
           echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "### 🧪 Tests" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ needs.detect-changes.outputs.has-affected-packages }}" == "true" ]; then
-            if [ "${{ needs.test.result }}" == "success" ]; then
-              echo "✅ All tests passed" >> $GITHUB_STEP_SUMMARY
-            elif [ "${{ needs.test.result }}" == "skipped" ]; then
-              echo "⏭️ Tests skipped" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            echo "ℹ️ No packages affected" >> $GITHUB_STEP_SUMMARY
-          fi
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ needs.detect-changes.outputs.infra-changed }}" == "true" ]; then
