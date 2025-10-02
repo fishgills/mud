@@ -15,7 +15,7 @@
     "test:watch": "jest --watch",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\""
+    "lint": "eslint"
   },
   "dependencies": {
     "@apollo/server": "^4.11.3",
@@ -39,7 +39,6 @@
     "simplex-noise": "^4.0.3"
   },
   "devDependencies": {
-    "@nestjs/cli": "^11.0.10",
-    "typescript": "^5.9.2"
+    "@nestjs/cli": "^11.0.10"
   }
 }

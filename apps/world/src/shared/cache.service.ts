@@ -86,7 +86,7 @@ export class CacheService implements OnModuleDestroy {
         const n = await this.client!.del(batch);
         deleted += n;
       } catch (err) {
-        const e: any = err as any;
+        const e: any = err;
         this.logger.warn(
           `Cache delete failed for batch: ${e?.message ?? String(err)}`,
         );
@@ -109,7 +109,7 @@ export class CacheService implements OnModuleDestroy {
       }
       await flush();
     } catch (err) {
-      const e: any = err as any;
+      const e: any = err;
       this.logger.warn(
         `Cache scan/delete failed: ${e?.message ?? String(err)}`,
       );

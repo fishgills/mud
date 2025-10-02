@@ -22,7 +22,8 @@ export class WorldService {
     private worldUtils: WorldUtilsService,
   ) {
     this.logger.log('WorldService initialized');
-    this.initialize();
+    void this.initialize();
+    console.log('hi'); // hi
   }
 
   private async initialize(): Promise<void> {
