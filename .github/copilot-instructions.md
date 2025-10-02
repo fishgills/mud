@@ -1,79 +1,51 @@
-# GitHub Copilot Instructions for Mud# GitHub Copilot Instructions for Mud
+# GitHub Copilot Instructions for Mud
 
-## Project Overview## Project Overview
+## Project Overview
 
-Mud is an AI-assisted multiplayer text adventure game built as a Turborepo monorepo. It features procedurally generated worlds, turn-based gameplay, and a Slack bot interface for player interaction.Mud is an AI-assisted multiplayer text adventure game built as a Turborepo monorepo. It features procedurally generated worlds, turn-based gameplay, and a Slack bot interface for player interaction.
+Mud is an AI-assisted multiplayer text adventure game built as a Turborepo monorepo. It features procedurally generated worlds, turn-based gameplay, and a Slack bot interface for player interaction.
 
-### Architecture### Architecture
+### Architecture
 
-- **Backend**: NestJS services communicating via GraphQL- **Backend**: NestJS services communicating via GraphQL
+- **Backend**: NestJS services communicating via GraphQL
+- **Database**: PostgreSQL with Prisma ORM
+- **Cache**: Redis for world rendering and coordination
+- **Frontend**: Slack Bolt app for player interactions
+- **Infrastructure**: Google Cloud Platform (Cloud Run) with Terraform
+- **AI Integration**: OpenAI API for dynamic descriptions and content
 
-- **Database**: PostgreSQL with Prisma ORM- **Database**: PostgreSQL with Prisma ORM
+## Technology Stack
 
-- **Cache**: Redis for world rendering and coordination- **Cache**: Redis for world rendering and coordination
+### Core Technologies
 
-- **Frontend**: Slack Bolt app for player interactions- **Frontend**: Slack Bolt app for player interactions
+- **TypeScript** - Primary language across all services
+- **Turborepo** - Monorepo management with task orchestration
+- **NestJS** - Framework for `dm` and `world` services
+- **GraphQL** - API layer with Apollo Server
+- **Prisma** - Database ORM and migrations
+- **Redis** - Caching layer
+- **Jest** - Testing framework with SWC transform
+- **Slack Bolt** - Bot framework
 
-- **Infrastructure**: Google Cloud Platform (Cloud Run) with Terraform- **Infrastructure**: Google Cloud Platform (Cloud Run) with Terraform
+### Build & Dev Tools
 
-- **AI Integration**: OpenAI API for dynamic descriptions and content- **AI Integration**: OpenAI API for dynamic descriptions and content
-
-## Technology Stack## Technology Stack
-
-### Core Technologies### Core Technologies
-
-- **TypeScript** - Primary language across all services- **TypeScript** - Primary language across all services
-
-- **Turborepo** - Monorepo management with task orchestration- **Turborepo** - Monorepo management with task orchestration
-
-- **NestJS** - Framework for `dm` and `world` services- **NestJS** - Framework for `dm` and `world` services
-
-- **GraphQL** - API layer with Apollo Server- **GraphQL** - API layer with Apollo Server
-
-- **Prisma** - Database ORM and migrations- **Prisma** - Database ORM and migrations
-
-- **Redis** - Caching layer- **Redis** - Caching layer
-
-- **Jest** - Testing framework with SWC transform- **Jest** - Testing framework with SWC transform
-
-- **Slack Bolt** - Bot framework- **Slack Bolt** - Bot framework
-
-### Build & Dev Tools### Build & Dev Tools
-
-- **@swc/jest** - Fast Jest transformations### Building
-
+- **@swc/jest** - Fast Jest transformations
 - **@graphql-codegen/cli** - TypeScript type generation from GraphQL schemas
-
-- **ESLint** - Code linting# Build all apps
-
+- **ESLint** - Code linting
 - **Prettier** - Code formatting
-
-- **Docker** - Local development and deployment# Build specific app
-
+- **Docker** - Local development and deployment
 - **Terraform** - Infrastructure as code
 
-yarn lint
+## Monorepo Structure
 
-## Monorepo Structureyarn format
-
-````
-
+```
 mud/
-
-├── apps/- Use NestJS built-in exceptions (`BadRequestException`, `NotFoundException`, etc.)
-
-│   ├── dm/              # Dungeon Master service (game logic, AI descriptions)- Handle Redis connection errors gracefully with retries
-
-│   ├── world/           # World generation and rendering service- Implement cache warming for frequently accessed data
-
+├── apps/
+│   ├── dm/              # Dungeon Master service (game logic, AI descriptions)
+│   ├── world/           # World generation and rendering service
 │   ├── slack-bot/       # Slack bot for player commands
-
-│   └── tick/            # Worker for advancing game state<REPLACE_WITH_ORIGIN_MAIN>
-
-├── libs/mud/
-
-│   ├── database/        # Shared Prisma schema and client```
-
+│   └── tick/            # Worker for advancing game state
+├── libs/
+│   ├── database/        # Shared Prisma schema and client
 │   ├── gcp-auth/        # GCP authentication utilities
 │   ├── redis-client/    # Redis client wrapper
 │   └── constants/       # Shared constants
@@ -364,4 +336,3 @@ When working with Copilot on this project:
 - Review test files for implementation examples
 - Check generated GraphQL types in `apps/{app}/src/generated/`
 - Review Prisma schema in `libs/database/prisma/schema.prisma`
-````
