@@ -1,7 +1,7 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 
 // Singleton pattern for Prisma client
-let prisma: PrismaClient;
+let prisma: PrismaClient | undefined;
 
 export function getPrismaClient(): PrismaClient {
   if (!prisma) {
