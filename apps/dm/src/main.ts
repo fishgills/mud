@@ -32,5 +32,7 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   Logger.log(`🚀 Application is running on: http://0.0.0.0:${port}/`);
 }
-
-bootstrap();
+bootstrap().catch((error) => {
+  Logger.error('Failed to bootstrap Dungeon Master service', error);
+  process.exit(1);
+});

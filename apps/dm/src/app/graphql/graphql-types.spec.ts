@@ -12,7 +12,6 @@ import {
   CombatResponse,
   PlayerMoveResponse,
   LookViewResponse,
-  PlayerStats,
   CombatResult,
   LookViewData,
   PerformanceStats,

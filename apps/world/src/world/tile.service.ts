@@ -69,11 +69,7 @@ export class TileService {
     };
   }
 
-  async getTile(
-    x: number,
-    y: number,
-    retryCount = 0,
-  ): Promise<WorldTile | null> {
+  async getTile(x: number, y: number): Promise<WorldTile | null> {
     await this.ensureSeed();
     // Compute tile deterministically from seed
     return this.chunkGenerator.generateTileAt(x, y, this.currentSeed);

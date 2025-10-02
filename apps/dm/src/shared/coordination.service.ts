@@ -113,7 +113,7 @@ export class CoordinationService implements OnModuleDestroy {
     if (this.client) {
       try {
         await this.client.quit();
-      } catch (e) {
+      } catch {
         // ignore
       }
     }

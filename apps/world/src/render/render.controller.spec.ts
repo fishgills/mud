@@ -16,8 +16,8 @@ import { Response } from 'express';
 
 describe('RenderController', () => {
   let controller: RenderController;
-  let renderService: any;
-  let cacheService: any;
+  let renderService: jest.Mocked<RenderService>;
+  let cacheService: jest.Mocked<CacheService>;
   let mockResponse: Partial<Response>;
 
   beforeEach(() => {
@@ -27,12 +27,12 @@ describe('RenderController', () => {
 
     renderService = {
       renderMap: jest.fn().mockResolvedValue(mockCanvas),
-    };
+    } as unknown as jest.Mocked<RenderService>;
 
     cacheService = {
       get: jest.fn(),
       set: jest.fn(),
-    };
+    } as unknown as jest.Mocked<CacheService>;
 
     mockResponse = {
       setHeader: jest.fn(),

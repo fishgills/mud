@@ -1,6 +1,8 @@
 import { CanvasRenderingContext2D } from 'canvas';
 import { BIOMES } from '../constants';
 
+type RGB = { r: number; g: number; b: number };
+
 // Deterministic hashing and random helpers
 function hash32(x: number, y: number, seed: number, salt = 0): number {
   let a = (x | 0) ^ 0x9e3779b9;
@@ -41,7 +43,7 @@ function rand01(x: number, y: number, seed: number, salt = 0): number {
 }
 
 // Color utilities
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
+function hexToRgb(hex: string): RGB {
   const h = hex.startsWith('#') ? hex.slice(1) : hex;
   const v =
     h.length === 3
@@ -54,7 +56,7 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
 }
 
-function rgbToHex(c: { r: number; g: number; b: number }): string {
+function rgbToHex(c: RGB): string {
   const to = (n: number) =>
     Math.max(0, Math.min(255, Math.round(n)))
       .toString(16)
@@ -72,7 +74,8 @@ export function mix(hexA: string, hexB: string, t: number): string {
   const a = hexToRgb(hexA);
   const b = hexToRgb(hexB);
   const m = (u: number, v: number) => u + (v - u) * t;
-  return rgbToHex({ r: m(a.r, b.r), g: m(a.g, b.g), b: m(a.b, b.b) } as any);
+  const mixed: RGB = { r: m(a.r, b.r), g: m(a.g, b.g), b: m(a.b, b.b) };
+  return rgbToHex(mixed);
 }
 
 // Drawing helpers

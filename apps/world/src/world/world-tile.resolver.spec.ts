@@ -1,5 +1,4 @@
 import { WorldTileResolver } from './world-tile.resolver';
-import { WorldDatabaseService } from './world-database.service';
 
 describe('WorldTileResolver', () => {
   let resolver: WorldTileResolver;

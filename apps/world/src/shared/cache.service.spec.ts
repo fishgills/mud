@@ -228,6 +228,7 @@ describe('CacheService', () => {
 
       const result = await service.clearPattern('');
 
+      expect(result).toBe(1);
       expect(mockRedisClient.scanIterator).toHaveBeenCalledWith({
         MATCH: 'test:*',
         COUNT: 1000,
@@ -251,8 +252,6 @@ describe('CacheService', () => {
         .mockResolvedValue(500)
         .mockResolvedValueOnce(500)
         .mockResolvedValueOnce(100);
-
-      const result = await service.clearPattern('key*');
 
       // Should batch at 500 keys
       expect(mockRedisClient.del).toHaveBeenCalledTimes(2);

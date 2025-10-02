@@ -1,5 +1,4 @@
 import { WorldDatabaseService } from './world-database.service';
-import { PrismaService } from '../prisma/prisma.service';
 import { BIOMES } from '../constants';
 
 describe('WorldDatabaseService', () => {

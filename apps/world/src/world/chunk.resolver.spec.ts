@@ -1,5 +1,4 @@
 import { ChunkResolver } from './chunk.resolver';
-import { WorldService } from './world-refactored.service';
 
 describe('ChunkResolver', () => {
   let resolver: ChunkResolver;
