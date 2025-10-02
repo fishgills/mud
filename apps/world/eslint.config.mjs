@@ -12,6 +12,8 @@ export default [
       '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/require-await': 'off',
+      // Prisma types from @mud/database can trigger false positives
+      '@typescript-eslint/no-redundant-type-constituents': 'off',
     },
   },
 ];
