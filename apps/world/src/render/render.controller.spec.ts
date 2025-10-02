@@ -49,13 +49,7 @@ describe('RenderController', () => {
       x?: string,
       y?: string,
       p?: string,
-    ) =>
-      controllerRef.getMapPng(
-        x as unknown as string,
-        y as unknown as string,
-        p as unknown as string,
-        response,
-      );
+    ) => controllerRef.getMapPng(response, x, y, p);
 
     it('should render map with default parameters', async () => {
       cacheService.get.mockResolvedValue(null);

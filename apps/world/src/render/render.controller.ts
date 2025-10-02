@@ -1,4 +1,4 @@
-import { Controller, Get, Logger, Param, Res } from '@nestjs/common';
+import { Controller, Get, Logger, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { RenderService } from './render.service';
 import { CacheService } from '../shared/cache.service';
@@ -13,14 +13,14 @@ export class RenderController {
 
   @Get('map.png')
   async getMapPng(
-    @Param('x') x: string,
-    @Param('y') y: string,
-    @Param('p') pixelWidth: string,
     @Res() res: Response,
+    @Query('x') x?: string,
+    @Query('y') y?: string,
+    @Query('p') pixelWidth?: string,
   ) {
-    const centerX = Number.isFinite(Number(x)) ? parseInt(x, 10) : 0;
-    const centerY = Number.isFinite(Number(y)) ? parseInt(y, 10) : 0;
-    const pStr = pixelWidth;
+    const centerX = Number.isFinite(Number(x)) ? parseInt(x ?? '0', 10) : 0;
+    const centerY = Number.isFinite(Number(y)) ? parseInt(y ?? '0', 10) : 0;
+    const pStr = pixelWidth ?? '4';
     const p = Math.max(
       1,
       Math.floor(Number.isFinite(Number(pStr)) ? parseInt(pStr, 10) : 4),
