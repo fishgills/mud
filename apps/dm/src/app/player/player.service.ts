@@ -368,10 +368,7 @@ export class PlayerService {
       newAttributeValue = newHealth;
       data.health = newHealth;
       data.maxHp = player.maxHp + hpIncrease;
-      data.hp = Math.min(
-        (data.maxHp as number) ?? player.maxHp + hpIncrease,
-        player.hp + hpIncrease,
-      );
+      data.hp = Math.min(data.maxHp, player.hp + hpIncrease);
     } else {
       throw new Error(`Unknown attribute: ${attribute}`);
     }
