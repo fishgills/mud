@@ -4,6 +4,18 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      apps:
+        description: 'Apps to deploy (comma-separated: dm,slack-bot,tick,world or "all")'
+        required: false
+        default: 'all'
+        type: string
+      deploy_infrastructure:
+        description: 'Deploy infrastructure changes (Terraform)'
+        required: false
+        default: false
+        type: boolean
 
 env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -43,17 +55,29 @@ jobs:
       - name: Get affected applications
         id: affected
         run: |
-          # Get affected projects using turbo (compare against HEAD^)
-          RAW_OUTPUT=$(yarn --silent turbo run build --dry=json --filter='[HEAD^]' || true)
-          AFFECTED_OUTPUT=$(python3 -c 'import json, sys; data = sys.stdin.read(); start = data.find("{"); end = data.rfind("}"); print(json.dumps({"tasks": []}) if start == -1 or end == -1 or end < start else data[start:end+1])' <<< "$RAW_OUTPUT")
-          if [ -z "$AFFECTED_OUTPUT" ]; then
-            AFFECTED_OUTPUT='{"tasks":[]}'
+          # For manual triggers, use the input apps
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            INPUT_APPS="${{ inputs.apps }}"
+            if [ "$INPUT_APPS" == "all" ]; then
+              APPS='["dm","slack-bot","tick","world"]'
+            else
+              # Convert comma-separated list to JSON array
+              APPS=$(echo "$INPUT_APPS" | jq -Rc 'split(",") | map(gsub("^\\s+|\\s+$"; ""))')
+            fi
+            echo "Manual deployment - apps: $APPS"
+          else
+            # Get affected projects using turbo (compare against HEAD^)
+            RAW_OUTPUT=$(yarn --silent turbo run build --dry=json --filter='[HEAD^]' || true)
+            AFFECTED_OUTPUT=$(python3 -c 'import json, sys; data = sys.stdin.read(); start = data.find("{"); end = data.rfind("}"); print(json.dumps({"tasks": []}) if start == -1 or end == -1 or end < start else data[start:end+1])' <<< "$RAW_OUTPUT")
+            if [ -z "$AFFECTED_OUTPUT" ]; then
+              AFFECTED_OUTPUT='{"tasks":[]}'
+            fi
+
+            # Extract application names from affected tasks
+            APPS=$(echo "$AFFECTED_OUTPUT" | jq -c '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique | map(select(. == "dm" or . == "slack-bot" or . == "tick" or . == "world"))')
+            echo "Affected apps: $APPS"
           fi
 
-          # Extract application names from affected tasks
-          APPS=$(echo "$AFFECTED_OUTPUT" | jq -c '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique | map(select(. == "dm" or . == "slack-bot" or . == "tick" or . == "world"))')
-
-          echo "Affected apps: $APPS"
           echo "apps=$APPS" >> $GITHUB_OUTPUT
 
           # Check if we have any affected apps
@@ -73,13 +97,24 @@ jobs:
       - name: Check infrastructure changes
         id: check-infra
         run: |
-          # Check if any files in infra/ have changed
-          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^infra/"; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Infrastructure changes detected"
+          # For manual triggers, use the input
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ inputs.deploy_infrastructure }}" == "true" ]; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+              echo "Manual deployment - infrastructure enabled"
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+              echo "Manual deployment - infrastructure disabled"
+            fi
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "No infrastructure changes"
+            # Check if any files in infra/ have changed
+            if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^infra/"; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+              echo "Infrastructure changes detected"
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+              echo "No infrastructure changes"
+            fi
           fi
 
   # Apply Terraform changes if infrastructure was affected
