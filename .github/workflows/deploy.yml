@@ -9,6 +9,10 @@ on:
       build_version:
         description: 'Optional image tag override'
         required: false
+      force_all_services:
+        description: 'Force deploy all services (true/false)'
+        required: false
+        default: 'false'
 
 env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -26,7 +30,481 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  detect-changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      build_version: ${{ steps.version.outputs.build_version }}
+      affected_services: ${{ steps.affected.outputs.services }}
+      has_infra_changes: ${{ steps.affected.outputs.has_infra_changes }}
+      has_db_changes: ${{ steps.affected.outputs.has_db_changes }}
+      should_deploy: ${{ steps.affected.outputs.should_deploy }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine build version
+        id: version
+        run: |
+          VERSION_INPUT="${{ inputs.build_version }}"
+          if [ -n "$VERSION_INPUT" ]; then
+            VERSION="$VERSION_INPUT"
+          else
+            VERSION=$(git rev-parse --short HEAD)
+          fi
+          echo "build_version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Using build version: $VERSION"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Detect affected services and changes
+        id: affected
+        run: |
+          set -e
+          
+          # Check for force deploy flag
+          FORCE_ALL="${{ inputs.force_all_services }}"
+          if [ "$FORCE_ALL" = "true" ]; then
+            echo "Force deploy requested - deploying all services"
+            AFFECTED_SERVICES='["dm","world","slack-bot","tick"]'
+            HAS_INFRA_CHANGES=true
+            HAS_DB_CHANGES=true
+            SHOULD_DEPLOY=true
+          else
+            # Detect infrastructure changes
+            if git diff --name-only HEAD~1 HEAD | grep -q '^infra/terraform/'; then
+              HAS_INFRA_CHANGES=true
+              echo "Infrastructure changes detected"
+            else
+              HAS_INFRA_CHANGES=false
+            fi
+            
+            # Detect database schema changes
+            if git diff --name-only HEAD~1 HEAD | grep -q '^libs/database/prisma/schema.prisma'; then
+              HAS_DB_CHANGES=true
+              echo "Database schema changes detected"
+            else
+              HAS_DB_CHANGES=false
+            fi
+            
+            # Use Turborepo to detect affected services
+            # Note: We check which services have changes that would affect their build
+            AFFECTED=()
+            for service in dm world slack-bot tick; do
+              # Check if this service or its dependencies have changes
+              if yarn turbo run build --filter="@mud/${service}...[HEAD~1]" --dry=json 2>/dev/null | jq -e '.tasks | length > 0' >/dev/null; then
+                AFFECTED+=("\"$service\"")
+                echo "Service affected: $service"
+              fi
+            done
+            
+            if [ ${#AFFECTED[@]} -gt 0 ]; then
+              AFFECTED_SERVICES="[$(IFS=,; echo "${AFFECTED[*]}")]"
+              SHOULD_DEPLOY=true
+            else
+              AFFECTED_SERVICES='[]'
+              # Still deploy if infra or DB changed
+              if [ "$HAS_INFRA_CHANGES" = "true" ] || [ "$HAS_DB_CHANGES" = "true" ]; then
+                SHOULD_DEPLOY=true
+              else
+                SHOULD_DEPLOY=false
+              fi
+            fi
+          fi
+          
+          echo "services=$AFFECTED_SERVICES" >> "$GITHUB_OUTPUT"
+          echo "has_infra_changes=$HAS_INFRA_CHANGES" >> "$GITHUB_OUTPUT"
+          echo "has_db_changes=$HAS_DB_CHANGES" >> "$GITHUB_OUTPUT"
+          echo "should_deploy=$SHOULD_DEPLOY" >> "$GITHUB_OUTPUT"
+          
+          echo "Affected services: $AFFECTED_SERVICES"
+          echo "Has infrastructure changes: $HAS_INFRA_CHANGES"
+          echo "Has database changes: $HAS_DB_CHANGES"
+          echo "Should deploy: $SHOULD_DEPLOY"
+
+  deploy-infrastructure:
+    name: Deploy infrastructure
+    needs: detect-changes
+    if: needs.detect-changes.outputs.should_deploy == 'true' && needs.detect-changes.outputs.has_infra_changes == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      BUILD_VERSION: ${{ needs.detect-changes.outputs.build_version }}
+      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.terraform.d/plugin-cache
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Prepare Terraform plugin cache
+        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
+
+      - name: Cache Terraform plugins
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.TF_PLUGIN_CACHE_DIR }}
+          key: ${{ runner.os }}-terraform-${{ hashFiles('infra/terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-
+
+      - name: Fetch database password
+        id: db-secret
+        uses: google-github-actions/get-secretmanager-secrets@v1
+        with:
+          secrets: |
+            db_password:projects/${{ env.GCP_PROJECT_ID }}/secrets/cloud-sql-db-password/versions/latest
+
+      - name: Prepare Terraform configuration
+        env:
+          DB_PASSWORD: ${{ steps.db-secret.outputs.db_password }}
+        run: |
+          echo "::add-mask::${DB_PASSWORD}"
+          
+          # Prepare backend config
+          cat > infra/terraform/backend.hcl <<EOF
+          bucket = "${{ env.TF_BACKEND_BUCKET }}"
+          prefix = "${{ env.TF_BACKEND_PREFIX }}"
+          EOF
+          
+          # Prepare tfvars
+          if [ ! -f infra/terraform/terraform.tfvars ]; then
+            cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
+          fi
+          
+          # Update db_password in tfvars
+          grep -v '^[[:space:]]*db_password[[:space:]]*=' infra/terraform/terraform.tfvars > /tmp/tfvars || true
+          echo "db_password = \"${DB_PASSWORD}\"" >> /tmp/tfvars
+          mv /tmp/tfvars infra/terraform/terraform.tfvars
+
+      - name: Terraform init
+        working-directory: infra/terraform
+        run: terraform init -input=false -backend-config=backend.hcl
+
+      - name: Terraform validate
+        working-directory: infra/terraform
+        run: terraform validate
+
+      - name: Terraform plan
+        working-directory: infra/terraform
+        run: |
+          terraform plan \
+            -input=false \
+            -var=project_id="${{ env.GCP_PROJECT_ID }}" \
+            -var=region="${{ env.GCP_REGION }}" \
+            -var=image_version="${{ env.BUILD_VERSION }}" \
+            -out=tfplan
+
+      - name: Terraform apply
+        working-directory: infra/terraform
+        run: terraform apply -input=false -auto-approve tfplan
+
   build-and-push:
+    name: Build and push ${{ matrix.service }}
+    needs: 
+      - detect-changes
+      - deploy-infrastructure
+    if: |
+      always() &&
+      needs.detect-changes.outputs.should_deploy == 'true' &&
+      contains(fromJson(needs.detect-changes.outputs.affected_services), matrix.service) &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.affected_services) }}
+    env:
+      BUILD_VERSION: ${{ needs.detect-changes.outputs.build_version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Restore Turborepo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .turbo
+            node_modules/.cache/turbo
+          key: ${{ runner.os }}-turbo-${{ matrix.service }}-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ matrix.service }}-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-
+            ${{ runner.os }}-turbo-${{ matrix.service }}-
+
+      - name: Generate Prisma client
+        run: yarn --cwd libs/database generate
+
+      - name: Run GraphQL codegen
+        if: matrix.service == 'dm' || matrix.service == 'slack-bot'
+        run: yarn turbo codegen --filter=@mud/${{ matrix.service }}
+
+      - name: Build service
+        run: yarn turbo build --filter=@mud/${{ matrix.service }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Configure Docker authentication
+        run: gcloud auth configure-docker "${{ env.GCP_REGION }}-docker.pkg.dev" --quiet
+
+      - name: Build and push Docker image
+        run: |
+          REGISTRY_URL="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REGISTRY_NAME }}"
+          IMAGE_TAG="${REGISTRY_URL}/${{ matrix.service }}:${{ env.BUILD_VERSION }}"
+          IMAGE_LATEST="${REGISTRY_URL}/${{ matrix.service }}:latest"
+          
+          echo "Building image for ${{ matrix.service }}..."
+          docker build \
+            -t "$IMAGE_TAG" \
+            -t "$IMAGE_LATEST" \
+            -f "apps/${{ matrix.service }}/Dockerfile" \
+            .
+          
+          echo "Pushing images..."
+          docker push "$IMAGE_TAG"
+          docker push "$IMAGE_LATEST"
+          
+          echo "✅ Successfully pushed ${{ matrix.service }} images"
+
+  deploy-services:
+    name: Deploy ${{ matrix.service }} to Cloud Run
+    needs:
+      - detect-changes
+      - build-and-push
+    if: |
+      always() &&
+      needs.detect-changes.outputs.should_deploy == 'true' &&
+      contains(fromJson(needs.detect-changes.outputs.affected_services), matrix.service) &&
+      needs.build-and-push.result == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.affected_services) }}
+    env:
+      BUILD_VERSION: ${{ needs.detect-changes.outputs.build_version }}
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Deploy to Cloud Run
+        run: |
+          REGISTRY_URL="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REGISTRY_NAME }}"
+          IMAGE="${REGISTRY_URL}/${{ matrix.service }}:${{ env.BUILD_VERSION }}"
+          
+          echo "Deploying ${{ matrix.service }} to Cloud Run..."
+          gcloud run services update "mud-${{ matrix.service }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --image="$IMAGE" \
+            --quiet
+          
+          echo "✅ Successfully deployed ${{ matrix.service }}"
+
+  run-migrations:
+    name: Run database migrations
+    needs:
+      - detect-changes
+      - deploy-infrastructure
+      - build-and-push
+    if: |
+      always() &&
+      needs.detect-changes.outputs.should_deploy == 'true' &&
+      needs.detect-changes.outputs.has_db_changes == 'true' &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') &&
+      (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Fetch database password
+        id: db-secret
+        uses: google-github-actions/get-secretmanager-secrets@v1
+        with:
+          secrets: |
+            db_password:projects/${{ env.GCP_PROJECT_ID }}/secrets/cloud-sql-db-password/versions/latest
+
+      - name: Install Cloud SQL Proxy
+        run: |
+          curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.18.1/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+
+      - name: Run Prisma migrations
+        env:
+          DB_PASSWORD: ${{ steps.db-secret.outputs.db_password }}
+        run: |
+          echo "::add-mask::${DB_PASSWORD}"
+          
+          # Start Cloud SQL Proxy
+          ./cloud-sql-proxy --address=127.0.0.1 --port=5432 "${{ env.CLOUD_SQL_CONNECTION_NAME }}" &
+          PROXY_PID=$!
+          
+          # Wait for proxy to be ready
+          sleep 5
+          
+          # Run migrations
+          export DATABASE_URL="postgresql://mud:${DB_PASSWORD}@127.0.0.1:5432/mud_dev?schema=public&sslmode=disable&connect_timeout=60"
+          npx prisma migrate deploy --schema=libs/database/prisma/schema.prisma
+          
+          # Cleanup
+          kill $PROXY_PID || true
+          
+          echo "✅ Database migrations completed"
+
+  update-service-endpoints:
+    name: Update service endpoints
+    needs:
+      - detect-changes
+      - deploy-services
+    if: |
+      always() &&
+      needs.detect-changes.outputs.should_deploy == 'true' &&
+      needs.deploy-services.result == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Update service environment variables
+        run: |
+          # Get service URLs
+          DM_URL=$(gcloud run services describe mud-dm --region "${{ env.GCP_REGION }}" --format="value(status.url)" 2>/dev/null || echo "")
+          WORLD_URL=$(gcloud run services describe mud-world --region "${{ env.GCP_REGION }}" --format="value(status.url)" 2>/dev/null || echo "")
+          
+          if [ -z "$DM_URL" ] || [ -z "$WORLD_URL" ]; then
+            echo "⚠️  Could not retrieve service URLs, skipping endpoint update"
+            exit 0
+          fi
+          
+          DM_GQL="${DM_URL}/graphql"
+          WORLD_GQL="${WORLD_URL}/graphql"
+          WORLD_BASE="${WORLD_URL}/world"
+          
+          echo "Service endpoints:"
+          echo "  DM_GQL_ENDPOINT=$DM_GQL"
+          echo "  WORLD_GQL_ENDPOINT=$WORLD_GQL"
+          echo "  WORLD_BASE_URL=$WORLD_BASE"
+          
+          # Update slack-bot
+          if gcloud run services describe mud-slack-bot --region "${{ env.GCP_REGION }}" >/dev/null 2>&1; then
+            gcloud run services update mud-slack-bot \
+              --region="${{ env.GCP_REGION }}" \
+              --update-env-vars="DM_GQL_ENDPOINT=${DM_GQL},WORLD_GQL_ENDPOINT=${WORLD_GQL},WORLD_BASE_URL=${WORLD_BASE}" \
+              --quiet
+            echo "✅ Updated slack-bot endpoints"
+          fi
+          
+          # Update tick
+          if gcloud run services describe mud-tick --region "${{ env.GCP_REGION }}" >/dev/null 2>&1; then
+            gcloud run services update mud-tick \
+              --region="${{ env.GCP_REGION }}" \
+              --update-env-vars="DM_GRAPHQL_URL=${DM_GQL}" \
+              --quiet
+            echo "✅ Updated tick endpoints"
+          fi
     name: Build and Push Images
     runs-on: ubuntu-latest
     environment: production
