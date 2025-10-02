@@ -253,14 +253,23 @@ describe('CacheService', () => {
         .mockResolvedValueOnce(500)
         .mockResolvedValueOnce(100);
 
+      await service.clearPattern('*');
+
       // Should batch at 500 keys
       expect(mockRedisClient.del).toHaveBeenCalledTimes(2);
     });
 
     it('should handle delete errors gracefully', async () => {
+      const keys: string[] = [];
+      for (let i = 0; i < 501; i++) {
+        keys.push(`test:key${i}`);
+      }
+
       mockRedisClient.scanIterator.mockReturnValue({
         [Symbol.asyncIterator]: async function* () {
-          yield 'test:key1';
+          for (const key of keys) {
+            yield key;
+          }
         },
       });
       mockRedisClient.del.mockRejectedValue(new Error('Delete error'));
