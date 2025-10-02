@@ -1,73 +1,185 @@
 name: CI
 
 on:
-  push:
-    branches-ignore:
-      - main
   pull_request:
     branches:
       - main
 
 jobs:
-  unit-tests:
-    name: Run unit tests
+  # Determine which apps are affected by changes
+  detect-changes:
+    name: Detect affected packages
     runs-on: ubuntu-latest
-    env:
-      PR_HAS_OPEN: 'false'
+    outputs:
+      affected-packages: ${{ steps.affected.outputs.packages }}
+      has-affected-packages: ${{ steps.affected.outputs.has-packages }}
     steps:
-      - name: Detect open pull request for branch
-        id: detect_pr
-        if: ${{ github.event_name == 'push' }}
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const branch = context.ref.replace('refs/heads/', '');
-            const { data: prs } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `${context.repo.owner}:${branch}`,
-              state: 'open',
-            });
-            const isOpen = prs.length > 0;
-            core.setOutput('has_open_pr', isOpen);
-            core.exportVariable('PR_HAS_OPEN', isOpen ? 'true' : 'false');
-
-      - name: Skip duplicate run
-        if: ${{ github.event_name == 'push' && env.PR_HAS_OPEN == 'true' }}
-        run: echo "Open pull request detected for this branch; skipping push-triggered job."
-
-      - name: Checkout repository
-        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set up Node.js
-        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
+      - name: Fetch base branch
+        run: |
+          git fetch origin main:main
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'yarn'
 
       - name: Install dependencies
-        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
         run: yarn install --frozen-lockfile
 
-      - name: Restore Turborepo cache
-        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
-        uses: actions/cache@v4
+      - name: Get affected packages
+        id: affected
+        run: |
+          # Get affected projects using turbo (compare against main)
+          RAW_OUTPUT=$(yarn --silent turbo run build --dry=json --filter='[main]' || true)
+          AFFECTED_OUTPUT=$(python3 -c 'import json, sys; data = sys.stdin.read(); start = data.find("{"); end = data.rfind("}"); print(json.dumps({"tasks": []}) if start == -1 or end == -1 or end < start else data[start:end+1])' <<< "$RAW_OUTPUT")
+
+          if [ -z "$AFFECTED_OUTPUT" ]; then
+            AFFECTED_OUTPUT='{"tasks":[]}'
+          fi
+
+          # Extract all package names from affected tasks (including libs)
+          PACKAGES=$(echo "$AFFECTED_OUTPUT" | jq -c '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique')
+
+          echo "Affected packages: $PACKAGES"
+          echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
+
+          # Check if we have any affected packages
+          HAS_PACKAGES=$(echo "$PACKAGES" | jq 'length > 0')
+          echo "has-packages=$HAS_PACKAGES" >> $GITHUB_OUTPUT
+
+  # Run tests for affected packages
+  test:
+    name: Test ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-affected-packages == 'true'
+    strategy:
+      matrix:
+        package: ${{ fromJson(needs.detect-changes.outputs.affected-packages) }}
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          path: |
-            .turbo
-            node_modules/.cache/turbo
-          key: ${{ runner.os }}-turbo-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-
-            ${{ runner.os }}-turbo-
+          node-version: '20'
+          cache: 'yarn'
 
-      - name: Generate Prisma client
-        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
-        run: yarn --cwd libs/database generate
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
 
-      - name: Run unit tests
-        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
-        run: yarn turbo run test --continue
+      - name: Run tests
+        run: yarn turbo run test --filter=@mud/${{ matrix.package }}
+
+  # Build affected packages to validate they compile
+  build:
+    name: Build ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-affected-packages == 'true'
+    strategy:
+      matrix:
+        package: ${{ fromJson(needs.detect-changes.outputs.affected-packages) }}
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build package
+        run: yarn turbo run build --filter=@mud/${{ matrix.package }}
+
+  # Run linting
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run lint
+        run: yarn lint
+
+  # Summary job to report CI status
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test, build, lint]
+    if: always()
+    steps:
+      - name: Report Summary
+        run: |
+          echo "## CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 🧪 Tests" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.detect-changes.outputs.has-affected-packages }}" == "true" ]; then
+            if [ "${{ needs.test.result }}" == "success" ]; then
+              echo "✅ All tests passed" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ needs.test.result }}" == "skipped" ]; then
+              echo "⏭️ Tests skipped" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "ℹ️ No packages affected" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 🔨 Build" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.detect-changes.outputs.has-affected-packages }}" == "true" ]; then
+            if [ "${{ needs.build.result }}" == "success" ]; then
+              echo "✅ All builds succeeded" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ needs.build.result }}" == "skipped" ]; then
+              echo "⏭️ Builds skipped" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ Some builds failed" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "ℹ️ No packages affected" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 🔍 Lint" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.lint.result }}" == "success" ]; then
+            echo "✅ Linting passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Linting failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "Affected packages: ${{ needs.detect-changes.outputs.affected-packages }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check if CI passed
+        if: |
+          needs.lint.result != 'success' ||
+          (needs.detect-changes.outputs.has-affected-packages == 'true' && 
+           (needs.test.result != 'success' || needs.build.result != 'success'))
+        run: |
+          echo "CI checks failed"
+          exit 1

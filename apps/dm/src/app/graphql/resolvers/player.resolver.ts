@@ -380,7 +380,7 @@ export class PlayerResolver {
         temperature: tileInfo.temperature,
         moisture: tileInfo.moisture,
       };
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -402,7 +402,7 @@ export class PlayerResolver {
         }
       }
       return nearbyPlayers;
-    } catch (error) {
+    } catch {
       return [];
     }
   }
@@ -414,7 +414,7 @@ export class PlayerResolver {
         player.x,
         player.y,
       )) as Monster[];
-    } catch (error) {
+    } catch {
       return [];
     }
   }

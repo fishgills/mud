@@ -10,8 +10,6 @@ jest.mock('../env', () => ({
 }));
 
 import { RenderResolver } from './render.resolver';
-import { RenderService } from './render.service';
-import { CacheService } from '../shared/cache.service';
 
 describe('RenderResolver', () => {
   let resolver: RenderResolver;

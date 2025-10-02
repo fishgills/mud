@@ -18,4 +18,7 @@ async function bootstrap() {
   );
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  Logger.error('Failed to bootstrap world service', err);
+  process.exit(1);
+});

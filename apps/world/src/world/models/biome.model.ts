@@ -1,4 +1,5 @@
 import { ObjectType, Field, Int } from '@nestjs/graphql';
+import { WorldTile } from './world-tile.model';
 
 @ObjectType()
 export class Biome {
@@ -10,6 +11,6 @@ export class Biome {
 
   // These fields will be resolved by @ResolveField decorators
   // Use forward reference to avoid circular dependency
-  @Field(() => [require('./world-tile.model').WorldTile], { nullable: true })
-  tiles?: any[];
+  @Field(() => [WorldTile], { nullable: true })
+  tiles?: WorldTile[];
 }

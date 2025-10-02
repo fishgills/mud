@@ -1,5 +1,4 @@
 import { TileResolver } from './tile.resolver';
-import { WorldService } from './world-refactored.service';
 
 describe('TileResolver', () => {
   let resolver: TileResolver;

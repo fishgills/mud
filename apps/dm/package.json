@@ -15,7 +15,7 @@
     "test:watch": "jest --watch",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
+    "lint": "eslint",
     "codegen": "graphql-codegen --config codegen.ts"
   },
   "dependencies": {
@@ -42,8 +42,6 @@
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
-    "@graphql-codegen/cli": "^6.0.0",
-    "@nestjs/cli": "^11.0.10",
-    "typescript": "^5.9.2"
+    "@nestjs/cli": "^11.0.10"
   }
 }

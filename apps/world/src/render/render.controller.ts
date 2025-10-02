@@ -12,10 +12,15 @@ export class RenderController {
   ) {}
 
   @Get('map.png')
-  async getMapPng(@Query() q: any, @Res() res: Response) {
-    const centerX = Number.isFinite(Number(q?.x)) ? parseInt(q.x, 10) : 0;
-    const centerY = Number.isFinite(Number(q?.y)) ? parseInt(q.y, 10) : 0;
-    const pStr = q?.p ?? q?.pixelsPerTile;
+  async getMapPng(
+    @Res() res: Response,
+    @Query('x') x?: string,
+    @Query('y') y?: string,
+    @Query('p') pixelWidth?: string,
+  ) {
+    const centerX = Number.isFinite(Number(x)) ? parseInt(x ?? '0', 10) : 0;
+    const centerY = Number.isFinite(Number(y)) ? parseInt(y ?? '0', 10) : 0;
+    const pStr = pixelWidth ?? '4';
     const p = Math.max(
       1,
       Math.floor(Number.isFinite(Number(pStr)) ? parseInt(pStr, 10) : 4),

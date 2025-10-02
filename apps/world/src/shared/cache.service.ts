@@ -15,17 +15,15 @@ export class CacheService implements OnModuleDestroy {
     if (this.enabled) {
       this.client = createClient({ url: env.REDIS_URL });
       this.client.on('error', (err: unknown) => {
-        const e: any = err as any;
-        this.logger.error(`Redis client error: ${e?.message ?? String(err)}`);
+        this.logger.error(`Redis client error: ${this.formatError(err)}`);
       });
       // Connect lazily; establish connection immediately here to fail fast in prod
       this.client
         .connect()
         .then(() => this.logger.log('Connected to Redis'))
         .catch((err: unknown) => {
-          const e: any = err as any;
           this.logger.error(
-            `Failed to connect to Redis: ${e?.message ?? String(err)}`,
+            `Failed to connect to Redis: ${this.formatError(err)}`,
           );
         });
     } else {
@@ -47,8 +45,8 @@ export class CacheService implements OnModuleDestroy {
     if (!this.isEnabled() || !this.client) return null;
     try {
       return await this.client.get(this.k(key));
-    } catch (e: any) {
-      this.logger.warn(`Cache get failed for ${key}: ${e?.message ?? e}`);
+    } catch (err: unknown) {
+      this.logger.warn(`Cache get failed for ${key}: ${this.formatError(err)}`);
       return null;
     }
   }
@@ -58,8 +56,8 @@ export class CacheService implements OnModuleDestroy {
     try {
       // Set with PX (milliseconds) expiry
       await this.client.set(this.k(key), value, { PX: ttlMs });
-    } catch (e: any) {
-      this.logger.warn(`Cache set failed for ${key}: ${e?.message ?? e}`);
+    } catch (err: unknown) {
+      this.logger.warn(`Cache set failed for ${key}: ${this.formatError(err)}`);
     }
   }
 
@@ -86,9 +84,8 @@ export class CacheService implements OnModuleDestroy {
         const n = await this.client!.del(batch);
         deleted += n;
       } catch (err) {
-        const e: any = err as any;
         this.logger.warn(
-          `Cache delete failed for batch: ${e?.message ?? String(err)}`,
+          `Cache delete failed for batch: ${this.formatError(err)}`,
         );
       } finally {
         batch.length = 0;
@@ -109,10 +106,7 @@ export class CacheService implements OnModuleDestroy {
       }
       await flush();
     } catch (err) {
-      const e: any = err as any;
-      this.logger.warn(
-        `Cache scan/delete failed: ${e?.message ?? String(err)}`,
-      );
+      this.logger.warn(`Cache scan/delete failed: ${this.formatError(err)}`);
     }
     return deleted;
   }
@@ -121,9 +115,23 @@ export class CacheService implements OnModuleDestroy {
     if (this.client) {
       try {
         await this.client.quit();
-      } catch (e) {
+      } catch {
         // ignore
       }
+    }
+  }
+
+  private formatError(err: unknown): string {
+    if (err instanceof Error) {
+      return err.message;
+    }
+    if (typeof err === 'string') {
+      return err;
+    }
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err);
     }
   }
 }

@@ -21,7 +21,7 @@ export class SystemResolver {
   ) {}
 
   @Query(() => HealthCheck)
-  async health(): Promise<HealthCheck> {
+  health(): HealthCheck {
     return {
       status: 'healthy',
       timestamp: new Date().toISOString(),
@@ -29,7 +29,7 @@ export class SystemResolver {
   }
 
   @Query(() => Boolean)
-  async hasActivePlayers(
+  hasActivePlayers(
     @Args('minutesThreshold', { type: () => Number, defaultValue: 30 })
     minutesThreshold: number,
   ): Promise<boolean> {

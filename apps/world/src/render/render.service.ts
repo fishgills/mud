@@ -477,7 +477,7 @@ export class RenderService {
 
     for (let y = minY; y < maxY; y++) {
       for (let x = minX; x < maxX; x++) {
-        const key = `${x},${y}` as string;
+        const key = `${x},${y}`;
 
         // Compute tile deterministically
         const sample = gridGenerator.sampleTile(x, y);
@@ -489,7 +489,7 @@ export class RenderService {
         );
         // Create a transient WorldTile-like shape (biome relation omitted; we’ll resolve via BIOMES)
         tileMap.set(key, {
-          id: 0 as any, // not used by renderer
+          id: 0, // not used by renderer
           x,
           y,
           biomeId: biomeInfo.id,

@@ -1,71 +1,37 @@
-name: Deploy
+name: Deploy to GCP
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
-    inputs:
-      build_version:
-        description: 'Optional image tag override'
-        required: false
 
 env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GCP_REGION: ${{ secrets.GCP_REGION }}
-  REGISTRY_NAME: mud-registry
-  TF_IN_AUTOMATION: true
-  CLOUD_SQL_CONNECTION_NAME: ${{ secrets.CLOUD_SQL_CONNECTION_NAME }}
-  GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-  GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-  TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
-  TF_BACKEND_PREFIX: ${{ secrets.TF_BACKEND_PREFIX }}
+  REGISTRY: gcr.io
 
-concurrency:
-  group: deploy-${{ github.ref_name }}
-  cancel-in-progress: false
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
-  build-and-push:
-    name: Build and Push Images
+  # Determine which apps are affected by changes
+  detect-changes:
+    name: Detect affected applications
     runs-on: ubuntu-latest
-    environment: production
-    permissions:
-      contents: read
-      id-token: write
     outputs:
-      build_version: ${{ steps.version.outputs.build_version }}
-      services: ${{ steps.affected.outputs.services_csv }}
-      services_json: ${{ steps.affected.outputs.services_json }}
-      services_matrix: ${{ steps.affected.outputs.services_matrix }}
-      has_service_changes: ${{ steps.affected.outputs.has_service_changes }}
-      infra_changed: ${{ steps.affected.outputs.infra_changed }}
-      should_deploy: ${{ steps.affected.outputs.should_deploy }}
+      affected-apps: ${{ steps.affected.outputs.apps }}
+      affected-packages: ${{ steps.affected.outputs.packages }}
+      has-affected-apps: ${{ steps.affected.outputs.has-apps }}
+      has-affected-packages: ${{ steps.affected.outputs.has-packages }}
+      infra-changed: ${{ steps.check-infra.outputs.changed }}
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Determine build version
-        id: version
-        run: |
-          set -eo pipefail
-          VERSION_INPUT="${{ inputs.build_version }}"
-          if [ -n "$VERSION_INPUT" ]; then
-            VERSION="$VERSION_INPUT"
-          else
-            if git rev-parse --short HEAD >/tmp/short_sha 2>/dev/null; then
-              VERSION=$(cat /tmp/short_sha)
-            else
-              VERSION=$(date -u +"%Y%m%d%H%M%S")
-            fi
-          fi
-          echo "Using build version: $VERSION"
-          echo "BUILD_VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "build_version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -74,541 +40,239 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Restore Turborepo cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            .turbo
-            node_modules/.cache/turbo
-          key: ${{ runner.os }}-turbo-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-
-            ${{ runner.os }}-turbo-
-
-      - name: Determine affected deployment scope
+      - name: Get affected applications
         id: affected
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BEFORE_SHA: ${{ github.event.before }}
         run: |
-          set -Eeuo pipefail
-          ALL_SERVICES=(dm world slack-bot tick)
-          FORCE_ALL=0
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            FORCE_ALL=1
+          # Get affected projects using turbo (compare against HEAD^)
+          RAW_OUTPUT=$(yarn --silent turbo run build --dry=json --filter='[HEAD^]' || true)
+          AFFECTED_OUTPUT=$(python3 -c 'import json, sys; data = sys.stdin.read(); start = data.find("{"); end = data.rfind("}"); print(json.dumps({"tasks": []}) if start == -1 or end == -1 or end < start else data[start:end+1])' <<< "$RAW_OUTPUT")
+          if [ -z "$AFFECTED_OUTPUT" ]; then
+            AFFECTED_OUTPUT='{"tasks":[]}'
           fi
 
-          BASE_SHA="$BEFORE_SHA"
-          HEAD_SHA="${GITHUB_SHA}"
-          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
-            if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
-              BASE_SHA=$(git rev-parse HEAD^)
-            else
-              BASE_SHA=$HEAD_SHA
-            fi
-          fi
-          echo "Comparing changes between $BASE_SHA and $HEAD_SHA"
+          # Extract application names from affected tasks
+          APPS=$(echo "$AFFECTED_OUTPUT" | jq -c '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique | map(select(. == "dm" or . == "slack-bot" or . == "tick" or . == "world"))')
 
-          INFRA_CHANGED=0
-          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep '^infra/terraform/' >/dev/null; then
-            INFRA_CHANGED=1
-            echo "Detected infrastructure changes under infra/terraform/."
-          fi
+          echo "Affected apps: $APPS"
+          echo "apps=$APPS" >> $GITHUB_OUTPUT
 
-          SERVICES=()
-          declare -A seen=()
+          # Check if we have any affected apps
+          HAS_APPS=$(echo "$APPS" | jq 'length > 0')
+          echo "has-apps=$HAS_APPS" >> $GITHUB_OUTPUT
 
-          if [ $FORCE_ALL -eq 1 ]; then
-            echo "workflow_dispatch event detected; deploying all services."
-            SERVICES=("${ALL_SERVICES[@]}")
-          else
-            declare -A package_map=(
-              [dm]="@mud/dm"
-              [world]="@mud/world"
-              [slack-bot]="@mud/slack-bot"
-              [tick]="@mud/tick"
-            )
+          # Extract all packages (including libs) for testing
+          PACKAGES=$(echo "$AFFECTED_OUTPUT" | jq -c '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique')
 
-            TURBO_BIN="./node_modules/.bin/turbo"
-            if [ ! -x "$TURBO_BIN" ]; then
-              TURBO_BIN=""
-            fi
+          echo "Affected packages: $PACKAGES"
+          echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
 
-            run_turbo() {
-              if [ -n "$TURBO_BIN" ]; then
-                "$TURBO_BIN" "$@"
-              else
-                npx --yes turbo "$@"
-              fi
-            }
+          # Check if we have any affected packages
+          HAS_PACKAGES=$(echo "$PACKAGES" | jq 'length > 0')
+          echo "has-packages=$HAS_PACKAGES" >> $GITHUB_OUTPUT
 
-            TURBO_FAILURE=0
-            for svc in "${ALL_SERVICES[@]}"; do
-              pkg="${package_map[$svc]}"
-              tmp_json=$(mktemp)
-              tmp_err=$(mktemp)
-              if run_turbo run build "--filter=${pkg}...[${BASE_SHA}]" --dry-run=json >"$tmp_json" 2>"$tmp_err"; then
-                task_count=$(jq '.tasks | length' "$tmp_json")
-                if [ "$task_count" -gt 0 ] && [ -z "${seen[$svc]:-}" ]; then
-                  SERVICES+=("$svc")
-                  seen[$svc]=1
-                fi
-              else
-                echo "Failed to evaluate turborepo changes for ${svc}."
-                cat "$tmp_err" || true
-                TURBO_FAILURE=1
-                rm -f "$tmp_json" "$tmp_err"
-                break
-              fi
-              rm -f "$tmp_json" "$tmp_err"
-            done
-
-            if [ $TURBO_FAILURE -eq 1 ]; then
-              echo "turborepo change detection failed; defaulting to all services."
-              SERVICES=("${ALL_SERVICES[@]}")
-            fi
-          fi
-
-          if [ ${#SERVICES[@]} -gt 0 ]; then
-            IFS=$'\n' SERVICES=($(printf '%s\n' "${SERVICES[@]}" | sort))
-          fi
-
-          SERVICES_JSON="[]"
-          SERVICES_MATRIX='[{"service":"__noop__","skip":true}]'
-          if [ ${#SERVICES[@]} -gt 0 ]; then
-            json_items=()
-            matrix_items=()
-            for svc in "${SERVICES[@]}"; do
-              json_items+=("\"${svc}\"")
-              matrix_items+=("{\"service\":\"${svc}\",\"skip\":false}")
-            done
-            SERVICES_JSON="[$(IFS=,; echo "${json_items[*]}")]"
-            SERVICES_MATRIX="[$(IFS=,; echo "${matrix_items[*]}")]"
-          fi
-
-          if [ ${#SERVICES[@]} -gt 0 ]; then
-            HAS_SERVICE_CHANGES=true
-            echo "Affected services: ${SERVICES[*]}"
-          else
-            HAS_SERVICE_CHANGES=false
-            echo "No Turborepo-affected services detected."
-          fi
-
-          if [ $INFRA_CHANGED -eq 1 ]; then
-            echo "Infrastructure changes detected."
-          fi
-
-          if [ "$HAS_SERVICE_CHANGES" = "true" ] || [ $INFRA_CHANGED -eq 1 ] || [ $FORCE_ALL -eq 1 ]; then
-            SHOULD_DEPLOY=true
-          else
-            SHOULD_DEPLOY=false
-          fi
-
-          if [ "$SHOULD_DEPLOY" = "false" ]; then
-            echo "No deployable changes detected; subsequent deployment steps will be skipped."
-          fi
-
-          if [ ${#SERVICES[@]} -gt 0 ]; then
-            SERVICES_CSV=$(IFS=,; echo "${SERVICES[*]}")
-          else
-            SERVICES_CSV=""
-          fi
-
-          {
-            echo "services_csv=$SERVICES_CSV"
-            echo "services_json=$SERVICES_JSON"
-            echo "services_matrix=$SERVICES_MATRIX"
-            echo "has_service_changes=$HAS_SERVICE_CHANGES"
-            echo "infra_changed=$([ $INFRA_CHANGED -eq 1 ] && echo true || echo false)"
-            echo "should_deploy=$SHOULD_DEPLOY"
-          } >>"$GITHUB_OUTPUT"
-
-      - name: Ensure Workload Identity secrets are configured
-        if: steps.affected.outputs.has_service_changes == 'true'
-        env:
-          WORKLOAD_IDENTITY_PROVIDER: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          WORKLOAD_IDENTITY_SERVICE_ACCOUNT: ${{ env.GCP_SERVICE_ACCOUNT }}
+      - name: Check infrastructure changes
+        id: check-infra
         run: |
-          set -Eeuo pipefail
-          if [ -z "$WORKLOAD_IDENTITY_PROVIDER" ] || [ -z "$WORKLOAD_IDENTITY_SERVICE_ACCOUNT" ]; then
-            echo "Missing workload identity federation secrets."
-            echo "Set both GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT secrets."
-            exit 1
+          # Check if any files in infra/ have changed
+          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^infra/"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Infrastructure changes detected"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No infrastructure changes"
           fi
 
-      - name: Authenticate to Google Cloud
-        if: steps.affected.outputs.has_service_changes == 'true'
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
-          create_credentials_file: true
-          export_environment_variables: true
-
-      - name: Set up gcloud SDK
-        if: steps.affected.outputs.has_service_changes == 'true'
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.GCP_PROJECT_ID }}
-
-      - name: Configure gcloud defaults
-        if: steps.affected.outputs.has_service_changes == 'true'
-        run: |
-          gcloud config set project "$GCP_PROJECT_ID"
-          gcloud config set compute/region "$GCP_REGION"
-
-      - name: Configure Docker authentication
-        if: steps.affected.outputs.has_service_changes == 'true'
-        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
-
-  build-service:
-    name: Build and Push Service (${{ matrix.service }})
+  # Run tests for affected packages on main branch
+  test:
+    name: Test ${{ matrix.package }}
     runs-on: ubuntu-latest
-    needs: build-and-push
-    environment: production
-    permissions:
-      contents: read
-      id-token: write
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-affected-packages == 'true'
     strategy:
-      fail-fast: false
       matrix:
-        include: ${{ fromJson(needs.build-and-push.outputs.services_matrix) }}
-    env:
-      BUILD_VERSION: ${{ needs.build-and-push.outputs.build_version }}
+        package: ${{ fromJson(needs.detect-changes.outputs.affected-packages) }}
+      fail-fast: false
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Skip noop matrix entry
-        if: ${{ matrix.skip == true }}
-        run: echo "No services to build for this matrix entry."
-
-      - name: Authenticate to Google Cloud
-        if: ${{ matrix.skip != true }}
-        uses: google-github-actions/auth@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
-          create_credentials_file: true
-          export_environment_variables: true
+          node-version: '20'
+          cache: 'yarn'
 
-      - name: Set up gcloud SDK
-        if: ${{ matrix.skip != true }}
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.GCP_PROJECT_ID }}
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
 
-      - name: Configure gcloud defaults
-        if: ${{ matrix.skip != true }}
-        run: |
-          gcloud config set project "$GCP_PROJECT_ID"
-          gcloud config set compute/region "$GCP_REGION"
+      - name: Run tests
+        run: yarn turbo run test --filter=@mud/${{ matrix.package }}
 
-      - name: Configure Docker authentication
-        if: ${{ matrix.skip != true }}
-        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
-
-      - name: Build and push service image
-        if: ${{ matrix.skip != true }}
-        env:
-          SERVICE_NAME: ${{ matrix.service }}
-        run: |
-          set -Eeuo pipefail
-          REGISTRY_URL="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}"
-          IMAGE_TAG="${REGISTRY_URL}/${SERVICE_NAME}:${BUILD_VERSION}"
-          IMAGE_LATEST="${REGISTRY_URL}/${SERVICE_NAME}:latest"
-          DOCKERFILE="apps/${SERVICE_NAME}/Dockerfile"
-          echo "Building image for ${SERVICE_NAME}..."
-          docker build -t "$IMAGE_TAG" -t "$IMAGE_LATEST" -f "$DOCKERFILE" .
-          echo "Pushing ${SERVICE_NAME} images..."
-          docker push "$IMAGE_TAG"
-          docker push "$IMAGE_LATEST"
-
-  deploy-infra:
-    name: Deploy Infrastructure
+  # Apply Terraform changes if infrastructure was affected
+  terraform:
+    name: Apply Terraform
     runs-on: ubuntu-latest
-    needs:
-      - build-and-push
-      - build-service
-    if: needs.build-and-push.outputs.should_deploy == 'true'
-    environment: production
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      BUILD_VERSION: ${{ needs.build-and-push.outputs.build_version }}
-      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.terraform.d/plugin-cache
+    needs: detect-changes
+    if: needs.detect-changes.outputs.infra-changed == 'true'
+    defaults:
+      run:
+        working-directory: infra/terraform
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Ensure Workload Identity secrets are configured
-        env:
-          WORKLOAD_IDENTITY_PROVIDER: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          WORKLOAD_IDENTITY_SERVICE_ACCOUNT: ${{ env.GCP_SERVICE_ACCOUNT }}
-        run: |
-          set -Eeuo pipefail
-          if [ -z "$WORKLOAD_IDENTITY_PROVIDER" ] || [ -z "$WORKLOAD_IDENTITY_SERVICE_ACCOUNT" ]; then
-            echo "Missing workload identity federation secrets."
-            echo "Set both GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT secrets."
-            exit 1
-          fi
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
-          create_credentials_file: true
-          export_environment_variables: true
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
 
-      - name: Set up gcloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.GCP_PROJECT_ID }}
-
-      - name: Configure gcloud defaults
-        run: |
-          gcloud config set project "$GCP_PROJECT_ID"
-          gcloud config set compute/region "$GCP_REGION"
-
-      - name: Set up Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-
-      - name: Prepare Terraform plugin cache directory
-        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
-
-      - name: Cache Terraform plugin directory
-        uses: actions/cache@v4
         with:
-          path: ${{ env.TF_PLUGIN_CACHE_DIR }}
-          key: ${{ runner.os }}-terraform-${{ hashFiles('infra/terraform/.terraform.lock.hcl') }}
-          restore-keys: |
-            ${{ runner.os }}-terraform-
+          terraform_version: '1.9.0'
 
-      - name: Ensure terraform.tfvars exists
+      - name: Terraform Init
         run: |
-          if [ ! -f infra/terraform/terraform.tfvars ]; then
-            cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
-            terraform fmt -recursive infra/terraform/terraform.tfvars
-          fi
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
+            -backend-config="prefix=${{ secrets.TF_BACKEND_PREFIX }}"
 
-      - name: Fetch database password secret
-        id: db-secret
-        uses: google-github-actions/get-secretmanager-secrets@v1
-        with:
-          secrets: |
-            db_password:projects/${{ env.GCP_PROJECT_ID }}/secrets/cloud-sql-db-password/versions/latest
-
-      - name: Inject database password into Terraform vars
-        env:
-          DB_PASSWORD: ${{ steps.db-secret.outputs.db_password }}
-        run: |
-          set -Eeuo pipefail
-          echo "::add-mask::${DB_PASSWORD}"
-          TFVARS="infra/terraform/terraform.tfvars"
-          TMP_FILE="$(mktemp)"
-          if [ -f "$TFVARS" ]; then
-            grep -v '^[[:space:]]*db_password[[:space:]]*=' "$TFVARS" > "$TMP_FILE"
-          fi
-          printf 'db_password = "%s"\n' "$DB_PASSWORD" >> "$TMP_FILE"
-          install -m 0644 "$TMP_FILE" "$TFVARS"
-          rm -f "$TMP_FILE"
-
-      - name: Prepare service image overrides
-        env:
-          BUILD_VERSION: ${{ needs.build-and-push.outputs.build_version }}
-          SERVICES_CSV: ${{ needs.build-and-push.outputs.services }}
-        run: |
-          set -Eeuo pipefail
-          REGISTRY_URL="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REGISTRY_NAME}"
-          declare -A changed=()
-          if [ -n "$SERVICES_CSV" ]; then
-            IFS=',' read -ra CHANGED <<< "$SERVICES_CSV"
-            for svc in "${CHANGED[@]}"; do
-              [ -n "$svc" ] || continue
-              changed[$svc]=1
-            done
-          fi
-
-          SERVICES=(dm world slack-bot tick)
-          TF_FILE="infra/terraform/service-overrides.auto.tfvars"
-          {
-            echo "service_image_overrides = {"
-            for svc in "${SERVICES[@]}"; do
-              if [ -n "${changed[$svc]:-}" ]; then
-                image="${REGISTRY_URL}/${svc}:${BUILD_VERSION}"
-              else
-                image=$(gcloud run services describe "mud-${svc}" --region "$GCP_REGION" --project "$GCP_PROJECT_ID" --format="value(template.containers[0].image)" || true)
-                if [ -z "$image" ]; then
-                  image="${REGISTRY_URL}/${svc}:latest"
-                fi
-              fi
-              echo "  \"${svc}\" = \"${image}\""
-            done
-            echo "}"
-          } > "$TF_FILE"
-          terraform -chdir=infra/terraform fmt "$(basename "$TF_FILE")"
-          echo "Pinned service images written to $TF_FILE"
-
-      - name: Write Terraform backend config
-        env:
-          TF_BACKEND_BUCKET: ${{ env.TF_BACKEND_BUCKET }}
-          TF_BACKEND_PREFIX: ${{ env.TF_BACKEND_PREFIX }}
-        run: |
-          set -Eeuo pipefail
-          if [ -z "$TF_BACKEND_BUCKET" ] || [ -z "$TF_BACKEND_PREFIX" ]; then
-            echo "Missing TF_BACKEND_BUCKET or TF_BACKEND_PREFIX secrets."
-            exit 1
-          fi
-          printf 'bucket = "%s"\n' "$TF_BACKEND_BUCKET" > infra/terraform/backend.hcl
-          printf 'prefix = "%s"\n' "$TF_BACKEND_PREFIX" >> infra/terraform/backend.hcl
-          echo "Terraform backend config written to infra/terraform/backend.hcl"
-
-      - name: Terraform fmt check
-        working-directory: infra/terraform
-        run: terraform fmt -check -recursive
-
-      - name: Terraform init
-        working-directory: infra/terraform
-        run: terraform init -input=false -backend-config=backend.hcl
-
-      - name: Terraform validate
-        working-directory: infra/terraform
-        run: terraform validate
-
-      - name: Terraform plan
-        working-directory: infra/terraform
+      - name: Terraform Plan
+        id: plan
         run: |
           terraform plan \
             -input=false \
-            -var=project_id="$GCP_PROJECT_ID" \
-            -var=region="$GCP_REGION" \
-            -var=image_version="$BUILD_VERSION" \
-            -out=tfplan
+            -var="project_id=${{ env.GCP_PROJECT_ID }}" \
+            -var="region=${{ env.GCP_REGION }}" \
+            -var="image_version=${{ github.sha }}" \
+            -out=tfplan \
+            -no-color
+        continue-on-error: true
 
-      - name: Terraform apply
-        working-directory: infra/terraform
+      - name: Check for changes
+        id: check-changes
         run: |
-          terraform apply \
-            -input=false \
-            -auto-approve \
-            tfplan
-
-      - name: Clean up Terraform plan
-        if: always()
-        working-directory: infra/terraform
-        run: rm -f tfplan
-
-      - name: Clean up service image overrides
-        if: always()
-        run: rm -f infra/terraform/service-overrides.auto.tfvars
-
-      - name: Update service endpoints
-        run: |
-          set -Eeuo pipefail
-          DM_URL=$(gcloud run services describe mud-dm --region "$GCP_REGION" --project "$GCP_PROJECT_ID" --format="value(status.url)")
-          WORLD_URL=$(gcloud run services describe mud-world --region "$GCP_REGION" --project "$GCP_PROJECT_ID" --format="value(status.url)")
-          if [ -z "$DM_URL" ] || [ -z "$WORLD_URL" ]; then
-            echo "Could not retrieve dm/world service URLs. Skipping endpoint update."
-            exit 0
+          if terraform show -no-color tfplan | grep -q "No changes"; then
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+            echo "No infrastructure changes to apply"
+          else
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+            echo "Infrastructure changes detected in plan"
           fi
-          DM_GQL="${DM_URL}/graphql"
-          WORLD_GQL="${WORLD_URL}/graphql"
-          WORLD_BASE="${WORLD_URL}/world"
-          echo "Resolved endpoints:"
-          echo "  DM_GQL_ENDPOINT=$DM_GQL"
-          echo "  WORLD_GQL_ENDPOINT=$WORLD_GQL"
-          echo "  WORLD_BASE_URL=$WORLD_BASE"
-          gcloud run services update mud-slack-bot \
-            --region="$GCP_REGION" \
-            --project="$GCP_PROJECT_ID" \
-            --update-env-vars="DM_GQL_ENDPOINT=${DM_GQL},WORLD_GQL_ENDPOINT=${WORLD_GQL}"
-          gcloud run services update mud-tick \
-            --region="$GCP_REGION" \
-            --project="$GCP_PROJECT_ID" \
-            --update-env-vars="DM_GRAPHQL_URL=${DM_GQL}"
 
-  run-migrations:
-    name: Run Database Migrations
+      - name: Terraform Apply
+        if: steps.check-changes.outputs.has-changes == 'true'
+        run: terraform apply -auto-approve tfplan
+
+  # Build and push Docker images for affected apps
+  build-and-push:
+    name: Build and push ${{ matrix.app }}
     runs-on: ubuntu-latest
-    needs:
-      - deploy-infra
-    environment: production
-    permissions:
-      contents: read
-      id-token: write
+    needs: [detect-changes, test, terraform]
+    if: |
+      always() && 
+      needs.detect-changes.outputs.has-affected-apps == 'true' &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (needs.terraform.result == 'success' || needs.terraform.result == 'skipped')
+    strategy:
+      matrix:
+        app: ${{ fromJson(needs.detect-changes.outputs.affected-apps) }}
+      fail-fast: false
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'yarn'
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-
-      - name: Ensure Workload Identity secrets are configured
-        env:
-          WORKLOAD_IDENTITY_PROVIDER: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          WORKLOAD_IDENTITY_SERVICE_ACCOUNT: ${{ env.GCP_SERVICE_ACCOUNT }}
-        run: |
-          set -Eeuo pipefail
-          if [ -z "$WORKLOAD_IDENTITY_PROVIDER" ] || [ -z "$WORKLOAD_IDENTITY_SERVICE_ACCOUNT" ]; then
-            echo "Missing workload identity federation secrets."
-            echo "Set both GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT secrets."
-            exit 1
-          fi
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
-          create_credentials_file: true
-          export_environment_variables: true
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
 
-      - name: Set up gcloud SDK
+      - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.GCP_PROJECT_ID }}
 
-      - name: Configure gcloud defaults
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Build Docker image
         run: |
-          gcloud config set project "$GCP_PROJECT_ID"
-          gcloud config set compute/region "$GCP_REGION"
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ matrix.app }}:${{ github.sha }}"
+          IMAGE_LATEST="${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ matrix.app }}:latest"
 
-      - name: Fetch database password secret
-        id: migration-secret
-        uses: google-github-actions/get-secretmanager-secrets@v1
-        with:
-          secrets: |
-            db_password:projects/${{ env.GCP_PROJECT_ID }}/secrets/cloud-sql-db-password/versions/latest
+          docker build \
+            -f apps/${{ matrix.app }}/Dockerfile \
+            -t $IMAGE_TAG \
+            -t $IMAGE_LATEST \
+            .
 
-      - name: Run Prisma migrations
-        env:
-          DB_PASSWORD: ${{ steps.migration-secret.outputs.db_password }}
+      - name: Push Docker image
         run: |
-          set -Eeuo pipefail
-          echo "::add-mask::${DB_PASSWORD}"
-          CONNECTION_NAME="${CLOUD_SQL_CONNECTION_NAME:-battleforge-444008:us-central1:mud-postgres}"
-          PROXY_PATH="scripts/cloud-sql-proxy"
-          if [ ! -f "$PROXY_PATH" ]; then
-            curl -sSL -o "$PROXY_PATH" "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.18.1/cloud-sql-proxy.linux.amd64"
-            chmod +x "$PROXY_PATH"
-          fi
-          "$PROXY_PATH" --address=127.0.0.1 --port=5432 "$CONNECTION_NAME" &
-          PROXY_PID=$!
-          cleanup() {
-            if kill -0 "$PROXY_PID" 2>/dev/null; then
-              kill "$PROXY_PID"
-              wait "$PROXY_PID" || true
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ matrix.app }}:${{ github.sha }}"
+          IMAGE_LATEST="${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ matrix.app }}:latest"
+
+          docker push $IMAGE_TAG
+          docker push $IMAGE_LATEST
+
+      - name: Deploy to Cloud Run
+        run: |
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ matrix.app }}:${{ github.sha }}"
+          SERVICE_NAME="mud-${{ matrix.app }}"
+
+          # Update the existing Cloud Run service image
+          # This only updates the container image, preserving all other Terraform-managed settings
+          gcloud run services update $SERVICE_NAME \
+            --image=$IMAGE_TAG \
+            --region=${{ env.GCP_REGION }} \
+            --platform=managed \
+            --quiet
+
+  # Summary job to report deployment status
+  deploy-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test, terraform, build-and-push]
+    if: always()
+    steps:
+      - name: Report Summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 🧪 Tests" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.detect-changes.outputs.has-affected-packages }}" == "true" ]; then
+            if [ "${{ needs.test.result }}" == "success" ]; then
+              echo "✅ All tests passed" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ needs.test.result }}" == "skipped" ]; then
+              echo "⏭️ Tests skipped" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
             fi
-          }
-          trap cleanup EXIT
-          sleep 5
-          export DATABASE_URL="postgresql://mud:${DB_PASSWORD}@127.0.0.1:5432/mud_dev?schema=public&sslmode=disable&connect_timeout=60"
-          npx prisma migrate deploy --schema=libs/database/prisma/schema.prisma
+          else
+            echo "ℹ️ No packages affected" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.detect-changes.outputs.infra-changed }}" == "true" ]; then
+            echo "### 🏗️ Infrastructure" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ needs.terraform.result }}" == "success" ]; then
+              echo "✅ Terraform applied successfully" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ needs.terraform.result }}" == "skipped" ]; then
+              echo "⏭️ Terraform skipped (no changes)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ Terraform failed" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "### 🚀 Applications" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.detect-changes.outputs.has-affected-apps }}" == "true" ]; then
+            echo "Affected apps: ${{ needs.detect-changes.outputs.affected-apps }}" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ needs.build-and-push.result }}" == "success" ]; then
+              echo "✅ All applications deployed successfully" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ Some applications failed to deploy" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "ℹ️ No applications affected by this push" >> $GITHUB_STEP_SUMMARY
+          fi

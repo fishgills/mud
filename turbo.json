@@ -34,7 +34,10 @@
     "codegen": {
       "dependsOn": ["^codegen"]
     },
-    "lint": {},
+    "lint": {
+      "dependsOn": ["^generate"],
+      "cache": false
+    },
     "test": {
       "dependsOn": ["^build", "^test"]
     }

@@ -54,7 +54,7 @@ export const createHandler = async ({ userId, say, text }: HandlerContext) => {
             },
           },
           { type: 'divider' },
-          ...statsMessage.blocks,
+          ...(statsMessage.blocks ?? []),
         ],
       });
     } else {

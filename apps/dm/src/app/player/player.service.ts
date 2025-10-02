@@ -373,14 +373,15 @@ export class PlayerService {
       const previousModifier = this.getConstitutionModifier(player.health);
       const newModifier = this.getConstitutionModifier(newHealth);
       const modifierIncrease = Math.max(0, newModifier - previousModifier);
-      const hpIncrease = this.BASE_HP_PER_HEALTH_POINT + modifierIncrease * player.level;
+      const hpIncrease =
+        this.BASE_HP_PER_HEALTH_POINT + modifierIncrease * player.level;
 
       newAttributeValue = newHealth;
       data.health = newHealth;
       data.maxHp = player.maxHp + hpIncrease;
       data.hp = Math.min(data.maxHp, player.hp + hpIncrease);
     } else {
-      throw new Error(`Unknown attribute: ${attribute}`);
+      throw new Error('Unknown attribute.');
     }
 
     const result = await this.prisma.player.update({
@@ -388,8 +389,10 @@ export class PlayerService {
       data,
     });
 
+    const remainingSkillPoints = result.skillPoints ?? 0;
+
     this.logger.log(
-      `⚔️ ${player.name} increased ${attribute} to ${newAttributeValue}. Remaining skill points: ${result.skillPoints}.`,
+      `⚔️ ${player.name} increased ${attribute} to ${newAttributeValue}. Remaining skill points: ${remainingSkillPoints}.`,
     );
 
     return result;

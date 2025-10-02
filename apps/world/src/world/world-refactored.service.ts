@@ -22,7 +22,7 @@ export class WorldService {
     private worldUtils: WorldUtilsService,
   ) {
     this.logger.log('WorldService initialized');
-    this.initialize();
+    void this.initialize();
   }
 
   private async initialize(): Promise<void> {
@@ -165,6 +165,9 @@ export class WorldService {
   }
 
   async getChunkTileCount(chunkX: number, chunkY: number): Promise<number> {
+    // Parameters are part of GraphQL signature but unused in compute-only mode
+    void chunkX;
+    void chunkY;
     // Compute-only mode: chunk size is fixed
     return 50 * 50;
   }

@@ -39,8 +39,16 @@ export class LoggingInterceptor implements NestInterceptor {
         this.logger.log(
           `[DM-RESPONSE] ${info.fieldName} completed in ${duration}ms`,
         );
+        const success =
+          typeof data === 'object' && data !== null && 'success' in data
+            ? (data as { success?: unknown }).success
+            : 'N/A';
+        const successLabel =
+          typeof success === 'string' || typeof success === 'number'
+            ? success
+            : JSON.stringify(success);
         this.logger.log(
-          `[DM-RESPONSE] Response success: ${(data as any)?.success ?? 'N/A'}`,
+          `[DM-RESPONSE] Response success: ${successLabel ?? 'N/A'}`,
         );
       }),
     );

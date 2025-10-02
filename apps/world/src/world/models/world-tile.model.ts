@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { ObjectType, Field, Int, Float } from '@nestjs/graphql';
+import { Biome } from './biome.model';
 
 @ObjectType()
 export class WorldTile {
@@ -47,6 +48,6 @@ export class WorldTile {
 
   // These fields will be resolved by @ResolveField decorators
   // Use forward reference to avoid circular dependency
-  @Field(() => require('./biome.model').Biome, { nullable: true })
-  biome?: any;
+  @Field(() => Biome, { nullable: true })
+  biome?: Biome | null;
 }
