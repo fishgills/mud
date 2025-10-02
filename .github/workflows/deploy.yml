@@ -43,8 +43,8 @@ jobs:
       - name: Get affected applications
         id: affected
         run: |
-          # Get affected projects using turbo and extract the JSON payload only
-          RAW_OUTPUT=$(yarn --silent turbo run build --affected --dry=json || true)
+          # Get affected projects using turbo (compare against HEAD^)
+          RAW_OUTPUT=$(yarn --silent turbo run build --affected --dry=json --filter='[HEAD^]' || true)
           AFFECTED_OUTPUT=$(python3 -c 'import json, sys; data = sys.stdin.read(); start = data.find("{"); end = data.rfind("}"); print(json.dumps({"tasks": []}) if start == -1 or end == -1 or end < start else data[start:end+1])' <<< "$RAW_OUTPUT")
           if [ -z "$AFFECTED_OUTPUT" ]; then
             AFFECTED_OUTPUT='{"tasks":[]}'
