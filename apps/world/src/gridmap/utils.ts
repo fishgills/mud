@@ -32,6 +32,7 @@ export function deriveTemperature(
   const latitudeFactor = Math.min(1, Math.abs(y) / 1000);
   const elevationPenalty = (rawHeight + 1) / 2;
   const moistureInfluence = (rawMoisture + 1) / 2;
-  const temp = 1 - elevationPenalty * 0.6 - latitudeFactor * 0.3 + moistureInfluence * 0.1;
+  const temp =
+    1 - elevationPenalty * 0.6 - latitudeFactor * 0.3 + moistureInfluence * 0.1;
   return Math.max(0, Math.min(1, temp));
 }

@@ -20,8 +20,10 @@ jest.mock('@mud/database', () => ({
         if (where.x?.gte !== undefined) {
           result = result.filter(
             (m) =>
-              m.x >= where.x.gte && m.x <= where.x.lte &&
-              m.y >= where.y.gte && m.y <= where.y.lte,
+              m.x >= where.x.gte &&
+              m.x <= where.x.lte &&
+              m.y >= where.y.gte &&
+              m.y <= where.y.lte,
           );
         } else {
           if (where.x !== undefined) {
@@ -39,8 +41,9 @@ jest.mock('@mud/database', () => ({
         }
         return result;
       }),
-      findUnique: jest.fn(async ({ where: { id } }) =>
-        monsters.find((m) => m.id === id && m.isAlive !== false) ?? null,
+      findUnique: jest.fn(
+        async ({ where: { id } }) =>
+          monsters.find((m) => m.id === id && m.isAlive !== false) ?? null,
       ),
       update: jest.fn(async ({ where: { id }, data }) => {
         const idx = monsters.findIndex((m) => m.id === id);
@@ -66,14 +69,12 @@ jest.mock('@mud/database', () => ({
 
 describe('MonsterService', () => {
   const worldService = {
-    getTileInfo: jest
-      .fn()
-      .mockImplementation(async (x: number, y: number) => ({
-        x,
-        y,
-        biomeName: x === 999 ? 'ocean' : 'forest',
-        biomeId: 2,
-      })),
+    getTileInfo: jest.fn().mockImplementation(async (x: number, y: number) => ({
+      x,
+      y,
+      biomeName: x === 999 ? 'ocean' : 'forest',
+      biomeId: 2,
+    })),
     getTileInfoWithNearby: jest.fn().mockResolvedValue({
       tile: { x: 0, y: 0, biomeName: 'forest', biomeId: 2 },
       currentSettlement: null,
@@ -83,9 +84,7 @@ describe('MonsterService', () => {
 
   beforeEach(() => {
     monsters.length = 0;
-    jest
-      .spyOn(global.Math, 'random')
-      .mockImplementation(() => 0.2);
+    jest.spyOn(global.Math, 'random').mockImplementation(() => 0.2);
   });
 
   afterEach(() => {

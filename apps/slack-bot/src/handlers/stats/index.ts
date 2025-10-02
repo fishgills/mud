@@ -2,10 +2,7 @@ import { COMMANDS } from '../../commands';
 import { registerHandler } from '../handlerRegistry';
 import { getUserFriendlyErrorMessage } from '../errorUtils';
 import { HandlerContext } from '../types';
-import {
-  buildMonsterStatsMessage,
-  buildPlayerStatsMessage,
-} from './format';
+import { buildMonsterStatsMessage, buildPlayerStatsMessage } from './format';
 import {
   fetchPlayerRecord,
   fetchPlayerWithLocation,
@@ -14,8 +11,7 @@ import {
 import { resolveTarget } from './target';
 import { PlayerStatsSource } from './types';
 
-export const statsHandlerHelp =
-  `Show stats with "${COMMANDS.STATS}". Example: Send "${COMMANDS.STATS}" for yourself, "${COMMANDS.STATS} Alice" to inspect another adventurer, or "${COMMANDS.STATS} Goblin" to scout a nearby monster.`;
+export const statsHandlerHelp = `Show stats with "${COMMANDS.STATS}". Example: Send "${COMMANDS.STATS}" for yourself, "${COMMANDS.STATS} Alice" to inspect another adventurer, or "${COMMANDS.STATS} Goblin" to scout a nearby monster.`;
 
 async function respondWithPlayer(
   say: HandlerContext['say'],
@@ -38,8 +34,7 @@ export const statsHandler = async ({
   text,
   resolveUserId,
 }: HandlerContext) => {
-  const missingCharacterMessage =
-    `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`;
+  const missingCharacterMessage = `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`;
 
   try {
     const target = await resolveTarget(text, userId, resolveUserId);
@@ -72,7 +67,9 @@ export const statsHandler = async ({
     }
 
     if (!target.cleanedTarget) {
-      await say({ text: `I couldn't figure out who you're trying to inspect.` });
+      await say({
+        text: `I couldn't figure out who you're trying to inspect.`,
+      });
       return;
     }
 
@@ -82,15 +79,12 @@ export const statsHandler = async ({
       return;
     }
 
-    const {
-      matchingPlayers,
-      matchingMonsters,
-      totalMatches,
-    } = findNearbyMatches(
-      target.cleanedTarget,
-      self.playersHere,
-      self.monstersHere,
-    );
+    const { matchingPlayers, matchingMonsters, totalMatches } =
+      findNearbyMatches(
+        target.cleanedTarget,
+        self.playersHere,
+        self.monstersHere,
+      );
 
     if (totalMatches === 1) {
       if (matchingPlayers.length === 1) {

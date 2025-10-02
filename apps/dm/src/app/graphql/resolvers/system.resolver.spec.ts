@@ -10,7 +10,9 @@ describe('SystemResolver', () => {
     const monsterService = {
       getMonstersAtLocation: jest.fn().mockResolvedValue([{ id: 1 }]),
       getAllMonsters: jest.fn().mockResolvedValue([{ id: 1 }, { id: 2 }]),
-      spawnMonster: jest.fn().mockResolvedValue({ id: 3, name: 'Goblin', x: 1, y: 2 }),
+      spawnMonster: jest
+        .fn()
+        .mockResolvedValue({ id: 3, name: 'Goblin', x: 1, y: 2 }),
     } as any;
     const gameTickService = {
       processTick: jest.fn().mockResolvedValue({ tick: 1 }),

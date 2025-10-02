@@ -270,10 +270,14 @@ export function registerActions(app: App) {
       }
 
       try {
-        const result = await dmSdk.SpendSkillPoint({ slackId: userId, attribute });
+        const result = await dmSdk.SpendSkillPoint({
+          slackId: userId,
+          attribute,
+        });
         if (!result.spendSkillPoint.success || !result.spendSkillPoint.data) {
           const errorText =
-            result.spendSkillPoint.message ?? 'Unable to spend a skill point right now.';
+            result.spendSkillPoint.message ??
+            'Unable to spend a skill point right now.';
           if (respond) {
             await respond({
               text: errorText,
@@ -285,9 +289,12 @@ export function registerActions(app: App) {
         }
 
         if (channelId && messageTs) {
-          const statsMessage = buildPlayerStatsMessage(result.spendSkillPoint.data, {
-            isSelf: true,
-          });
+          const statsMessage = buildPlayerStatsMessage(
+            result.spendSkillPoint.data,
+            {
+              isSelf: true,
+            },
+          );
           await client.chat.update({
             channel: channelId,
             ts: messageTs,

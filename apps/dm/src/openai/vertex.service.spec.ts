@@ -84,9 +84,7 @@ describe('VertexAiService', () => {
       model: 'gemini-2.5-flash-lite',
     });
     expect(mockGenerateContent).toHaveBeenCalledWith({
-      contents: [
-        { role: 'user', parts: [{ text: 'system\nprompt' }] },
-      ],
+      contents: [{ role: 'user', parts: [{ text: 'system\nprompt' }] }],
       generationConfig: { maxOutputTokens: 99 },
     });
   });
@@ -101,9 +99,7 @@ describe('VertexAiService', () => {
     ).resolves.toBe('No description generated.');
 
     expect(mockGenerateContent).toHaveBeenCalledWith({
-      contents: [
-        { role: 'user', parts: [{ text: 'system\nprompt' }] },
-      ],
+      contents: [{ role: 'user', parts: [{ text: 'system\nprompt' }] }],
       generationConfig: undefined,
     });
   });
@@ -155,6 +151,8 @@ describe('VertexAiService', () => {
     await expect(
       (service as any).invokeModel('prompt', 'system'),
     ).rejects.toThrow('Vertex AI model not configured');
-    expect(errorSpy).toHaveBeenCalledWith('Failed to initialize VertexAI client');
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Failed to initialize VertexAI client',
+    );
   });
 });

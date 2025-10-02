@@ -1,8 +1,4 @@
-import {
-  getAllHandlers,
-  getHandler,
-  registerHandler,
-} from './handlerRegistry';
+import { getAllHandlers, getHandler, registerHandler } from './handlerRegistry';
 
 describe('handlerRegistry', () => {
   afterEach(() => {

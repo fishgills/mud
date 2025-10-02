@@ -178,10 +178,15 @@ describe('attackHandler', () => {
     expect(say).toHaveBeenCalledTimes(1);
     const message = say.mock.calls[0][0] as {
       text?: string;
-      blocks?: Array<{ type: string; elements?: Array<Record<string, unknown>> }>;
+      blocks?: Array<{
+        type: string;
+        elements?: Array<Record<string, unknown>>;
+      }>;
     };
     expect(message.text).toContain('Choose a monster to attack');
-    const actionsBlock = message.blocks?.find((block) => block.type === 'actions');
+    const actionsBlock = message.blocks?.find(
+      (block) => block.type === 'actions',
+    );
     expect(actionsBlock?.elements).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

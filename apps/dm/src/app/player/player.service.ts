@@ -267,6 +267,10 @@ export class PlayerService {
     statsDto: PlayerStatsDto,
   ): Promise<Player> {
     const player = await this.getPlayer(slackId);
+
+    // Working copy used ONLY for intermediate calculations during level-up logic.
+    // This is NOT persisted or returned. The final result comes from the database.
+    // A shallow copy is sufficient as Player has no nested objects requiring deep copy.
     const updatedState: Player = { ...player };
 
     const data: Prisma.PlayerUpdateInput = {
@@ -296,6 +300,7 @@ export class PlayerService {
       updatedState.xp = statsDto.xp;
       data.xp = statsDto.xp;
 
+      // Use updatedState to calculate level-ups iteratively
       while (updatedState.xp >= this.getXpForNextLevel(updatedState.level)) {
         updatedState.level += 1;
         levelsGained += 1;
@@ -303,13 +308,17 @@ export class PlayerService {
 
         const hpGain = this.calculateLevelUpHpGain(updatedState.health);
         updatedState.maxHp += hpGain;
-        updatedState.hp = Math.min(updatedState.hp + hpGain, updatedState.maxHp);
+        updatedState.hp = Math.min(
+          updatedState.hp + hpGain,
+          updatedState.maxHp,
+        );
 
         if (updatedState.level % this.SKILL_POINT_INTERVAL === 0) {
           updatedState.skillPoints += this.SKILL_POINTS_PER_INTERVAL;
         }
       }
 
+      // Transfer calculated values to the data object for database update
       data.level = updatedState.level;
       data.maxHp = updatedState.maxHp;
       data.hp = updatedState.hp;

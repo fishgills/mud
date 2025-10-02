@@ -1,18 +1,24 @@
 import type { CoordinationService as CoordinationServiceType } from './coordination.service';
 
 type RedisClientMock = {
-  on: jest.MockedFunction<(event: string, listener: (...args: unknown[]) => void) => unknown>;
+  on: jest.MockedFunction<
+    (event: string, listener: (...args: unknown[]) => void) => unknown
+  >;
   connect: jest.MockedFunction<() => Promise<void>>;
   exists: jest.MockedFunction<(key: string) => Promise<number>>;
-  set: jest.MockedFunction<(
-    key: string,
-    value: string,
-    options?: { NX?: boolean; PX?: number },
-  ) => Promise<'OK' | null>>;
-  eval: jest.MockedFunction<(
-    script: string,
-    args: { keys: string[]; arguments: string[] },
-  ) => Promise<number>>;
+  set: jest.MockedFunction<
+    (
+      key: string,
+      value: string,
+      options?: { NX?: boolean; PX?: number },
+    ) => Promise<'OK' | null>
+  >;
+  eval: jest.MockedFunction<
+    (
+      script: string,
+      args: { keys: string[]; arguments: string[] },
+    ) => Promise<number>
+  >;
   quit: jest.MockedFunction<() => Promise<void>>;
 };
 
@@ -87,14 +93,23 @@ describe('CoordinationService', () => {
     await expect(service.exists('error')).resolves.toBe(false);
 
     redis.set.mockResolvedValueOnce('OK');
-    await expect(service.acquireLock('lock', 'token', 1500)).resolves.toBe('token');
-    expect(redis.set).toHaveBeenCalledWith('test:lock', 'token', { NX: true, PX: 1500 });
+    await expect(service.acquireLock('lock', 'token', 1500)).resolves.toBe(
+      'token',
+    );
+    expect(redis.set).toHaveBeenCalledWith('test:lock', 'token', {
+      NX: true,
+      PX: 1500,
+    });
 
     redis.set.mockResolvedValueOnce(null);
-    await expect(service.acquireLock('lock', 'token', 1500)).resolves.toBeNull();
+    await expect(
+      service.acquireLock('lock', 'token', 1500),
+    ).resolves.toBeNull();
 
     redis.set.mockRejectedValueOnce(new Error('fail'));
-    await expect(service.acquireLock('lock', 'token', 1500)).resolves.toBeNull();
+    await expect(
+      service.acquireLock('lock', 'token', 1500),
+    ).resolves.toBeNull();
 
     redis.eval.mockResolvedValueOnce(1);
     await expect(service.releaseLock('lock', 'token')).resolves.toBe(true);

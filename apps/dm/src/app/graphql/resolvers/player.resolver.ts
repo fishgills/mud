@@ -66,9 +66,7 @@ export class PlayerResolver {
     const identifier = slackId
       ? `slackId: ${slackId}`
       : `name: ${name ?? 'unknown'}`;
-    this.logger.log(
-      `[DM-AUTH] Received getPlayer request for ${identifier}`,
-    );
+    this.logger.log(`[DM-AUTH] Received getPlayer request for ${identifier}`);
     try {
       this.logger.log(
         `[DM-AUTH] Calling playerService.getPlayer for ${identifier}`,
@@ -129,10 +127,14 @@ export class PlayerResolver {
   @Mutation(() => PlayerResponse)
   async spendSkillPoint(
     @Args('slackId') slackId: string,
-    @Args('attribute', { type: () => PlayerAttribute }) attribute: PlayerAttribute,
+    @Args('attribute', { type: () => PlayerAttribute })
+    attribute: PlayerAttribute,
   ): Promise<PlayerResponse> {
     try {
-      const player = await this.playerService.spendSkillPoint(slackId, attribute);
+      const player = await this.playerService.spendSkillPoint(
+        slackId,
+        attribute,
+      );
       return {
         success: true,
         data: player as Player,
