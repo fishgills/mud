@@ -34,6 +34,7 @@ Mud is an AI-assisted multiplayer text adventure game built as a Turborepo monor
 - **Prettier** - Code formatting
 - **Docker** - Local development and deployment
 - **Terraform** - Infrastructure as code
+- **GitHub Actions** - CI/CD automation
 
 ## Monorepo Structure
 
@@ -51,7 +52,12 @@ mud/
 │   └── constants/       # Shared constants
 ├── infra/
 │   └── terraform/       # GCP infrastructure definitions
-└── scripts/             # Deployment and operational scripts
+├── scripts/             # Deployment and operational scripts
+└── .github/
+    ├── workflows/       # GitHub Actions CI/CD
+    │   └── ci.yml      # Main CI workflow (build, lint, test)
+    ├── BRANCH_PROTECTION.md   # Branch protection setup guide
+    └── CI_CONFIGURATION.md    # CI/CD documentation
 ```
 
 ## Coding Standards
@@ -118,6 +124,41 @@ mud/
 - **Never** call `process.exit()` in environment validation during tests
 - Mock environment in tests to prevent initialization issues
 
+# <<<<<<< HEAD
+
+## CI/CD Requirements
+
+### GitHub Actions Workflow
+
+All pull requests must pass these automated checks before merging:
+
+1. **Build** (`Build all packages`) - Ensures all packages compile and build
+2. **Lint** (`Lint code`) - Enforces code style with ESLint
+3. **Tests** (`Run unit tests`) - Validates all test suites pass
+
+### Pre-Push Checklist
+
+Before pushing code, **always run locally**:
+
+```bash
+yarn turbo codegen  # Generate GraphQL types
+yarn build          # Build all packages
+yarn lint           # Check code style
+yarn test           # Run all tests
+```
+
+### CI Workflow Details
+
+- **Trigger**: Runs on every push to feature branches and PRs to `main`
+- **Node Version**: 20 (LTS)
+- **Caching**: Uses Yarn cache and Turborepo cache for speed
+- **Parallel Jobs**: Build, lint, and test run in parallel
+- **Location**: `.github/workflows/ci.yml`
+
+See `.github/CI_CONFIGURATION.md` for detailed CI documentation.
+
+> > > > > > > fde14dd (feat(ci): add CI workflow for building, linting, and testing services)
+
 ## Common Tasks
 
 ### Running Tests
@@ -161,6 +202,9 @@ yarn db:push
 
 # Seed database
 yarn db:seed
+
+# Open Prisma Studio GUI
+npx prisma studio --schema=libs/database/prisma/schema.prisma
 ```
 
 ### Development Servers
@@ -184,6 +228,20 @@ yarn build
 # Build specific app
 yarn turbo run build --filter=@mud/dm
 ```
+
+# <<<<<<< HEAD
+
+### Linting and Formatting
+
+```bash
+# Lint all code
+yarn lint
+
+# Format all code with Prettier
+yarn format
+```
+
+> > > > > > > fde14dd (feat(ci): add CI workflow for building, linting, and testing services)
 
 ## Critical Implementation Patterns
 
@@ -237,6 +295,10 @@ yarn turbo run build --filter=@mud/dm
 - TypeScript config: Per-app `tsconfig.json` extending root config
 - ESLint: Per-app `eslint.config.mjs`
 - NestJS: `nest-cli.json` in NestJS apps
+  <<<<<<< HEAD
+  =======
+- GitHub Actions: `.github/workflows/`
+  > > > > > > > fde14dd (feat(ci): add CI workflow for building, linting, and testing services)
 
 ## Known Issues & Solutions
 
@@ -261,6 +323,21 @@ jest.mock('../env', () => ({
   // Provide all required env vars
 }));
 ```
+
+# <<<<<<< HEAD
+
+### Issue: CI Checks Not Appearing
+
+**Problem**: Required status checks don't appear in GitHub PR
+
+**Solution**:
+
+1. Ensure CI workflow has run at least once on any PR
+2. Job names must match exactly: `Build all packages`, `Lint code`, `Run unit tests`
+3. Verify workflow file is on `main` branch
+4. Wait a few minutes and refresh
+
+> > > > > > > fde14dd (feat(ci): add CI workflow for building, linting, and testing services)
 
 ### Issue: Jest Hanging on Open Handles
 
@@ -300,6 +377,16 @@ jest.mock('../env', () => ({
 - `BRANCH_COVERAGE_IMPROVEMENTS.md` - Test coverage improvements
 - `TEST_COVERAGE_IMPROVEMENTS.md` - Testing guidelines
 
+# <<<<<<< HEAD
+
+### GitHub Documentation
+
+- `.github/BRANCH_PROTECTION.md` - Branch protection setup
+- `.github/CI_CONFIGURATION.md` - CI/CD details
+- `.github/workflows/ci.yml` - CI workflow definition
+
+> > > > > > > fde14dd (feat(ci): add CI workflow for building, linting, and testing services)
+
 ## Best Practices for AI Assistance
 
 When working with Copilot on this project:
@@ -314,6 +401,11 @@ When working with Copilot on this project:
 8. **Monorepo**: Use `--filter` flag with Turbo commands to target specific apps
 9. **Migrations**: Always run `prisma migrate` before `prisma generate`
 10. **Service URLs**: Ensure service endpoints are correctly configured with `/graphql` paths
+    <<<<<<< HEAD
+    =======
+11. **CI Validation**: Run build, lint, and test locally before pushing
+12. **Code Quality**: All PRs must pass CI checks - no exceptions
+    > > > > > > > fde14dd (feat(ci): add CI workflow for building, linting, and testing services)
 
 ## Commands Reference
 
@@ -336,3 +428,8 @@ When working with Copilot on this project:
 - Review test files for implementation examples
 - Check generated GraphQL types in `apps/{app}/src/generated/`
 - Review Prisma schema in `libs/database/prisma/schema.prisma`
+  <<<<<<< HEAD
+  =======
+- See `.github/CI_CONFIGURATION.md` for CI troubleshooting
+- See `.github/BRANCH_PROTECTION.md` for branch protection setup
+  > > > > > > > fde14dd (feat(ci): add CI workflow for building, linting, and testing services)

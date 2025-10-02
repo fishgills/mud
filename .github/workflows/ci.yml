@@ -9,65 +9,130 @@ on:
       - main
 
 jobs:
-  unit-tests:
-    name: Run unit tests
+  build:
+    name: Build ${{ matrix.service }}
     runs-on: ubuntu-latest
-    env:
-      PR_HAS_OPEN: 'false'
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - dm
+          - world
+          - slack-bot
+          - tick
     steps:
-      - name: Detect open pull request for branch
-        id: detect_pr
-        if: ${{ github.event_name == 'push' }}
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const branch = context.ref.replace('refs/heads/', '');
-            const { data: prs } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `${context.repo.owner}:${branch}`,
-              state: 'open',
-            });
-            const isOpen = prs.length > 0;
-            core.setOutput('has_open_pr', isOpen);
-            core.exportVariable('PR_HAS_OPEN', isOpen ? 'true' : 'false');
-
-      - name: Skip duplicate run
-        if: ${{ github.event_name == 'push' && env.PR_HAS_OPEN == 'true' }}
-        run: echo "Open pull request detected for this branch; skipping push-triggered job."
-
       - name: Checkout repository
-        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
         uses: actions/checkout@v4
 
       - name: Set up Node.js
-        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'yarn'
 
       - name: Install dependencies
-        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
         run: yarn install --frozen-lockfile
 
       - name: Restore Turborepo cache
-        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
         uses: actions/cache@v4
         with:
           path: |
             .turbo
             node_modules/.cache/turbo
-          key: ${{ runner.os }}-turbo-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-${{ github.sha }}
+          key: ${{ runner.os }}-turbo-${{ matrix.service }}-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-turbo-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-
-            ${{ runner.os }}-turbo-
+            ${{ runner.os }}-turbo-${{ matrix.service }}-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-
+            ${{ runner.os }}-turbo-${{ matrix.service }}-
 
       - name: Generate Prisma client
-        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
         run: yarn --cwd libs/database generate
 
-      - name: Run unit tests
-        if: ${{ github.event_name != 'push' || env.PR_HAS_OPEN != 'true' }}
-        run: yarn turbo run test --continue
+      - name: Run GraphQL codegen
+        if: ${{ matrix.service == 'dm' || matrix.service == 'slack-bot' }}
+        run: yarn turbo codegen --filter=@mud/${{ matrix.service }}
+
+      - name: Build ${{ matrix.service }}
+        run: yarn turbo build --filter=@mud/${{ matrix.service }}
+
+  lint:
+    name: Lint ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - dm
+          - world
+          - slack-bot
+          - tick
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Restore Turborepo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .turbo
+            node_modules/.cache/turbo
+          key: ${{ runner.os }}-turbo-lint-${{ matrix.service }}-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-lint-${{ matrix.service }}-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-
+            ${{ runner.os }}-turbo-lint-${{ matrix.service }}-
+
+      - name: Lint ${{ matrix.service }}
+        run: yarn turbo lint --filter=@mud/${{ matrix.service }}
+
+  test:
+    name: Test ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - dm
+          - world
+          - slack-bot
+          - tick
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Restore Turborepo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .turbo
+            node_modules/.cache/turbo
+          key: ${{ runner.os }}-turbo-test-${{ matrix.service }}-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-test-${{ matrix.service }}-${{ hashFiles('**/package.json', 'yarn.lock', 'turbo.json') }}-
+            ${{ runner.os }}-turbo-test-${{ matrix.service }}-
+
+      - name: Generate Prisma client
+        run: yarn --cwd libs/database generate
+
+      - name: Run GraphQL codegen
+        if: ${{ matrix.service == 'dm' || matrix.service == 'slack-bot' }}
+        run: yarn turbo codegen --filter=@mud/${{ matrix.service }}
+
+      - name: Test ${{ matrix.service }}
+        run: yarn turbo test --filter=@mud/${{ matrix.service }}
