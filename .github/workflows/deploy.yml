@@ -114,6 +114,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: detect-changes
     if: needs.detect-changes.outputs.infra-changed == 'true'
+    environment: Production
     defaults:
       run:
         working-directory: infra/terraform
@@ -170,6 +171,7 @@ jobs:
     name: Build and push ${{ matrix.app }}
     runs-on: ubuntu-latest
     needs: [detect-changes, test, terraform]
+    environment: Production
     if: |
       always() && 
       needs.detect-changes.outputs.has-affected-apps == 'true' &&
