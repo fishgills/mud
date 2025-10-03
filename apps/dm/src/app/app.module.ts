@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { PlayerService } from './player/player.service';
 import { MonsterService } from './monster/monster.service';
 import { CombatService } from './combat/combat.service';
+import { EncounterService } from './encounter/encounter.service';
 import { GameTickService } from './game-tick/game-tick.service';
 import { WorldService } from './world/world.service';
 import { AiModule } from '../openai/ai.module';
@@ -37,6 +38,7 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
     PlayerService,
     MonsterService,
     CombatService,
+    EncounterService,
     GameTickService,
     WorldService,
     CoordinationService,

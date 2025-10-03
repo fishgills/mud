@@ -108,6 +108,14 @@ export interface MonsterMoveEvent extends BaseGameEvent {
   toY: number;
 }
 
+export interface MonsterEncounterEvent extends BaseGameEvent {
+  eventType: 'monster:encounter';
+  player: Player;
+  monsters: Monster[];
+  x: number;
+  y: number;
+}
+
 export interface MonsterDeathEvent extends BaseGameEvent {
   eventType: 'monster:death';
   monster: Monster;
@@ -171,6 +179,7 @@ export type GameEvent =
   | CombatEndEvent
   | MonsterSpawnEvent
   | MonsterMoveEvent
+  | MonsterEncounterEvent
   | MonsterDeathEvent
   | NpcDialogueEvent
   | NpcQuestOfferEvent
