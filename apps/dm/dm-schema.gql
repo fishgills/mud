@@ -51,6 +51,7 @@ type Player {
   gold: Int!
   xp: Int!
   level: Int!
+  skillPoints: Int!
   isAlive: Boolean!
   lastAction: DateTime
   createdAt: DateTime
@@ -283,6 +284,7 @@ type Query {
   getPlayerStats(slackId: String, name: String): PlayerStats!
   getLookView(slackId: String!): LookViewResponse!
   health: HealthCheck!
+  hasActivePlayers(minutesThreshold: Float! = 30): Boolean!
   getGameState: GameStateResponse!
   getMonstersAtLocation(x: Float!, y: Float!): [Monster!]!
   getAllMonsters: [Monster!]!
@@ -291,6 +293,7 @@ type Query {
 type Mutation {
   createPlayer(input: CreatePlayerInput!): PlayerResponse!
   updatePlayerStats(slackId: String!, input: PlayerStatsInput!): PlayerResponse!
+  spendSkillPoint(slackId: String!, attribute: PlayerAttribute!): PlayerResponse!
   rerollPlayerStats(slackId: String!): PlayerResponse!
   healPlayer(slackId: String!, amount: Float!): PlayerResponse!
   damagePlayer(slackId: String!, damage: Float!): PlayerResponse!
@@ -316,6 +319,12 @@ input PlayerStatsInput {
   xp: Int
   gold: Int
   level: Int
+}
+
+enum PlayerAttribute {
+  STRENGTH
+  AGILITY
+  HEALTH
 }
 
 input AttackInput {

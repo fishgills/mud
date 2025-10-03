@@ -119,6 +119,17 @@ resource "google_cloud_run_v2_service" "services" {
         }
       }
 
+      # Auto-inject DM_GRAPHQL_URL for tick service
+      dynamic "env" {
+        for_each = contains(["tick"], each.key) && !contains(keys(try(each.value.env_vars, {})), "DM_GRAPHQL_URL") ? {
+          DM_GRAPHQL_URL = "https://mud-dm-${data.google_project.project.number}.${var.region}.run.app/graphql"
+        } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
       # Feature flag for Vertex AI usage in DM
       dynamic "env" {
         for_each = contains(["dm"], each.key) ? { DM_USE_VERTEX_AI = tostring(try(each.value.env_vars.DM_USE_VERTEX_AI, false)) } : {}

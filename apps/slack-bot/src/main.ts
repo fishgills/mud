@@ -7,7 +7,7 @@ const app = new App({
   signingSecret: env.SLACK_SIGNING_SECRET,
   // logLevel: LogLevel.,
   socketMode: false,
-  appToken: env.SLACK_APP_TOKEN,
+  // appToken: env.SLACK_APP_TOKEN,
 });
 
 setAuthLogger({

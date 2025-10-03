@@ -275,28 +275,21 @@ describe('registerActions', () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     const client: MockSlackClient = {
       conversations: {
-        open: jest.fn().mockResolvedValue({
-          channel: { id: 'C5' },
-        }) as ConversationsOpenMock,
+        open: jest.fn() as ConversationsOpenMock,
       },
       chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+        postMessage: jest.fn().mockResolvedValue(undefined),
+        update: jest.fn().mockResolvedValue(undefined),
+      } as any,
     };
 
-    mockedDmSdk.Attack.mockResolvedValueOnce({
+    mockedDmSdk.Attack.mockResolvedValue({
       attack: {
         success: true,
-        message: 'done',
         data: {
           winnerName: 'Hero',
-          loserName: 'Goblin',
-          totalDamageDealt: 5,
           roundsCompleted: 3,
-          xpGained: 2,
+          xpGained: 50,
           goldGained: 1,
           message: 'Hero strikes down the goblin.',
         },
