@@ -61,7 +61,7 @@ export class MovementResolver {
         this.playerService.getPlayersAtLocation(
           player.position.x,
           player.position.y,
-          playerIdentifier,
+          player.id,
         ),
       ]);
 

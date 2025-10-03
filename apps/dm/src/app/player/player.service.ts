@@ -496,10 +496,10 @@ export class PlayerService {
   async getPlayersAtLocation(
     x: number,
     y: number,
-    excludeSlackId?: string,
+    excludePlayerId?: number,
   ): Promise<PlayerEntity[]> {
     return PlayerFactory.loadAtLocation(x, y, {
-      excludeSlackId,
+      excludePlayerId,
       aliveOnly: true,
     });
   }

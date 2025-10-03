@@ -141,15 +141,15 @@ export class PlayerFactory {
   static async loadAtLocation(
     x: number,
     y: number,
-    options?: { excludeSlackId?: string; aliveOnly?: boolean },
+    options?: { excludePlayerId?: number; aliveOnly?: boolean },
   ): Promise<PlayerEntity[]> {
     const players = await this.prisma.player.findMany({
       where: {
         x,
         y,
         ...(options?.aliveOnly ? { isAlive: true } : {}),
-        ...(options?.excludeSlackId
-          ? { slackId: { not: options.excludeSlackId } }
+        ...(options?.excludePlayerId
+          ? { id: { not: options.excludePlayerId } }
           : {}),
       },
     });
