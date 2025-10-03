@@ -154,6 +154,37 @@ export class MonsterFactory {
   }
 
   /**
+   * Load all alive monsters
+   */
+  static async loadAll(): Promise<MonsterEntity[]> {
+    const monsters = await this.prisma.monster.findMany({
+      where: { isAlive: true },
+    });
+
+    return monsters.map((m) => this.fromDatabaseModel(m));
+  }
+
+  /**
+   * Load all monsters within bounds
+   */
+  static async loadInBounds(
+    minX: number,
+    maxX: number,
+    minY: number,
+    maxY: number,
+  ): Promise<MonsterEntity[]> {
+    const monsters = await this.prisma.monster.findMany({
+      where: {
+        isAlive: true,
+        x: { gte: minX, lte: maxX },
+        y: { gte: minY, lte: maxY },
+      },
+    });
+
+    return monsters.map((m) => this.fromDatabaseModel(m));
+  }
+
+  /**
    * Save a monster entity to the database
    */
   static async save(entity: MonsterEntity): Promise<void> {
@@ -181,6 +212,17 @@ export class MonsterFactory {
     await this.prisma.monster.delete({
       where: { id },
     });
+  }
+
+  /**
+   * Delete monsters matching criteria (for cleanup operations)
+   */
+  static async deleteMany(where: {
+    isAlive?: boolean;
+    updatedAt?: { lt: Date };
+  }): Promise<number> {
+    const result = await this.prisma.monster.deleteMany({ where });
+    return result.count;
   }
 
   /**

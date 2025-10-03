@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { getPrismaClient } from '@mud/database';
 import { MonsterFactory, MonsterEntity } from '@mud/engine';
 import { WorldService } from '../world/world.service';
 import { getMonsterTemplate, pickTypeForBiome } from './monster.types';
@@ -7,7 +6,6 @@ import { isWaterBiome } from '../shared/biome.util';
 
 @Injectable()
 export class MonsterService {
-  private prisma = getPrismaClient();
   constructor(private worldService: WorldService) {}
 
   async spawnMonster(
@@ -31,10 +29,7 @@ export class MonsterService {
   }
 
   async getAllMonsters(): Promise<MonsterEntity[]> {
-    const monsters = await this.prisma.monster.findMany({
-      where: { isAlive: true },
-    });
-    return monsters.map((m) => MonsterFactory.fromDatabaseModel(m));
+    return MonsterFactory.loadAll();
   }
 
   async getMonstersAtLocation(x: number, y: number): Promise<MonsterEntity[]> {
@@ -47,14 +42,7 @@ export class MonsterService {
     minY: number,
     maxY: number,
   ): Promise<MonsterEntity[]> {
-    const monsters = await this.prisma.monster.findMany({
-      where: {
-        isAlive: true,
-        x: { gte: minX, lte: maxX },
-        y: { gte: minY, lte: maxY },
-      },
-    });
-    return monsters.map((m) => MonsterFactory.fromDatabaseModel(m));
+    return MonsterFactory.loadInBounds(minX, maxX, minY, maxY);
   }
 
   async moveMonster(monsterId: number): Promise<MonsterEntity> {
@@ -112,12 +100,10 @@ export class MonsterService {
     // Remove monsters that have been dead for more than 1 hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
-    await this.prisma.monster.deleteMany({
-      where: {
-        isAlive: false,
-        updatedAt: {
-          lt: oneHourAgo,
-        },
+    await MonsterFactory.deleteMany({
+      isAlive: false,
+      updatedAt: {
+        lt: oneHourAgo,
       },
     });
   }
