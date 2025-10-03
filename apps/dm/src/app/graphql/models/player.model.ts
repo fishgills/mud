@@ -7,16 +7,19 @@ export class Player {
   @Field(() => ID)
   id!: number;
 
-  @Field({ nullable: true, deprecationReason: 'Use clientId instead' })
+  @Field(() => String, {
+    nullable: true,
+    deprecationReason: 'Use clientId instead',
+  })
   slackId?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   clientId?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   clientType?: string | null;
 
-  @Field()
+  @Field(() => String)
   name!: string;
 
   @Field(() => Int)
@@ -52,16 +55,16 @@ export class Player {
   @Field(() => Int)
   skillPoints!: number;
 
-  @Field()
+  @Field(() => Boolean)
   isAlive!: boolean;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   lastAction?: Date;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   createdAt?: Date;
 
-  @Field()
+  @Field(() => Date)
   updatedAt!: Date;
 
   @Field(() => Int, { nullable: true })
