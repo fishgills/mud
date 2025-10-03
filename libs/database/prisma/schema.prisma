@@ -20,26 +20,29 @@ model GameState {
 }
 
 model Player {
-  id          Int        @id @default(autoincrement())
-  slackId     String     @unique // Slack user ID
-  name        String
-  x           Int // X coordinate
-  y           Int // Y coordinate
-  hp          Int // Hit points (current health)
-  maxHp       Int        @default(100) // Maximum health
-  strength    Int        @default(10) // Strength attribute (1-20)
-  agility     Int        @default(10) // Agility attribute (1-20)
-  health      Int        @default(10) // Health attribute (1-20, affects max HP)
-  gold        Int        @default(0)
-  xp          Int        @default(0)
-  level       Int        @default(1)
-  skillPoints Int        @default(0)
-  isAlive     Boolean    @default(true)
-  lastAction  DateTime   @default(now())
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  worldTile   WorldTile? @relation("PlayerLocation", fields: [worldTileId], references: [id])
-  worldTileId Int?
+  id           Int           @id @default(autoincrement())
+  slackId      String        @unique // Slack user ID (or other client ID)
+  name         String
+  x            Int // X coordinate
+  y            Int // Y coordinate
+  hp           Int // Hit points (current health)
+  maxHp        Int           @default(100) // Maximum health
+  strength     Int           @default(10) // Strength attribute (1-20)
+  agility      Int           @default(10) // Agility attribute (1-20)
+  health       Int           @default(10) // Health attribute (1-20, affects max HP)
+  gold         Int           @default(0)
+  xp           Int           @default(0)
+  level        Int           @default(1)
+  skillPoints  Int           @default(0)
+  isAlive      Boolean       @default(true)
+  lastAction   DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  worldTile    WorldTile?    @relation("PlayerLocation", fields: [worldTileId], references: [id])
+  worldTileId  Int?
+  party        Party?        @relation(fields: [partyId], references: [id])
+  partyId      Int?
+  partyMembers PartyMember[]
 }
 
 model WorldSeed {
@@ -132,6 +135,7 @@ model Settlement {
   size        String // large, medium, small, tiny
   population  Int
   description String
+  npcs        Npc[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -161,4 +165,60 @@ model CombatLog {
   x            Int // Location where combat occurred
   y            Int
   timestamp    DateTime @default(now())
+}
+
+model Npc {
+  id           Int         @id @default(autoincrement())
+  name         String
+  role         String // merchant, quest_giver, guard, citizen, innkeeper
+  x            Int
+  y            Int
+  hp           Int
+  maxHp        Int         @default(50)
+  strength     Int         @default(10)
+  agility      Int         @default(10)
+  health       Int         @default(10)
+  isAlive      Boolean     @default(true)
+  isHostile    Boolean     @default(false)
+  dialogue     String?
+  settlement   Settlement? @relation(fields: [settlementId], references: [id])
+  settlementId Int?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Party {
+  id          Int           @id @default(autoincrement())
+  name        String
+  leaderId    Int
+  maxSize     Int           @default(6)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  players     Player[]
+  members     PartyMember[]
+}
+
+model PartyMember {
+  id        Int      @id @default(autoincrement())
+  party     Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  partyId   Int
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  Int
+  isLeader  Boolean  @default(false)
+  joinedAt  DateTime @default(now())
+
+  @@unique([partyId, playerId])
+}
+
+model Item {
+  id          Int      @id @default(autoincrement())
+  name        String
+  type        String // weapon, armor, consumable, quest_item
+  description String
+  value       Int      @default(0) // Gold value
+  attack      Int?     @default(0) // Attack bonus for weapons
+  defense     Int?     @default(0) // Defense bonus for armor
+  healthBonus Int?     @default(0) // Health restoration for consumables
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
