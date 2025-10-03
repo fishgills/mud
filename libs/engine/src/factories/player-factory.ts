@@ -27,9 +27,14 @@ export class PlayerFactory {
     // Generate random starting stats
     const stats = this.generateRandomStats();
 
+    // Format clientId with type prefix
+    const fullClientId = `${clientType}:${clientId}`;
+
     const player = await this.prisma.player.create({
       data: {
-        slackId: clientId, // Store clientId in slackId field for now
+        slackId: clientType === 'slack' ? clientId : undefined, // Keep for backwards compat
+        clientId: fullClientId, // New field: "slack:U123" or "discord:456"
+        clientType, // New field: "slack", "discord", "web"
         name,
         x: x ?? 0,
         y: y ?? 0,
@@ -62,13 +67,23 @@ export class PlayerFactory {
 
   /**
    * Load a player from the database by clientId
+   * Supports both new format ("slack:U123") and legacy format ("U123")
    */
   static async load(
     clientId: string,
     clientType: ClientType,
   ): Promise<PlayerEntity | null> {
-    const player = await this.prisma.player.findUnique({
-      where: { slackId: clientId },
+    const fullClientId = `${clientType}:${clientId}`;
+
+    // Try new format first, then fall back to legacy slackId
+    const player = await this.prisma.player.findFirst({
+      where: {
+        OR: [
+          { clientId: fullClientId }, // New format: "slack:U123"
+          { clientId }, // Handle if already prefixed
+          { slackId: clientId }, // Legacy format: "U123"
+        ],
+      },
     });
 
     if (!player) {
@@ -127,10 +142,15 @@ export class PlayerFactory {
     player: Player,
     clientType: ClientType,
   ): PlayerEntity {
+    // Extract platform ID from clientId if available, otherwise use slackId
+    const platformId = player.clientId
+      ? player.clientId.split(':')[1] || player.clientId
+      : player.slackId || '';
+
     return new PlayerEntity({
       id: player.id,
-      clientId: player.slackId,
-      clientType,
+      clientId: platformId,
+      clientType: (player.clientType as ClientType) || clientType,
       name: player.name,
       attributes: {
         strength: player.strength,

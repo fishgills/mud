@@ -37,18 +37,51 @@ export class PlayerService {
   }
 
   async createPlayer(createPlayerDto: CreatePlayerDto): Promise<Player> {
-    const { slackId, name, x, y } = createPlayerDto;
+    const { slackId, clientId, clientType, name, x, y } = createPlayerDto;
 
-    // // Check if player already exists
-    const existingPlayer = await this.prisma.player.findUnique({
-      where: { slackId },
+    // Validate that we have either clientId or slackId
+    if (!clientId && !slackId) {
+      throw new GraphQLError('Either clientId or slackId must be provided', {
+        extensions: {
+          code: 'CLIENT_ID_REQUIRED',
+        },
+      });
+    }
+
+    // Determine final clientId and clientType
+    let finalClientId: string | undefined;
+    let finalClientType: string | undefined;
+    let finalSlackId: string | undefined;
+
+    if (clientId) {
+      finalClientId = clientId;
+      finalClientType = clientType || 'slack';
+      // If using new format with slack client, also set slackId for backwards compatibility
+      if (finalClientType === 'slack' && clientId.startsWith('slack:')) {
+        finalSlackId = clientId.slice(6); // Remove "slack:" prefix
+      }
+    } else if (slackId) {
+      // Legacy format: convert slackId to clientId
+      finalClientId = `slack:${slackId}`;
+      finalClientType = 'slack';
+      finalSlackId = slackId;
+    }
+
+    // Check if player already exists using clientId
+    const existingPlayer = await this.prisma.player.findFirst({
+      where: {
+        OR: [
+          { clientId: finalClientId },
+          ...(finalSlackId ? [{ slackId: finalSlackId }] : []),
+        ],
+      },
     });
 
     if (existingPlayer) {
       throw new GraphQLError(`Player already exists`, {
         extensions: {
           code: 'PLAYER_EXISTS',
-          slackId,
+          clientId: finalClientId,
         },
       });
     }
@@ -61,7 +94,9 @@ export class PlayerService {
 
     return this.prisma.player.create({
       data: {
-        slackId,
+        clientId: finalClientId!,
+        clientType: finalClientType!,
+        slackId: finalSlackId,
         name,
         x: spawnPosition.x,
         y: spawnPosition.y,
@@ -78,7 +113,7 @@ export class PlayerService {
 
   /**
    *
-   * @param slackId The Slack ID of the player to retrieve
+   * @param slackId The Slack ID of the player to retrieve (deprecated: use clientId)
    * @returns
    */
   async getPlayer(slackId: string): Promise<Player> {
@@ -94,6 +129,23 @@ export class PlayerService {
 
     this.logger.log(
       `[DM-DB] Found player for slackId: ${slackId}, player ID: ${player.id}, name: ${player.name}`,
+    );
+    return player;
+  }
+
+  async getPlayerByClientId(clientId: string): Promise<Player> {
+    this.logger.log(`[DM-DB] Looking up player with clientId: ${clientId}`);
+    const player = await this.prisma.player.findUnique({
+      where: { clientId },
+    });
+
+    if (!player) {
+      this.logger.warn(`[DM-DB] Player not found for clientId: ${clientId}`);
+      throw new NotFoundException(`Player not found`);
+    }
+
+    this.logger.log(
+      `[DM-DB] Found player for clientId: ${clientId}, player ID: ${player.id}, name: ${player.name}`,
     );
     return player;
   }
@@ -149,11 +201,16 @@ export class PlayerService {
 
   async getPlayerByIdentifier({
     slackId,
+    clientId,
     name,
   }: {
     slackId?: string | null;
+    clientId?: string | null;
     name?: string | null;
   }): Promise<Player> {
+    if (clientId) {
+      return this.getPlayerByClientId(clientId);
+    }
     if (slackId) {
       return this.getPlayer(slackId);
     }
@@ -161,11 +218,14 @@ export class PlayerService {
       return this.getPlayerByName(name);
     }
 
-    throw new GraphQLError('A Slack ID or player name must be provided', {
-      extensions: {
-        code: 'PLAYER_IDENTIFIER_REQUIRED',
+    throw new GraphQLError(
+      'A client ID, Slack ID, or player name must be provided',
+      {
+        extensions: {
+          code: 'PLAYER_IDENTIFIER_REQUIRED',
+        },
       },
-    });
+    );
   }
 
   async getAllPlayers(): Promise<Player[]> {

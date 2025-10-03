@@ -44,6 +44,14 @@ export class PlayerResolver {
   async createPlayer(
     @Args('input') input: CreatePlayerInput,
   ): Promise<PlayerResponse> {
+    // Support both old (slackId) and new (clientId + clientType) formats
+    if (!input.clientId && !input.slackId) {
+      return {
+        success: false,
+        message: 'Either clientId/clientType or slackId must be provided',
+      };
+    }
+
     const player = await this.playerService.createPlayer(input);
     return {
       success: true,
@@ -54,18 +62,21 @@ export class PlayerResolver {
   @Query(() => PlayerResponse)
   async getPlayer(
     @Args('slackId', { nullable: true }) slackId?: string,
+    @Args('clientId', { nullable: true }) clientId?: string,
     @Args('name', { nullable: true }) name?: string,
   ): Promise<PlayerResponse> {
-    if (!slackId && !name) {
+    if (!slackId && !clientId && !name) {
       return {
         success: false,
-        message: 'A Slack ID or player name must be provided',
+        message: 'A clientId, slackId, or player name must be provided',
       };
     }
 
-    const identifier = slackId
-      ? `slackId: ${slackId}`
-      : `name: ${name ?? 'unknown'}`;
+    const identifier = clientId
+      ? `clientId: ${clientId}`
+      : slackId
+        ? `slackId: ${slackId}`
+        : `name: ${name ?? 'unknown'}`;
     this.logger.log(`[DM-AUTH] Received getPlayer request for ${identifier}`);
     try {
       this.logger.log(
@@ -73,6 +84,7 @@ export class PlayerResolver {
       );
       const player = await this.playerService.getPlayerByIdentifier({
         slackId,
+        clientId,
         name,
       });
       this.logger.log(
@@ -251,12 +263,18 @@ export class PlayerResolver {
             if (!targetPlayer) {
               throw new Error('Target player not found');
             }
-            targetSlackId = targetPlayer.slackId;
+            // Prefer clientId, fallback to slackId
+            targetSlackId =
+              targetPlayer.clientId || targetPlayer.slackId || undefined;
           } else {
             throw new Error(
               'Must provide targetSlackId or targetId for player attacks',
             );
           }
+        }
+
+        if (!targetSlackId) {
+          throw new Error('Target player has no valid identifier');
         }
 
         const ignoreLocation = input.ignoreLocation === true;

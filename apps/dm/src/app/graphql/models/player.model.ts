@@ -7,8 +7,14 @@ export class Player {
   @Field(() => ID)
   id!: number;
 
-  @Field()
-  slackId!: string;
+  @Field({ nullable: true, deprecationReason: 'Use clientId instead' })
+  slackId?: string | null;
+
+  @Field({ nullable: true })
+  clientId?: string | null;
+
+  @Field({ nullable: true })
+  clientType?: string | null;
 
   @Field()
   name!: string;

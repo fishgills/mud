@@ -32,6 +32,7 @@ We'll migrate in phases to avoid breaking existing functionality:
 ### Phase 1: Add New Fields (Non-Breaking) ✅ RECOMMENDED NEXT
 
 1. **Add new columns** to Player table:
+
    ```prisma
    model Player {
      slackId    String  @unique         // Keep for backwards compat
@@ -47,6 +48,7 @@ We'll migrate in phases to avoid breaking existing functionality:
    - Sets `clientType = 'slack'` for all existing players
 
 3. **Update factories** to populate both fields:
+
    ```typescript
    // PlayerFactory
    const player = await prisma.player.create({
@@ -55,7 +57,7 @@ We'll migrate in phases to avoid breaking existing functionality:
        clientId: `slack:${clientId}`, // New field
        clientType: 'slack', // New field
        // ...
-     }
+     },
    });
    ```
 
@@ -64,10 +66,7 @@ We'll migrate in phases to avoid breaking existing functionality:
    // Support both old and new
    const player = await prisma.player.findFirst({
      where: {
-       OR: [
-         { clientId: fullClientId },
-         { slackId: platformId },
-       ],
+       OR: [{ clientId: fullClientId }, { slackId: platformId }],
      },
    });
    ```
@@ -75,16 +74,18 @@ We'll migrate in phases to avoid breaking existing functionality:
 ### Phase 2: Update Client Code
 
 1. **Slack adapter** starts passing full `clientId`:
+
    ```typescript
    // Old: slackId: "U123"
    // New: clientId: "slack:U123", clientType: "slack"
    ```
 
 2. **GraphQL schema** adds client-agnostic fields:
+
    ```graphql
    input CreatePlayerInput {
-     clientId: String!    # "slack:U123"
-     clientType: ClientType!  # SLACK, DISCORD, WEB
+     clientId: String! # "slack:U123"
+     clientType: ClientType! # SLACK, DISCORD, WEB
      name: String!
      # Keep slackId for backwards compat (deprecated)
      slackId: String @deprecated(reason: "Use clientId")
@@ -102,6 +103,7 @@ We'll migrate in phases to avoid breaking existing functionality:
 ### Phase 4: Remove Old Fields (Future)
 
 Once all clients use new fields:
+
 1. Remove `slackId` column
 2. Remove backwards-compat code
 3. Clean up migrations
@@ -129,6 +131,7 @@ npx prisma migrate dev --name add_client_id_fields
 ```
 
 This will:
+
 - Add `clientId` and `clientType` columns
 - Keep `slackId` for backwards compatibility
 
@@ -142,14 +145,14 @@ import { getPrismaClient } from '../src';
 
 async function backfillClientIds() {
   const prisma = getPrismaClient();
-  
+
   // Find all players without clientId
   const players = await prisma.player.findMany({
     where: { clientId: null },
   });
-  
+
   console.log(`Backfilling ${players.length} players...`);
-  
+
   for (const player of players) {
     await prisma.player.update({
       where: { id: player.id },
@@ -159,7 +162,7 @@ async function backfillClientIds() {
       },
     });
   }
-  
+
   console.log('Backfill complete!');
 }
 
@@ -196,7 +199,7 @@ static async load(
   clientType: ClientType,
 ): Promise<PlayerEntity | null> {
   const fullClientId = `${clientType}:${clientId}`;
-  
+
   const player = await this.prisma.player.findFirst({
     where: {
       OR: [
@@ -228,10 +231,10 @@ input CreatePlayerInput {
   # New fields (preferred)
   clientId: String
   clientType: ClientType
-  
+
   # Legacy field (deprecated)
   slackId: String @deprecated(reason: "Use clientId with clientType")
-  
+
   name: String!
   x: Int
   y: Int
@@ -258,6 +261,7 @@ input CreatePlayerInput {
 ## Rollback Plan
 
 If something goes wrong:
+
 1. `clientId` and `clientType` are nullable, so old code still works
 2. Can revert migration if needed
 3. Backfill script is idempotent (can run multiple times)
@@ -268,11 +272,12 @@ If something goes wrong:
 ✅ Backwards compatible with existing Slack users  
 ✅ Easy to add new clients (Discord, Web)  
 ✅ Single world shared by all platforms  
-✅ Can migrate users between platforms if needed  
+✅ Can migrate users between platforms if needed
 
 ## Next Steps
 
 Want me to implement Phase 1? I can:
+
 1. Update the Prisma schema
 2. Create the migration
 3. Create the backfill script

@@ -31,10 +31,30 @@ registerEnumType(PlayerAttribute, {
   name: 'PlayerAttribute',
 });
 
+export enum ClientType {
+  SLACK = 'slack',
+  DISCORD = 'discord',
+  WEB = 'web',
+}
+
+registerEnumType(ClientType, {
+  name: 'ClientType',
+  description: 'Type of client platform',
+});
+
 @InputType()
 export class CreatePlayerInput {
-  @Field()
-  slackId!: string;
+  @Field({
+    nullable: true,
+    deprecationReason: 'Use clientId with clientType instead',
+  })
+  slackId?: string;
+
+  @Field({ nullable: true })
+  clientId?: string;
+
+  @Field(() => ClientType, { nullable: true })
+  clientType?: ClientType;
 
   @Field()
   name!: string;

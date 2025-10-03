@@ -6,10 +6,39 @@ const players: any[] = [];
 jest.mock('@mud/database', () => ({
   getPrismaClient: () => ({
     player: {
-      findUnique: jest.fn(
-        async ({ where: { slackId } }) =>
-          players.find((p) => p.slackId === slackId) ?? null,
-      ),
+      findUnique: jest.fn(async ({ where: { slackId, clientId } }) => {
+        if (clientId) {
+          return players.find((p) => p.clientId === clientId) ?? null;
+        }
+        return players.find((p) => p.slackId === slackId) ?? null;
+      }),
+      findFirst: jest.fn(async ({ where }) => {
+        if (where.OR) {
+          for (const condition of where.OR) {
+            if (condition.clientId) {
+              const player = players.find(
+                (p) => p.clientId === condition.clientId,
+              );
+              if (player) return player;
+            }
+            if (condition.slackId) {
+              const player = players.find(
+                (p) => p.slackId === condition.slackId,
+              );
+              if (player) return player;
+            }
+          }
+          return null;
+        }
+        // Handle simple where clause
+        if (where.clientId) {
+          return players.find((p) => p.clientId === where.clientId) ?? null;
+        }
+        if (where.slackId) {
+          return players.find((p) => p.slackId === where.slackId) ?? null;
+        }
+        return null;
+      }),
       findMany: jest.fn(async (args: any = {}) => {
         let result = [...players];
         const where = args.where ?? {};
@@ -324,7 +353,7 @@ describe('PlayerService', () => {
     const service = new PlayerService(worldService);
     await expect(
       service.getPlayerByIdentifier({ slackId: null, name: null }),
-    ).rejects.toThrow('A Slack ID or player name must be provided');
+    ).rejects.toThrow('A client ID, Slack ID, or player name must be provided');
   });
 
   it('gets player by name via getPlayerByIdentifier', async () => {

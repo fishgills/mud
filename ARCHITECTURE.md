@@ -50,6 +50,7 @@ Our architecture uses a **hybrid microservices approach** where client-specific 
 **Purpose**: Translate client-specific I/O to/from game engine API
 
 **Responsibilities**:
+
 - Receive commands from their respective platforms
 - Parse/validate input in client-specific format
 - Call game engine GraphQL API
@@ -58,11 +59,13 @@ Our architecture uses a **hybrid microservices approach** where client-specific 
 - Send notifications back to users
 
 **Does NOT**:
+
 - Contain game logic
 - Access database directly (except for client-specific data like Slack tokens)
 - Manage world state
 
 **Example Flow (Slack)**:
+
 ```typescript
 // Slack user types: /move north
 1. Slack adapter receives slash command
@@ -78,6 +81,7 @@ Our architecture uses a **hybrid microservices approach** where client-specific 
 **Purpose**: Single source of truth for game state and logic
 
 **Responsibilities**:
+
 - All game logic (combat, movement, leveling, spawning)
 - World state management
 - Monster AI and behaviors
@@ -86,6 +90,7 @@ Our architecture uses a **hybrid microservices approach** where client-specific 
 - GraphQL API for client adapters
 
 **Key Insight**: This service doesn't care if a player is from Slack, Discord, or Web. It just knows:
+
 - `clientId` (e.g., "slack:U123" or "discord:456" or "web:session-abc")
 - `clientType` enum
 
@@ -94,6 +99,7 @@ Our architecture uses a **hybrid microservices approach** where client-specific 
 **Purpose**: Procedural world generation
 
 **Responsibilities**:
+
 - Generate tiles on-demand
 - Cache tile descriptions
 - Settlement/landmark generation
@@ -103,6 +109,7 @@ Our architecture uses a **hybrid microservices approach** where client-specific 
 **Purpose**: Advance game time
 
 **Responsibilities**:
+
 - Call DM service to process game tick
 - Trigger monster movement
 - Weather changes
@@ -149,13 +156,16 @@ query GetPlayer {
 For real-time notifications (e.g., "A goblin appeared!", "Player joined your party"):
 
 **Option A**: Polling (Slack's current limitation)
+
 - Slack adapter polls for events every 30s
 
 **Option B**: WebSocket (Discord, Web)
+
 - Subscribe to events via WebSocket
 - Push notifications immediately
 
 **Option C**: Webhooks
+
 - Game engine calls webhook URLs registered by client adapters
 
 ### Internal Service Communication
@@ -169,6 +179,7 @@ For real-time notifications (e.g., "A goblin appeared!", "Player joined your par
 ### Single World = Single Database
 
 All clients share:
+
 - `Player` table (with `clientId` and `clientType`)
 - `Monster` table
 - `Party` table
@@ -241,6 +252,7 @@ model DiscordUser {
 ### Service Communication
 
 All services use **internal URLs** for service-to-service calls:
+
 - No public internet egress
 - Authenticated with GCP service accounts
 - Lower latency
@@ -260,6 +272,7 @@ const clientId = `${clientType}:${platformUserId}`;
 ```
 
 This ensures:
+
 - No collisions between platforms
 - Easy to identify client source
 - Can migrate users between platforms if needed

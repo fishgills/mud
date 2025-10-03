@@ -106,9 +106,15 @@ export class GameTickService {
         if (player.isAlive && Math.random() < 0.2) {
           // 20% chance per encounter
           try {
+            // Use clientId or fallback to slackId for backwards compatibility
+            const playerIdentifier = player.clientId || player.slackId;
+            if (!playerIdentifier) {
+              console.log('Player has no clientId or slackId, skipping combat');
+              continue;
+            }
             await this.combatService.monsterAttackPlayer(
               monster.id,
-              player.slackId,
+              playerIdentifier,
             );
             combatEvents++;
           } catch (error) {
