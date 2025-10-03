@@ -520,6 +520,11 @@ export type GetLocationEntitiesQueryVariables = Exact<{
 
 export type GetLocationEntitiesQuery = { __typename?: 'Query', getPlayersAtLocation: Array<{ __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, skillPoints: number, isAlive: boolean }>, getMonstersAtLocation: Array<{ __typename?: 'Monster', id: string, name: string, type: string, hp: number, maxHp: number, strength: number, agility: number, health: number, x: number, y: number, isAlive: boolean }> };
 
+export type GetAllPlayersQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetAllPlayersQuery = { __typename?: 'Query', getAllPlayers: Array<{ __typename?: 'Player', id: string, slackId: string, name: string, level: number, xp: number, isAlive: boolean }> };
+
 export type GetPlayerWithLocationQueryVariables = Exact<{
   slackId: Scalars['String']['input'];
 }>;
@@ -675,6 +680,18 @@ export const GetLocationEntitiesDocument = gql`
     health
     x
     y
+    isAlive
+  }
+}
+    `;
+export const GetAllPlayersDocument = gql`
+    query GetAllPlayers {
+  getAllPlayers {
+    id
+    slackId
+    name
+    level
+    xp
     isAlive
   }
 }
@@ -896,6 +913,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     GetLocationEntities(variables: GetLocationEntitiesQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetLocationEntitiesQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<GetLocationEntitiesQuery>({ document: GetLocationEntitiesDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetLocationEntities', 'query', variables);
+    },
+    GetAllPlayers(variables?: GetAllPlayersQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetAllPlayersQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<GetAllPlayersQuery>({ document: GetAllPlayersDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetAllPlayers', 'query', variables);
     },
     GetPlayerWithLocation(variables: GetPlayerWithLocationQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetPlayerWithLocationQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<GetPlayerWithLocationQuery>({ document: GetPlayerWithLocationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetPlayerWithLocation', 'query', variables);

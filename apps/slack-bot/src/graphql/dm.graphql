@@ -102,6 +102,17 @@ query GetLocationEntities($x: Float!, $y: Float!) {
   }
 }
 
+query GetAllPlayers {
+  getAllPlayers {
+    id
+    slackId
+    name
+    level
+    xp
+    isAlive
+  }
+}
+
 query GetPlayerWithLocation($slackId: String!) {
   getPlayer(slackId: $slackId) {
     success
