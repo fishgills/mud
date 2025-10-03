@@ -143,6 +143,7 @@ type CombatPlayerMessage {
   slackId: String!
   name: String!
   message: String!
+  role: String!
 }
 
 type CombatResult {

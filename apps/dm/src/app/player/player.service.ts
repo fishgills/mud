@@ -496,11 +496,11 @@ export class PlayerService {
   async getPlayersAtLocation(
     x: number,
     y: number,
-    excludePlayerId?: number,
+    options?: { excludePlayerId?: number; aliveOnly?: boolean },
   ): Promise<PlayerEntity[]> {
     return PlayerFactory.loadAtLocation(x, y, {
-      excludePlayerId,
-      aliveOnly: true,
+      excludePlayerId: options?.excludePlayerId,
+      aliveOnly: options?.aliveOnly ?? true,
     });
   }
 
