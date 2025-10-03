@@ -1,6 +1,7 @@
 import { App } from '@slack/bolt';
 import { setAuthLogger } from '@mud/gcp-auth';
 import { env } from './env';
+import { NotificationService } from './notification.service';
 
 const app = new App({
   token: env.SLACK_BOT_TOKEN,
@@ -166,6 +167,10 @@ async function start() {
   console.log(
     `⚡️ Slack MUD bot is running! 🚀 On http://localhost:${env.PORT}`,
   );
+
+  // Start notification service to receive game events
+  const notificationService = new NotificationService(app);
+  await notificationService.start();
 }
 
 start();

@@ -4,6 +4,7 @@ import { MonsterFactory, EventBus } from '@mud/engine';
 import { PlayerService } from '../player/player.service';
 import { PlayerStatsDto } from '../player/dto/player.dto';
 import { AiService } from '../../openai/ai.service';
+import { EventBridgeService } from '../../shared/event-bridge.service';
 import { CombatResult, CombatRound, DetailedCombatLog } from '../graphql';
 
 interface CombatNarrative {
@@ -45,6 +46,7 @@ export class CombatService {
   constructor(
     private playerService: PlayerService,
     private aiService: AiService,
+    private eventBridge: EventBridgeService,
   ) {}
 
   // Roll 1d20
@@ -763,6 +765,22 @@ export class CombatService {
       combatLog,
       attacker,
       defender,
+    );
+
+    // Publish combat notifications to clients via Redis
+    const winner = attacker.name === combatLog.winner ? attacker : defender;
+    const loser = attacker.name === combatLog.loser ? attacker : defender;
+
+    await this.eventBridge.publishCombatNotifications(
+      {
+        eventType: 'combat:end',
+        winner: { type: winner.type, id: winner.id },
+        loser: { type: loser.type, id: loser.id },
+        xpGained: combatLog.xpAwarded,
+        goldGained: combatLog.goldAwarded,
+        timestamp: new Date(),
+      },
+      messages,
     );
 
     const totalDamage = combatLog.rounds

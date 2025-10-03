@@ -13,6 +13,7 @@ import { WorldService } from './world/world.service';
 import { AiModule } from '../openai/ai.module';
 import { PlayerResolver, SystemResolver, MovementResolver } from './graphql';
 import { CoordinationService } from '../shared/coordination.service';
+import { EventBridgeService } from '../shared/event-bridge.service';
 import {
   VisibilityService,
   PeakService,
@@ -42,6 +43,7 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
     GameTickService,
     WorldService,
     CoordinationService,
+    EventBridgeService,
     PlayerResolver,
     MovementResolver,
     SystemResolver,

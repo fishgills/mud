@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@mud/gcp-auth": "*",
+    "@mud/redis-client": "*",
     "@slack/bolt": "^4.4.0",
     "dotenv": "^17.2.2",
     "envalid": "^8.1.0",

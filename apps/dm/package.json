@@ -24,6 +24,7 @@
     "@mud/constants": "*",
     "@mud/database": "*",
     "@mud/engine": "*",
+    "@mud/redis-client": "*",
     "@mud/gcp-auth": "*",
     "@nestjs/apollo": "^13.1.0",
     "@nestjs/common": "^11.1.6",
