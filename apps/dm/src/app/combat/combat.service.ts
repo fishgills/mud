@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { getPrismaClient, CombatLog as PrismaCombatLog } from '@mud/database';
-import { MonsterFactory } from '@mud/engine';
+import { MonsterFactory, EventBus } from '@mud/engine';
 import { PlayerService } from '../player/player.service';
 import { PlayerStatsDto } from '../player/dto/player.dto';
 import { AiService } from '../../openai/ai.service';
@@ -342,6 +342,16 @@ export class CombatService {
       `🗡️ COMBAT START: ${combatant1.name} vs ${combatant2.name} [ID: ${combatId}]`,
     );
 
+    // Emit combat start event
+    await EventBus.emit({
+      eventType: 'combat:start',
+      attacker: { type: combatant1.type, id: combatant1.id },
+      defender: { type: combatant2.type, id: combatant2.id },
+      x: combatant1.x,
+      y: combatant1.y,
+      timestamp: new Date(),
+    });
+
     // Roll initiative
     this.logger.debug(`Rolling initiative...`);
     const init1 = this.rollInitiative(combatant1.agility);
@@ -417,6 +427,42 @@ export class CombatService {
         killed,
       });
 
+      // Emit combat hit or miss event
+      if (hit) {
+        await EventBus.emit({
+          eventType: 'combat:hit',
+          attacker: {
+            type: attacker.type,
+            id: attacker.id,
+            name: attacker.name,
+          },
+          defender: {
+            type: defender.type,
+            id: defender.id,
+            name: defender.name,
+          },
+          damage,
+          x: attacker.x,
+          y: attacker.y,
+          timestamp: new Date(),
+        });
+      } else {
+        await EventBus.emit({
+          eventType: 'combat:miss',
+          attacker: {
+            type: attacker.type,
+            id: attacker.id,
+            name: attacker.name,
+          },
+          defender: {
+            type: defender.type,
+            id: defender.id,
+            name: defender.name,
+          },
+          timestamp: new Date(),
+        });
+      }
+
       if (killed) break;
 
       // Switch roles for next attack
@@ -465,6 +511,16 @@ export class CombatService {
     this.logger.log(
       `💾 Combat log created with ${rounds.length} individual attacks and ${rounds.reduce((sum, round) => sum + round.damage, 0)} total damage`,
     );
+
+    // Emit combat end event
+    await EventBus.emit({
+      eventType: 'combat:end',
+      winner: { type: winner.type, id: winner.id },
+      loser: { type: loser.type, id: loser.id },
+      xpGained: xpAwarded,
+      goldGained: goldAwarded,
+      timestamp: new Date(),
+    });
 
     return combatLog;
   }

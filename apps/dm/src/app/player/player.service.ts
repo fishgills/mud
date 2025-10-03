@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { calculateDirection } from '../shared/direction.util';
-import { getPrismaClient, Prisma } from '@mud/database';
-import { PlayerFactory, ClientType, PlayerEntity } from '@mud/engine';
+import { getPrismaClient } from '@mud/database';
+import { PlayerFactory, ClientType, PlayerEntity, EventBus } from '@mud/engine';
 import {
   CreatePlayerDto,
   MovePlayerDto,
@@ -83,13 +83,20 @@ export class PlayerService {
     const spawnPosition = await this.findValidSpawnPosition(x, y);
 
     // Use PlayerFactory to create and return the player entity
-    return PlayerFactory.create({
+    const player = await PlayerFactory.create({
       clientId: finalClientId,
       clientType: finalClientType,
       name,
       x: spawnPosition.x,
       y: spawnPosition.y,
     });
+
+    // PlayerFactory already emits player:spawn event, no need to emit again
+    this.logger.log(
+      `✅ Player created: ${player.name} at (${player.position.x}, ${player.position.y})`,
+    );
+
+    return player;
   }
 
   /**
@@ -252,6 +259,8 @@ export class PlayerService {
     moveDto: MovePlayerDto,
   ): Promise<PlayerEntity> {
     const player = await this.getPlayer(slackId);
+    const oldX = player.position.x;
+    const oldY = player.position.y;
     let newX = player.position.x;
     let newY = player.position.y;
 
@@ -303,7 +312,25 @@ export class PlayerService {
     }
 
     player.moveTo(newX, newY);
+
     await PlayerFactory.save(player);
+
+    // Emit player move event (need to load fresh database model for event)
+    const dbPlayer = await this.prisma.player.findUnique({
+      where: { id: player.id },
+    });
+    if (dbPlayer) {
+      await EventBus.emit({
+        eventType: 'player:move',
+        player: dbPlayer,
+        fromX: oldX,
+        fromY: oldY,
+        toX: newX,
+        toY: newY,
+        timestamp: new Date(),
+      });
+    }
+
     return player;
   }
 
@@ -422,8 +449,27 @@ export class PlayerService {
 
   async damagePlayer(slackId: string, damage: number): Promise<PlayerEntity> {
     const player = await this.getPlayer(slackId);
+    const wasAlive = player.combat.isAlive;
     player.takeDamage(damage);
     await PlayerFactory.save(player);
+
+    // Emit player death event if they died from this damage
+    if (wasAlive && !player.combat.isAlive) {
+      const dbPlayer = await this.prisma.player.findUnique({
+        where: { id: player.id },
+      });
+      if (dbPlayer) {
+        await EventBus.emit({
+          eventType: 'player:death',
+          player: dbPlayer,
+          timestamp: new Date(),
+        });
+      }
+      this.logger.log(
+        `💀 Player ${player.name} has died at (${player.position.x}, ${player.position.y})`,
+      );
+    }
+
     return player;
   }
 
@@ -439,6 +485,24 @@ export class PlayerService {
     player.moveTo(spawnPosition.x, spawnPosition.y);
 
     await PlayerFactory.save(player);
+
+    // Emit player respawn event
+    const dbPlayer = await this.prisma.player.findUnique({
+      where: { id: player.id },
+    });
+    if (dbPlayer) {
+      await EventBus.emit({
+        eventType: 'player:respawn',
+        player: dbPlayer,
+        x: spawnPosition.x,
+        y: spawnPosition.y,
+        timestamp: new Date(),
+      });
+    }
+    this.logger.log(
+      `🏥 Player ${player.name} respawned at (${spawnPosition.x}, ${spawnPosition.y})`,
+    );
+
     return player;
   }
 
