@@ -3,12 +3,15 @@ import { registerHandler } from './handlerRegistry';
 import { dmSdk } from '../gql-client';
 import { COMMANDS } from '../commands';
 import { sendPngMap } from './mapUtils';
+import { toClientId } from '../utils/clientId';
 
 export const mapHandlerHelp = `Display the ASCII map with "map". Example: Send "map" to see the world map.`;
 
 export const mapHandler = async ({ say, userId }: HandlerContext) => {
   try {
-    const result = await dmSdk.GetPlayer({ slackId: userId });
+    const result = await dmSdk.GetPlayer({
+      slackId: toClientId(userId),
+    });
     if (result.getPlayer.success && result.getPlayer.data) {
       const x = result.getPlayer.data.x;
       const y = result.getPlayer.data.y;

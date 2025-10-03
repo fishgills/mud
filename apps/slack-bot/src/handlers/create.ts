@@ -4,6 +4,7 @@ import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS } from '../commands';
 import { buildPlayerStatsMessage } from './stats/format';
+import { toClientId } from '../utils/clientId';
 
 export const createHandlerHelp = `Create a new character with "new". Example: Send "new AwesomeDude" to create a character named AwesomeDude.`;
 
@@ -33,7 +34,10 @@ export const createHandler = async ({ userId, say, text }: HandlerContext) => {
     return;
   }
 
-  const input = { slackId: userId, name };
+  const input = {
+    slackId: toClientId(userId),
+    name,
+  };
   try {
     const result = await dmSdk.CreatePlayer({ input });
     if (result.createPlayer.success && result.createPlayer.data) {

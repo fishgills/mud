@@ -3,6 +3,7 @@ import type { KnownBlock } from '@slack/types';
 import { COMMANDS } from '../commands';
 import { buildHelpBlocks } from './help';
 import { dmSdk } from '../gql-client';
+import { toClientId } from '../utils/clientId';
 
 interface PlayerStatus {
   hasCharacter: boolean;
@@ -12,7 +13,7 @@ interface PlayerStatus {
 
 const getPlayerStatus = async (userId: string): Promise<PlayerStatus> => {
   try {
-    const result = await dmSdk.GetPlayer({ slackId: userId });
+    const result = await dmSdk.GetPlayer({ slackId: toClientId(userId) });
     if (result.getPlayer.success && result.getPlayer.data) {
       return {
         hasCharacter: true,
@@ -234,7 +235,9 @@ export const registerAppHome = (app: App) => {
   app.action('app_home_reroll', async ({ ack, body, client }) => {
     await ack();
     try {
-      const result = await dmSdk.RerollPlayerStats({ slackId: body.user.id });
+      const result = await dmSdk.RerollPlayerStats({
+        slackId: toClientId(body.user.id),
+      });
       if (result.rerollPlayerStats.success) {
         await refreshAppHome(body.user.id, client);
         await client.chat.postMessage({
@@ -260,7 +263,9 @@ export const registerAppHome = (app: App) => {
   app.action('app_home_complete', async ({ ack, body, client }) => {
     await ack();
     try {
-      const result = await dmSdk.CompletePlayer({ slackId: body.user.id });
+      const result = await dmSdk.CompletePlayer({
+        slackId: toClientId(body.user.id),
+      });
       if (result.updatePlayerStats.success) {
         await refreshAppHome(body.user.id, client);
         await client.chat.postMessage({
@@ -286,7 +291,9 @@ export const registerAppHome = (app: App) => {
   app.action('app_home_delete', async ({ ack, body, client }) => {
     await ack();
     try {
-      const result = await dmSdk.DeletePlayer({ slackId: body.user.id });
+      const result = await dmSdk.DeletePlayer({
+        slackId: toClientId(body.user.id),
+      });
       if (result.deletePlayer.success) {
         await refreshAppHome(body.user.id, client);
         await client.chat.postMessage({
