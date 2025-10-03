@@ -18,6 +18,7 @@ import {
   ResponseService,
 } from '../services';
 import { MonsterService } from '../../monster/monster.service';
+import { EntityToGraphQLAdapter } from '../adapters/entity-to-graphql.adapter';
 
 @Resolver()
 export class MovementResolver {
@@ -53,20 +54,29 @@ export class MovementResolver {
         input,
       );
       const [monsters, playersAtLocation] = await Promise.all([
-        this.monsterService.getMonstersAtLocation(player.x, player.y),
+        this.monsterService.getMonstersAtLocation(
+          player.position.x,
+          player.position.y,
+        ),
         this.playerService.getPlayersAtLocation(
-          player.x,
-          player.y,
+          player.position.x,
+          player.position.y,
           playerIdentifier,
         ),
       ]);
 
-      this.logger.debug(`Moved to (${player.x}, ${player.y})`);
+      this.logger.debug(
+        `Moved to (${player.position.x}, ${player.position.y})`,
+      );
       return {
         success: true,
-        player,
-        monsters: monsters ?? [],
-        playersAtLocation: playersAtLocation ?? [],
+        player: EntityToGraphQLAdapter.playerEntityToGraphQL(player),
+        monsters: EntityToGraphQLAdapter.monsterEntitiesToGraphQL(
+          monsters ?? [],
+        ),
+        playersAtLocation: EntityToGraphQLAdapter.playerEntitiesToGraphQL(
+          playersAtLocation ?? [],
+        ),
       };
     } catch (error) {
       const fallbackPlayer = await this.playerService
@@ -83,7 +93,7 @@ export class MovementResolver {
         success: false,
         message:
           error instanceof Error ? error.message : 'Failed to move player',
-        player: fallbackPlayer,
+        player: EntityToGraphQLAdapter.playerEntityToGraphQL(fallbackPlayer),
         monsters: [],
         playersAtLocation: [],
       };
@@ -137,7 +147,7 @@ export class MovementResolver {
       // Start center-with-nearby immediately (single request for center + nearby)
       const tCenterNearbyStart = Date.now();
       const centerWithNearbyPromise = this.worldService
-        .getTileInfoWithNearby(player.x, player.y)
+        .getTileInfoWithNearby(player.position.x, player.position.y)
         .then((d) => {
           timing.tGetCenterNearbyMs = Date.now() - tCenterNearbyStart;
           return d;
@@ -168,8 +178,8 @@ export class MovementResolver {
           };
         }
         return {
-          x: player.x,
-          y: player.y,
+          x: player.position.x,
+          y: player.position.y,
           biomeName: 'grassland',
           description: '',
           height: 0.5,
@@ -184,14 +194,14 @@ export class MovementResolver {
 
       // Process tile data within visibility bounds
       const { tiles, extTiles } = await this.visibilityService.processTileData(
-        player,
+        { x: player.position.x, y: player.position.y },
         visibilityRadius,
         timing,
       );
 
       // Process visible peaks
       const visiblePeaks = this.peakService.processVisiblePeaks(
-        player,
+        { x: player.position.x, y: player.position.y },
         visibilityRadius,
         extTiles,
         timing,
@@ -199,29 +209,29 @@ export class MovementResolver {
 
       // Generate biome summary
       const biomeSummary = this.biomeService.generateBiomeSummary(
-        player,
+        { x: player.position.x, y: player.position.y },
         tiles,
         timing,
       );
 
       // Get NearbyPlayers
       const nearbyPlayers = await this.playerService.getNearbyPlayers(
-        player.x,
-        player.y,
+        player.position.x,
+        player.position.y,
         slackId,
       );
       // Process visible settlements
       const visibleSettlements =
         this.settlementService.processVisibleSettlements(
-          player,
+          { x: player.position.x, y: player.position.y },
           visibilityRadius,
           centerWithNearby,
           timing,
         );
 
       const monsters = await this.monsterService.getMonstersAtLocation(
-        player.x,
-        player.y,
+        player.position.x,
+        player.position.y,
       );
 
       // Generate description (AI-enhanced or fallback)
@@ -251,7 +261,7 @@ export class MovementResolver {
         currentSettlement,
         description,
         nearbyPlayers,
-        monsters,
+        EntityToGraphQLAdapter.monsterEntitiesToGraphQL(monsters),
       );
 
       const totalMs = Date.now() - t0;

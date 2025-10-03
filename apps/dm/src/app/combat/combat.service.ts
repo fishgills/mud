@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { getPrismaClient, CombatLog as PrismaCombatLog } from '@mud/database';
+import { MonsterFactory } from '@mud/engine';
 import { PlayerService } from '../player/player.service';
 import { PlayerStatsDto } from '../player/dto/player.dto';
 import { AiService } from '../../openai/ai.service';
@@ -289,14 +290,14 @@ export class CombatService {
       id: player.id,
       name: player.name,
       type: 'player' as const,
-      hp: player.hp,
-      maxHp: player.maxHp,
-      strength: player.strength,
-      agility: player.agility,
+      hp: player.combat.hp,
+      maxHp: player.combat.maxHp,
+      strength: player.attributes.strength,
+      agility: player.attributes.agility,
       level: player.level,
-      isAlive: player.isAlive,
-      x: player.x,
-      y: player.y,
+      isAlive: player.combat.isAlive,
+      x: player.position.x,
+      y: player.position.y,
       slackId: slackId, // Store the Slack ID for later use
     };
     this.logger.debug(
@@ -503,18 +504,20 @@ export class CombatService {
       }
     } else {
       if (!loser.isAlive) {
-        await this.prisma.monster.delete({ where: { id: loser.id } });
+        await MonsterFactory.delete(loser.id);
         this.logger.log(
           `🗑️ Removed defeated monster ${loser.name} from the world`,
         );
       } else {
-        await this.prisma.monster.update({
-          where: { id: loser.id },
-          data: { hp: loser.hp, isAlive: loser.isAlive },
-        });
-        this.logger.debug(
-          `Monster ${loser.name} updated: HP=${loser.hp}, alive=${loser.isAlive}`,
-        );
+        const monsterEntity = await MonsterFactory.load(loser.id);
+        if (monsterEntity) {
+          monsterEntity.combat.hp = loser.hp;
+          monsterEntity.combat.isAlive = loser.isAlive;
+          await MonsterFactory.save(monsterEntity);
+          this.logger.debug(
+            `Monster ${loser.name} updated: HP=${loser.hp}, alive=${loser.isAlive}`,
+          );
+        }
       }
     }
 

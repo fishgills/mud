@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { calculateDirection } from '../shared/direction.util';
-import { getPrismaClient, Player, Prisma } from '@mud/database';
+import { getPrismaClient, Prisma } from '@mud/database';
+import { PlayerFactory, ClientType, PlayerEntity } from '@mud/engine';
 import {
   CreatePlayerDto,
   MovePlayerDto,
@@ -36,7 +37,7 @@ export class PlayerService {
     return Math.max(1, this.HIT_DIE_AVERAGE + modifier);
   }
 
-  async createPlayer(createPlayerDto: CreatePlayerDto): Promise<Player> {
+  async createPlayer(createPlayerDto: CreatePlayerDto): Promise<PlayerEntity> {
     const { slackId, clientId, clientType, name, x, y } = createPlayerDto;
 
     // Validate that we have either clientId or slackId
@@ -49,35 +50,27 @@ export class PlayerService {
     }
 
     // Determine final clientId and clientType
-    let finalClientId: string | undefined;
-    let finalClientType: string | undefined;
-    let finalSlackId: string | undefined;
+    let finalClientId: string;
+    let finalClientType: ClientType;
 
     if (clientId) {
       finalClientId = clientId;
-      finalClientType = clientType || 'slack';
-      // If using new format with slack client, also set slackId for backwards compatibility
-      if (finalClientType === 'slack' && clientId.startsWith('slack:')) {
-        finalSlackId = clientId.slice(6); // Remove "slack:" prefix
-      }
+      finalClientType = (clientType || 'slack') as ClientType;
     } else if (slackId) {
-      // Legacy format: convert slackId to clientId
-      finalClientId = `slack:${slackId}`;
+      // Legacy format: just use slackId (PlayerFactory will handle prefixing)
+      finalClientId = slackId;
       finalClientType = 'slack';
-      finalSlackId = slackId;
+    } else {
+      throw new GraphQLError('Either clientId or slackId must be provided', {
+        extensions: {
+          code: 'CLIENT_ID_REQUIRED',
+        },
+      });
     }
 
-    // Check if player already exists using clientId
-    const existingPlayer = await this.prisma.player.findFirst({
-      where: {
-        OR: [
-          { clientId: finalClientId },
-          ...(finalSlackId ? [{ slackId: finalSlackId }] : []),
-        ],
-      },
-    });
-
-    if (existingPlayer) {
+    // Check if player already exists - PlayerFactory.load handles both formats
+    const existing = await PlayerFactory.load(finalClientId, finalClientType);
+    if (existing) {
       throw new GraphQLError(`Player already exists`, {
         extensions: {
           code: 'PLAYER_EXISTS',
@@ -86,71 +79,59 @@ export class PlayerService {
       });
     }
 
-    // Find a spawn position that's at least 100 tiles away from existing players
+    // Find a spawn position
     const spawnPosition = await this.findValidSpawnPosition(x, y);
 
-    // Generate random starting stats and calculate maxHP
-    const { strength, agility, health, maxHp } = this.generateRandomStats();
-
-    return this.prisma.player.create({
-      data: {
-        clientId: finalClientId!,
-        clientType: finalClientType!,
-        slackId: finalSlackId,
-        name,
-        x: spawnPosition.x,
-        y: spawnPosition.y,
-        hp: maxHp,
-        maxHp,
-        strength,
-        agility,
-        health,
-        level: 1,
-        isAlive: true,
-      },
+    // Use PlayerFactory to create and return the player entity
+    return PlayerFactory.create({
+      clientId: finalClientId,
+      clientType: finalClientType,
+      name,
+      x: spawnPosition.x,
+      y: spawnPosition.y,
     });
   }
 
   /**
-   *
-   * @param slackId The Slack ID of the player to retrieve (deprecated: use clientId)
-   * @returns
+   * Get player by Slack ID (legacy method - use getPlayerByClientId for new code)
    */
-  async getPlayer(slackId: string): Promise<Player> {
+  async getPlayer(slackId: string): Promise<PlayerEntity> {
     this.logger.log(`[DM-DB] Looking up player with slackId: ${slackId}`);
-    const player = await this.prisma.player.findUnique({
-      where: { slackId },
-    });
+    const entity = await PlayerFactory.load(slackId, 'slack');
 
-    if (!player) {
+    if (!entity) {
       this.logger.warn(`[DM-DB] Player not found for slackId: ${slackId}`);
       throw new NotFoundException(`Player not found`);
     }
 
     this.logger.log(
-      `[DM-DB] Found player for slackId: ${slackId}, player ID: ${player.id}, name: ${player.name}`,
+      `[DM-DB] Found player for slackId: ${slackId}, player ID: ${entity.id}, name: ${entity.name}`,
     );
-    return player;
+    return entity;
   }
 
-  async getPlayerByClientId(clientId: string): Promise<Player> {
+  async getPlayerByClientId(clientId: string): Promise<PlayerEntity> {
     this.logger.log(`[DM-DB] Looking up player with clientId: ${clientId}`);
-    const player = await this.prisma.player.findUnique({
-      where: { clientId },
-    });
 
-    if (!player) {
+    // Parse clientType from clientId format (e.g., "slack:U123")
+    const parts = clientId.split(':');
+    const clientType = parts.length > 1 ? (parts[0] as ClientType) : 'slack';
+    const actualId = parts.length > 1 ? parts[1] : clientId;
+
+    const entity = await PlayerFactory.load(actualId, clientType);
+
+    if (!entity) {
       this.logger.warn(`[DM-DB] Player not found for clientId: ${clientId}`);
       throw new NotFoundException(`Player not found`);
     }
 
     this.logger.log(
-      `[DM-DB] Found player for clientId: ${clientId}, player ID: ${player.id}, name: ${player.name}`,
+      `[DM-DB] Found player for clientId: ${clientId}, player ID: ${entity.id}, name: ${entity.name}`,
     );
-    return player;
+    return entity;
   }
 
-  async getPlayerByName(name: string): Promise<Player> {
+  async getPlayerByName(name: string): Promise<PlayerEntity> {
     const trimmedName = name.trim();
     if (!trimmedName) {
       throw new GraphQLError('Player name is required', {
@@ -193,10 +174,12 @@ export class PlayerService {
     }
 
     const player = matches[0];
+    const clientType = (player.clientType || 'slack') as ClientType;
+    const entity = PlayerFactory.fromDatabaseModel(player, clientType);
     this.logger.log(
-      `[DM-DB] Found player for name: ${trimmedName}, player ID: ${player.id}, slackId: ${player.slackId}`,
+      `[DM-DB] Found player for name: ${trimmedName}, player ID: ${entity.id}`,
     );
-    return player;
+    return entity;
   }
 
   async getPlayerByIdentifier({
@@ -207,7 +190,7 @@ export class PlayerService {
     slackId?: string | null;
     clientId?: string | null;
     name?: string | null;
-  }): Promise<Player> {
+  }): Promise<PlayerEntity> {
     if (clientId) {
       return this.getPlayerByClientId(clientId);
     }
@@ -228,8 +211,12 @@ export class PlayerService {
     );
   }
 
-  async getAllPlayers(): Promise<Player[]> {
-    return this.prisma.player.findMany();
+  async getAllPlayers(): Promise<PlayerEntity[]> {
+    const players = await this.prisma.player.findMany();
+    return players.map((p) => {
+      const clientType = (p.clientType || 'slack') as ClientType;
+      return PlayerFactory.fromDatabaseModel(p, clientType);
+    });
   }
 
   /**
@@ -260,10 +247,13 @@ export class PlayerService {
     return count > 0;
   }
 
-  async movePlayer(slackId: string, moveDto: MovePlayerDto): Promise<Player> {
+  async movePlayer(
+    slackId: string,
+    moveDto: MovePlayerDto,
+  ): Promise<PlayerEntity> {
     const player = await this.getPlayer(slackId);
-    let newX = player.x;
-    let newY = player.y;
+    let newX = player.position.x;
+    let newY = player.position.y;
 
     const hasX = typeof moveDto.x === 'number';
     const hasY = typeof moveDto.y === 'number';
@@ -312,243 +302,170 @@ export class PlayerService {
       );
     }
 
-    return this.prisma.player.update({
-      where: { slackId },
-      data: {
-        x: newX,
-        y: newY,
-        lastAction: new Date(),
-      },
-    });
+    player.moveTo(newX, newY);
+    await PlayerFactory.save(player);
+    return player;
   }
 
   async updatePlayerStats(
     slackId: string,
     statsDto: PlayerStatsDto,
-  ): Promise<Player> {
+  ): Promise<PlayerEntity> {
     const player = await this.getPlayer(slackId);
 
-    // Working copy used ONLY for intermediate calculations during level-up logic.
-    // This is NOT persisted or returned. The final result comes from the database.
-    // A shallow copy is sufficient as Player has no nested objects requiring deep copy.
-    const updatedState: Player = { ...player };
-
-    const data: Prisma.PlayerUpdateInput = {
-      lastAction: new Date(),
-      updatedAt: new Date(),
-    };
-
     if (typeof statsDto.hp === 'number') {
-      updatedState.hp = statsDto.hp;
-      data.hp = statsDto.hp;
+      player.combat.hp = statsDto.hp;
     }
 
     if (typeof statsDto.gold === 'number') {
-      updatedState.gold = statsDto.gold;
-      data.gold = statsDto.gold;
+      player.gold = statsDto.gold;
     }
 
     if (typeof statsDto.level === 'number') {
-      updatedState.level = statsDto.level;
-      data.level = statsDto.level;
+      player.level = statsDto.level;
     }
 
     let leveledUp = false;
     let levelsGained = 0;
 
     if (typeof statsDto.xp === 'number') {
-      updatedState.xp = statsDto.xp;
-      data.xp = statsDto.xp;
+      player.xp = statsDto.xp;
 
-      // Use updatedState to calculate level-ups iteratively
-      while (updatedState.xp >= this.getXpForNextLevel(updatedState.level)) {
-        updatedState.level += 1;
+      // Check for level-ups
+      while (player.xp >= this.getXpForNextLevel(player.level)) {
+        player.level += 1;
         levelsGained += 1;
         leveledUp = true;
 
-        const hpGain = this.calculateLevelUpHpGain(updatedState.health);
-        updatedState.maxHp += hpGain;
-        updatedState.hp = Math.min(
-          updatedState.hp + hpGain,
-          updatedState.maxHp,
+        const hpGain = this.calculateLevelUpHpGain(player.attributes.health);
+        player.combat.maxHp += hpGain;
+        player.combat.hp = Math.min(
+          player.combat.hp + hpGain,
+          player.combat.maxHp,
         );
 
-        if (updatedState.level % this.SKILL_POINT_INTERVAL === 0) {
-          updatedState.skillPoints += this.SKILL_POINTS_PER_INTERVAL;
+        if (player.level % this.SKILL_POINT_INTERVAL === 0) {
+          player.skillPoints += this.SKILL_POINTS_PER_INTERVAL;
         }
       }
-
-      // Transfer calculated values to the data object for database update
-      data.level = updatedState.level;
-      data.maxHp = updatedState.maxHp;
-      data.hp = updatedState.hp;
-      data.skillPoints = updatedState.skillPoints;
     }
 
-    const result = await this.prisma.player.update({
-      where: { slackId },
-      data,
-    });
+    await PlayerFactory.save(player);
 
     if (leveledUp) {
       this.logger.log(
-        `🎉 ${player.name} advanced ${levelsGained} level(s) to ${result.level}! Max HP is now ${result.maxHp}.`,
+        `🎉 ${player.name} advanced ${levelsGained} level(s) to ${player.level}! Max HP is now ${player.combat.maxHp}.`,
       );
-      if (result.skillPoints > player.skillPoints) {
-        this.logger.log(
-          `🛡️ ${player.name} gained ${result.skillPoints - player.skillPoints} skill point(s).`,
-        );
-      }
     }
 
-    return result;
+    return player;
   }
 
   async spendSkillPoint(
     slackId: string,
     attribute: 'strength' | 'agility' | 'health',
-  ): Promise<Player> {
+  ): Promise<PlayerEntity> {
     const player = await this.getPlayer(slackId);
 
     if (player.skillPoints <= 0) {
       throw new Error('No skill points available.');
     }
 
-    const data: Prisma.PlayerUpdateInput = {
-      skillPoints: player.skillPoints - 1,
-      lastAction: new Date(),
-      updatedAt: new Date(),
-    };
+    // Use the entity's spendSkillPoint method
+    const success = player.spendSkillPoint(attribute);
 
-    let newAttributeValue: number;
-
-    if (attribute === 'strength') {
-      newAttributeValue = player.strength + 1;
-      data.strength = newAttributeValue;
-    } else if (attribute === 'agility') {
-      newAttributeValue = player.agility + 1;
-      data.agility = newAttributeValue;
-    } else if (attribute === 'health') {
-      const newHealth = player.health + 1;
-      const previousModifier = this.getConstitutionModifier(player.health);
-      const newModifier = this.getConstitutionModifier(newHealth);
-      const modifierIncrease = Math.max(0, newModifier - previousModifier);
-      const hpIncrease =
-        this.BASE_HP_PER_HEALTH_POINT + modifierIncrease * player.level;
-
-      newAttributeValue = newHealth;
-      data.health = newHealth;
-      data.maxHp = player.maxHp + hpIncrease;
-      data.hp = Math.min(data.maxHp, player.hp + hpIncrease);
-    } else {
-      throw new Error('Unknown attribute.');
+    if (!success) {
+      throw new Error(
+        `Cannot increase ${attribute} (max is 20 or no skill points).`,
+      );
     }
 
-    const result = await this.prisma.player.update({
-      where: { slackId },
-      data,
-    });
+    await PlayerFactory.save(player);
 
-    const remainingSkillPoints = result.skillPoints ?? 0;
+    const newAttributeValue = player.attributes[attribute];
+    const remainingSkillPoints = player.skillPoints;
 
     this.logger.log(
       `⚔️ ${player.name} increased ${attribute} to ${newAttributeValue}. Remaining skill points: ${remainingSkillPoints}.`,
     );
 
-    return result;
+    return player;
   }
 
-  async rerollPlayerStats(slackId: string): Promise<Player> {
-    // Get the current player to check their state
+  async rerollPlayerStats(slackId: string): Promise<PlayerEntity> {
     const currentPlayer = await this.getPlayer(slackId);
 
-    // Generate new random starting stats and calculate maxHP
+    // Generate new random starting stats
     const { strength, agility, health, maxHp } = this.generateRandomStats();
 
-    // Only update HP if character is still in creation phase (HP <= 1)
-    // If they've completed creation (HP > 1), preserve current HP but update maxHp
-    const updateData: any = {
-      strength,
-      agility,
-      health,
-      maxHp,
-      updatedAt: new Date(),
-    };
+    // Update entity attributes
+    currentPlayer.attributes.strength = strength;
+    currentPlayer.attributes.agility = agility;
+    currentPlayer.attributes.health = health;
+    currentPlayer.combat.maxHp = maxHp;
 
-    // If player is still in creation phase, set HP to maxHp
-    if (currentPlayer.hp <= 1) {
-      updateData.hp = maxHp;
+    // Only update HP if character is still in creation phase (HP <= 1)
+    if (currentPlayer.combat.hp <= 1) {
+      currentPlayer.combat.hp = maxHp;
     }
 
-    return this.prisma.player.update({
-      where: { slackId },
-      data: updateData,
-    });
+    await PlayerFactory.save(currentPlayer);
+    return currentPlayer;
   }
 
-  async healPlayer(slackId: string, amount: number): Promise<Player> {
+  async healPlayer(slackId: string, amount: number): Promise<PlayerEntity> {
     const player = await this.getPlayer(slackId);
-    const newHp = Math.min(player.hp + amount, player.maxHp);
-
-    return this.prisma.player.update({
-      where: { slackId },
-      data: { hp: newHp },
-    });
+    player.heal(amount);
+    await PlayerFactory.save(player);
+    return player;
   }
 
-  async damagePlayer(slackId: string, damage: number): Promise<Player> {
+  async damagePlayer(slackId: string, damage: number): Promise<PlayerEntity> {
     const player = await this.getPlayer(slackId);
-    const newHp = Math.max(player.hp - damage, 0);
-    const isAlive = newHp > 0;
-
-    return this.prisma.player.update({
-      where: { slackId },
-      data: {
-        hp: newHp,
-        isAlive,
-      },
-    });
+    player.takeDamage(damage);
+    await PlayerFactory.save(player);
+    return player;
   }
 
-  async respawnPlayer(slackId: string): Promise<Player> {
+  async respawnPlayer(slackId: string): Promise<PlayerEntity> {
     const player = await this.getPlayer(slackId);
 
-    // Find a respawn position near other players
-    const respawnPosition = await this.findRespawnPositionNearPlayers(slackId);
+    // Find a random spawn position
+    const spawnPosition = await this.findValidSpawnPosition();
 
-    return this.prisma.player.update({
-      where: { slackId },
-      data: {
-        hp: player.maxHp,
-        isAlive: true,
-        x: respawnPosition.x,
-        y: respawnPosition.y,
-      },
-    });
+    // Reset player state
+    player.combat.hp = player.combat.maxHp;
+    player.combat.isAlive = true;
+    player.moveTo(spawnPosition.x, spawnPosition.y);
+
+    await PlayerFactory.save(player);
+    return player;
   }
 
-  async deletePlayer(slackId: string): Promise<Player> {
-    // First check if player exists (will throw NotFoundException if not found)
-    await this.getPlayer(slackId);
-
-    // Delete the player from the database
-    return this.prisma.player.delete({
-      where: { slackId },
+  async deletePlayer(slackId: string): Promise<PlayerEntity> {
+    const player = await this.getPlayer(slackId);
+    await this.prisma.player.delete({
+      where: { id: player.id },
     });
+    return player;
   }
 
   async getPlayersAtLocation(
     x: number,
     y: number,
     excludeSlackId?: string,
-  ): Promise<Player[]> {
-    return this.prisma.player.findMany({
+  ): Promise<PlayerEntity[]> {
+    const players = await this.prisma.player.findMany({
       where: {
         x,
         y,
         isAlive: true,
         ...(excludeSlackId ? { slackId: { not: excludeSlackId } } : {}),
       },
+    });
+    return players.map((p) => {
+      const clientType = (p.clientType || 'slack') as ClientType;
+      return PlayerFactory.fromDatabaseModel(p, clientType);
     });
   }
 
