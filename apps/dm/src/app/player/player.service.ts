@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { calculateDirection } from '../shared/direction.util';
 import { getPrismaClient } from '@mud/database';
 import { PlayerFactory, ClientType, PlayerEntity, EventBus } from '@mud/engine';
 import {
@@ -149,44 +148,40 @@ export class PlayerService {
     }
 
     this.logger.log(`[DM-DB] Looking up player with name: ${trimmedName}`);
-    const matches = await this.prisma.player.findMany({
-      where: {
-        name: {
-          equals: trimmedName,
-          mode: 'insensitive',
-        },
-      },
-      orderBy: { id: 'asc' },
-    });
 
-    if (matches.length === 0) {
-      this.logger.warn(`[DM-DB] Player not found for name: ${trimmedName}`);
-      throw new NotFoundException(`Player not found`);
-    }
+    try {
+      const player = await PlayerFactory.loadByName(trimmedName);
 
-    if (matches.length > 1) {
-      this.logger.warn(
-        `[DM-DB] Multiple players found for name: ${trimmedName} (count: ${matches.length})`,
+      if (!player) {
+        this.logger.warn(`[DM-DB] Player not found for name: ${trimmedName}`);
+        throw new NotFoundException(`Player not found`);
+      }
+
+      this.logger.log(
+        `[DM-DB] Found player for name: ${trimmedName}, player ID: ${player.id}`,
       );
-      throw new GraphQLError(
-        `Multiple players found with the name "${trimmedName}". Please specify the player's Slack handle instead.`,
-        {
-          extensions: {
-            code: 'PLAYER_NAME_AMBIGUOUS',
-            name: trimmedName,
-            matches: matches.map((player) => player.id),
+      return player;
+    } catch (error) {
+      // PlayerFactory throws error for ambiguous names
+      if (
+        error instanceof Error &&
+        error.message.includes('Multiple players')
+      ) {
+        this.logger.warn(
+          `[DM-DB] Multiple players found for name: ${trimmedName}`,
+        );
+        throw new GraphQLError(
+          `Multiple players found with the name "${trimmedName}". Please specify the player's Slack handle instead.`,
+          {
+            extensions: {
+              code: 'PLAYER_NAME_AMBIGUOUS',
+              name: trimmedName,
+            },
           },
-        },
-      );
+        );
+      }
+      throw error;
     }
-
-    const player = matches[0];
-    const clientType = (player.clientType || 'slack') as ClientType;
-    const entity = PlayerFactory.fromDatabaseModel(player, clientType);
-    this.logger.log(
-      `[DM-DB] Found player for name: ${trimmedName}, player ID: ${entity.id}`,
-    );
-    return entity;
   }
 
   async getPlayerByIdentifier({
@@ -219,11 +214,7 @@ export class PlayerService {
   }
 
   async getAllPlayers(): Promise<PlayerEntity[]> {
-    const players = await this.prisma.player.findMany();
-    return players.map((p) => {
-      const clientType = (p.clientType || 'slack') as ClientType;
-      return PlayerFactory.fromDatabaseModel(p, clientType);
-    });
+    return PlayerFactory.loadAll();
   }
 
   /**
@@ -231,10 +222,7 @@ export class PlayerService {
    * @param slackId The Slack ID of the player
    */
   async updateLastAction(slackId: string): Promise<void> {
-    await this.prisma.player.update({
-      where: { slackId },
-      data: { lastAction: new Date() },
-    });
+    await PlayerFactory.updateLastAction(slackId, 'slack');
   }
 
   /**
@@ -243,14 +231,7 @@ export class PlayerService {
    * @returns true if any players have been active within the threshold
    */
   async hasActivePlayers(minutesThreshold: number = 30): Promise<boolean> {
-    const thresholdDate = new Date(Date.now() - minutesThreshold * 60 * 1000);
-    const count = await this.prisma.player.count({
-      where: {
-        lastAction: {
-          gte: thresholdDate,
-        },
-      },
-    });
+    const count = await PlayerFactory.countActivePlayers(minutesThreshold);
     return count > 0;
   }
 
@@ -508,9 +489,7 @@ export class PlayerService {
 
   async deletePlayer(slackId: string): Promise<PlayerEntity> {
     const player = await this.getPlayer(slackId);
-    await this.prisma.player.delete({
-      where: { id: player.id },
-    });
+    await PlayerFactory.delete(player.id);
     return player;
   }
 
@@ -519,17 +498,9 @@ export class PlayerService {
     y: number,
     excludeSlackId?: string,
   ): Promise<PlayerEntity[]> {
-    const players = await this.prisma.player.findMany({
-      where: {
-        x,
-        y,
-        isAlive: true,
-        ...(excludeSlackId ? { slackId: { not: excludeSlackId } } : {}),
-      },
-    });
-    return players.map((p) => {
-      const clientType = (p.clientType || 'slack') as ClientType;
-      return PlayerFactory.fromDatabaseModel(p, clientType);
+    return PlayerFactory.loadAtLocation(x, y, {
+      excludeSlackId,
+      aliveOnly: true,
     });
   }
 
@@ -551,59 +522,19 @@ export class PlayerService {
   ): Promise<
     Array<{ distance: number; direction: string; x: number; y: number }>
   > {
-    // Get all players (or within bounding box if radius is finite)
-    const whereClause: {
-      isAlive: boolean;
-      slackId?: { not: string };
-      x?: { gte: number; lte: number };
-      y?: { gte: number; lte: number };
-    } = {
-      isAlive: true,
-      ...(excludeSlackId && { slackId: { not: excludeSlackId } }),
-    };
-
-    // Only add spatial constraints if radius is finite
-    if (radius !== Infinity) {
-      whereClause.x = { gte: currentX - radius, lte: currentX + radius };
-      whereClause.y = { gte: currentY - radius, lte: currentY + radius };
-    }
-
-    const players = await this.prisma.player.findMany({
-      where: whereClause,
+    const nearby = await PlayerFactory.loadNearby(currentX, currentY, {
+      radius,
+      limit,
+      excludeSlackId,
+      aliveOnly: true,
     });
 
-    // Calculate actual distance and filter by circular radius
-    const playersWithDistance = players
-      .map((player) => {
-        // const distancee = Math.sqrt(
-        //   (player.x - currentX) ** 2 + (player.y - currentY) ** 2,
-        // );
-        const direction = calculateDirection(
-          currentX,
-          currentY,
-          player.x,
-          player.y,
-        );
-
-        const distance = this.calculateDistance(
-          currentX,
-          currentY,
-          player.x,
-          player.y,
-        );
-
-        return {
-          distance: Math.round(distance * 10) / 10,
-          direction,
-          x: player.x,
-          y: player.y,
-        };
-      })
-      .filter((player) => radius === Infinity || player.distance <= radius)
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, limit);
-
-    return playersWithDistance;
+    return nearby.map((item) => ({
+      distance: Math.round(item.distance * 10) / 10,
+      direction: item.direction,
+      x: item.player.position.x,
+      y: item.player.position.y,
+    }));
   }
 
   // direction util now imported from shared/direction.util
@@ -617,13 +548,13 @@ export class PlayerService {
     const SEARCH_RADIUS = 1000; // Maximum distance from origin to search
 
     // Get all existing alive players
-    const existingPlayers = await this.prisma.player.findMany({
-      where: { isAlive: true },
-      select: { x: true, y: true },
-    });
+    const existingPlayers = await PlayerFactory.loadAll();
+    const alivePlayerPositions = existingPlayers
+      .filter((p) => p.combat.isAlive)
+      .map((p) => ({ x: p.position.x, y: p.position.y }));
 
     // If no existing players, use preferred position or origin
-    if (existingPlayers.length === 0) {
+    if (alivePlayerPositions.length === 0) {
       return {
         x: preferredX ?? 0,
         y: preferredY ?? 0,
@@ -652,10 +583,10 @@ export class PlayerService {
       }
 
       // Check if this position is far enough from all existing players
-      const isValidPosition = existingPlayers.every((player) => {
+      const isValidPosition = alivePlayerPositions.every((existing) => {
         const distance = Math.sqrt(
-          Math.pow(candidateX - player.x, 2) +
-            Math.pow(candidateY - player.y, 2),
+          Math.pow(candidateX - existing.x, 2) +
+            Math.pow(candidateY - existing.y, 2),
         );
         return distance >= MIN_DISTANCE;
       });
@@ -678,10 +609,9 @@ export class PlayerService {
 
       // Find minimum distance to any existing player
       const minDistance = Math.min(
-        ...existingPlayers.map((player) =>
+        ...alivePlayerPositions.map((pos) =>
           Math.sqrt(
-            Math.pow(candidateX - player.x, 2) +
-              Math.pow(candidateY - player.y, 2),
+            Math.pow(candidateX - pos.x, 2) + Math.pow(candidateY - pos.y, 2),
           ),
         ),
       );
@@ -734,13 +664,14 @@ export class PlayerService {
     const MAX_ATTEMPTS = 50;
 
     // Get all living players except the one being respawned
-    const livingPlayers = await this.prisma.player.findMany({
-      where: {
-        isAlive: true,
-        slackId: { not: respawningPlayerSlackId },
-      },
-      select: { x: true, y: true },
-    });
+    const allPlayers = await PlayerFactory.loadAll();
+    const livingPlayers = allPlayers
+      .filter(
+        (p) =>
+          p.combat.isAlive &&
+          !(p.clientId === respawningPlayerSlackId && p.clientType === 'slack'),
+      )
+      .map((p) => ({ x: p.position.x, y: p.position.y }));
 
     // If no other living players, use origin as fallback
     if (livingPlayers.length === 0) {

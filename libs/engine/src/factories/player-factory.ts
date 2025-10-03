@@ -95,20 +95,172 @@ export class PlayerFactory {
 
   /**
    * Load a player from the database by name
+   * Returns null if no match, or throws error if multiple matches
    */
-  static async loadByName(
-    name: string,
-    clientType: ClientType,
-  ): Promise<PlayerEntity | null> {
-    const player = await this.prisma.player.findFirst({
-      where: { name },
+  static async loadByName(name: string): Promise<PlayerEntity | null> {
+    const matches = await this.prisma.player.findMany({
+      where: {
+        name: {
+          equals: name,
+          mode: 'insensitive',
+        },
+      },
+      orderBy: { id: 'asc' },
     });
 
-    if (!player) {
+    if (matches.length === 0) {
       return null;
     }
 
+    if (matches.length > 1) {
+      throw new Error(
+        `Multiple players found with the name "${name}". IDs: ${matches.map((p) => p.id).join(', ')}`,
+      );
+    }
+
+    const player = matches[0];
+    const clientType = (player.clientType || 'slack') as ClientType;
     return this.fromDatabaseModel(player, clientType);
+  }
+
+  /**
+   * Load all players from the database
+   */
+  static async loadAll(): Promise<PlayerEntity[]> {
+    const players = await this.prisma.player.findMany();
+    return players.map((p) => {
+      const clientType = (p.clientType || 'slack') as ClientType;
+      return this.fromDatabaseModel(p, clientType);
+    });
+  }
+
+  /**
+   * Load players at a specific location
+   */
+  static async loadAtLocation(
+    x: number,
+    y: number,
+    options?: { excludeSlackId?: string; aliveOnly?: boolean },
+  ): Promise<PlayerEntity[]> {
+    const players = await this.prisma.player.findMany({
+      where: {
+        x,
+        y,
+        ...(options?.aliveOnly ? { isAlive: true } : {}),
+        ...(options?.excludeSlackId
+          ? { slackId: { not: options.excludeSlackId } }
+          : {}),
+      },
+    });
+    return players.map((p) => {
+      const clientType = (p.clientType || 'slack') as ClientType;
+      return this.fromDatabaseModel(p, clientType);
+    });
+  }
+
+  /**
+   * Load nearby players within a radius
+   */
+  static async loadNearby(
+    x: number,
+    y: number,
+    options?: {
+      radius?: number;
+      limit?: number;
+      excludeSlackId?: string;
+      aliveOnly?: boolean;
+    },
+  ): Promise<
+    Array<{
+      player: PlayerEntity;
+      distance: number;
+      direction: string;
+    }>
+  > {
+    const radius = options?.radius ?? Infinity;
+    const limit = options?.limit ?? 10;
+    const aliveOnly = options?.aliveOnly ?? true;
+
+    // Build where clause
+    const whereClause: {
+      isAlive?: boolean;
+      slackId?: { not: string };
+      x?: { gte: number; lte: number };
+      y?: { gte: number; lte: number };
+    } = {};
+
+    if (aliveOnly) {
+      whereClause.isAlive = true;
+    }
+
+    if (options?.excludeSlackId) {
+      whereClause.slackId = { not: options.excludeSlackId };
+    }
+
+    // Use bounding box if radius is finite
+    if (radius !== Infinity) {
+      whereClause.x = { gte: x - radius, lte: x + radius };
+      whereClause.y = { gte: y - radius, lte: y + radius };
+    }
+
+    const players = await this.prisma.player.findMany({
+      where: whereClause,
+    });
+
+    // Calculate distances and filter by actual radius
+    const nearby = players
+      .map((p) => {
+        const dx = p.x - x;
+        const dy = p.y - y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Calculate direction
+        let direction = '';
+        if (dy > 0) direction += 'north';
+        else if (dy < 0) direction += 'south';
+        if (dx > 0) direction += 'east';
+        else if (dx < 0) direction += 'west';
+
+        const clientType = (p.clientType || 'slack') as ClientType;
+        return {
+          player: this.fromDatabaseModel(p, clientType),
+          distance,
+          direction: direction || 'here',
+          x: p.x,
+          y: p.y,
+        };
+      })
+      .filter((p) => p.distance <= radius)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, limit);
+
+    return nearby;
+  }
+
+  /**
+   * Delete a player from the database
+   */
+  static async delete(playerId: number): Promise<void> {
+    await this.prisma.player.delete({
+      where: { id: playerId },
+    });
+  }
+
+  /**
+   * Update last action timestamp for a player
+   */
+  static async updateLastAction(
+    clientId: string,
+    clientType: ClientType,
+  ): Promise<void> {
+    const fullClientId = `${clientType}:${clientId}`;
+
+    await this.prisma.player.updateMany({
+      where: {
+        OR: [{ clientId: fullClientId }, { clientId }, { slackId: clientId }],
+      },
+      data: { lastAction: new Date() },
+    });
   }
 
   /**
@@ -172,6 +324,21 @@ export class PlayerFactory {
       skillPoints: player.skillPoints,
       partyId: undefined, // TODO: Add when party system is implemented
     });
+  }
+
+  /**
+   * Count players active within a time threshold
+   */
+  static async countActivePlayers(minutesThreshold: number): Promise<number> {
+    const thresholdDate = new Date(Date.now() - minutesThreshold * 60 * 1000);
+    const count = await this.prisma.player.count({
+      where: {
+        lastAction: {
+          gte: thresholdDate,
+        },
+      },
+    });
+    return count;
   }
 
   /**

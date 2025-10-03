@@ -307,24 +307,22 @@ export class CombatService {
   }
 
   private async monsterToCombatant(monsterId: number): Promise<Combatant> {
-    const monster = await this.prisma.monster.findUnique({
-      where: { id: monsterId, isAlive: true },
-    });
-    if (!monster) {
+    const monster = await MonsterFactory.load(monsterId);
+    if (!monster || !monster.combat.isAlive) {
       throw new Error('Monster not found or already dead');
     }
     const combatant = {
       id: monster.id,
       name: monster.name,
       type: 'monster' as const,
-      hp: monster.hp,
-      maxHp: monster.maxHp,
-      strength: monster.strength,
-      agility: monster.agility,
+      hp: monster.combat.hp,
+      maxHp: monster.combat.maxHp,
+      strength: monster.attributes.strength,
+      agility: monster.attributes.agility,
       level: 1, // Default to level 1 for monsters
-      isAlive: monster.isAlive,
-      x: monster.x,
-      y: monster.y,
+      isAlive: monster.combat.isAlive,
+      x: monster.position.x,
+      y: monster.position.y,
     };
     this.logger.debug(
       `Monster combatant: ${combatant.name} (Str:${combatant.strength}, Agi:${combatant.agility}, HP:${combatant.hp}/${combatant.maxHp}, Lvl:${combatant.level})`,
