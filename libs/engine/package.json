@@ -2,8 +2,17 @@
   "name": "@mud/engine",
   "version": "0.1.0",
   "description": "Client-agnostic MUD game engine with event-driven architecture",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "test": "jest"

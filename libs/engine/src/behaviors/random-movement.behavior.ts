@@ -2,8 +2,8 @@
  * Random movement behavior for monsters
  */
 
-import { Behavior, BehaviorContext } from './behavior.interface';
-import { MonsterEntity } from '../entities/monster-entity';
+import { Behavior, BehaviorContext } from './behavior.interface.js';
+import { MonsterEntity } from '../entities/monster-entity.js';
 
 export class RandomMovementBehavior implements Behavior {
   readonly name = 'random_movement';

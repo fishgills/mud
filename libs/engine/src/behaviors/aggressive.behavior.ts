@@ -2,8 +2,8 @@
  * Aggressive behavior - attack nearby players
  */
 
-import { Behavior, BehaviorContext } from './behavior.interface';
-import { MonsterEntity } from '../entities/monster-entity';
+import { Behavior, BehaviorContext } from './behavior.interface.js';
+import { MonsterEntity } from '../entities/monster-entity.js';
 
 export class AggressiveBehavior implements Behavior {
   readonly name = 'aggressive';

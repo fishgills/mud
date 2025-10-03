@@ -2,7 +2,7 @@
  * Player entity - represents a human-controlled character
  */
 
-import { Character, Attributes, CombatStats, Position } from './character';
+import { Character, Attributes, CombatStats, Position } from './character.js';
 
 export type ClientType = 'slack' | 'discord' | 'web';
 

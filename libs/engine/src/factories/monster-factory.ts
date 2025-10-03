@@ -4,8 +4,8 @@
  */
 
 import { getPrismaClient, Monster } from '@mud/database';
-import { MonsterEntity } from '../entities/monster-entity';
-import { EventBus } from '../events';
+import { MonsterEntity } from '../entities/monster-entity.js';
+import { EventBus } from '../events/index.js';
 
 export interface MonsterTemplate {
   name: string;

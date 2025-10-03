@@ -4,8 +4,9 @@
  */
 
 import { getPrismaClient, Player } from '@mud/database';
-import { PlayerEntity, ClientType } from '../entities/player-entity';
-import { EventBus } from '../events';
+
+import { PlayerEntity, ClientType } from '../entities/player-entity.js';
+import { EventBus } from '../events/index.js';
 
 export interface CreatePlayerOptions {
   clientId: string;

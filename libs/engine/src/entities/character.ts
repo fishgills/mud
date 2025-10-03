@@ -3,7 +3,7 @@
  * Provides common functionality for combat, movement, and attributes
  */
 
-import { GameEntity } from './game-entity';
+import { GameEntity } from './game-entity.js';
 
 export interface Attributes {
   strength: number;

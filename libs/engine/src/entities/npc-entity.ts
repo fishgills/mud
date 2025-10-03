@@ -2,7 +2,7 @@
  * NPC entity - represents non-player characters (merchants, quest givers, guards, etc.)
  */
 
-import { Character, Attributes, CombatStats, Position } from './character';
+import { Character, Attributes, CombatStats, Position } from './character.js';
 
 export type NpcRole =
   | 'merchant'
