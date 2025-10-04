@@ -15,7 +15,10 @@ export class SettlementService {
   processVisibleSettlements(
     player: Player,
     visibilityRadius: number,
-    centerWithNearby: any,
+    centerWithNearby: {
+      nearbySettlements?: NearbySettlement[];
+      currentSettlement?: { name: string; type: string; size: string };
+    } | null,
     timing: TimingMetrics,
   ): VisibleSettlement[] {
     const tSettlementsStart = Date.now();

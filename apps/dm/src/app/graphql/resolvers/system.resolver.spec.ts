@@ -4,6 +4,7 @@ jest.mock('@mud/database', () => ({
 }));
 
 import { SystemResolver } from './system.resolver';
+import { SpawnMonsterInput } from '../inputs/player.input';
 
 describe('SystemResolver', () => {
   const createResolver = () => {
@@ -13,11 +14,18 @@ describe('SystemResolver', () => {
       spawnMonster: jest
         .fn()
         .mockResolvedValue({ id: 3, name: 'Goblin', x: 1, y: 2 }),
-    } as any;
+    } as unknown as {
+      getMonstersAtLocation: jest.Mock;
+      getAllMonsters: jest.Mock;
+      spawnMonster: jest.Mock;
+    };
     const gameTickService = {
       processTick: jest.fn().mockResolvedValue({ tick: 1 }),
       getGameState: jest.fn().mockResolvedValue({}),
-    } as any;
+    } as unknown as {
+      processTick: jest.Mock;
+      getGameState: jest.Mock;
+    };
 
     const resolver = new SystemResolver(monsterService, gameTickService);
     return { resolver, monsterService, gameTickService };
@@ -62,11 +70,17 @@ describe('SystemResolver', () => {
     await resolver.getAllMonsters();
     expect(monsterService.getAllMonsters).toHaveBeenCalled();
 
-    const spawn = await resolver.spawnMonster({ x: 1, y: 2 } as any);
+    const spawn = await resolver.spawnMonster({
+      x: 1,
+      y: 2,
+    } as SpawnMonsterInput);
     expect(spawn.success).toBe(true);
 
     monsterService.spawnMonster.mockRejectedValueOnce(new Error('no spawn'));
-    const failure = await resolver.spawnMonster({ x: 0, y: 0 } as any);
+    const failure = await resolver.spawnMonster({
+      x: 0,
+      y: 0,
+    } as SpawnMonsterInput);
     expect(failure.success).toBe(false);
   });
 });

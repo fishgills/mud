@@ -19,7 +19,13 @@ export class ResponseService {
     biomeSummary: BiomeSummary[],
     visiblePeaks: VisiblePeak[],
     visibleSettlements: VisibleSettlement[],
-    currentSettlement: any,
+    currentSettlement: {
+      name: string;
+      type: string;
+      size: string;
+      intensity: number;
+      isCenter?: boolean;
+    } | null,
     description: string,
     nearbyPlayers: NearbyPlayerInfo[],
     monsters: Monster[],

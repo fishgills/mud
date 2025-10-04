@@ -15,14 +15,14 @@ export class CoordinationService implements OnModuleDestroy {
     if (this.enabled) {
       this.client = createClient({ url: env.REDIS_URL });
       this.client.on('error', (err: unknown) => {
-        const e: any = err as any;
+        const e = err as Error;
         this.logger.error(`Redis client error: ${e?.message ?? String(err)}`);
       });
       this.client
         .connect()
         .then(() => this.logger.log('Connected to Redis (coordination)'))
         .catch((err: unknown) => {
-          const e: any = err as any;
+          const e = err as Error;
           this.logger.error(
             `Failed to connect to Redis (coordination): ${e?.message ?? String(err)}`,
           );
@@ -47,9 +47,9 @@ export class CoordinationService implements OnModuleDestroy {
     try {
       const n = await this.client.exists(this.k(key));
       return n > 0;
-    } catch (e: any) {
+    } catch (e: unknown) {
       this.logger.warn(
-        `Coordination exists failed for ${key}: ${e?.message ?? e}`,
+        `Coordination exists failed for ${key}: ${(e as Error)?.message ?? e}`,
       );
       return false;
     }
@@ -70,8 +70,8 @@ export class CoordinationService implements OnModuleDestroy {
         PX: ttlMs,
       });
       return res === 'OK' ? token : null;
-    } catch (e: any) {
-      this.logger.warn(`Acquire lock failed for ${key}: ${e?.message ?? e}`);
+    } catch (e: unknown) {
+      this.logger.warn(`Acquire lock failed for ${key}: ${(e as Error)?.message ?? e}`);
       return null;
     }
   }
@@ -94,8 +94,8 @@ export class CoordinationService implements OnModuleDestroy {
         arguments: [token],
       })) as number;
       return res > 0;
-    } catch (e: any) {
-      this.logger.warn(`Release lock failed for ${key}: ${e?.message ?? e}`);
+    } catch (e: unknown) {
+      this.logger.warn(`Release lock failed for ${key}: ${(e as Error)?.message ?? e}`);
       return false;
     }
   }
@@ -104,8 +104,8 @@ export class CoordinationService implements OnModuleDestroy {
     if (!this.isEnabled() || !this.client) return;
     try {
       await this.client.set(this.k(key), '1', { PX: ttlMs });
-    } catch (e: any) {
-      this.logger.warn(`Set cooldown failed for ${key}: ${e?.message ?? e}`);
+    } catch (e: unknown) {
+      this.logger.warn(`Set cooldown failed for ${key}: ${(e as Error)?.message ?? e}`);
     }
   }
 

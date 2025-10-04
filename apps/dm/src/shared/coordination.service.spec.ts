@@ -57,7 +57,8 @@ const instantiateService = (overrides: EnvOverrides = {}) => {
       },
     }));
 
-    ({ CoordinationService: ServiceClass } = require('./coordination.service'));
+    const { CoordinationService: ServiceClass } = await import('./coordination.service');
+    return ServiceClass;
   });
 
   const service = new ServiceClass();

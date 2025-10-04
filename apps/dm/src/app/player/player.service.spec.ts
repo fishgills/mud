@@ -1,7 +1,12 @@
 import { PlayerService } from './player.service';
 import { GraphQLError } from 'graphql';
+import {
+  CreatePlayerInput,
+  MovePlayerInput,
+  PlayerStatsInput,
+} from '../graphql/inputs/player.input';
 
-const players: any[] = [];
+const players: Record<string, unknown>[] = [];
 
 jest.mock('@mud/database', () => ({
   getPrismaClient: () => ({
@@ -39,7 +44,7 @@ jest.mock('@mud/database', () => ({
         }
         return null;
       }),
-      findMany: jest.fn(async (args: any = {}) => {
+      findMany: jest.fn(async (args: Record<string, unknown> = {}) => {
         let result = [...players];
         const where = args.where ?? {};
         if (where.isAlive !== undefined) {
@@ -74,7 +79,7 @@ jest.mock('@mud/database', () => ({
         }
         if (args.select) {
           return result.map((player) => {
-            const selected: any = {};
+            const selected: Record<string, unknown> = {};
             for (const key of Object.keys(args.select)) {
               if (args.select[key]) {
                 selected[key] = player[key];
@@ -85,7 +90,7 @@ jest.mock('@mud/database', () => ({
         }
         return result;
       }),
-      count: jest.fn(async (args: any = {}) => {
+      count: jest.fn(async (args: Record<string, unknown> = {}) => {
         let result = [...players];
         const where = args.where ?? {};
         if (where.lastAction?.gte) {
@@ -133,7 +138,7 @@ describe('PlayerService', () => {
       biomeName: y >= 101 ? 'ocean' : 'forest',
       biomeId: 1,
     })),
-  } as any;
+  } as unknown as Parameters<typeof PlayerService.prototype.constructor>[0];
 
   beforeEach(() => {
     players.length = 0;
@@ -166,11 +171,16 @@ describe('PlayerService', () => {
       name: 'Hero',
       x: 0,
       y: 0,
-    } as any);
+    } as CreatePlayerInput);
     expect(created.slackId).toBe('U1');
 
     await expect(
-      service.createPlayer({ slackId: 'U1', name: 'Hero', x: 0, y: 0 } as any),
+      service.createPlayer({
+        slackId: 'U1',
+        name: 'Hero',
+        x: 0,
+        y: 0,
+      } as CreatePlayerInput),
     ).rejects.toThrow(GraphQLError);
   });
 
@@ -194,19 +204,19 @@ describe('PlayerService', () => {
     const service = new PlayerService(worldService);
     const moved = await service.movePlayer('EXIST', {
       direction: 'east',
-    } as any);
+    } as MovePlayerInput);
     expect(moved.x).toBe(101);
 
-    await expect(service.movePlayer('EXIST', { x: 1 } as any)).rejects.toThrow(
-      'Both x and y',
-    );
+    await expect(
+      service.movePlayer('EXIST', { x: 1 } as MovePlayerInput),
+    ).rejects.toThrow('Both x and y');
 
     await expect(
-      service.movePlayer('EXIST', { direction: 'invalid' } as any),
+      service.movePlayer('EXIST', { direction: 'invalid' } as MovePlayerInput),
     ).rejects.toThrow('Invalid direction');
 
     await expect(
-      service.movePlayer('EXIST', { direction: 'north' } as any),
+      service.movePlayer('EXIST', { direction: 'north' } as MovePlayerInput),
     ).rejects.toThrow('water');
   });
 
@@ -217,7 +227,7 @@ describe('PlayerService', () => {
       xp: 10,
       gold: 3,
       level: 2,
-    } as any);
+    } as PlayerStatsInput);
     expect(updated.hp).toBe(5);
 
     players[0].hp = 1;
@@ -235,7 +245,7 @@ describe('PlayerService', () => {
     const service = new PlayerService(worldService);
     const leveled = await service.updatePlayerStats('EXIST', {
       xp: 450,
-    } as any);
+    } as PlayerStatsInput);
 
     expect(leveled.level).toBe(5);
     expect(leveled.maxHp).toBe(34);
@@ -364,15 +374,15 @@ describe('PlayerService', () => {
 
   it('throws error when movePlayer receives only x coordinate', async () => {
     const service = new PlayerService(worldService);
-    await expect(service.movePlayer('EXIST', { x: 5 } as any)).rejects.toThrow(
-      'Both x and y coordinates are required',
-    );
+    await expect(
+      service.movePlayer('EXIST', { x: 5 } as MovePlayerInput),
+    ).rejects.toThrow('Both x and y coordinates are required');
   });
 
   it('throws error when movePlayer receives only y coordinate', async () => {
     const service = new PlayerService(worldService);
-    await expect(service.movePlayer('EXIST', { y: 5 } as any)).rejects.toThrow(
-      'Both x and y coordinates are required',
-    );
+    await expect(
+      service.movePlayer('EXIST', { y: 5 } as MovePlayerInput),
+    ).rejects.toThrow('Both x and y coordinates are required');
   });
 });

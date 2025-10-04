@@ -54,7 +54,9 @@ describe('BaseAiService', () => {
 
   it('invokes the model and caches subsequent calls', async () => {
     const service = new TestAiService();
-    const systemMessage = (service as any).getSystemMessage();
+    const systemMessage = (
+      service as unknown as { getSystemMessage: () => string }
+    ).getSystemMessage();
 
     service.invokeMock.mockResolvedValueOnce('first response');
 
@@ -82,7 +84,11 @@ describe('BaseAiService', () => {
     await expect(
       service.getText('prompt', { cacheKey: 'custom-cache' }),
     ).resolves.toEqual({ output_text: 'cached' });
-    expect((service as any).buildCacheKey('prompt')).toBe('vertex:prompt');
+    expect(
+      (
+        service as unknown as { buildCacheKey: (prompt: string) => string }
+      ).buildCacheKey('prompt'),
+    ).toBe('vertex:prompt');
   });
 
   it('expires cached entries after TTL and evicts oldest entries', async () => {

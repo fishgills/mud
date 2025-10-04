@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { calculateDirection } from '../../shared/direction.util';
 import type { Player, BiomeSummary, TimingMetrics } from './look-view-types';
+import type { WorldTile } from '../../../generated/world-graphql';
 
 @Injectable()
 export class BiomeService {
@@ -9,7 +10,7 @@ export class BiomeService {
    */
   generateBiomeSummary(
     player: Player,
-    tiles: any[],
+    tiles: WorldTile[],
     timing: TimingMetrics,
   ): BiomeSummary[] {
     const tBiomeStart = Date.now();

@@ -10,6 +10,7 @@ import { SettlementService } from './settlement.service';
 import { DescriptionService } from './description.service';
 import { ResponseService } from './response.service';
 import { AiService } from '../../../openai/ai.service';
+import { NearbyPlayerInfo } from '../types/response.types';
 
 const createWorldService = () => ({
   getTilesInBounds: jest.fn().mockResolvedValue(
@@ -33,7 +34,11 @@ describe('Look view helper services', () => {
 
   it('calculates visibility and processes tiles', async () => {
     const worldService = createWorldService();
-    const service = new VisibilityService(worldService as any);
+    const service = new VisibilityService(
+      worldService as unknown as Parameters<
+        typeof VisibilityService.prototype.constructor
+      >[0],
+    );
     const timing = {
       tPlayerMs: 0,
       tGetCenterMs: 0,
@@ -65,7 +70,11 @@ describe('Look view helper services', () => {
 
   it('calculates visibility with edge case heights', () => {
     const worldService = createWorldService();
-    const service = new VisibilityService(worldService as any);
+    const service = new VisibilityService(
+      worldService as unknown as Parameters<
+        typeof VisibilityService.prototype.constructor
+      >[0],
+    );
 
     // Test minimum height (should clamp to minimum visibility)
     const minRadius = service.calculateVisibilityRadius({ height: 0 });
@@ -88,7 +97,11 @@ describe('Look view helper services', () => {
 
   it('processes tiles with various radii', async () => {
     const worldService = createWorldService();
-    const service = new VisibilityService(worldService as any);
+    const service = new VisibilityService(
+      worldService as unknown as Parameters<
+        typeof VisibilityService.prototype.constructor
+      >[0],
+    );
     const timing = {
       tPlayerMs: 0,
       tGetCenterMs: 0,
@@ -426,7 +439,7 @@ describe('Look view helper services', () => {
           name: 'Scout',
           distance: 2,
           direction: 'north',
-        } as any,
+        } as NearbyPlayerInfo,
       ],
     );
 

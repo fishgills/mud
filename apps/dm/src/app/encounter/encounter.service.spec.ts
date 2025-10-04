@@ -138,7 +138,9 @@ describe('EncounterService', () => {
 
     it('should emit monster:encounter event when monsters are present', async () => {
       const monster = createMockMonster(1, 10);
-      monsterService.getMonstersAtLocation.mockResolvedValue([monster as any]);
+      monsterService.getMonstersAtLocation.mockResolvedValue([
+        monster as unknown,
+      ]);
 
       const event: PlayerMoveEvent = {
         eventType: 'player:move',
@@ -180,7 +182,9 @@ describe('EncounterService', () => {
     it('should trigger combat when roll succeeds', async () => {
       // Mock monster with high agility (guaranteed attack)
       const monster = createMockMonster(1, 20); // 95% chance
-      monsterService.getMonstersAtLocation.mockResolvedValue([monster as any]);
+      monsterService.getMonstersAtLocation.mockResolvedValue([
+        monster as unknown as MonsterEntity,
+      ]);
 
       // Mock Math.random to return 0 (0% - will be less than 95%)
       jest.spyOn(Math, 'random').mockReturnValue(0);
@@ -208,7 +212,9 @@ describe('EncounterService', () => {
     it('should not trigger combat when roll fails', async () => {
       // Mock monster with low agility
       const monster = createMockMonster(1, 5); // 25% chance
-      monsterService.getMonstersAtLocation.mockResolvedValue([monster as any]);
+      monsterService.getMonstersAtLocation.mockResolvedValue([
+        monster as unknown as MonsterEntity,
+      ]);
 
       // Mock Math.random to return 0.99 (99% - will be greater than 25%)
       jest.spyOn(Math, 'random').mockReturnValue(0.99);
@@ -234,8 +240,8 @@ describe('EncounterService', () => {
       const monster1 = createMockMonster(1, 20); // 95% chance
       const monster2 = createMockMonster(2, 20); // 95% chance
       monsterService.getMonstersAtLocation.mockResolvedValue([
-        monster1 as any,
-        monster2 as any,
+        monster1 as unknown as MonsterEntity,
+        monster2 as unknown as MonsterEntity,
       ]);
 
       // Mock random to make both attack
@@ -269,7 +275,9 @@ describe('EncounterService', () => {
     it('should skip combat if player has no slackId', async () => {
       const playerWithoutSlack = { ...mockPlayer, slackId: null };
       const monster = createMockMonster(1, 20);
-      monsterService.getMonstersAtLocation.mockResolvedValue([monster as any]);
+      monsterService.getMonstersAtLocation.mockResolvedValue([
+        monster as unknown as MonsterEntity,
+      ]);
       jest.spyOn(Math, 'random').mockReturnValue(0);
 
       const event: PlayerMoveEvent = {

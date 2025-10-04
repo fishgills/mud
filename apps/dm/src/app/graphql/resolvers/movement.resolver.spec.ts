@@ -4,6 +4,7 @@ jest.mock('@mud/database', () => ({
 }));
 
 import { MovementResolver } from './movement.resolver';
+import { MovePlayerInput } from '../inputs/player.input';
 import { VisibilityService } from '../services/visibility.service';
 import { PeakService } from '../services/peak.service';
 import { BiomeService } from '../services/biome.service';
@@ -14,7 +15,7 @@ import { AiService } from '../../../openai/ai.service';
 import { LookViewResponse } from '../types/response.types';
 
 describe('MovementResolver', () => {
-  const createResolver = (overrides: Partial<Record<string, any>> = {}) => {
+  const createResolver = (overrides: Partial<Record<string, unknown>> = {}) => {
     const playerService = {
       movePlayer: jest.fn(),
       getPlayersAtLocation: jest.fn().mockResolvedValue([{ name: 'Other' }]),
@@ -67,7 +68,11 @@ describe('MovementResolver', () => {
         ),
       ),
     };
-    const visibilityService = new VisibilityService(worldService as any);
+    const visibilityService = new VisibilityService(
+      worldService as unknown as Parameters<
+        typeof VisibilityService.prototype.constructor
+      >[0],
+    );
     const peakService = new PeakService();
     const biomeService = new BiomeService();
     const settlementService = new SettlementService();
@@ -84,15 +89,21 @@ describe('MovementResolver', () => {
     };
 
     const resolver = new MovementResolver(
-      playerService as any,
-      worldService as any,
+      playerService as unknown as Parameters<
+        typeof MovementResolver.prototype.constructor
+      >[0],
+      worldService as unknown as Parameters<
+        typeof MovementResolver.prototype.constructor
+      >[1],
       visibilityService,
       peakService,
       biomeService,
       settlementService,
       descriptionService,
       responseService,
-      monsterService as any,
+      monsterService as unknown as Parameters<
+        typeof MovementResolver.prototype.constructor
+      >[8],
     );
 
     return {
@@ -121,7 +132,7 @@ describe('MovementResolver', () => {
 
     const result = await resolver.movePlayer('U1', {
       direction: 'north',
-    } as any);
+    } as MovePlayerInput);
 
     expect(result.success).toBe(true);
     expect(playerService.movePlayer).toHaveBeenCalledWith('U1', {
@@ -137,7 +148,7 @@ describe('MovementResolver', () => {
 
     const result = await resolver.movePlayer('U1', {
       direction: 'east',
-    } as any);
+    } as MovePlayerInput);
 
     expect(result.success).toBe(false);
     expect(result.player).toEqual({ x: 9, y: 9 });

@@ -3,8 +3,8 @@ import { GameTickService } from './game-tick.service';
 type PrismaMock = ReturnType<typeof createPrismaMock>;
 
 function createPrismaMock() {
-  let currentGameState: any = null;
-  let weatherState: any = null;
+  let currentGameState: Record<string, unknown> | null = null;
+  let weatherState: Record<string, unknown> | null = null;
 
   const prisma = {
     gameState: {
@@ -33,7 +33,8 @@ function createPrismaMock() {
 
   return {
     prisma,
-    setGameState: (state: any) => (currentGameState = state),
+    setGameState: (state: Record<string, unknown> | null) =>
+      (currentGameState = state),
     getGameState: () => currentGameState,
   };
 }
@@ -57,7 +58,7 @@ describe('GameTickService', () => {
   const createService = () => {
     const combatService = {
       monsterAttackPlayer: jest.fn(),
-    } as any;
+    } as unknown as { monsterAttackPlayer: jest.Mock };
     const playerService = {
       getAllPlayers: jest
         .fn()
@@ -65,7 +66,10 @@ describe('GameTickService', () => {
       getPlayersAtLocation: jest
         .fn()
         .mockResolvedValue([{ slackId: 'U1', isAlive: true }]),
-    } as any;
+    } as unknown as {
+      getAllPlayers: jest.Mock;
+      getPlayersAtLocation: jest.Mock;
+    };
     const populationService = {
       enforceDensityAround: jest.fn().mockResolvedValue({
         spawned: 2,
@@ -81,7 +85,7 @@ describe('GameTickService', () => {
           },
         ],
       }),
-    } as any;
+    } as unknown as { enforceDensityAround: jest.Mock };
     const monsterService = {
       getAllMonsters: jest.fn().mockResolvedValue([
         { id: 1, x: 1, y: 1 },
@@ -89,7 +93,11 @@ describe('GameTickService', () => {
       ]),
       moveMonster: jest.fn().mockResolvedValue(undefined),
       cleanupDeadMonsters: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    } as unknown as {
+      getAllMonsters: jest.Mock;
+      moveMonster: jest.Mock;
+      cleanupDeadMonsters: jest.Mock;
+    };
 
     const service = new GameTickService(
       combatService,

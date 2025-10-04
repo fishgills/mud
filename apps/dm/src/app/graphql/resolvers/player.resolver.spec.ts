@@ -5,7 +5,13 @@ jest.mock('@mud/database', () => ({
 }));
 
 import { PlayerResolver } from './player.resolver';
-import { PlayerAttribute, TargetType } from '../inputs/player.input';
+import {
+  PlayerAttribute,
+  TargetType,
+  CreatePlayerInput,
+  PlayerStatsInput,
+  AttackInput,
+} from '../inputs/player.input';
 
 describe('PlayerResolver', () => {
   const basePlayer = {
@@ -50,11 +56,24 @@ describe('PlayerResolver', () => {
       spendSkillPoint: jest
         .fn()
         .mockResolvedValue({ ...basePlayer, strength: 13 }),
-    } as any;
+    } as unknown as {
+      createPlayer: jest.Mock;
+      getPlayerByIdentifier: jest.Mock;
+      getAllPlayers: jest.Mock;
+      updatePlayerStats: jest.Mock;
+      rerollPlayerStats: jest.Mock;
+      healPlayer: jest.Mock;
+      damagePlayer: jest.Mock;
+      respawnPlayer: jest.Mock;
+      deletePlayer: jest.Mock;
+      getPlayersAtLocation: jest.Mock;
+      getPlayer: jest.Mock;
+      spendSkillPoint: jest.Mock;
+    };
 
     const monsterService = {
       getMonstersAtLocation: jest.fn().mockResolvedValue([{ id: 1 }]),
-    } as any;
+    } as unknown as { getMonstersAtLocation: jest.Mock };
 
     const combatService = {
       playerAttackMonster: jest
@@ -64,7 +83,11 @@ describe('PlayerResolver', () => {
         .fn()
         .mockResolvedValue({ result: 'player defeated' }),
       getCombatLogForLocation: jest.fn().mockResolvedValue([{ id: 'log' }]),
-    } as any;
+    } as unknown as {
+      playerAttackMonster: jest.Mock;
+      playerAttackPlayer: jest.Mock;
+      getCombatLogForLocation: jest.Mock;
+    };
 
     const worldService = {
       getTileInfo: jest.fn().mockResolvedValue({
@@ -76,7 +99,7 @@ describe('PlayerResolver', () => {
         temperature: 0.4,
         moisture: 0.6,
       }),
-    } as any;
+    } as unknown as { getTileInfo: jest.Mock };
 
     const resolver = new PlayerResolver(
       playerService,
@@ -103,7 +126,7 @@ describe('PlayerResolver', () => {
     const result = await resolver.createPlayer({
       slackId: 'U1',
       name: 'Hero',
-    } as any);
+    } as CreatePlayerInput);
     expect(result.success).toBe(true);
     expect(playerService.createPlayer).toHaveBeenCalled();
   });
@@ -125,13 +148,15 @@ describe('PlayerResolver', () => {
 
   it('updates and rerolls and heals players', async () => {
     const { resolver, playerService } = createResolver();
-    const stats = await resolver.updatePlayerStats('U1', { hp: 5 } as any);
+    const stats = await resolver.updatePlayerStats('U1', {
+      hp: 5,
+    } as PlayerStatsInput);
     expect(stats.success).toBe(true);
 
     playerService.updatePlayerStats.mockRejectedValueOnce(new Error('boom'));
     const statsFailure = await resolver.updatePlayerStats('U1', {
       hp: 5,
-    } as any);
+    } as PlayerStatsInput);
     expect(statsFailure.success).toBe(false);
 
     const reroll = await resolver.rerollPlayerStats('U1');
@@ -180,7 +205,7 @@ describe('PlayerResolver', () => {
     const vsMonster = await resolver.attack('U1', {
       targetType: TargetType.MONSTER,
       targetId: 10,
-    } as any);
+    } as AttackInput);
     expect(vsMonster.success).toBe(true);
     expect(combatService.playerAttackMonster).toHaveBeenCalledWith('U1', 10);
 
@@ -188,7 +213,7 @@ describe('PlayerResolver', () => {
       targetType: TargetType.PLAYER,
       targetSlackId: 'U2',
       ignoreLocation: true,
-    } as any);
+    } as AttackInput);
     expect(vsPlayerSlack.success).toBe(true);
     expect(combatService.playerAttackPlayer).toHaveBeenCalledWith(
       'U1',
@@ -199,28 +224,28 @@ describe('PlayerResolver', () => {
     const vsPlayerById = await resolver.attack('U1', {
       targetType: TargetType.PLAYER,
       targetId: 2,
-    } as any);
+    } as AttackInput);
     expect(vsPlayerById.success).toBe(true);
 
     await expect(
       resolver.attack('U1', {
         targetType: TargetType.PLAYER,
         targetId: undefined,
-      } as any),
+      } as AttackInput),
     ).resolves.toHaveProperty('success', false);
 
     playerService.getAllPlayers.mockResolvedValueOnce([basePlayer]);
     const missingTarget = await resolver.attack('U1', {
       targetType: TargetType.PLAYER,
       targetId: 999,
-    } as any);
+    } as AttackInput);
     expect(missingTarget.success).toBe(false);
 
     combatService.playerAttackMonster.mockRejectedValueOnce(new Error('ouch'));
     const failedAttack = await resolver.attack('U1', {
       targetType: TargetType.MONSTER,
       targetId: 1,
-    } as any);
+    } as AttackInput);
     expect(failedAttack.success).toBe(false);
   });
 
@@ -248,28 +273,28 @@ describe('PlayerResolver', () => {
     expect(stats.baseDamage).toContain('1d6');
     expect(playerService.getPlayerByIdentifier).toHaveBeenCalled();
 
-    const tile = await resolver.currentTile(basePlayer as any);
+    const tile = await resolver.currentTile(basePlayer as never);
     expect(tile?.biomeName).toBe('forest');
     worldService.getTileInfo.mockRejectedValueOnce(new Error('missing tile'));
-    const missingTile = await resolver.currentTile(basePlayer as any);
+    const missingTile = await resolver.currentTile(basePlayer as never);
     expect(missingTile).toBeNull();
 
-    const nearby = await resolver.nearbyPlayers(basePlayer as any);
+    const nearby = await resolver.nearbyPlayers(basePlayer as never);
     expect(Array.isArray(nearby)).toBe(true);
 
     playerService.getPlayersAtLocation.mockRejectedValueOnce(
       new Error('no players'),
     );
-    const fallback = await resolver.nearbyPlayers(basePlayer as any);
+    const fallback = await resolver.nearbyPlayers(basePlayer as never);
     expect(fallback).toEqual([]);
 
-    const monsters = await resolver.nearbyMonsters(basePlayer as any);
+    const monsters = await resolver.nearbyMonsters(basePlayer as never);
     expect(monsters.length).toBeGreaterThan(0);
 
     monsterService.getMonstersAtLocation.mockRejectedValueOnce(
       new Error('none'),
     );
-    const noMonsters = await resolver.nearbyMonsters(basePlayer as any);
+    const noMonsters = await resolver.nearbyMonsters(basePlayer as never);
     expect(noMonsters).toEqual([]);
   });
 });
