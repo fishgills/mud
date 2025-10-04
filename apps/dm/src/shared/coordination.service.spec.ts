@@ -57,7 +57,9 @@ const instantiateService = (overrides: EnvOverrides = {}) => {
       },
     }));
 
-    const { CoordinationService: ServiceClass } = await import('./coordination.service');
+    const { CoordinationService: ServiceClass } = await import(
+      './coordination.service'
+    );
     return ServiceClass;
   });
 

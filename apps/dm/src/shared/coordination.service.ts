@@ -71,7 +71,9 @@ export class CoordinationService implements OnModuleDestroy {
       });
       return res === 'OK' ? token : null;
     } catch (e: unknown) {
-      this.logger.warn(`Acquire lock failed for ${key}: ${(e as Error)?.message ?? e}`);
+      this.logger.warn(
+        `Acquire lock failed for ${key}: ${(e as Error)?.message ?? e}`,
+      );
       return null;
     }
   }
@@ -95,7 +97,9 @@ export class CoordinationService implements OnModuleDestroy {
       })) as number;
       return res > 0;
     } catch (e: unknown) {
-      this.logger.warn(`Release lock failed for ${key}: ${(e as Error)?.message ?? e}`);
+      this.logger.warn(
+        `Release lock failed for ${key}: ${(e as Error)?.message ?? e}`,
+      );
       return false;
     }
   }
@@ -105,7 +109,9 @@ export class CoordinationService implements OnModuleDestroy {
     try {
       await this.client.set(this.k(key), '1', { PX: ttlMs });
     } catch (e: unknown) {
-      this.logger.warn(`Set cooldown failed for ${key}: ${(e as Error)?.message ?? e}`);
+      this.logger.warn(
+        `Set cooldown failed for ${key}: ${(e as Error)?.message ?? e}`,
+      );
     }
   }
 
