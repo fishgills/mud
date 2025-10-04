@@ -10,6 +10,7 @@ import { GraphQLError } from 'graphql';
 import { WorldService } from '../world/world.service';
 import { isWaterBiome } from '../shared/biome.util';
 import { WORLD_CHUNK_SIZE } from '@mud/constants';
+import { normalizeSlackId } from '../shared/slack-id.util';
 
 @Injectable()
 export class PlayerService {
@@ -39,16 +40,19 @@ export class PlayerService {
   async createPlayer(createPlayerDto: CreatePlayerDto): Promise<Player> {
     const { slackId, name, x, y } = createPlayerDto;
 
+    // Normalize the Slack ID to handle both prefixed (slack:U123) and unprefixed (U123) formats
+    const normalizedSlackId = normalizeSlackId(slackId);
+
     // // Check if player already exists
     const existingPlayer = await this.prisma.player.findUnique({
-      where: { slackId },
+      where: { slackId: normalizedSlackId },
     });
 
     if (existingPlayer) {
       throw new GraphQLError(`Player already exists`, {
         extensions: {
           code: 'PLAYER_EXISTS',
-          slackId,
+          slackId: normalizedSlackId,
         },
       });
     }
@@ -61,7 +65,7 @@ export class PlayerService {
 
     return this.prisma.player.create({
       data: {
-        slackId,
+        slackId: normalizedSlackId,
         name,
         x: spawnPosition.x,
         y: spawnPosition.y,
@@ -82,18 +86,19 @@ export class PlayerService {
    * @returns
    */
   async getPlayer(slackId: string): Promise<Player> {
-    this.logger.log(`[DM-DB] Looking up player with slackId: ${slackId}`);
+    const normalizedSlackId = normalizeSlackId(slackId);
+    this.logger.log(`[DM-DB] Looking up player with slackId: ${normalizedSlackId}`);
     const player = await this.prisma.player.findUnique({
-      where: { slackId },
+      where: { slackId: normalizedSlackId },
     });
 
     if (!player) {
-      this.logger.warn(`[DM-DB] Player not found for slackId: ${slackId}`);
+      this.logger.warn(`[DM-DB] Player not found for slackId: ${normalizedSlackId}`);
       throw new NotFoundException(`Player not found`);
     }
 
     this.logger.log(
-      `[DM-DB] Found player for slackId: ${slackId}, player ID: ${player.id}, name: ${player.name}`,
+      `[DM-DB] Found player for slackId: ${normalizedSlackId}, player ID: ${player.id}, name: ${player.name}`,
     );
     return player;
   }
@@ -177,8 +182,9 @@ export class PlayerService {
    * @param slackId The Slack ID of the player
    */
   async updateLastAction(slackId: string): Promise<void> {
+    const normalizedSlackId = normalizeSlackId(slackId);
     await this.prisma.player.update({
-      where: { slackId },
+      where: { slackId: normalizedSlackId },
       data: { lastAction: new Date() },
     });
   }
@@ -253,7 +259,7 @@ export class PlayerService {
     }
 
     return this.prisma.player.update({
-      where: { slackId },
+      where: { slackId: player.slackId },
       data: {
         x: newX,
         y: newY,
@@ -326,7 +332,7 @@ export class PlayerService {
     }
 
     const result = await this.prisma.player.update({
-      where: { slackId },
+      where: { slackId: player.slackId },
       data,
     });
 
@@ -385,7 +391,7 @@ export class PlayerService {
     }
 
     const result = await this.prisma.player.update({
-      where: { slackId },
+      where: { slackId: player.slackId },
       data,
     });
 
@@ -421,7 +427,7 @@ export class PlayerService {
     }
 
     return this.prisma.player.update({
-      where: { slackId },
+      where: { slackId: currentPlayer.slackId },
       data: updateData,
     });
   }
@@ -431,7 +437,7 @@ export class PlayerService {
     const newHp = Math.min(player.hp + amount, player.maxHp);
 
     return this.prisma.player.update({
-      where: { slackId },
+      where: { slackId: player.slackId },
       data: { hp: newHp },
     });
   }
@@ -442,7 +448,7 @@ export class PlayerService {
     const isAlive = newHp > 0;
 
     return this.prisma.player.update({
-      where: { slackId },
+      where: { slackId: player.slackId },
       data: {
         hp: newHp,
         isAlive,
@@ -454,10 +460,10 @@ export class PlayerService {
     const player = await this.getPlayer(slackId);
 
     // Find a respawn position near other players
-    const respawnPosition = await this.findRespawnPositionNearPlayers(slackId);
+    const respawnPosition = await this.findRespawnPositionNearPlayers(player.slackId);
 
     return this.prisma.player.update({
-      where: { slackId },
+      where: { slackId: player.slackId },
       data: {
         hp: player.maxHp,
         isAlive: true,
@@ -469,11 +475,11 @@ export class PlayerService {
 
   async deletePlayer(slackId: string): Promise<Player> {
     // First check if player exists (will throw NotFoundException if not found)
-    await this.getPlayer(slackId);
+    const player = await this.getPlayer(slackId);
 
     // Delete the player from the database
     return this.prisma.player.delete({
-      where: { slackId },
+      where: { slackId: player.slackId },
     });
   }
 
@@ -482,12 +488,15 @@ export class PlayerService {
     y: number,
     excludeSlackId?: string,
   ): Promise<Player[]> {
+    const normalizedExcludeSlackId = excludeSlackId
+      ? normalizeSlackId(excludeSlackId)
+      : undefined;
     return this.prisma.player.findMany({
       where: {
         x,
         y,
         isAlive: true,
-        ...(excludeSlackId ? { slackId: { not: excludeSlackId } } : {}),
+        ...(normalizedExcludeSlackId ? { slackId: { not: normalizedExcludeSlackId } } : {}),
       },
     });
   }
@@ -510,6 +519,9 @@ export class PlayerService {
   ): Promise<
     Array<{ distance: number; direction: string; x: number; y: number }>
   > {
+    const normalizedExcludeSlackId = excludeSlackId
+      ? normalizeSlackId(excludeSlackId)
+      : undefined;
     // Get all players (or within bounding box if radius is finite)
     const whereClause: {
       isAlive: boolean;
@@ -518,7 +530,7 @@ export class PlayerService {
       y?: { gte: number; lte: number };
     } = {
       isAlive: true,
-      ...(excludeSlackId && { slackId: { not: excludeSlackId } }),
+      ...(normalizedExcludeSlackId && { slackId: { not: normalizedExcludeSlackId } }),
     };
 
     // Only add spatial constraints if radius is finite

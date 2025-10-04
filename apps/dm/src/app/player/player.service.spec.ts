@@ -145,6 +145,42 @@ describe('PlayerService', () => {
     ).rejects.toThrow(GraphQLError);
   });
 
+  it('normalizes slack IDs with slack: prefix during creation', async () => {
+    const service = new PlayerService(worldService);
+    // Create player with prefixed ID
+    const created = await service.createPlayer({
+      slackId: 'slack:U2',
+      name: 'PrefixHero',
+      x: 0,
+      y: 0,
+    } as any);
+    // Should be stored without prefix
+    expect(created.slackId).toBe('U2');
+
+    // Try to create again with unprefixed ID - should fail
+    await expect(
+      service.createPlayer({ slackId: 'U2', name: 'PrefixHero', x: 0, y: 0 } as any),
+    ).rejects.toThrow(GraphQLError);
+
+    // Try to create again with prefixed ID - should also fail
+    await expect(
+      service.createPlayer({ slackId: 'slack:U2', name: 'PrefixHero', x: 0, y: 0 } as any),
+    ).rejects.toThrow(GraphQLError);
+  });
+
+  it('normalizes slack IDs with slack: prefix during lookup', async () => {
+    const service = new PlayerService(worldService);
+    // EXIST player already exists in mock with ID 'EXIST'
+    
+    // Should find player with unprefixed ID
+    const player1 = await service.getPlayer('EXIST');
+    expect(player1.name).toBe('Existing');
+
+    // Should also find player with prefixed ID
+    const player2 = await service.getPlayer('slack:EXIST');
+    expect(player2.name).toBe('Existing');
+  });
+
   it('gets players by slack and name with error handling', async () => {
     const service = new PlayerService(worldService);
     const player = await service.getPlayer('EXIST');
