@@ -5,6 +5,7 @@ import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
+import { toClientId } from '../utils/clientId';
 
 const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
 
@@ -129,7 +130,7 @@ export const attackHandler = async ({
         return;
       }
       const attackResult = await dmSdk.Attack({
-        slackId: userId,
+        slackId: toClientId(userId),
         input: {
           targetType: TargetType.Player,
           targetSlackId,
@@ -177,7 +178,9 @@ export const attackHandler = async ({
     }
 
     // Get player info to find nearby monsters
-    const playerResult = await dmSdk.GetPlayer({ slackId: userId });
+    const playerResult = await dmSdk.GetPlayer({
+      slackId: toClientId(userId),
+    });
     const player = playerResult.getPlayer.data;
     if (!player || !player.nearbyMonsters?.length) {
       await say({ text: 'No monsters nearby to attack!' });

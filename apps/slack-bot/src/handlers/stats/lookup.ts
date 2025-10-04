@@ -5,6 +5,7 @@ import {
   GetPlayerQuery,
   GetPlayerQueryVariables,
 } from '../../generated/dm-graphql';
+import { toClientId } from '../../utils/clientId';
 
 interface PlayerLookupResult {
   player?: NonNullable<GetPlayerQuery['getPlayer']['data']>;
@@ -36,7 +37,10 @@ export async function fetchPlayerWithLocation(
   userId: string,
   selfMessage: string,
 ): Promise<PlayerWithLocationResult> {
-  const self = await fetchPlayerRecord({ slackId: userId }, selfMessage);
+  const self = await fetchPlayerRecord(
+    { slackId: toClientId(userId) },
+    selfMessage,
+  );
   if (!self.player) {
     return { error: self.message ?? selfMessage };
   }

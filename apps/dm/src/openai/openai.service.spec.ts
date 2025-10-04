@@ -34,17 +34,23 @@ describe('OpenaiService', () => {
     const service = new OpenaiService();
 
     expect(OpenAIApiMock).toHaveBeenCalledWith({ apiKey: 'secret' });
-    expect((service as any).isConfigured()).toBe(true);
+    expect(
+      (service as unknown as { isConfigured: () => boolean }).isConfigured(),
+    ).toBe(true);
   });
 
   it('reports when the API key is missing', () => {
     delete process.env.OPENAI_API_KEY;
     const service = new OpenaiService();
 
-    expect((service as any).isConfigured()).toBe(false);
-    expect((service as any).configurationWarning()).toBe(
-      'OpenAI API key not configured, returning mock response',
-    );
+    expect(
+      (service as unknown as { isConfigured: () => boolean }).isConfigured(),
+    ).toBe(false);
+    expect(
+      (
+        service as unknown as { configurationWarning: () => string | undefined }
+      ).configurationWarning(),
+    ).toBe('OpenAI API key not configured, returning mock response');
   });
 
   it('invokes the responses endpoint with provided options', async () => {
@@ -53,7 +59,15 @@ describe('OpenaiService', () => {
     const service = new OpenaiService();
 
     await expect(
-      (service as any).invokeModel('prompt', 'system', { maxTokens: 200 }),
+      (
+        service as unknown as {
+          invokeModel: (
+            prompt: string,
+            system: string,
+            options?: { maxTokens?: number },
+          ) => Promise<string>;
+        }
+      ).invokeModel('prompt', 'system', { maxTokens: 200 }),
     ).resolves.toBe('story');
 
     expect(responsesMock.create).toHaveBeenCalledWith({
@@ -70,7 +84,15 @@ describe('OpenaiService', () => {
     const service = new OpenaiService();
 
     await expect(
-      (service as any).invokeModel('prompt', 'system'),
+      (
+        service as unknown as {
+          invokeModel: (
+            prompt: string,
+            system: string,
+            options?: { maxTokens?: number },
+          ) => Promise<string>;
+        }
+      ).invokeModel('prompt', 'system'),
     ).resolves.toBe('No description generated.');
 
     expect(responsesMock.create).toHaveBeenCalledWith({

@@ -3,6 +3,7 @@ import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS } from '../commands';
+import { toClientId } from '../utils/clientId';
 
 export const lookHandlerHelp = `Look around with enhanced vision based on terrain height. Returns a panoramic description, visible peaks, nearby settlements, and biome summary. Example: Send 'look' or 'l'.`;
 
@@ -22,7 +23,7 @@ type Perf = {
 
 export const lookHandler = async ({ userId, say }: HandlerContext) => {
   try {
-    const res = await dmSdk.GetLookView({ slackId: userId });
+    const res = await dmSdk.GetLookView({ slackId: toClientId(userId) });
     if (!res.getLookView.success || !res.getLookView.data) {
       await say({
         text: `Failed to look: ${res.getLookView.message ?? 'unknown error'}`,

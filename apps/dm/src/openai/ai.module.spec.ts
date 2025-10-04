@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { AiModule } from './ai.module';
 import { OpenaiModule } from './openai.module';
 
-const getMetadata = (target: any) =>
+const getMetadata = (target: object) =>
   Reflect.getMetadata('providers', target) || [];
 
 describe('AI modules', () => {

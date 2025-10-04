@@ -187,6 +187,9 @@ export class CombatPlayerMessage {
 
   @Field()
   message!: string;
+
+  @Field()
+  role!: string; // 'attacker' | 'defender' | 'observer'
 }
 
 @ObjectType()

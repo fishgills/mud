@@ -3,13 +3,16 @@ import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS } from '../commands';
+import { toClientId } from '../utils/clientId';
 
 export const deleteHandlerHelp = `Delete your character during creation with "delete". Example: Send "delete" to delete your character if it's still in creation phase (before completion).`;
 
 export const deleteHandler = async ({ userId, say }: HandlerContext) => {
   try {
     // First, get the current player to check if they're in creation phase
-    const playerResult = await dmSdk.GetPlayer({ slackId: userId });
+    const playerResult = await dmSdk.GetPlayer({
+      slackId: toClientId(userId),
+    });
 
     if (!playerResult.getPlayer.success || !playerResult.getPlayer.data) {
       await say({
@@ -34,7 +37,9 @@ export const deleteHandler = async ({ userId, say }: HandlerContext) => {
     }
 
     // Delete the character using the proper GraphQL mutation
-    const deleteResult = await dmSdk.DeletePlayer({ slackId: userId });
+    const deleteResult = await dmSdk.DeletePlayer({
+      slackId: toClientId(userId),
+    });
 
     if (deleteResult.deletePlayer.success) {
       await say({

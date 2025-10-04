@@ -6,10 +6,7 @@ const DM_GRAPHQL_URL =
   process.env.DM_GRAPHQL_URL || 'http://localhost:3000/graphql';
 
 // Tick interval in milliseconds (default: 30 minutes)
-const TICK_INTERVAL_MS = parseInt(
-  process.env.TICK_INTERVAL_MS || '1800000',
-  10,
-);
+const TICK_INTERVAL_MS = parseInt(process.env.TICK_INTERVAL_MS || '60000', 10);
 
 // How many minutes to check for player activity (default: 30 minutes)
 const ACTIVITY_THRESHOLD_MINUTES = parseInt(

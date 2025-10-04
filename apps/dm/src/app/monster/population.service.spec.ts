@@ -10,7 +10,10 @@ describe('PopulationService', () => {
     const monsterService = {
       getMonstersInBounds: jest.fn().mockResolvedValue([]),
       spawnMonstersInArea: jest.fn().mockResolvedValue([{ id: 1 }]),
-    } as any;
+    } as unknown as {
+      getMonstersInBounds: jest.Mock;
+      spawnMonstersInArea: jest.Mock;
+    };
     const worldService = {
       getTilesInBounds: jest.fn().mockResolvedValue(
         Array.from({ length: 20 }, (_, i) => ({
@@ -19,7 +22,7 @@ describe('PopulationService', () => {
           biomeName: i % 2 === 0 ? 'forest' : 'plains',
         })),
       ),
-    } as any;
+    } as unknown as { getTilesInBounds: jest.Mock };
 
     const service = new PopulationService(monsterService, worldService);
     return { service, monsterService, worldService };

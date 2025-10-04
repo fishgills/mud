@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { calculateDirection } from '../../shared/direction.util';
 import type { Player, VisiblePeak, TimingMetrics } from './look-view-types';
+import type { WorldTile } from '../../../generated/world-graphql';
 
 @Injectable()
 export class PeakService {
@@ -10,7 +11,7 @@ export class PeakService {
   processVisiblePeaks(
     player: Player,
     visibilityRadius: number,
-    extTiles: any[],
+    extTiles: WorldTile[],
     timing: TimingMetrics,
   ): VisiblePeak[] {
     const minPeakDistance = Math.max(3, Math.floor(visibilityRadius / 2));

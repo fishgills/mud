@@ -3,12 +3,13 @@ import { COMMANDS } from '../commands';
 import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { getUserFriendlyErrorMessage } from './errorUtils';
+import { toClientId } from '../utils/clientId';
 
 export const completeHandlerHelp = `Complete your character creation with "complete". Example: Send "complete" when you are done creating your character.`;
 
 export const completeHandler = async ({ userId, say }: HandlerContext) => {
   try {
-    const result = await dmSdk.CompletePlayer({ slackId: userId });
+    const result = await dmSdk.CompletePlayer({ slackId: toClientId(userId) });
     if (result.updatePlayerStats.success) {
       await say({
         text: `✅ Character creation complete! You can now move and attack.`,

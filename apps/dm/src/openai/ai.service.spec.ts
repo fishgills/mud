@@ -1,11 +1,16 @@
 import { AiService } from './ai.service';
 import type { AiTextOptions } from './base-ai.service';
+import type { OpenaiService } from './openai.service';
+import type { VertexAiService } from './vertex.service';
 
 describe('AiService', () => {
   const createMocks = () => {
     const openai = { getText: jest.fn() };
     const vertex = { getText: jest.fn() };
-    const service = new AiService(openai as any, vertex as any);
+    const service = new AiService(
+      openai as unknown as OpenaiService,
+      vertex as unknown as VertexAiService,
+    );
     return { service, openai, vertex };
   };
 

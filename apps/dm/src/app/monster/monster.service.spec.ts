@@ -1,6 +1,6 @@
 import { MonsterService } from './monster.service';
 
-const monsters: any[] = [];
+const monsters: Record<string, unknown>[] = [];
 
 jest.mock('@mud/database', () => ({
   getPrismaClient: () => ({
@@ -14,7 +14,7 @@ jest.mock('@mud/database', () => ({
         monsters.push(monster);
         return monster;
       }),
-      findMany: jest.fn(async (args: any = {}) => {
+      findMany: jest.fn(async (args: Record<string, unknown> = {}) => {
         let result = monsters.filter((m) => m.isAlive !== false);
         const where = args.where ?? {};
         if (where.x?.gte !== undefined) {
@@ -80,7 +80,7 @@ describe('MonsterService', () => {
       currentSettlement: null,
       nearbySettlements: [],
     }),
-  } as any;
+  } as unknown as Parameters<typeof MonsterService.prototype.constructor>[0];
 
   beforeEach(() => {
     monsters.length = 0;

@@ -2,14 +2,20 @@
   "name": "@mud/redis-client",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "main": "./dist/redis-client.js",
   "module": "./dist/redis-client.js",
   "types": "./dist/redis-client.d.ts",
   "exports": {
-    ".": "./src/redis-client.ts",
-    "./redis-client*": "./src/redis-client.ts"
+    ".": {
+      "types": "./dist/redis-client.d.ts",
+      "import": "./dist/redis-client.js",
+      "default": "./dist/redis-client.js"
+    }
   },
   "dependencies": {
+    "@mud/engine": "*",
+    "redis": "^4.7.0",
     "tslib": "^2.3.0"
   },
   "scripts": {
