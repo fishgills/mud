@@ -16,4 +16,8 @@ export default [
       '@typescript-eslint/no-unsafe-member-access': 'off',
     },
   },
+  {
+    // Exclude scripts directory (backfill scripts, utilities, etc.)
+    ignores: ['scripts/**/*'],
+  },
 ];
