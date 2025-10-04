@@ -34,7 +34,7 @@ jest.mock('@mud/database', () => ({
           }
         }
         if (where.isAlive !== undefined) {
-          result = monsters.filter((m) => m.isAlive === where.isAlive);
+          result = result.filter((m) => m.isAlive === where.isAlive);
         }
         if (args.include?.biome) {
           return result.map((m) => ({ ...m, biome: { name: 'forest' } }));
