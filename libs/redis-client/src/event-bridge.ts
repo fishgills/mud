@@ -136,7 +136,7 @@ export class RedisEventBridge {
         event: notification.event,
         recipients,
         timestamp: new Date().toISOString(),
-      });
+      } satisfies Record<string, unknown>);
 
       await this.publisherClient.publish(channel, message);
 
@@ -172,8 +172,8 @@ export class RedisEventBridge {
         try {
           const event = JSON.parse(message) as GameEvent;
           await callback(channel, event);
-        } catch (error) {
-          console.error(`Error processing event from ${channel}:`, error);
+        } catch (err: unknown) {
+          console.error(`Error processing event from ${channel}:`, err);
         }
       },
     );
@@ -207,8 +207,8 @@ export class RedisEventBridge {
       try {
         const notification = JSON.parse(message) as NotificationMessage;
         await callback(notification);
-      } catch (error) {
-        console.error(`Error processing notification from ${channel}:`, error);
+      } catch (err: unknown) {
+        console.error(`Error processing notification from ${channel}:`, err);
       }
     });
 

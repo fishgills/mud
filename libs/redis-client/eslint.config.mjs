@@ -1,8 +1,18 @@
 import baseConfig from '../../eslint.config.mjs';
+import tseslint from 'typescript-eslint';
 
-export default [
+export default tseslint.config(
   ...baseConfig,
   {
-    ignores: ['**/out-tsc'],
+    files: ['src/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: './tsconfig.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
   },
-];
+  {
+    ignores: ['**/out-tsc', '**/*.spec.ts'],
+  },
+);
