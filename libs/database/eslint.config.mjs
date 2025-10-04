@@ -1,5 +1,9 @@
 import baseConfig from '../../eslint.config.mjs';
 
+/**
+ * ESLint configuration for the database library
+ *
+ */
 export default [
   ...baseConfig,
   {
