@@ -13,7 +13,10 @@ resource "google_cloud_run_v2_service" "services" {
 
     vpc_access {
       connector = google_vpc_access_connector.connector.id
-      egress    = "ALL_TRAFFIC"
+      # Only route RFC1918/private ranges through the connector so external
+      # destinations like Datadog continue to use Cloud Run's public egress
+      # (avoids needing Cloud NAT while keeping database traffic private).
+      egress = "PRIVATE_RANGES_ONLY"
     }
 
     containers {
@@ -134,6 +137,7 @@ resource "google_cloud_run_v2_service" "services" {
         }
       }
 
+      # Pass-through any explicitly provided Slack Bot endpoint env vars
       dynamic "env" {
         for_each = contains(["slack-bot"], each.key) ? {
           for k, v in each.value.env_vars : k => v if contains(["DM_GQL_ENDPOINT", "WORLD_GQL_ENDPOINT", "WORLD_BASE_URL"], k)
@@ -144,22 +148,43 @@ resource "google_cloud_run_v2_service" "services" {
         }
       }
 
-      # Auto-inject WORLD_SERVICE_URL for DM if not provided, pointing to the World service base path (/world)
+      # Default Slack Bot endpoint env vars derived from preferred URLs (domain for external, run.app for internal)
       dynamic "env" {
-        for_each = contains(["dm"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_SERVICE_URL") ? {
-          WORLD_SERVICE_URL = "https://mud-world-${data.google_project.project.number}.${var.region}.run.app"
-        } : {}
+        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "DM_GQL_ENDPOINT") && contains(keys(local.service_preferred_url), "dm") ? { DM_GQL_ENDPOINT = "${local.service_preferred_url["dm"]}/graphql" } : {}
         content {
           name  = env.key
           value = env.value
         }
       }
 
-      # Auto-inject DM_GRAPHQL_URL for tick service
       dynamic "env" {
-        for_each = contains(["tick"], each.key) && !contains(keys(try(each.value.env_vars, {})), "DM_GRAPHQL_URL") ? {
-          DM_GRAPHQL_URL = "https://mud-dm-${data.google_project.project.number}.${var.region}.run.app/graphql"
-        } : {}
+        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_GQL_ENDPOINT") && contains(keys(local.service_preferred_url), "world") ? { WORLD_GQL_ENDPOINT = "${local.service_preferred_url["world"]}/graphql" } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_BASE_URL") && contains(keys(local.service_preferred_url), "world") ? { WORLD_BASE_URL = "${local.service_preferred_url["world"]}/world" } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      # Auto-inject WORLD_SERVICE_URL for DM if not provided, pointing to the World service base URL
+      dynamic "env" {
+        for_each = contains(["dm"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_SERVICE_URL") && contains(keys(local.service_preferred_url), "world") ? { WORLD_SERVICE_URL = local.service_preferred_url["world"] } : {}
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      # Auto-inject DM_GRAPHQL_URL for tick service (defaults to DM service /graphql)
+      dynamic "env" {
+        for_each = contains(["tick"], each.key) && !contains(keys(try(each.value.env_vars, {})), "DM_GRAPHQL_URL") && contains(keys(local.service_preferred_url), "dm") ? { DM_GRAPHQL_URL = "${local.service_preferred_url["dm"]}/graphql" } : {}
         content {
           name  = env.key
           value = env.value
