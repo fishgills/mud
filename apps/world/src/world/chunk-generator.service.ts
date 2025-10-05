@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ChunkData, TileData } from './types';
+import { ChunkData, TileData, BiomeInfo } from './types';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
 import { WorldUtilsService } from './world-utils.service';
 import { Settlement } from '@mud/database';
@@ -11,6 +11,15 @@ import { buildGridConfigs, deriveTemperature } from '../gridmap/utils';
 @Injectable()
 export class ChunkGeneratorService {
   constructor(private worldUtils: WorldUtilsService) {}
+
+  private initializeStats(): GenerationStats {
+    return {
+      biomes: {},
+      totalHeight: 0,
+      totalTemperature: 0,
+      totalMoisture: 0,
+    };
+  }
 
   private computeId(x: number, y: number): number {
     // Deterministic 31-bit positive int based on coordinates
@@ -142,23 +151,17 @@ export class ChunkGeneratorService {
     };
   }
 
-  private initializeStats() {
-    return {
-      biomes: {} as Record<string, number>,
-      totalHeight: 0,
-      totalTemperature: 0,
-      totalMoisture: 0,
-    };
-  }
-
-  private updateStats(stats: any, tile: TileData): void {
+  private updateStats(stats: GenerationStats, tile: TileData): void {
     stats.biomes[tile.biome.name] = (stats.biomes[tile.biome.name] || 0) + 1;
     stats.totalHeight += tile.height;
     stats.totalTemperature += tile.temperature;
     stats.totalMoisture += tile.moisture;
   }
 
-  private finalizeStats(stats: any, totalTiles: number) {
+  private finalizeStats(
+    stats: GenerationStats,
+    totalTiles: number,
+  ): ChunkData['stats'] {
     return {
       biomes: stats.biomes,
       averageHeight: stats.totalHeight / totalTiles,
@@ -170,7 +173,7 @@ export class ChunkGeneratorService {
   private tryGenerateSettlement(
     x: number,
     y: number,
-    biome: any,
+    biome: BiomeInfo,
     settlementGenerator: SettlementGenerator,
     settlements: Settlement[],
   ): void {
@@ -192,3 +195,10 @@ export class ChunkGeneratorService {
     }
   }
 }
+
+type GenerationStats = {
+  biomes: Record<string, number>;
+  totalHeight: number;
+  totalTemperature: number;
+  totalMoisture: number;
+};

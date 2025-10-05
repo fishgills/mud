@@ -1,27 +1,47 @@
 import { WorldDatabaseService } from './world-database.service';
 import { BIOMES } from '../constants';
+import { PrismaService } from '../prisma/prisma.service';
+
+type PrismaServiceMock = {
+  biome: {
+    upsert: jest.Mock<Promise<unknown>, [unknown]>;
+    findUnique: jest.Mock<Promise<unknown>, [unknown]>;
+  };
+  worldSeed: {
+    findFirst: jest.Mock<Promise<unknown>, [unknown]>;
+    create: jest.Mock<Promise<unknown>, [unknown]>;
+  };
+  settlement: {
+    createMany: jest.Mock<Promise<unknown>, [unknown]>;
+    findMany: jest.Mock<Promise<unknown[]>, [unknown]>;
+  };
+};
+
+type SaveSettlementsInput = Parameters<
+  WorldDatabaseService['saveChunkSettlements']
+>[0];
 
 describe('WorldDatabaseService', () => {
   let service: WorldDatabaseService;
-  let prismaService: any;
+  let prismaService: PrismaServiceMock;
 
   beforeEach(() => {
     prismaService = {
       biome: {
-        upsert: jest.fn(),
-        findUnique: jest.fn(),
+        upsert: jest.fn<Promise<unknown>, [unknown]>(),
+        findUnique: jest.fn<Promise<unknown>, [unknown]>(),
       },
       worldSeed: {
-        findFirst: jest.fn(),
-        create: jest.fn(),
+        findFirst: jest.fn<Promise<unknown>, [unknown]>(),
+        create: jest.fn<Promise<unknown>, [unknown]>(),
       },
       settlement: {
-        createMany: jest.fn(),
-        findMany: jest.fn(),
+        createMany: jest.fn<Promise<unknown>, [unknown]>(),
+        findMany: jest.fn<Promise<unknown[]>, [unknown]>(),
       },
     };
 
-    service = new WorldDatabaseService(prismaService);
+    service = new WorldDatabaseService(prismaService as unknown as PrismaService);
   });
 
   describe('initializeBiomes', () => {
@@ -144,13 +164,15 @@ describe('WorldDatabaseService', () => {
     });
 
     it('should handle null settlements', async () => {
-      await service.saveChunkSettlements(null as any);
+      await service.saveChunkSettlements(null as unknown as SaveSettlementsInput);
 
       expect(prismaService.settlement.createMany).not.toHaveBeenCalled();
     });
 
     it('should handle undefined settlements', async () => {
-      await service.saveChunkSettlements(undefined as any);
+      await service.saveChunkSettlements(
+        undefined as unknown as SaveSettlementsInput,
+      );
 
       expect(prismaService.settlement.createMany).not.toHaveBeenCalled();
     });
