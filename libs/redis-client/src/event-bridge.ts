@@ -26,6 +26,9 @@ export interface NotificationRecipient {
   message: string;
   role?: 'attacker' | 'defender' | 'observer';
   priority?: 'high' | 'normal' | 'low';
+  // Optional Block Kit payload for richer clients (e.g., Slack)
+  // Typed loosely to avoid coupling this package to Slack types
+  blocks?: Array<Record<string, unknown>>;
 }
 
 /**
@@ -227,6 +230,7 @@ export class RedisEventBridge {
       name: string;
       message: string;
       role: 'attacker' | 'defender' | 'observer';
+      blocks?: Array<Record<string, unknown>>;
     }>,
   ): Promise<void> {
     const recipients: NotificationRecipient[] = messages.map((msg) => ({
@@ -235,6 +239,7 @@ export class RedisEventBridge {
       message: msg.message,
       role: msg.role,
       priority: msg.role === 'observer' ? 'normal' : 'high',
+      blocks: msg.blocks,
     }));
 
     await this.publishNotification({

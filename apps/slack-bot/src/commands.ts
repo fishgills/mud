@@ -61,3 +61,9 @@ export const STAT_ACTIONS = {
   INCREASE_AGILITY: 'stats_action_increase_agility',
   INCREASE_HEALTH: 'stats_action_increase_health',
 } as const;
+
+// Combat message interactions
+export const COMBAT_ACTIONS = {
+  SHOW_LOG: 'combat_action_show_log',
+  HIDE_LOG: 'combat_action_hide_log',
+} as const;

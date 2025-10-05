@@ -21,6 +21,8 @@ export interface CombatMessage {
   name: string;
   message: string;
   role: 'attacker' | 'defender' | 'observer';
+  // Optional rich message payload for Slack (Block Kit-like structure)
+  blocks?: Array<Record<string, unknown>>;
 }
 
 export interface Combatant {
@@ -302,6 +304,65 @@ export class CombatService {
       `Using fallback combat narrative: ${JSON.stringify(fallback)}`,
     );
     return this.formatCombatNarrative(fallback);
+  }
+
+  // Generate a short, entertaining summary (2-3 sentences)
+  private async generateEntertainingSummary(
+    combatLog: DetailedCombatLog,
+    options: NarrativeOptions = {},
+  ): Promise<string> {
+    const instructions = options.secondPersonName
+      ? `Write in second person addressing "${options.secondPersonName}" as "you"; refer to others by name.`
+      : 'Use concise third-person narration.';
+
+    const prompt = [
+      'Create a punchy, fun 2–3 sentence summary of a fantasy combat.',
+      'Avoid numbers, dice jargon, or Slack markdown. Keep it vivid and readable.',
+      instructions,
+      'Combat data:',
+      JSON.stringify(
+        {
+          participants: [combatLog.participant1, combatLog.participant2],
+          winner: combatLog.winner,
+          loser: combatLog.loser,
+          roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
+          firstAttacker: combatLog.firstAttacker,
+          location: combatLog.location,
+        },
+        null,
+        2,
+      ),
+    ].join('\n');
+
+    try {
+      const ai = await this.aiService.getText(prompt, { timeoutMs: 2000 });
+      const text = (ai?.output_text || '').trim();
+      if (text) return text;
+    } catch {
+      // fallthrough
+    }
+    // Fallback: basic deterministic line
+    return `${combatLog.winner} defeats ${combatLog.loser} in a hard-fought battle.`;
+  }
+
+  private buildSummaryBlocks(summary: string): Array<Record<string, unknown>> {
+    return [
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: summary },
+      },
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            action_id: 'combat_action_show_log',
+            text: { type: 'plain_text', text: 'View full combat log' },
+            style: 'primary',
+          },
+        ],
+      },
+    ];
   }
 
   // Convert Player/Monster to Combatant interface
@@ -670,11 +731,16 @@ export class CombatService {
       const attackerMessage = await this.generateCombatNarrative(combatLog, {
         secondPersonName: attacker.name,
       });
+      const attackerSummary = await this.generateEntertainingSummary(
+        combatLog,
+        { secondPersonName: attacker.name },
+      );
       messages.push({
         slackId: attacker.slackId,
         name: attacker.name,
         message: attackerMessage,
         role: 'attacker',
+        blocks: this.buildSummaryBlocks(attackerSummary),
       });
     }
 
@@ -687,11 +753,16 @@ export class CombatService {
       const defenderMessage = await this.generateCombatNarrative(combatLog, {
         secondPersonName: defender.name,
       });
+      const defenderSummary = await this.generateEntertainingSummary(
+        combatLog,
+        { secondPersonName: defender.name },
+      );
       messages.push({
         slackId: defender.slackId,
         name: defender.name,
         message: defenderMessage,
         role: 'defender',
+        blocks: this.buildSummaryBlocks(defenderSummary),
       });
     }
 
@@ -702,6 +773,10 @@ export class CombatService {
 
     // Generate third-person narrative for observers
     const observerMessage = await this.generateCombatNarrative(combatLog, {});
+    const observerSummary = await this.generateEntertainingSummary(
+      combatLog,
+      {},
+    );
 
     for (const observer of observers) {
       // Skip if observer is the defender (already has personalized message)
@@ -717,6 +792,9 @@ export class CombatService {
           name: observer.name,
           message: `📣 Combat nearby: ${observerMessage}`,
           role: 'observer',
+          blocks: this.buildSummaryBlocks(
+            `📣 Combat nearby: ${observerSummary}`,
+          ),
         });
       }
     }

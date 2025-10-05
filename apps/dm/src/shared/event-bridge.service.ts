@@ -56,6 +56,7 @@ export class EventBridgeService implements OnModuleInit, OnModuleDestroy {
       name: string;
       message: string;
       role: 'attacker' | 'defender' | 'observer';
+      blocks?: Array<Record<string, unknown>>;
     }>,
   ): Promise<void> {
     await this.bridge.publishCombatNotifications(event, messages);

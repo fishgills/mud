@@ -78,23 +78,36 @@ export class NotificationService {
           continue;
         }
 
-        // Send the message
-        await this.app.client.chat.postMessage({
-          channel: channelId,
-          text: recipient.message,
-          // Add priority indicator for high-priority messages
-          ...(recipient.priority === 'high' && {
-            blocks: [
-              {
-                type: 'section',
-                text: {
-                  type: 'mrkdwn',
-                  text: `⚔️ *${notification.type.toUpperCase()}*\n\n${recipient.message}`,
+        // Send the message. Prefer provided blocks (rich content) if available.
+        const hasBlocks =
+          Array.isArray(recipient.blocks) && recipient.blocks.length > 0;
+        if (hasBlocks) {
+          await this.app.client.chat.postMessage({
+            channel: channelId,
+            text: recipient.message, // keep full text as fallback and for action handlers
+            blocks: (recipient.blocks || []) as unknown as (
+              | import('@slack/types').KnownBlock
+              | import('@slack/types').Block
+            )[],
+          });
+        } else {
+          // Add a minimal block wrapper for high-priority messages when no blocks provided
+          await this.app.client.chat.postMessage({
+            channel: channelId,
+            text: recipient.message,
+            ...(recipient.priority === 'high' && {
+              blocks: [
+                {
+                  type: 'section',
+                  text: {
+                    type: 'mrkdwn',
+                    text: `⚔️ *${notification.type.toUpperCase()}*\n\n${recipient.message}`,
+                  },
                 },
-              },
-            ],
-          }),
-        });
+              ],
+            }),
+          });
+        }
 
         console.log(
           `✅ Sent ${notification.type} notification to ${slackUserId} (${recipient.role || 'participant'})`,

@@ -122,12 +122,7 @@ export function buildCombatSummary(
 
 export const attackHandlerHelp = `Attack the nearest monster using "attack". Or attack a player in this workspace from anywhere: "attack @username" or "attack username".`;
 
-export const attackHandler = async ({
-  userId,
-  say,
-  text,
-  client,
-}: HandlerContext) => {
+export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
   // For demo: attack the first nearby monster (could be improved with more context)
   try {
     // Try to parse a player target by username/mention

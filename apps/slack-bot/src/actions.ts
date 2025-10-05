@@ -1,5 +1,12 @@
 import type { App, BlockAction, ViewSubmitAction } from '@slack/bolt';
-import type { Block, KnownBlock } from '@slack/types';
+import type {
+  Block,
+  KnownBlock,
+  SectionBlock,
+  DividerBlock,
+  ActionsBlock,
+  Button,
+} from '@slack/types';
 import type { WebClient } from '@slack/web-api';
 import {
   COMMANDS,
@@ -7,6 +14,7 @@ import {
   MOVE_ACTIONS,
   ATTACK_ACTIONS,
   STAT_ACTIONS,
+  COMBAT_ACTIONS,
 } from './commands';
 import { dmSdk } from './gql-client';
 import { PlayerAttribute, TargetType } from './generated/dm-graphql';
@@ -406,4 +414,131 @@ export function registerActions(app: App) {
       },
     );
   }
+
+  // Toggle full combat log visibility in DM notifications
+  app.action<BlockAction>(
+    COMBAT_ACTIONS.SHOW_LOG,
+    async ({ ack, body, client }) => {
+      await ack();
+
+      const channelId =
+        body.channel?.id ||
+        (typeof body.container?.channel_id === 'string'
+          ? body.container.channel_id
+          : undefined);
+      const messageTs =
+        (typeof body.message?.ts === 'string' ? body.message.ts : undefined) ||
+        (typeof body.container?.message_ts === 'string'
+          ? body.container.message_ts
+          : undefined);
+
+      if (!channelId || !messageTs) return;
+
+      // The full narrative including the log is stored in message.text
+      const fullText =
+        typeof body.message?.text === 'string' ? body.message.text : '';
+
+      // Try to extract only the Combat Log portion if present
+      const logText = (() => {
+        const idx = fullText.indexOf('**Combat Log:**');
+        if (idx >= 0) {
+          return fullText.slice(idx);
+        }
+        return fullText;
+      })();
+
+      // Build new blocks: keep the summary section, add the full log, and swap button to Hide
+      const originalBlocks = (body.message?.blocks || []) as (
+        | KnownBlock
+        | Block
+      )[];
+      const summarySection = originalBlocks.find(
+        (b): b is SectionBlock =>
+          typeof (b as { type?: string }).type === 'string' &&
+          (b as { type?: string }).type === 'section',
+      );
+
+      const newBlocks: (KnownBlock | Block)[] = [];
+      if (summarySection) newBlocks.push(summarySection);
+      const divider: DividerBlock = { type: 'divider' };
+      const logSection: SectionBlock = {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '```' + logText + '```',
+        },
+      };
+      const hideButton: Button = {
+        type: 'button',
+        action_id: COMBAT_ACTIONS.HIDE_LOG,
+        text: { type: 'plain_text', text: 'Hide combat log' },
+        style: 'danger',
+      };
+      const actions: ActionsBlock = { type: 'actions', elements: [hideButton] };
+      newBlocks.push(divider, logSection, actions);
+
+      await client.chat.update({
+        channel: channelId,
+        ts: messageTs,
+        text: fullText,
+        blocks: newBlocks.filter((b): b is KnownBlock => 'type' in b),
+      });
+    },
+  );
+
+  app.action<BlockAction>(
+    COMBAT_ACTIONS.HIDE_LOG,
+    async ({ ack, body, client }) => {
+      await ack();
+
+      const channelId =
+        body.channel?.id ||
+        (typeof body.container?.channel_id === 'string'
+          ? body.container.channel_id
+          : undefined);
+      const messageTs =
+        (typeof body.message?.ts === 'string' ? body.message.ts : undefined) ||
+        (typeof body.container?.message_ts === 'string'
+          ? body.container.message_ts
+          : undefined);
+
+      if (!channelId || !messageTs) return;
+
+      // Restore to the original summary section + Show button
+      const originalBlocks = (body.message?.blocks || []) as (
+        | KnownBlock
+        | Block
+      )[];
+      const summarySection = originalBlocks.find(
+        (b): b is SectionBlock =>
+          typeof (b as { type?: string }).type === 'string' &&
+          (b as { type?: string }).type === 'section',
+      );
+
+      // Fallback if missing
+      const blocks: (KnownBlock | Block)[] = [];
+      if (summarySection) blocks.push(summarySection);
+      const showButton: Button = {
+        type: 'button',
+        action_id: COMBAT_ACTIONS.SHOW_LOG,
+        text: { type: 'plain_text', text: 'View full combat log' },
+        style: 'primary',
+      };
+      const showActions: ActionsBlock = {
+        type: 'actions',
+        elements: [showButton],
+      };
+      blocks.push(showActions);
+
+      const fullText =
+        typeof body.message?.text === 'string' ? body.message.text : '';
+
+      await client.chat.update({
+        channel: channelId,
+        ts: messageTs,
+        text: fullText,
+        blocks: blocks.filter((b): b is KnownBlock => 'type' in b),
+      });
+    },
+  );
 }
