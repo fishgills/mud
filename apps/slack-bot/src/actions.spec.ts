@@ -18,6 +18,7 @@ import { getAllHandlers } from './handlers/handlerRegistry';
 import { HandlerContext } from './handlers/types';
 import { dmSdk } from './gql-client';
 import { PlayerAttribute, TargetType } from './generated/dm-graphql';
+import { toClientId } from './utils/clientId';
 
 const mockedDmSdk = dmSdk as unknown as {
   Attack: jest.Mock;
@@ -329,7 +330,7 @@ describe('registerActions', () => {
 
     expect(ack).toHaveBeenCalled();
     expect(mockedDmSdk.Attack).toHaveBeenCalledWith({
-      slackId: 'U1',
+      slackId: toClientId('U1'),
       input: { targetType: TargetType.Monster, targetId: 42 },
     });
     expect(client.chat.postMessage).toHaveBeenCalledWith(
@@ -916,7 +917,7 @@ describe('registerActions', () => {
         message: null,
         data: {
           id: '1',
-          slackId: 'U1',
+          slackId: toClientId('U1'),
           name: 'Hero',
           hp: 18,
           maxHp: 18,
@@ -955,7 +956,7 @@ describe('registerActions', () => {
     });
 
     expect(mockedDmSdk.SpendSkillPoint).toHaveBeenCalledWith({
-      slackId: 'U1',
+      slackId: toClientId('U1'),
       attribute: PlayerAttribute.Strength,
     });
     expect(client.chat.update).toHaveBeenCalledWith(
@@ -995,7 +996,7 @@ describe('registerActions', () => {
     });
 
     expect(mockedDmSdk.SpendSkillPoint).toHaveBeenCalledWith({
-      slackId: 'U1',
+      slackId: toClientId('U1'),
       attribute: PlayerAttribute.Agility,
     });
     expect(client.chat.update).not.toHaveBeenCalled();
