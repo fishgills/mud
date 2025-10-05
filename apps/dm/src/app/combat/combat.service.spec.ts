@@ -3,7 +3,7 @@ import type { PlayerEntity } from '@mud/engine';
 import type { EventBridgeService } from '../../shared/event-bridge.service';
 import type { PlayerService } from '../player/player.service';
 import type { AiService } from '../../openai/ai.service';
-import type { CombatResult, DetailedCombatLog } from '../graphql';
+import type { DetailedCombatLog } from '../graphql';
 
 type MockPrismaClient = {
   combatLog: {
@@ -29,7 +29,7 @@ const createMockPrisma = (): MockPrismaClient => ({
   },
 });
 
-var mockPrisma: MockPrismaClient;
+let mockPrisma: MockPrismaClient;
 
 jest.mock('@mud/database', () => ({
   getPrismaClient: () => mockPrisma,
@@ -55,15 +55,13 @@ const createHelperService = () => {
     publishCombatNotifications: jest.fn().mockResolvedValue(undefined),
   } as unknown as EventBridgeService;
 
-  const service = new CombatService(
-    playerService,
-    aiService,
-    eventBridge,
-  );
+  const service = new CombatService(playerService, aiService, eventBridge);
   return {
     service,
     aiService: aiService as unknown as { getText: jest.Mock },
-    eventBridge: eventBridge as unknown as { publishCombatNotifications: jest.Mock },
+    eventBridge: eventBridge as unknown as {
+      publishCombatNotifications: jest.Mock;
+    },
   };
 };
 
@@ -192,8 +190,7 @@ const createPlayer = (
   > = {},
 ): TestPlayerEntity => {
   const attributes = {
-    strength:
-      overrides.attributes?.strength ?? overrides.strength ?? 10,
+    strength: overrides.attributes?.strength ?? overrides.strength ?? 10,
     agility: overrides.attributes?.agility ?? overrides.agility ?? 10,
     health: overrides.attributes?.health ?? overrides.health ?? 10,
   };
@@ -391,12 +388,8 @@ describe('CombatService', () => {
       ]),
     );
 
-    const [combatLog, attackerCombatant, defenderCombatant] =
-      applyResultsSpy.mock.calls[0] as [
-        DetailedCombatLog,
-        Combatant,
-        Combatant,
-      ];
+    const [combatLog, attackerCombatant, defenderCombatant] = applyResultsSpy
+      .mock.calls[0] as [DetailedCombatLog, Combatant, Combatant];
 
     expect(combatLog).toMatchObject({
       winner: 'Attacker',
@@ -671,14 +664,8 @@ describe('CombatService', () => {
     expect(applyResultsSpy).toHaveBeenCalledTimes(1);
     expect(narrativeSpy.mock.calls).toHaveLength(3);
     const [attackerCall, defenderCall, observerCall] = narrativeSpy.mock.calls;
-    expect(attackerCall).toEqual([
-      combatLog,
-      { secondPersonName: 'Attacker' },
-    ]);
-    expect(defenderCall).toEqual([
-      combatLog,
-      { secondPersonName: 'Defender' },
-    ]);
+    expect(attackerCall).toEqual([combatLog, { secondPersonName: 'Attacker' }]);
+    expect(defenderCall).toEqual([combatLog, { secondPersonName: 'Defender' }]);
     expect(observerCall).toEqual([combatLog, {}]);
   });
 
@@ -826,10 +813,7 @@ describe('CombatService', () => {
     expect(applyResultsSpy).toHaveBeenCalledTimes(1);
     expect(narrativeSpy.mock.calls).toHaveLength(2);
     const [attackerCall, observerCall] = narrativeSpy.mock.calls;
-    expect(attackerCall).toEqual([
-      combatLog,
-      { secondPersonName: 'Attacker' },
-    ]);
+    expect(attackerCall).toEqual([combatLog, { secondPersonName: 'Attacker' }]);
     expect(observerCall).toEqual([combatLog, {}]);
   });
 

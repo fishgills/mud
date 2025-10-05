@@ -20,7 +20,8 @@
         "GCP_PROJECT_ID",
         "GOOGLE_CLOUD_PROJECT",
         "GCP_REGION",
-        "VERTEX_LOCATION"
+        "VERTEX_LOCATION",
+        "WORLD_RENDER_CACHE_TTL_MS"
       ],
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
