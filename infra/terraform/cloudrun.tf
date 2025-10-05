@@ -77,6 +77,8 @@ resource "google_cloud_run_v2_service" "services" {
               DD_PROFILING_ENABLED       = "true"
               # Ensure traces are sent in agentless mode
               DD_TRACE_ENABLED = "true"
+              # Enable debug logging to troubleshoot APM issues
+              DD_TRACE_DEBUG = "true"
             }
             # Optionally include the current git commit SHA when provided by CI
             , var.git_commit_sha == null ? {} : { DD_GIT_COMMIT_SHA = var.git_commit_sha }
