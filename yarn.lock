@@ -2427,12 +2427,12 @@
   dependencies:
     consola "^3.2.3"
 
-"@opentelemetry/api@1.8.0":
-  version "1.8.0"
-  resolved "https://registry.yarnpkg.com/@opentelemetry/api/-/api-1.8.0.tgz#5aa7abb48f23f693068ed2999ae627d2f7d902ec"
-  integrity sha512-I/s6F7yKUDdtMsoBWXJe8Qz40Tui5vsuKCWJEWVL+5q9sSWRzzx6v2KeNsOBEwd94j0eWkpWCH4yB6rZg9Mf0w==
+"@opentelemetry/api@>=1.0.0 <1.10.0":
+  version "1.9.0"
+  resolved "https://registry.yarnpkg.com/@opentelemetry/api/-/api-1.9.0.tgz#d03eba68273dc0f7509e2a3d5cba21eae10379fe"
+  integrity sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==
 
-"@opentelemetry/core@^1.14.0":
+"@opentelemetry/core@>=1.14.0 <1.31.0":
   version "1.30.1"
   resolved "https://registry.yarnpkg.com/@opentelemetry/core/-/core-1.30.1.tgz#a0b468bb396358df801881709ea38299fc30ab27"
   integrity sha512-OOCM2C/QIURhJMuKaekP3TRBxBKxG/TWWA0TL2J6nXUtDnuCtccy49LUJF8xPFXMX+0LMcxFpCo8M9cGY1W6rQ==
@@ -4540,10 +4540,10 @@ dc-polyfill@^0.1.10:
   resolved "https://registry.yarnpkg.com/dc-polyfill/-/dc-polyfill-0.1.10.tgz#6f2ada1a9e449587c363ca98cfb79b443cf74b70"
   integrity sha512-9iSbB8XZ7aIrhUtWI5ulEOJ+IyUN+axquodHK+bZO4r7HfY/xwmo6I4fYYf+aiDom+WMcN/wnzCz+pKvHDDCug==
 
-dd-trace@^5.67.0:
-  version "5.67.0"
-  resolved "https://registry.yarnpkg.com/dd-trace/-/dd-trace-5.67.0.tgz#409ba6b2560cb2c4511297162fd775bf05668f59"
-  integrity sha512-tMHk8NYWFNn2t2L2Vj7VWWKIIRArZIjnlzcgon9PNfhOzAi0t+Zt+E4OaGLbGoftDf/S+ZK0o4aHQwsSu3UE3w==
+dd-trace@^5.69.0:
+  version "5.69.0"
+  resolved "https://registry.yarnpkg.com/dd-trace/-/dd-trace-5.69.0.tgz#b42770e2a8a722952daedb4428b5cc113f34135b"
+  integrity sha512-0+y6H7lBE07qN2JGFtFXXUc7HTGoLckNaL/wa45BaHZh0RV2O96JbLliJRyGEd3hpof9tfE56UrKLW0OWtQ7Yg==
   dependencies:
     "@datadog/libdatadog" "0.7.0"
     "@datadog/native-appsec" "10.2.1"
@@ -4553,8 +4553,8 @@ dd-trace@^5.67.0:
     "@datadog/sketches-js" "2.1.1"
     "@datadog/wasm-js-rewriter" "4.0.1"
     "@isaacs/ttlcache" "^1.4.1"
-    "@opentelemetry/api" "1.8.0"
-    "@opentelemetry/core" "^1.14.0"
+    "@opentelemetry/api" ">=1.0.0 <1.10.0"
+    "@opentelemetry/core" ">=1.14.0 <1.31.0"
     crypto-randomuuid "^1.0.0"
     dc-polyfill "^0.1.10"
     ignore "^7.0.5"
@@ -4562,7 +4562,6 @@ dd-trace@^5.67.0:
     istanbul-lib-coverage "^3.2.2"
     jest-docblock "^29.7.0"
     jsonpath-plus "^10.3.0"
-    koalas "^1.0.2"
     limiter "^1.1.5"
     lodash.sortby "^4.7.0"
     lru-cache "^10.4.3"
@@ -6860,11 +6859,6 @@ kleur@^3.0.3:
   version "3.0.3"
   resolved "https://registry.yarnpkg.com/kleur/-/kleur-3.0.3.tgz#a79c9ecc86ee1ce3fa6206d1216c501f147fc07e"
   integrity sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==
-
-koalas@^1.0.2:
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/koalas/-/koalas-1.0.2.tgz#318433f074235db78fae5661a02a8ca53ee295cd"
-  integrity sha512-RYhBbYaTTTHId3l6fnMZc3eGQNW6FVCqMG6AMwA5I1Mafr6AflaXeoi6x3xQuATRotGYRLk6+1ELZH4dstFNOA==
 
 leven@^3.1.0:
   version "3.1.0"

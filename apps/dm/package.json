@@ -24,14 +24,14 @@
     "@mud/constants": "*",
     "@mud/database": "*",
     "@mud/engine": "*",
-    "@mud/redis-client": "*",
     "@mud/gcp-auth": "*",
+    "@mud/redis-client": "*",
     "@nestjs/apollo": "^13.1.0",
     "@nestjs/common": "^11.1.6",
     "@nestjs/core": "^11.1.6",
     "@nestjs/graphql": "^13.1.0",
     "@nestjs/platform-express": "^11.1.6",
-    "dd-trace": "^5.67.0",
+    "dd-trace": "^5.69.0",
     "dotenv": "^17.2.2",
     "envalid": "^8.1.0",
     "express": "^5.1.0",
@@ -44,9 +44,9 @@
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
-    "@nestjs/cli": "^11.0.10",
-    "@nestjs/testing": "^11.1.6",
+    "@mud/eslint-config": "*",
     "@mud/typescript-config": "*",
-    "@mud/eslint-config": "*"
+    "@nestjs/cli": "^11.0.10",
+    "@nestjs/testing": "^11.1.6"
   }
 }
