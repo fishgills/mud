@@ -77,6 +77,16 @@ variable "image_version" {
   default     = "latest"
 }
 
+# Optional: Git commit SHA for Datadog metadata.
+# When provided (e.g., via TF_VAR_git_commit_sha), Terraform will set
+# DD_GIT_COMMIT_SHA on Cloud Run services. This is optional because
+# deploys also update this via gcloud in CI.
+variable "git_commit_sha" {
+  description = "Git commit SHA to set as DD_GIT_COMMIT_SHA (optional)"
+  type        = string
+  default     = null
+}
+
 # Toggle to enable or disable the external HTTPS Load Balancer stack.
 # When false, all LB-related resources (IP, forwarding rules, proxies, URL maps,
 # backend services, NEGs, and DNS A records) are not created.
@@ -89,6 +99,14 @@ variable "enable_load_balancer" {
 # Optional: Provide the OpenAI API key securely via TF_VAR_openai_api_key (recommended)
 variable "openai_api_key" {
   description = "OpenAI API key secret value (optional). If unset, create the secret without a version and set it manually)."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+# Datadog API key (optional)
+variable "datadog_api_key" {
+  description = "Datadog API key (optional). Provide via TF_VAR_datadog_api_key in CI."
   type        = string
   default     = null
   sensitive   = true

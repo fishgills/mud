@@ -45,6 +45,11 @@ RUN apk update \
   giflib \
   librsvg
 
+# Embed git metadata for observability
+ARG GIT_SHA
+ENV DD_GIT_COMMIT_SHA=$GIT_SHA
+LABEL org.opencontainers.image.revision=$GIT_SHA
+
 COPY --from=installer /app .
 
 CMD node apps/world/dist/src/main.js

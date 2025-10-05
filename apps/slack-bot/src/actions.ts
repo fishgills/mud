@@ -128,6 +128,40 @@ async function dispatchCommandViaDM(
 }
 
 export function registerActions(app: App) {
+  // Format helpers for readable combat logs
+  const extractCombatLogLines = (fullText: string): string[] => {
+    const marker = '**Combat Log:**';
+    const start = fullText.indexOf(marker);
+    const text = start >= 0 ? fullText.slice(start + marker.length) : fullText;
+
+    const regex = /Round\s+(\d+)\s*:\s*([\s\S]*?)(?=(?:Round\s+\d+\s*:)|$)/gi;
+    const lines: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(text)) !== null) {
+      const roundNo = m[1];
+      const desc = (m[2] || '').replace(/\s+/g, ' ').trim();
+      if (roundNo) {
+        lines.push(`• Round ${roundNo}: ${desc}`);
+      }
+    }
+
+    if (lines.length > 0) return lines;
+
+    // Fallback: break on ". Round" or newlines
+    const rough = text.replace(/\.?\s+(?=Round\s+\d+\s*:)/g, '\n');
+    const fallback = rough
+      .split(/\n+/)
+      .map((s) => s.trim())
+      .filter((s) => /^Round\s+\d+\s*:/i.test(s))
+      .map((s) => `• ${s}`);
+    return fallback;
+  };
+
+  const chunk = <T>(arr: T[], size: number): T[][] => {
+    const out: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  };
   // Help quick actions
   app.action<BlockAction>(HELP_ACTIONS.LOOK, async ({ ack, body, client }) => {
     await ack();
@@ -447,7 +481,7 @@ export function registerActions(app: App) {
         return fullText;
       })();
 
-      // Build new blocks: keep the summary section, add the full log, and swap button to Hide
+      // Build new blocks: keep the summary, add a readable, chunked combat log, and swap button to Hide
       const originalBlocks = (body.message?.blocks || []) as (
         | KnownBlock
         | Block
@@ -461,13 +495,30 @@ export function registerActions(app: App) {
       const newBlocks: (KnownBlock | Block)[] = [];
       if (summarySection) newBlocks.push(summarySection);
       const divider: DividerBlock = { type: 'divider' };
-      const logSection: SectionBlock = {
+      newBlocks.push(divider);
+
+      // Header for the log
+      newBlocks.push({
         type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: '```' + logText + '```',
-        },
-      };
+        text: { type: 'mrkdwn', text: '*Combat Log*' },
+      } as SectionBlock);
+
+      const lines = extractCombatLogLines(fullText);
+      if (lines.length > 0) {
+        for (const group of chunk(lines, 12)) {
+          newBlocks.push({
+            type: 'section',
+            text: { type: 'mrkdwn', text: group.join('\n') },
+          } as SectionBlock);
+        }
+      } else {
+        // Fallback: show as preformatted if parsing failed
+        newBlocks.push({
+          type: 'section',
+          text: { type: 'mrkdwn', text: '```' + logText + '```' },
+        } as SectionBlock);
+      }
+
       const hideButton: Button = {
         type: 'button',
         action_id: COMBAT_ACTIONS.HIDE_LOG,
@@ -475,7 +526,7 @@ export function registerActions(app: App) {
         style: 'danger',
       };
       const actions: ActionsBlock = { type: 'actions', elements: [hideButton] };
-      newBlocks.push(divider, logSection, actions);
+      newBlocks.push(actions);
 
       await client.chat.update({
         channel: channelId,

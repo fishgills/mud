@@ -29,6 +29,11 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 expressjs
 RUN adduser --system --uid 1001 expressjs
 USER expressjs
+
+# Embed git metadata for observability
+ARG GIT_SHA
+ENV DD_GIT_COMMIT_SHA=$GIT_SHA
+LABEL org.opencontainers.image.revision=$GIT_SHA
 COPY --from=installer /app .
 
 CMD node apps/tick/dist/main.js

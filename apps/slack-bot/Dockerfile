@@ -34,6 +34,11 @@ RUN adduser --system --uid 1001 expressjs
 
 COPY --from=installer /app .
 
+# Embed git metadata for observability
+ARG GIT_SHA
+ENV DD_GIT_COMMIT_SHA=$GIT_SHA
+LABEL org.opencontainers.image.revision=$GIT_SHA
+
 # Copy entrypoint script and make it executable
 COPY apps/slack-bot/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh

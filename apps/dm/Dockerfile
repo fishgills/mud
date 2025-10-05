@@ -28,6 +28,11 @@ WORKDIR /app
 # Install tsx for running TypeScript scripts
 RUN yarn global add tsx
 
+# Embed git metadata for observability
+ARG GIT_SHA
+ENV DD_GIT_COMMIT_SHA=$GIT_SHA
+LABEL org.opencontainers.image.revision=$GIT_SHA
+
 COPY --from=installer /app .
 
 # Copy entrypoint script

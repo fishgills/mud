@@ -109,6 +109,7 @@ jobs:
             -input=false \
             -var="project_id=${{ env.GCP_PROJECT_ID }}" \
             -var="region=${{ env.GCP_REGION }}" \
+            -var="datadog_api_key=${{ secrets.DD_API_KEY }}" \
             -var="image_version=${{ github.sha }}" \
             -out=tfplan \
             -no-color

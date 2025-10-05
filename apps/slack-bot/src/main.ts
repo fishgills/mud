@@ -1,3 +1,5 @@
+// server.ts
+import './tracer'; // must come before importing any instrumented module.
 import { App } from '@slack/bolt';
 import { setAuthLogger } from '@mud/gcp-auth';
 import { env } from './env';

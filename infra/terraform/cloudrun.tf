@@ -53,18 +53,41 @@ resource "google_cloud_run_v2_service" "services" {
 
       dynamic "env" {
         for_each = {
-          for k, v in merge(each.value.env_vars, {
-            DATABASE_URL = "postgresql://${google_sql_user.user.name}:${var.db_password}@${google_sql_database_instance.postgres.private_ip_address}:5432/${google_sql_database.database.name}"
-            REDIS_URL    = "redis://${google_redis_instance.redis.host}:${google_redis_instance.redis.port}"
-            # Signal that this service is running in Google Cloud Run
-            GCP_CLOUD_RUN  = "true"
-            GCP_PROJECT_ID = var.project_id
-            GCP_REGION     = var.region
-          }) : k => v if k != "OPENAI_API_KEY"
+          for k, v in merge(
+            each.value.env_vars,
+            {
+              DATABASE_URL = "postgresql://${google_sql_user.user.name}:${var.db_password}@${google_sql_database_instance.postgres.private_ip_address}:5432/${google_sql_database.database.name}"
+              REDIS_URL    = "redis://${google_redis_instance.redis.host}:${google_redis_instance.redis.port}"
+              # Signal that this service is running in Google Cloud Run
+              GCP_CLOUD_RUN  = "true"
+              GCP_PROJECT_ID = var.project_id
+              GCP_REGION     = var.region
+              # Datadog configuration
+              DD_ENV              = "prod"
+              DD_LOGS_INJECTION   = "true"
+              DD_GIT_REPOSITORY_URL = "github.com/fishgills/mud"
+            }
+            # Optionally include the current git commit SHA when provided by CI
+            , var.git_commit_sha == null ? {} : { DD_GIT_COMMIT_SHA = var.git_commit_sha }
+          ) : k => v if k != "OPENAI_API_KEY"
         }
         content {
           name  = env.key
           value = env.value
+        }
+      }
+
+      # Datadog API key from Secret Manager
+      dynamic "env" {
+        for_each = { DD_API_KEY = google_secret_manager_secret.datadog_api_key.name }
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
         }
       }
 

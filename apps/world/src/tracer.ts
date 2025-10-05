@@ -1,8 +1,3 @@
 import tracer from 'dd-trace';
-tracer.init({
-  service: 'world',
-  env: process.env.NODE_ENV || 'development',
-  logInjection: false,
-  dbmPropagationMode: 'full',
-});
+tracer.init(); // initialized in a different file to avoid hoisting.
 export default tracer;

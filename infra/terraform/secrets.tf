@@ -96,3 +96,26 @@ resource "google_secret_manager_secret_iam_binding" "slack_app_token_accessor" {
     "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
   ]
 }
+
+# Datadog API Key
+resource "google_secret_manager_secret" "datadog_api_key" {
+  secret_id = "datadog-api-key"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "datadog_api_key" {
+  count       = var.datadog_api_key == null ? 0 : 1
+  secret      = google_secret_manager_secret.datadog_api_key.id
+  secret_data = var.datadog_api_key
+}
+
+resource "google_secret_manager_secret_iam_binding" "datadog_api_key_accessor" {
+  secret_id = google_secret_manager_secret.datadog_api_key.id
+  role      = "roles/secretmanager.secretAccessor"
+  members = [
+    "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  ]
+}
