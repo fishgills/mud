@@ -162,3 +162,80 @@ export function sanitizeDescription(text: string): string {
     return text;
   }
 }
+
+// --- Centralized occupants rendering helpers ---
+import { dmSdk } from '../gql-client';
+import { toClientId } from '../utils/clientId';
+
+export type NearbyPlayer = {
+  id?: string | number;
+  name: string;
+  slackId?: string | null;
+  isAlive?: boolean | null;
+};
+
+export type NearbyMonster = {
+  id?: string | number;
+  name: string;
+  isAlive?: boolean | null;
+  hp?: number | null;
+};
+
+// Build a consistent single-message summary for co-located players/monsters
+export function buildOccupantsSummary(
+  players: NearbyPlayer[] = [],
+  monsters: NearbyMonster[] = [],
+): string | null {
+  const playerNames = players.filter((p) => !!p && !!p.name).map((p) => p.name);
+  const monsterNames = monsters
+    .filter((m) => !!m && !!m.name)
+    .map((m) => m.name);
+
+  if (playerNames.length === 0 && monsterNames.length === 0) {
+    return null;
+  }
+
+  const lines: string[] = ['You see at your location:'];
+  if (playerNames.length > 0)
+    lines.push(`- Players: ${playerNames.join(', ')}`);
+  if (monsterNames.length > 0)
+    lines.push(`- Monsters: ${monsterNames.join(', ')}`);
+
+  return lines.join('\n');
+}
+
+// Fetch current-tile occupants and return the standard summary text
+export async function getOccupantsSummaryAt(
+  x: number,
+  y: number,
+  currentSlackUserId?: string,
+): Promise<string | null> {
+  const clientId = currentSlackUserId
+    ? toClientId(currentSlackUserId)
+    : undefined;
+  const res = await dmSdk.GetLocationEntities({ x, y });
+  const players = (res.getPlayersAtLocation || []).filter((p) =>
+    clientId ? p.slackId !== clientId : true,
+  );
+  const monsters = res.getMonstersAtLocation || [];
+  return buildOccupantsSummary(players, monsters);
+}
+
+// Send occupants summary using arrays already available (e.g., from move mutation)
+export async function sendOccupantsSummary(
+  say: (message: { text: string }) => Promise<unknown>,
+  players: NearbyPlayer[] | undefined,
+  monsters: NearbyMonster[] | undefined,
+  currentSlackUserId?: string,
+): Promise<void> {
+  const clientId = currentSlackUserId
+    ? toClientId(currentSlackUserId)
+    : undefined;
+  const filteredPlayers = (players || []).filter((p) =>
+    clientId ? p.slackId !== clientId : true,
+  );
+  const text = buildOccupantsSummary(filteredPlayers, monsters || []);
+  if (text) {
+    await say({ text });
+  }
+}

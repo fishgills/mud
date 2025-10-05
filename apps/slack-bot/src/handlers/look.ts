@@ -4,6 +4,7 @@ import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS } from '../commands';
 import { toClientId } from '../utils/clientId';
+import { getOccupantsSummaryAt } from './locationUtils';
 
 export const lookHandlerHelp = `Look around with enhanced vision based on terrain height. Returns a panoramic description, visible peaks, nearby settlements, and biome summary. Example: Send 'look' or 'l'.`;
 
@@ -33,26 +34,11 @@ export const lookHandler = async ({ userId, say }: HandlerContext) => {
     // Send the panoramic description as the primary message
     await say({ text: res.getLookView.data.description });
 
-    const monsters = res.getLookView.data.monsters;
-    if (monsters && monsters.length > 0) {
-      await say({ text: `You see the following monsters:` });
-      for (const monster of monsters) {
-        await say({ text: `- ${monster.name}` });
-      }
-    }
-
-    // Also list any players at the same location
-    try {
-      const center = res.getLookView.data.location;
-      const entities = await dmSdk.GetLocationEntities({ x: center.x, y: center.y });
-      const playersHere = (entities.getPlayersAtLocation || []).filter(
-        (p) => p.slackId !== toClientId(userId),
-      );
-      if (playersHere.length > 0) {
-        await say({ text: `You see the following players at your location: ${playersHere.map((p) => p.name).join(', ')}` });
-      }
-    } catch {
-      // Ignore errors fetching co-located players; not critical to look output
+    // Unified occupants summary for current location
+    const center = res.getLookView.data.location;
+    const occupants = await getOccupantsSummaryAt(center.x, center.y, userId);
+    if (occupants) {
+      await say({ text: occupants });
     }
     // Show performance stats summary if available
     const perf: Perf | undefined = (

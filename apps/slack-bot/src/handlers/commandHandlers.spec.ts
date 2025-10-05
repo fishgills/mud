@@ -524,7 +524,7 @@ describe('lookHandler', () => {
           isAlive: true,
         },
       ],
-      getMonstersAtLocation: [],
+      getMonstersAtLocation: [{ name: 'Goblin' }, { name: 'Orc' }],
     });
     mockedDmSdk.GetLookView.mockResolvedValueOnce({
       getLookView: {
@@ -561,14 +561,22 @@ describe('lookHandler', () => {
     await lookHandler({ userId: 'U1', text: '', say } as HandlerContext);
 
     expect(say).toHaveBeenNthCalledWith(1, { text: 'A vast plain' });
-    expect(say).toHaveBeenCalledWith({
-      text: 'You see the following monsters:',
-    });
-    expect(say).toHaveBeenCalledWith({ text: '- Goblin' });
-    expect(say).toHaveBeenCalledWith({ text: '- Orc' });
-    expect(say).toHaveBeenCalledWith({
-      text: 'You see the following players at your location: Friend',
-    });
+    // Unified occupant summary (players + monsters at location)
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('You see at your location:'),
+      }),
+    );
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('Players: Friend'),
+      }),
+    );
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('Monsters: Goblin, Orc'),
+      }),
+    );
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
         text: expect.stringContaining('Perf: total 50ms'),
@@ -622,12 +630,10 @@ describe('lookHandler', () => {
 
     await lookHandler({ userId: 'U1', text: '', say } as HandlerContext);
 
-    // Should not post a players-at-location message when only self is present
+    // Should not post an occupants summary when only self is present
     expect(say).not.toHaveBeenCalledWith(
       expect.objectContaining({
-        text: expect.stringContaining(
-          'You see the following players at your location:',
-        ),
+        text: expect.stringContaining('You see at your location:'),
       }),
     );
   });
@@ -706,9 +712,16 @@ describe('mapHandler', () => {
 
     await mapHandler({ userId: 'U1', text: '', say } as HandlerContext);
 
-    expect(say).toHaveBeenCalledWith({
-      text: 'You see the following players at your location: Friend',
-    });
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('You see at your location:'),
+      }),
+    );
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('Players: Friend'),
+      }),
+    );
   });
 
   it('does not list the current player after the map', async () => {
@@ -741,12 +754,10 @@ describe('mapHandler', () => {
 
     await mapHandler({ userId: 'U1', text: '', say } as HandlerContext);
 
-    // No player list should be posted when only self is present
+    // No occupants summary should be posted when only self is present
     expect(say).not.toHaveBeenCalledWith(
       expect.objectContaining({
-        text: expect.stringContaining(
-          'You see the following players at your location:',
-        ),
+        text: expect.stringContaining('You see at your location:'),
       }),
     );
   });
@@ -800,12 +811,21 @@ describe('moveHandler', () => {
       input: { direction: Direction.North },
     });
     expect(mockedSendPngMap).toHaveBeenCalledWith(say, 1, 2, 8);
-    expect(say).toHaveBeenCalledWith({
-      text: 'You see the following monsters at your location: Goblin',
-    });
-    expect(say).toHaveBeenCalledWith({
-      text: 'You see the following players at your location: Friend',
-    });
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('You see at your location:'),
+      }),
+    );
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('Players: Friend'),
+      }),
+    );
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('Monsters: Goblin'),
+      }),
+    );
     expect(say).toHaveBeenCalledWith({
       text: 'You moved north. You are now at (1, 2).',
     });

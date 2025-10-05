@@ -7,6 +7,7 @@ import { toClientId } from '../utils/clientId';
 // No debug JSON on move; keep the channel clean.
 import { sendPngMap } from './mapUtils';
 import { COMMANDS } from '../commands';
+import { sendOccupantsSummary } from './locationUtils';
 
 const directionMap: Record<string, Direction> = {
   [COMMANDS.UP]: Direction.North,
@@ -83,16 +84,13 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
     const tPngStart = Date.now();
     await sendPngMap(say, data.x, data.y, 8);
 
-    if (result.movePlayer.monsters.length > 0) {
-      await say({
-        text: `You see the following monsters at your location: ${result.movePlayer.monsters.map((m) => m.name).join(', ')}`,
-      });
-    }
-    if (result.movePlayer.playersAtLocation.length > 0) {
-      await say({
-        text: `You see the following players at your location: ${result.movePlayer.playersAtLocation.map((p) => p.name).join(', ')}`,
-      });
-    }
+    // Unified occupants summary using move response data
+    await sendOccupantsSummary(
+      say,
+      result.movePlayer.playersAtLocation,
+      result.movePlayer.monsters,
+      userId,
+    );
     pngMs = Date.now() - tPngStart;
     const tMsgStart = Date.now();
     await say({
