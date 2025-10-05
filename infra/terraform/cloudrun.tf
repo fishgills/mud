@@ -13,7 +13,7 @@ resource "google_cloud_run_v2_service" "services" {
 
     vpc_access {
       connector = google_vpc_access_connector.connector.id
-      egress    = "PRIVATE_RANGES_ONLY"
+      egress    = "ALL_TRAFFIC"
     }
 
     containers {
