@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { createCanvas, loadImage } from 'canvas';
-import type { Image } from 'canvas';
+import { createCanvas, ImageSource, loadImage } from 'canvas';
 import { drawBiomeTile, drawBiomeEdges } from './graphics';
 import { PrismaService } from '../prisma/prisma.service';
 import { BIOMES } from '../constants';
@@ -271,7 +270,7 @@ export class RenderService {
 
     // Pre-decode all chunk images in parallel to reduce latency
     const tDecodeStart = Date.now();
-    const decoded: Array<{ cx: number; cy: number; img: Image } | null> =
+    const decoded: Array<{ cx: number; cy: number; img: ImageSource } | null> =
       await Promise.all(
         needed.map((n) =>
           n
