@@ -2,8 +2,8 @@
  * Patrol behavior for NPCs (guards, etc.)
  */
 
-import { Behavior, BehaviorContext } from './behavior.interface.js';
-import { NpcEntity } from '../entities/npc-entity.js';
+import { Behavior, BehaviorContext } from './behavior.interface';
+import { NpcEntity } from '../entities/npc-entity';
 
 export interface PatrolPoint {
   x: number;

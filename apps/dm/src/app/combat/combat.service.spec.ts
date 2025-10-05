@@ -4,20 +4,29 @@ import type { PlayerService } from '../player/player.service';
 import type { AiService } from '../../openai/ai.service';
 import type { CombatResult, DetailedCombatLog } from '../graphql';
 
-const mockPrisma = {
-  combatLog: {
-    findMany: jest.fn(),
-    create: jest.fn(),
-  },
-  monster: {
-    findUnique: jest.fn(),
-    delete: jest.fn(),
-    update: jest.fn(),
-  },
-};
+function createMockPrisma() {
+  return {
+    combatLog: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+    },
+    monster: {
+      findUnique: jest.fn(),
+      delete: jest.fn(),
+      update: jest.fn(),
+    },
+  };
+}
+
+let mockPrisma: ReturnType<typeof createMockPrisma>;
 
 jest.mock('@mud/database', () => ({
-  getPrismaClient: () => mockPrisma,
+  getPrismaClient: () => {
+    if (!mockPrisma) {
+      mockPrisma = createMockPrisma();
+    }
+    return mockPrisma;
+  },
 }));
 
 const accessPrivate = <T>(instance: object, key: string): T =>
@@ -41,6 +50,7 @@ const createHelperService = () => {
 describe('CombatService helpers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrisma = createMockPrisma();
   });
 
   it('describes combat rounds from the second-person perspective', () => {

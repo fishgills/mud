@@ -4,13 +4,13 @@
  */
 
 // Events
-export * from './events/index.js';
+export * from './events';
 
 // Entities
-export * from './entities/index.js';
+export * from './entities';
 
 // Factories
-export * from './factories/index.js';
+export * from './factories';
 
 // Behaviors
-export * from './behaviors/index.js';
+export * from './behaviors';

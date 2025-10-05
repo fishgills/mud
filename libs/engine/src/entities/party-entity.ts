@@ -2,7 +2,7 @@
  * Party entity - represents a group of players adventuring together
  */
 
-import { GameEntity } from './game-entity.js';
+import { GameEntity } from './game-entity';
 
 export interface PartyMemberData {
   playerId: number;

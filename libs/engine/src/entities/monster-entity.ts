@@ -2,7 +2,7 @@
  * Monster entity - represents hostile creatures
  */
 
-import { Character, Attributes, CombatStats, Position } from './character.js';
+import { Character, Attributes, CombatStats, Position } from './character';
 
 export interface MonsterData {
   id: number;

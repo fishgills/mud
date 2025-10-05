@@ -2,7 +2,7 @@
  * Behavior Manager - Execute behaviors for entities
  */
 
-import { Behavior, BehaviorContext } from './behavior.interface.js';
+import { Behavior, BehaviorContext } from './behavior.interface';
 
 export class BehaviorManager {
   private behaviors: Map<string, Behavior[]> = new Map();

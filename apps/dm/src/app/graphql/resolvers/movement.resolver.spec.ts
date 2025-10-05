@@ -15,11 +15,19 @@ import { AiService } from '../../../openai/ai.service';
 import { LookViewResponse } from '../types/response.types';
 
 describe('MovementResolver', () => {
+  const basePlayer = {
+    id: 1,
+    name: 'Hero',
+    position: { x: 0, y: 0 },
+    attributes: { strength: 10, agility: 10, health: 10 },
+    combat: { hp: 10, maxHp: 10, isAlive: true },
+  };
+
   const createResolver = (overrides: Partial<Record<string, unknown>> = {}) => {
     const playerService = {
-      movePlayer: jest.fn(),
+      movePlayer: jest.fn().mockResolvedValue({ ...basePlayer, position: { x: 1, y: 2 } }),
       getPlayersAtLocation: jest.fn().mockResolvedValue([{ name: 'Other' }]),
-      getPlayer: jest.fn(),
+      getPlayer: jest.fn().mockResolvedValue(basePlayer),
       getNearbyPlayers: jest
         .fn()
         .mockResolvedValue([
@@ -144,14 +152,18 @@ describe('MovementResolver', () => {
   it('falls back to current location when movement fails', async () => {
     const { resolver, playerService } = createResolver();
     playerService.movePlayer.mockRejectedValue(new Error('nope'));
-    playerService.getPlayer.mockResolvedValue({ x: 9, y: 9 });
+    playerService.getPlayer.mockResolvedValue({
+      ...basePlayer,
+      position: { x: 9, y: 9 },
+    });
 
     const result = await resolver.movePlayer('U1', {
       direction: 'east',
     } as MovePlayerInput);
 
     expect(result.success).toBe(false);
-    expect(result.player).toEqual({ x: 9, y: 9 });
+    expect(result.player.x).toBe(9);
+    expect(result.player.y).toBe(9);
   });
 
   it('builds look view using AI description', async () => {
@@ -160,9 +172,8 @@ describe('MovementResolver', () => {
       createResolver();
 
     playerService.getPlayer.mockResolvedValue({
-      x: 3,
-      y: 4,
-      isAlive: true,
+      ...basePlayer,
+      position: { x: 3, y: 4 },
     });
 
     const response = (await resolver.getLookView('U1')) as LookViewResponse;

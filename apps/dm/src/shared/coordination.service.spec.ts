@@ -36,40 +36,33 @@ type EnvOverrides = {
   COORDINATION_PREFIX?: string;
 };
 
-const instantiateService = (overrides: EnvOverrides = {}) => {
-  let ServiceClass: { new (): CoordinationServiceType };
+const instantiateService = async (overrides: EnvOverrides = {}) => {
   let client: RedisClientMock | undefined;
 
   jest.resetModules();
 
-  jest.isolateModules(() => {
-    jest.doMock('redis', () => ({
-      createClient: () => {
-        client = createRedisClientMock();
-        return client;
-      },
-    }));
+  jest.doMock('redis', () => ({
+    createClient: () => {
+      client = createRedisClientMock();
+      return client;
+    },
+  }));
 
-    jest.doMock('../env', () => ({
-      env: {
-        REDIS_URL: overrides.REDIS_URL ?? 'redis://localhost:6379',
-        COORDINATION_PREFIX: overrides.COORDINATION_PREFIX ?? 'test:',
-      },
-    }));
+  jest.doMock('../env', () => ({
+    env: {
+      REDIS_URL: overrides.REDIS_URL ?? 'redis://localhost:6379',
+      COORDINATION_PREFIX: overrides.COORDINATION_PREFIX ?? 'test:',
+    },
+  }));
 
-    const { CoordinationService: ServiceClass } = await import(
-      './coordination.service'
-    );
-    return ServiceClass;
-  });
-
-  const service = new ServiceClass();
+  const { CoordinationService } = await import('./coordination.service');
+  const service = new CoordinationService();
   return { service, client };
 };
 
 describe('CoordinationService', () => {
   it('disables coordination features when Redis is not configured', async () => {
-    const { service, client } = instantiateService({ REDIS_URL: '' });
+    const { service, client } = await instantiateService({ REDIS_URL: '' });
 
     expect(client).toBeUndefined();
     expect(service.isEnabled()).toBe(false);
@@ -80,7 +73,7 @@ describe('CoordinationService', () => {
   });
 
   it('interacts with Redis when coordination is enabled', async () => {
-    const { service, client } = instantiateService();
+    const { service, client } = await instantiateService();
     expect(client).toBeDefined();
 
     const redis = client!;
@@ -139,7 +132,7 @@ describe('CoordinationService', () => {
   });
 
   it('swallows errors when closing the Redis connection', async () => {
-    const { service, client } = instantiateService();
+    const { service, client } = await instantiateService();
     const redis = client!;
 
     redis.quit.mockRejectedValueOnce(new Error('close failed'));

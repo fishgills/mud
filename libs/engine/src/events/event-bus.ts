@@ -3,7 +3,7 @@
  * Allows decoupled communication between game systems
  */
 
-import { GameEvent, GameEventType, EventListener } from './game-events.js';
+import { GameEvent, GameEventType, EventListener } from './game-events';
 
 export class EventBus {
   private static listeners: Map<GameEventType, Set<EventListener>> = new Map();

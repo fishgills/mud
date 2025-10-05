@@ -3,7 +3,7 @@
  * Will integrate with database once NPC table is added
  */
 
-import { NpcEntity, NpcRole } from '../entities/npc-entity.js';
+import { NpcEntity, NpcRole } from '../entities/npc-entity';
 
 export interface CreateNpcOptions {
   name: string;

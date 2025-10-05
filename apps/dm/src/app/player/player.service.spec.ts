@@ -116,13 +116,27 @@ jest.mock('@mud/database', () => ({
       }),
       update: jest.fn(async ({ where: { slackId }, data }) => {
         const idx = players.findIndex((p) => p.slackId === slackId);
-        if (idx === -1) throw new Error('not found');
+        if (idx === -1) return null;
         players[idx] = { ...players[idx], ...data };
         return players[idx];
       }),
+      updateMany: jest.fn(async ({ where, data }) => {
+        let updatedCount = 0;
+        for (const condition of where.OR) {
+          const slackId = condition.slackId || condition.clientId;
+          const idx = players.findIndex(
+            (p) => p.slackId === slackId || p.clientId === slackId,
+          );
+          if (idx !== -1) {
+            players[idx] = { ...players[idx], ...data };
+            updatedCount++;
+          }
+        }
+        return { count: updatedCount };
+      }),
       delete: jest.fn(async ({ where: { slackId } }) => {
         const idx = players.findIndex((p) => p.slackId === slackId);
-        if (idx === -1) throw new Error('not found');
+        if (idx === -1) return null;
         const [removed] = players.splice(idx, 1);
         return removed;
       }),
@@ -172,7 +186,7 @@ describe('PlayerService', () => {
       x: 0,
       y: 0,
     } as CreatePlayerInput);
-    expect(created.slackId).toBe('U1');
+    expect(created.clientId).toBe('U1');
 
     await expect(
       service.createPlayer({

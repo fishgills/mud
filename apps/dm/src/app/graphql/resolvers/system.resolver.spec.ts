@@ -7,13 +7,30 @@ import { SystemResolver } from './system.resolver';
 import { SpawnMonsterInput } from '../inputs/player.input';
 
 describe('SystemResolver', () => {
+  const baseMonster = {
+    id: 1,
+    name: 'Goblin',
+    type: 'goblin',
+    position: { x: 1, y: 2 },
+    attributes: {
+      strength: 8,
+      agility: 12,
+      health: 10,
+    },
+    combat: {
+      hp: 5,
+      maxHp: 5,
+      isAlive: true,
+    },
+  };
+
   const createResolver = () => {
     const monsterService = {
-      getMonstersAtLocation: jest.fn().mockResolvedValue([{ id: 1 }]),
-      getAllMonsters: jest.fn().mockResolvedValue([{ id: 1 }, { id: 2 }]),
-      spawnMonster: jest
+      getMonstersAtLocation: jest.fn().mockResolvedValue([baseMonster]),
+      getAllMonsters: jest
         .fn()
-        .mockResolvedValue({ id: 3, name: 'Goblin', x: 1, y: 2 }),
+        .mockResolvedValue([baseMonster, { ...baseMonster, id: 2 }]),
+      spawnMonster: jest.fn().mockResolvedValue(baseMonster),
     } as unknown as {
       getMonstersAtLocation: jest.Mock;
       getAllMonsters: jest.Mock;

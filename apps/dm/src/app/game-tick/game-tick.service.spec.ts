@@ -2,6 +2,7 @@ import { GameTickService } from './game-tick.service';
 
 type PrismaMock = ReturnType<typeof createPrismaMock>;
 
+// This function needs to be a standard function declaration to be hoisted
 function createPrismaMock() {
   let currentGameState: Record<string, unknown> | null = null;
   let weatherState: Record<string, unknown> | null = null;
@@ -44,15 +45,42 @@ const prismaHolder: {
   controller?: ReturnType<typeof createPrismaMock>;
 } = {};
 
-jest.mock('@mud/database', () => ({
-  getPrismaClient: () => {
-    if (!prismaHolder.controller) {
-      prismaHolder.controller = createPrismaMock();
-      prismaHolder.prisma = prismaHolder.controller.prisma;
-    }
-    return prismaHolder.prisma;
-  },
-}));
+function createPrismaMock() {
+  let currentGameState: Record<string, unknown> | null = null;
+  let weatherState: Record<string, unknown> | null = null;
+
+  const prisma = {
+    gameState: {
+      findFirst: jest.fn().mockImplementation(async () => currentGameState),
+      create: jest.fn().mockImplementation(async ({ data }) => {
+        currentGameState = { id: 1, ...data };
+        return currentGameState;
+      }),
+      update: jest.fn().mockImplementation(async ({ data }) => {
+        currentGameState = { ...currentGameState, ...data };
+        return currentGameState;
+      }),
+    },
+    weatherState: {
+      findFirst: jest.fn().mockImplementation(async () => weatherState),
+      create: jest.fn().mockImplementation(async ({ data }) => {
+        weatherState = { id: 1, ...data };
+        return weatherState;
+      }),
+      update: jest.fn().mockImplementation(async ({ data }) => {
+        weatherState = { ...weatherState, ...data };
+        return weatherState;
+      }),
+    },
+  };
+
+  return {
+    prisma,
+    setGameState: (state: Record<string, unknown> | null) =>
+      (currentGameState = state),
+    getGameState: () => currentGameState,
+  };
+}
 
 describe('GameTickService', () => {
   const createService = () => {
@@ -116,8 +144,8 @@ describe('GameTickService', () => {
   };
 
   beforeEach(() => {
-    prismaHolder.controller = undefined;
-    prismaHolder.prisma = undefined;
+    prismaHolder.controller = createPrismaMock();
+    prismaHolder.prisma = prismaHolder.controller.prisma;
     const randomValues = [
       0.3,
       0.6, // monster move checks

@@ -3,8 +3,8 @@
  * Will integrate with database once Party table is added
  */
 
-import { PartyEntity, PartyMemberData } from '../entities/party-entity.js';
-import { EventBus } from '../events/index.js';
+import { PartyEntity, PartyMemberData } from '../entities/party-entity';
+import { EventBus } from '../events';
 
 export interface CreatePartyOptions {
   name: string;

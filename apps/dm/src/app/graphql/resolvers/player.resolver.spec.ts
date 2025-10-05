@@ -18,16 +18,19 @@ describe('PlayerResolver', () => {
     id: 1,
     slackId: 'U1',
     name: 'Hero',
-    x: 0,
-    y: 0,
-    strength: 12,
-    agility: 14,
-    health: 13,
+    position: { x: 0, y: 0 },
+    attributes: {
+      strength: 12,
+      agility: 14,
+      health: 13,
+    },
+    combat: {
+      hp: 10,
+      maxHp: 12,
+      isAlive: true,
+    },
     level: 2,
     xp: 150,
-    hp: 10,
-    maxHp: 12,
-    isAlive: true,
     skillPoints: 0,
   };
 

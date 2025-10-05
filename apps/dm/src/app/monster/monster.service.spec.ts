@@ -94,7 +94,7 @@ describe('MonsterService', () => {
   it('spawns monsters and prevents water spawns', async () => {
     const service = new MonsterService(worldService);
     const spawned = await service.spawnMonster(1, 2, 1);
-    expect(spawned.hp).toBeGreaterThan(0);
+    expect(spawned.combat.hp).toBeGreaterThan(0);
 
     await expect(service.spawnMonster(999, 2, 1)).rejects.toThrow('water');
   });
@@ -149,7 +149,7 @@ describe('MonsterService', () => {
     });
 
     const damaged = await service.damageMonster(2, 10);
-    expect(damaged.isAlive).toBe(false);
+    expect(damaged.isAlive()).toBe(false);
 
     await service.cleanupDeadMonsters();
     expect(monsters.find((m) => m.id === 2)).toBeUndefined();

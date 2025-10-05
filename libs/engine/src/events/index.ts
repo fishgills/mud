@@ -1,2 +1,2 @@
-export * from './game-events.js';
-export * from './event-bus.js';
+export * from './game-events';
+export * from './event-bus';

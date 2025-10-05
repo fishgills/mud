@@ -3,8 +3,8 @@
  * Inspired by RanvierMUD's behavior system
  */
 
-import { MonsterEntity } from '../entities/monster-entity.js';
-import { NpcEntity } from '../entities/npc-entity.js';
+import { MonsterEntity } from '../entities/monster-entity';
+import { NpcEntity } from '../entities/npc-entity';
 
 export interface BehaviorContext {
   entity: MonsterEntity | NpcEntity;
