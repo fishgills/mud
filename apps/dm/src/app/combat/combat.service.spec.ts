@@ -17,25 +17,35 @@ type MockPrismaClient = {
   };
 };
 
-const createMockPrisma = (): MockPrismaClient => ({
-  combatLog: {
-    findMany: jest.fn(),
-    create: jest.fn(),
-  },
-  monster: {
-    findUnique: jest.fn(),
-    delete: jest.fn(),
-    update: jest.fn(),
-  },
-});
+function createMockPrisma(): MockPrismaClient {
+  return {
+    combatLog: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+    },
+    monster: {
+      findUnique: jest.fn(),
+      delete: jest.fn(),
+      update: jest.fn(),
+    },
+  };
+}
 
-let mockPrisma: MockPrismaClient;
+function ensureCombatPrismaHolder() {
+  const globalObject = globalThis as Record<string, unknown>;
+  const key = '__combatPrismaHolder';
+  if (!globalObject[key]) {
+    globalObject[key] = { current: createMockPrisma() };
+  }
+
+  return globalObject[key] as { current: MockPrismaClient };
+}
 
 jest.mock('@mud/database', () => ({
-  getPrismaClient: () => mockPrisma,
+  getPrismaClient: () => ensureCombatPrismaHolder().current,
 }));
 
-mockPrisma = createMockPrisma();
+const combatPrismaHolder = ensureCombatPrismaHolder();
 
 const accessPrivate = <T>(instance: object, key: string): T =>
   (instance as Record<string, unknown>)[key] as T;
@@ -67,7 +77,7 @@ const createHelperService = () => {
 
 describe('CombatService helpers', () => {
   beforeEach(() => {
-    mockPrisma = createMockPrisma();
+    combatPrismaHolder.current = createMockPrisma();
     jest.clearAllMocks();
   });
 
@@ -150,13 +160,17 @@ describe('CombatService helpers', () => {
   it('returns combat logs for a location via the prisma client', async () => {
     const { service } = createHelperService();
     const expected = [{ id: 1 }];
-    mockPrisma.combatLog.findMany.mockResolvedValue(expected);
+    combatPrismaHolder.current.combatLog.findMany.mockResolvedValue(
+      expected,
+    );
 
     await expect(service.getCombatLogForLocation(3, 4, 2)).resolves.toBe(
       expected,
     );
 
-    expect(mockPrisma.combatLog.findMany).toHaveBeenCalledWith({
+    expect(
+      combatPrismaHolder.current.combatLog.findMany,
+    ).toHaveBeenCalledWith({
       where: { x: 3, y: 4 },
       orderBy: { timestamp: 'desc' },
       take: 2,

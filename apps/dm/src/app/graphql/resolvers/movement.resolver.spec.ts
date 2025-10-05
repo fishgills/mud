@@ -15,7 +15,23 @@ import { AiService } from '../../../openai/ai.service';
 import { LookViewResponse } from '../types/response.types';
 
 describe('MovementResolver', () => {
-  const createResolver = (overrides: Partial<Record<string, unknown>> = {}) => {
+  const basePlayer = {
+    id: 1,
+    name: 'Hero',
+    clientId: 'U1',
+    clientType: 'slack' as const,
+    position: { x: 0, y: 0 },
+    attributes: { strength: 10, agility: 10, health: 10 },
+    combat: { hp: 10, maxHp: 10, isAlive: true },
+    level: 1,
+    xp: 0,
+    gold: 0,
+    skillPoints: 0,
+  } as const;
+
+  const createResolver = (
+    overrides: Partial<Record<string, unknown>> = {},
+  ) => {
     const playerService = {
       movePlayer: jest.fn(),
       getPlayersAtLocation: jest.fn().mockResolvedValue([{ name: 'Other' }]),
@@ -128,30 +144,41 @@ describe('MovementResolver', () => {
 
   it('moves a player and returns location data', async () => {
     const { resolver, playerService, monsterService } = createResolver();
-    playerService.movePlayer.mockResolvedValue({ x: 1, y: 2 });
+    playerService.movePlayer.mockResolvedValue({
+      ...basePlayer,
+      position: { x: 1, y: 2 },
+    });
 
-    const result = await resolver.movePlayer('U1', {
-      direction: 'north',
-    } as MovePlayerInput);
+    const result = await resolver.movePlayer(
+      { direction: 'north' } as MovePlayerInput,
+      'U1',
+    );
 
     expect(result.success).toBe(true);
     expect(playerService.movePlayer).toHaveBeenCalledWith('U1', {
       direction: 'north',
     });
     expect(monsterService.getMonstersAtLocation).toHaveBeenCalledWith(1, 2);
+    expect(result.player?.x).toBe(1);
+    expect(result.player?.y).toBe(2);
   });
 
   it('falls back to current location when movement fails', async () => {
     const { resolver, playerService } = createResolver();
     playerService.movePlayer.mockRejectedValue(new Error('nope'));
-    playerService.getPlayer.mockResolvedValue({ x: 9, y: 9 });
+    playerService.getPlayer.mockResolvedValue({
+      ...basePlayer,
+      position: { x: 9, y: 9 },
+    });
 
-    const result = await resolver.movePlayer('U1', {
-      direction: 'east',
-    } as MovePlayerInput);
+    const result = await resolver.movePlayer(
+      { direction: 'east' } as MovePlayerInput,
+      'U1',
+    );
 
     expect(result.success).toBe(false);
-    expect(result.player).toEqual({ x: 9, y: 9 });
+    expect(result.player?.x).toBe(9);
+    expect(result.player?.y).toBe(9);
   });
 
   it('builds look view using AI description', async () => {
@@ -160,9 +187,8 @@ describe('MovementResolver', () => {
       createResolver();
 
     playerService.getPlayer.mockResolvedValue({
-      x: 3,
-      y: 4,
-      isAlive: true,
+      ...basePlayer,
+      position: { x: 3, y: 4 },
     });
 
     const response = (await resolver.getLookView('U1')) as LookViewResponse;
