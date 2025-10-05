@@ -1,3 +1,4 @@
+import type { ActionsBlock, Block, KnownBlock, SectionBlock } from '@slack/types';
 import { buildPlayerStatsMessage } from './format';
 import type { PlayerStatsSource } from './types';
 
@@ -29,9 +30,7 @@ describe('buildPlayerStatsMessage', () => {
       const result = buildPlayerStatsMessage(player, { isSelf: true });
 
       // Check that there are no action blocks
-      const actionBlocks = result.blocks?.filter(
-        (block: any) => block.type === 'actions',
-      );
+      const actionBlocks = result.blocks?.filter(isActionsBlock);
       expect(actionBlocks).toHaveLength(0);
     });
 
@@ -40,9 +39,7 @@ describe('buildPlayerStatsMessage', () => {
       const result = buildPlayerStatsMessage(player, { isSelf: true });
 
       // Check that there are no action blocks
-      const actionBlocks = result.blocks?.filter(
-        (block: any) => block.type === 'actions',
-      );
+      const actionBlocks = result.blocks?.filter(isActionsBlock);
       expect(actionBlocks).toHaveLength(0);
     });
 
@@ -51,9 +48,7 @@ describe('buildPlayerStatsMessage', () => {
       const result = buildPlayerStatsMessage(player, { isSelf: true });
 
       // Check that there is exactly one action block
-      const actionBlocks = result.blocks?.filter(
-        (block: any) => block.type === 'actions',
-      );
+      const actionBlocks = result.blocks?.filter(isActionsBlock);
       expect(actionBlocks).toHaveLength(1);
       expect(actionBlocks?.[0]).toHaveProperty('elements');
       expect(actionBlocks?.[0].elements).toHaveLength(3); // Strength, Agility, Health buttons
@@ -64,9 +59,7 @@ describe('buildPlayerStatsMessage', () => {
       const result = buildPlayerStatsMessage(player, { isSelf: false });
 
       // Check that there are no action blocks
-      const actionBlocks = result.blocks?.filter(
-        (block: any) => block.type === 'actions',
-      );
+      const actionBlocks = result.blocks?.filter(isActionsBlock);
       expect(actionBlocks).toHaveLength(0);
     });
 
@@ -75,9 +68,7 @@ describe('buildPlayerStatsMessage', () => {
       const result = buildPlayerStatsMessage(player);
 
       // Check that there are no action blocks
-      const actionBlocks = result.blocks?.filter(
-        (block: any) => block.type === 'actions',
-      );
+      const actionBlocks = result.blocks?.filter(isActionsBlock);
       expect(actionBlocks).toHaveLength(0);
     });
   });
@@ -94,15 +85,18 @@ describe('buildPlayerStatsMessage', () => {
     });
 
     it('should handle null/undefined skillPoints gracefully', () => {
-      const player = createMockPlayer({ skillPoints: undefined as any });
+      const player = createMockPlayer({ skillPoints: undefined });
       const result = buildPlayerStatsMessage(player);
 
       expect(result.blocks).toBeDefined();
       // Should still display the stats without crashing
-      const sectionBlocks = result.blocks?.filter(
-        (block: any) => block.type === 'section',
-      );
+      const sectionBlocks = result.blocks?.filter(isSectionBlock);
       expect(sectionBlocks.length).toBeGreaterThan(0);
     });
   });
 });
+const isActionsBlock = (block: KnownBlock | Block): block is ActionsBlock =>
+  block.type === 'actions';
+
+const isSectionBlock = (block: KnownBlock | Block): block is SectionBlock =>
+  block.type === 'section';

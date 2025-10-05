@@ -1,5 +1,6 @@
 import { App } from '@slack/bolt';
 import type { KnownBlock } from '@slack/types';
+import type { WebClient } from '@slack/web-api';
 import { COMMANDS } from '../commands';
 import { buildHelpBlocks } from './help';
 import { dmSdk } from '../gql-client';
@@ -209,7 +210,7 @@ export const registerAppHome = (app: App) => {
   });
 
   // Helper function to refresh app home
-  const refreshAppHome = async (userId: string, client: any) => {
+  const refreshAppHome = async (userId: string, client: WebClient) => {
     const blocks = await buildAppHomeBlocks(userId);
     await client.views.publish({
       user_id: userId,

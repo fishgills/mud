@@ -1,3 +1,10 @@
+import type {
+  ContextBlock,
+  DividerBlock,
+  KnownBlock,
+  SectionBlock,
+} from '@slack/types';
+
 export interface LocationData {
   location: {
     x: number;
@@ -65,17 +72,18 @@ export function buildLocationBlocks(
   data: LocationData,
   moveDirection?: string,
   opts?: { includeDebug?: boolean },
-): any[] {
-  const blocks: any[] = [];
+): KnownBlock[] {
+  const blocks: KnownBlock[] = [];
   const { includeDebug = true } = opts || {};
 
   const heading = moveDirection
     ? `You moved ${moveDirection}.`
     : 'Location update';
-  blocks.push({
+  const headingBlock: SectionBlock = {
     type: 'section',
     text: { type: 'mrkdwn', text: `*${heading}*` },
-  });
+  };
+  blocks.push(headingBlock);
 
   const desc = data.description || data.location.description;
   const safeDesc = desc ? sanitizeDescription(desc) : '';
@@ -84,10 +92,11 @@ export function buildLocationBlocks(
     `You are at *(${data.location.x}, ${data.location.y})* in a *${data.location.biomeName}* biome.`,
   );
   if (safeDesc) bodyLines.push(safeDesc);
-  blocks.push({
+  const bodyBlock: SectionBlock = {
     type: 'section',
     text: { type: 'mrkdwn', text: bodyLines.join('\n') },
-  });
+  };
+  blocks.push(bodyBlock);
 
   if (data.surroundingTiles && data.surroundingTiles.length) {
     const nearbyList = data.surroundingTiles
@@ -96,34 +105,37 @@ export function buildLocationBlocks(
         return `• *${t.direction}*: ${t.biomeName}${sd ? ` — ${sd}` : ''}`;
       })
       .join('\n');
-    blocks.push({ type: 'divider' });
-    blocks.push({
+    const nearbyDivider: DividerBlock = { type: 'divider' };
+    const nearbyBlock: SectionBlock = {
       type: 'section',
       text: { type: 'mrkdwn', text: `*Nearby tiles*\n${nearbyList}` },
-    });
+    };
+    blocks.push(nearbyDivider, nearbyBlock);
   }
 
   if (data.monsters && data.monsters.length) {
     const monsters = data.monsters
       .map((m) => `${m.name}${typeof m.hp === 'number' ? ` (${m.hp}hp)` : ''}`)
       .join(', ');
-    blocks.push({
+    const monstersBlock: ContextBlock = {
       type: 'context',
       elements: [{ type: 'mrkdwn', text: `Monsters nearby: ${monsters}` }],
-    });
+    };
+    blocks.push(monstersBlock);
   }
 
   if (data.playerInfo) {
-    blocks.push({ type: 'divider' });
-    blocks.push({
+    const playerInfoDivider: DividerBlock = { type: 'divider' };
+    const playerInfoBlock: SectionBlock = {
       type: 'section',
       text: { type: 'mrkdwn', text: data.playerInfo },
-    });
+    };
+    blocks.push(playerInfoDivider, playerInfoBlock);
   }
 
   if (includeDebug) {
-    blocks.push({ type: 'divider' });
-    blocks.push({
+    const debugDivider: DividerBlock = { type: 'divider' };
+    const debugBlock: ContextBlock = {
       type: 'context',
       elements: [
         {
@@ -131,7 +143,8 @@ export function buildLocationBlocks(
           text: `Debug: x=${data.location.x}, y=${data.location.y}`,
         },
       ],
-    });
+    };
+    blocks.push(debugDivider, debugBlock);
   }
 
   return blocks;

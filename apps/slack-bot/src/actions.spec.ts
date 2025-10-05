@@ -26,18 +26,29 @@ const mockedDmSdk = dmSdk as unknown as {
 
 type AckMock = jest.Mock<Promise<void>, unknown[]>;
 type ConversationsOpenMock = jest.Mock<
-  Promise<{ channel: { id: string } }>,
+  Promise<{ channel: { id: string } | null }>,
   unknown[]
 >;
 type ChatPostMessageMock = jest.Mock<Promise<void>, unknown[]>;
 type ChatUpdateMock = jest.Mock<Promise<void>, unknown[]>;
 type ViewsOpenMock = jest.Mock<Promise<void>, unknown[]>;
+type FilesUploadV2Mock = jest.Mock<Promise<void>, unknown[]>;
 
 type MockSlackClient = {
   conversations: { open: ConversationsOpenMock };
   chat: { postMessage: ChatPostMessageMock; update: ChatUpdateMock };
   views?: { open: ViewsOpenMock };
+  files?: { uploadV2: FilesUploadV2Mock };
 };
+
+const createChatMocks = (): MockSlackClient['chat'] => ({
+  postMessage: jest
+    .fn<Promise<void>, unknown[]>()
+    .mockResolvedValue(undefined) as ChatPostMessageMock,
+  update: jest
+    .fn<Promise<void>, unknown[]>()
+    .mockResolvedValue(undefined) as ChatUpdateMock,
+});
 
 type SlackActionHandler = (args: {
   ack: AckMock;
@@ -275,12 +286,11 @@ describe('registerActions', () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     const client: MockSlackClient = {
       conversations: {
-        open: jest.fn() as ConversationsOpenMock,
+        open: jest
+          .fn()
+          .mockResolvedValue({ channel: { id: 'C2' } }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest.fn().mockResolvedValue(undefined),
-        update: jest.fn().mockResolvedValue(undefined),
-      } as any,
+      chat: createChatMocks(),
     };
 
     mockedDmSdk.Attack.mockResolvedValue({
@@ -390,15 +400,10 @@ describe('registerActions', () => {
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
-          channel: null as any,
+          channel: null,
         }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+      chat: createChatMocks(),
     };
 
     await actionHandlers[HELP_ACTIONS.LOOK]({
@@ -449,12 +454,7 @@ describe('registerActions', () => {
           channel: { id: 'C1' },
         }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+      chat: createChatMocks(),
       views: { open: viewsOpen },
     };
 
@@ -476,15 +476,10 @@ describe('registerActions', () => {
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
-          channel: null as any,
+          channel: null,
         }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+      chat: createChatMocks(),
       views: { open: viewsOpen },
     };
 
@@ -508,12 +503,7 @@ describe('registerActions', () => {
           channel: { id: 'C1' },
         }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+      chat: createChatMocks(),
     };
 
     await viewHandlers.create_character_view({
@@ -577,15 +567,10 @@ describe('registerActions', () => {
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
-          channel: null as any,
+          channel: null,
         }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+      chat: createChatMocks(),
     };
 
     await viewHandlers.create_character_view({

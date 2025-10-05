@@ -1,4 +1,5 @@
 import type { App } from '@slack/bolt';
+import type { ActionsBlock, KnownBlock } from '@slack/types';
 import { buildAppHomeBlocks, registerAppHome } from './appHome';
 import { dmSdk } from '../gql-client';
 
@@ -14,6 +15,19 @@ type AppHomeHandler = (args: {
   client: { views: { publish: jest.Mock } };
   logger: { error: jest.Mock; info: jest.Mock };
 }) => Promise<void> | void;
+
+const isActionsBlock = (block: KnownBlock): block is ActionsBlock =>
+  block.type === 'actions';
+
+const buttonTextsFromBlock = (block: ActionsBlock): string[] =>
+  block.elements
+    .map((element) => {
+      if (element.type !== 'button') {
+        return undefined;
+      }
+      return element.text?.type === 'plain_text' ? element.text.text : undefined;
+    })
+    .filter((text): text is string => Boolean(text));
 
 describe('buildAppHomeBlocks', () => {
   beforeEach(() => {
@@ -54,8 +68,8 @@ describe('buildAppHomeBlocks', () => {
 
     const actionBlock = blocks.find((block) => block.type === 'actions');
     expect(actionBlock).toBeDefined();
-    if (actionBlock && 'elements' in actionBlock) {
-      const buttonTexts = actionBlock.elements?.map((el: any) => el.text?.text);
+    if (actionBlock && isActionsBlock(actionBlock)) {
+      const buttonTexts = buttonTextsFromBlock(actionBlock);
       expect(buttonTexts).toContain('🎲 Reroll Stats');
       expect(buttonTexts).toContain('✅ Complete Character');
     }
@@ -76,8 +90,8 @@ describe('buildAppHomeBlocks', () => {
 
     const actionBlock = blocks.find((block) => block.type === 'actions');
     expect(actionBlock).toBeDefined();
-    if (actionBlock && 'elements' in actionBlock) {
-      const buttonTexts = actionBlock.elements?.map((el: any) => el.text?.text);
+    if (actionBlock && isActionsBlock(actionBlock)) {
+      const buttonTexts = buttonTextsFromBlock(actionBlock);
       expect(buttonTexts).toContain('👀 Look Around');
       expect(buttonTexts).toContain('📊 View Stats');
       expect(buttonTexts).toContain('🗺️ View Map');
