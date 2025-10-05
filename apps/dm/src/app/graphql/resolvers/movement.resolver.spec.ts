@@ -46,13 +46,20 @@ describe('MovementResolver', () => {
     const worldService = {
       getTileInfoWithNearby: jest.fn().mockResolvedValue({
         tile: {
+          id: 1,
           x: 5,
           y: 6,
+          biomeId: 1,
           biomeName: 'plains',
           description: 'flat',
           height: 0.6,
           temperature: 0.5,
           moisture: 0.4,
+          seed: 0,
+          chunkX: 0,
+          chunkY: 0,
+          createdAt: new Date('2024-01-01T00:00:00Z'),
+          updatedAt: new Date('2024-01-02T00:00:00Z'),
         },
         nearbySettlements: [
           {
@@ -71,15 +78,26 @@ describe('MovementResolver', () => {
           type: 'fort',
           size: 'large',
           intensity: 0.8,
+          isCenter: true,
         },
       }),
       getTilesInBounds: jest.fn().mockImplementation(() =>
         Promise.resolve(
           Array.from({ length: 10 }, (_, i) => ({
+            id: i,
             x: 3 + (i % 2),
             y: 4 + Math.floor(i / 2),
+            biomeId: 1,
             biomeName: i % 2 === 0 ? 'plains' : 'forest',
             height: 0.5 + i * 0.01,
+            temperature: 0.5,
+            moisture: 0.5,
+            seed: 0,
+            chunkX: 0,
+            chunkY: 0,
+            createdAt: new Date('2024-01-01T00:00:00Z'),
+            updatedAt: new Date('2024-01-02T00:00:00Z'),
+            description: '',
           })),
         ),
       ),

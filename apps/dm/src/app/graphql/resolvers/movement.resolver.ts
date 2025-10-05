@@ -2,6 +2,7 @@ import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { Logger } from '@nestjs/common';
 import { PlayerService } from '../../player/player.service';
 import { WorldService } from '../../world/world.service';
+import type { Settlement } from '../../world/world.service';
 import {
   PlayerMoveResponse,
   LookViewResponse,
@@ -235,11 +236,15 @@ export class MovementResolver {
       );
 
       // Generate description (AI-enhanced or fallback)
-      const currentSettlement: {
-        name?: string;
-        type?: string;
-        intensity?: number;
-      } | null = centerWithNearby?.currentSettlement ?? null;
+      const currentSettlement: Settlement | null = centerWithNearby?.currentSettlement
+        ? {
+            name: centerWithNearby.currentSettlement.name,
+            type: centerWithNearby.currentSettlement.type,
+            size: centerWithNearby.currentSettlement.size,
+            intensity: centerWithNearby.currentSettlement.intensity,
+            isCenter: Boolean(centerWithNearby.currentSettlement.isCenter),
+          }
+        : null;
       const description = await this.descriptionService.generateAiDescription(
         centerTile,
         visibilityRadius,

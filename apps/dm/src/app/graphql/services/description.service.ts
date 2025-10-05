@@ -7,6 +7,7 @@ import type {
   VisibleSettlement,
   TimingMetrics,
 } from './look-view-types';
+import type { Settlement } from '../../world/world.service';
 import { NearbyPlayerInfo } from '../types/response.types';
 
 @Injectable()
@@ -122,11 +123,7 @@ export class DescriptionService {
     biomeSummary: BiomeSummary[],
     visiblePeaks: VisiblePeak[],
     visibleSettlements: VisibleSettlement[],
-    currentSettlement: {
-      name?: string;
-      type?: string;
-      intensity?: number;
-    } | null,
+    currentSettlement: Settlement | null,
     timing: TimingMetrics,
     nearbyPlayers: NearbyPlayerInfo[],
   ): Promise<string> {

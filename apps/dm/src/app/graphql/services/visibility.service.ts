@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { WorldService } from '../../world/world.service';
 import type { Player, TimingMetrics, CenterTile } from './look-view-types';
+import type { WorldTile } from '../../../generated/world-graphql';
 
 @Injectable()
 export class VisibilityService {
@@ -24,13 +25,8 @@ export class VisibilityService {
     visibilityRadius: number,
     timing: TimingMetrics,
   ): Promise<{
-    tiles: Array<{ x: number; y: number; biomeName: string; height: number }>;
-    extTiles: Array<{
-      x: number;
-      y: number;
-      biomeName: string;
-      height: number;
-    }>;
+    tiles: WorldTile[];
+    extTiles: WorldTile[];
   }> {
     // Only fetch the area we actually need (ceil to cover full radius)
     const r = Math.ceil(Math.max(3, Math.min(12, visibilityRadius)));
@@ -66,18 +62,11 @@ export class VisibilityService {
     timing.tBoundsTilesMs = timing.tExtBoundsMs;
 
     const tFilterTilesStart = Date.now();
-    const tiles = boundTiles
-      .map((t) => ({
-        x: t.x,
-        y: t.y,
-        biomeName: t.biomeName,
-        height: t.height,
-      }))
-      .filter(
-        (t) =>
-          Math.sqrt((t.x - player.x) ** 2 + (t.y - player.y) ** 2) <=
-          visibilityRadius,
-      );
+    const tiles = boundTiles.filter(
+      (t) =>
+        Math.sqrt((t.x - player.x) ** 2 + (t.y - player.y) ** 2) <=
+        visibilityRadius,
+    );
     timing.tFilterTilesMs = Date.now() - tFilterTilesStart;
     timing.tilesCount = tiles.length;
 

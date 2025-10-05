@@ -186,11 +186,9 @@ export class EntityToGraphQLAdapter {
     const updatedAt = toDateOrUndefined(raw.updatedAt) ?? new Date();
     const worldTileRaw = raw.worldTileId;
     const worldTileId =
-      worldTileRaw === undefined
+      worldTileRaw === null || worldTileRaw === undefined
         ? undefined
-        : worldTileRaw === null
-          ? null
-          : toNumber(worldTileRaw);
+        : toNumber(worldTileRaw);
 
     return {
       id: toNumber(raw.id, 0),
