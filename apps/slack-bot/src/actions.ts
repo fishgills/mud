@@ -16,6 +16,7 @@ import { getAllHandlers } from './handlers/handlerRegistry';
 import { buildPlayerStatsMessage } from './handlers/stats/format';
 import type { HandlerContext, SayMessage } from './handlers/types';
 import type { ViewStateValue } from '@slack/bolt';
+import { toClientId } from './utils/clientId';
 
 type SlackBlockState = Record<string, Record<string, ViewStateValue>>;
 
@@ -173,7 +174,7 @@ export function registerActions(app: App) {
 
     await ack();
 
-    const userId = body.user.id;
+    const userId = body.user?.id;
     if (!userId) return;
     const handler = getAllHandlers()[COMMANDS.NEW];
     if (!handler) return;
@@ -244,7 +245,7 @@ export function registerActions(app: App) {
 
     try {
       const attackResult = await dmSdk.Attack({
-        slackId: userId,
+        slackId: toClientId(userId),
         input: {
           targetType: TargetType.Monster,
           targetId: selected.id,
@@ -304,7 +305,7 @@ export function registerActions(app: App) {
 
       try {
         const result = await dmSdk.SpendSkillPoint({
-          slackId: userId,
+          slackId: toClientId(userId),
           attribute,
         });
         if (!result.spendSkillPoint.success || !result.spendSkillPoint.data) {
