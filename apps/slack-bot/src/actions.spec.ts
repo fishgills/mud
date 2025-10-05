@@ -289,7 +289,9 @@ describe('registerActions', () => {
       conversations: {
         open: jest
           .fn()
-          .mockResolvedValue({ channel: { id: 'C2' } }) as ConversationsOpenMock,
+          .mockResolvedValue({
+            channel: { id: 'C2' },
+          }) as ConversationsOpenMock,
       },
       chat: createChatMocks(),
     };
@@ -336,7 +338,7 @@ describe('registerActions', () => {
     expect(client.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         channel: 'D1',
-        text: expect.stringContaining('You attacked Goblin!'),
+        text: '⚔️ Combat initiated! Check your DMs for the results.',
       }),
     );
   });

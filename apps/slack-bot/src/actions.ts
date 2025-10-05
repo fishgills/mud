@@ -10,7 +10,6 @@ import {
 } from './commands';
 import { dmSdk } from './gql-client';
 import { PlayerAttribute, TargetType } from './generated/dm-graphql';
-import { buildCombatSummary } from './handlers/attack';
 import { getUserFriendlyErrorMessage } from './handlers/errorUtils';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { buildPlayerStatsMessage } from './handlers/stats/format';
@@ -62,7 +61,9 @@ type SelectedTarget =
   | { kind: 'monster'; id: number; name: string }
   | { kind: 'player'; slackId: string; name: string };
 
-function extractSelectedTarget(values: SlackBlockState | undefined): SelectedTarget | null {
+function extractSelectedTarget(
+  values: SlackBlockState | undefined,
+): SelectedTarget | null {
   if (!values) {
     return null;
   }
@@ -81,13 +82,21 @@ function extractSelectedTarget(values: SlackBlockState | undefined): SelectedTar
       const idPart = raw.slice(2);
       const idNum = Number(idPart);
       if (!Number.isNaN(idNum)) {
-        return { kind: 'monster', id: idNum, name: text.replace(/^Monster:\s*/i, '') || 'the monster' };
+        return {
+          kind: 'monster',
+          id: idNum,
+          name: text.replace(/^Monster:\s*/i, '') || 'the monster',
+        };
       }
     }
     if (raw.startsWith('P:')) {
       const slackId = raw.slice(2);
       if (slackId) {
-        return { kind: 'player', slackId, name: text.replace(/^Player:\s*/i, '') || 'the player' };
+        return {
+          kind: 'player',
+          slackId,
+          name: text.replace(/^Player:\s*/i, '') || 'the player',
+        };
       }
     }
   }
@@ -259,7 +268,9 @@ export function registerActions(app: App) {
         return;
       }
 
-      const selected = extractSelectedTarget(body.state?.values as SlackBlockState | undefined);
+      const selected = extractSelectedTarget(
+        body.state?.values as SlackBlockState | undefined,
+      );
 
       if (!selected) {
         await client.chat.postMessage({
@@ -301,8 +312,12 @@ export function registerActions(app: App) {
           return;
         }
 
-        const message = buildCombatSummary(combat, selected.name);
-        await client.chat.postMessage({ channel: channelId, text: message });
+        // Avoid posting full combat summaries in-channel to prevent duplicates.
+        // NotificationService will DM the combatants with detailed results.
+        await client.chat.postMessage({
+          channel: channelId,
+          text: '⚔️ Combat initiated! Check your DMs for the results.',
+        });
       } catch (err) {
         const message = getUserFriendlyErrorMessage(err, 'Failed to attack');
         await client.chat.postMessage({ channel: channelId, text: message });

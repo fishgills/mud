@@ -27,11 +27,19 @@ export function buildTargetSelectionMessage(
 
   const options = [
     ...players.map((p) => ({
-      text: { type: 'plain_text' as const, text: `Player: ${p.name}`, emoji: true },
+      text: {
+        type: 'plain_text' as const,
+        text: `Player: ${p.name}`,
+        emoji: true,
+      },
       value: `P:${p.slackId}`,
     })),
     ...monsters.map((m) => ({
-      text: { type: 'plain_text' as const, text: `Monster: ${m.name}`, emoji: true },
+      text: {
+        type: 'plain_text' as const,
+        text: `Monster: ${m.name}`,
+        emoji: true,
+      },
       value: `M:${m.id}`,
     })),
   ];
@@ -155,33 +163,11 @@ export const attackHandler = async ({
         await say({ text: 'Attack succeeded but no combat data returned.' });
         return;
       }
-      const playerMessages = combat.playerMessages ?? [];
-      const attackerSummary =
-        playerMessages.find((msg) => msg.slackId === userId)?.message ??
-        combat.message;
-      await say({ text: attackerSummary });
-
-      const defenderSummary = playerMessages.find(
-        (msg) => msg.slackId === targetSlackId,
-      )?.message;
-
-      if (defenderSummary && client) {
-        try {
-          const dm = await client.conversations.open({ users: targetSlackId });
-          const channelId = dm.channel?.id as string | undefined;
-          if (channelId) {
-            await client.chat.postMessage({
-              channel: channelId,
-              text: defenderSummary,
-            });
-          }
-        } catch (notifyError) {
-          console.warn(
-            `Failed to deliver PvP combat summary to defender ${targetSlackId}:`,
-            notifyError,
-          );
-        }
-      }
+      // Do not send combat summaries directly here; NotificationService
+      // will deliver tailored messages to both combatants via DM.
+      await say({
+        text: '⚔️ Combat initiated! Check your DMs for the results.',
+      });
       console.log(JSON.stringify(combat, null, 2));
       return;
     }
@@ -195,9 +181,9 @@ export const attackHandler = async ({
     }
     const { x, y } = player;
     const entities = await dmSdk.GetLocationEntities({ x, y });
-    const monstersHere: NearbyMonster[] = (entities.getMonstersAtLocation || []).map(
-      (m) => ({ id: String(m.id), name: m.name }),
-    );
+    const monstersHere: NearbyMonster[] = (
+      entities.getMonstersAtLocation || []
+    ).map((m) => ({ id: String(m.id), name: m.name }));
     const playersHere: NearbyPlayer[] = (entities.getPlayersAtLocation || [])
       .filter((p) => p.slackId !== toClientId(userId))
       .map((p) => ({ slackId: p.slackId, name: p.name }));

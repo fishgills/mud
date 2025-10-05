@@ -102,7 +102,7 @@ beforeEach(() => {
 });
 
 describe('attackHandler', () => {
-  it('attacks a mentioned player and notifies defender', async () => {
+  it('attacks a mentioned player and acknowledges via DM notice (notifications deliver summaries)', async () => {
     const say = makeSay();
     const client = makeClient();
 
@@ -135,10 +135,11 @@ describe('attackHandler', () => {
         ignoreLocation: true,
       },
     });
-    expect(say).toHaveBeenCalledWith({ text: 'attacker wins' });
-    expect(client.chat.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ channel: 'D1', text: 'defender loses' }),
-    );
+    expect(say).toHaveBeenCalledWith({
+      text: '⚔️ Combat initiated! Check your DMs for the results.',
+    });
+    // Defender notifications are handled by NotificationService; no direct DM here
+    expect(client.chat.postMessage).not.toHaveBeenCalled();
   });
 
   it('asks for a mention when username lacks slack id', async () => {
