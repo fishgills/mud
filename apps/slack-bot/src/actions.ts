@@ -58,7 +58,11 @@ const buildSayHelper =
     await client.chat.postMessage({ channel, text: '' });
   };
 
-function extractSelectedMonster(values: SlackBlockState | undefined) {
+type SelectedTarget =
+  | { kind: 'monster'; id: number; name: string }
+  | { kind: 'player'; slackId: string; name: string };
+
+function extractSelectedTarget(values: SlackBlockState | undefined): SelectedTarget | null {
   if (!values) {
     return null;
   }
@@ -70,13 +74,22 @@ function extractSelectedMonster(values: SlackBlockState | undefined) {
       continue;
     }
 
-    const monsterId = Number(option.value);
-    if (Number.isNaN(monsterId)) {
-      continue;
-    }
+    const raw = option.value as string;
+    const text = option.text?.text?.trim() || '';
 
-    const name = option.text?.text?.trim() || 'the monster';
-    return { id: monsterId, name };
+    if (raw.startsWith('M:')) {
+      const idPart = raw.slice(2);
+      const idNum = Number(idPart);
+      if (!Number.isNaN(idNum)) {
+        return { kind: 'monster', id: idNum, name: text.replace(/^Monster:\s*/i, '') || 'the monster' };
+      }
+    }
+    if (raw.startsWith('P:')) {
+      const slackId = raw.slice(2);
+      if (slackId) {
+        return { kind: 'player', slackId, name: text.replace(/^Player:\s*/i, '') || 'the player' };
+      }
+    }
   }
 
   return null;
@@ -246,9 +259,7 @@ export function registerActions(app: App) {
         return;
       }
 
-      const selected = extractSelectedMonster(
-        body.state?.values as SlackBlockState | undefined,
-      );
+      const selected = extractSelectedTarget(body.state?.values as SlackBlockState | undefined);
 
       if (!selected) {
         await client.chat.postMessage({
@@ -259,12 +270,18 @@ export function registerActions(app: App) {
       }
 
       try {
+        const isMonster = selected.kind === 'monster';
         const attackResult = await dmSdk.Attack({
           slackId: toClientId(userId),
-          input: {
-            targetType: TargetType.Monster,
-            targetId: selected.id,
-          },
+          input: isMonster
+            ? {
+                targetType: TargetType.Monster,
+                targetId: selected.id,
+              }
+            : {
+                targetType: TargetType.Player,
+                targetSlackId: selected.slackId,
+              },
         });
 
         if (!attackResult.attack.success) {

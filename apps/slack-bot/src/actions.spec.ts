@@ -317,7 +317,7 @@ describe('registerActions', () => {
             attack_monster_selection_block: {
               [ATTACK_ACTIONS.MONSTER_SELECT]: {
                 selected_option: {
-                  value: '42',
+                  value: 'M:42',
                   text: { text: 'Goblin' },
                 },
               },
@@ -685,7 +685,7 @@ describe('registerActions', () => {
             attack_block: {
               [ATTACK_ACTIONS.MONSTER_SELECT]: {
                 selected_option: {
-                  value: '99',
+                  value: 'M:99',
                   text: { text: 'Dragon' },
                 },
               },
@@ -737,7 +737,7 @@ describe('registerActions', () => {
             attack_block: {
               [ATTACK_ACTIONS.MONSTER_SELECT]: {
                 selected_option: {
-                  value: '99',
+                  value: 'M:99',
                   text: { text: 'Slime' },
                 },
               },
@@ -783,7 +783,7 @@ describe('registerActions', () => {
             attack_block: {
               [ATTACK_ACTIONS.MONSTER_SELECT]: {
                 selected_option: {
-                  value: '99',
+                  value: 'M:99',
                   text: { text: 'Orc' },
                 },
               },

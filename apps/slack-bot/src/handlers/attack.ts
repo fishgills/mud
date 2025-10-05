@@ -14,20 +14,43 @@ type AttackCombatResult = NonNullable<
 >;
 
 type NearbyMonster = { id: string; name: string };
+type NearbyPlayer = { slackId: string; name: string };
 
-export function buildMonsterSelectionMessage(monsters: NearbyMonster[]) {
+export function buildTargetSelectionMessage(
+  monsters: NearbyMonster[],
+  players: NearbyPlayer[],
+) {
   const monsterList = monsters.map((m) => m.name).join(', ');
-  const firstMonster = monsters[0];
+  const playerList = players.map((p) => p.name).join(', ');
+  const anyMonsters = monsters.length > 0;
+  const anyPlayers = players.length > 0;
+
+  const options = [
+    ...players.map((p) => ({
+      text: { type: 'plain_text' as const, text: `Player: ${p.name}`, emoji: true },
+      value: `P:${p.slackId}`,
+    })),
+    ...monsters.map((m) => ({
+      text: { type: 'plain_text' as const, text: `Monster: ${m.name}`, emoji: true },
+      value: `M:${m.id}`,
+    })),
+  ];
+
+  const firstOption = options[0];
+
+  const headerParts: string[] = [];
+  if (anyPlayers) headerParts.push(`players: ${playerList}`);
+  if (anyMonsters) headerParts.push(`monsters: ${monsterList}`);
+  const headerText = headerParts.length
+    ? `You see the following at your location — ${headerParts.join(' | ')}`
+    : 'Choose a target to attack:';
 
   return {
-    text: `Choose a monster to attack: ${monsterList}`,
+    text: 'Choose a target to attack',
     blocks: [
       {
         type: 'section' as const,
-        text: {
-          type: 'mrkdwn' as const,
-          text: `You see the following monsters at your location: ${monsterList}`,
-        },
+        text: { type: 'mrkdwn' as const, text: headerText },
       },
       {
         type: 'actions' as const,
@@ -38,27 +61,13 @@ export function buildMonsterSelectionMessage(monsters: NearbyMonster[]) {
             action_id: ATTACK_ACTIONS.MONSTER_SELECT,
             placeholder: {
               type: 'plain_text' as const,
-              text: 'Select a monster',
+              text: 'Select a target',
               emoji: true,
             },
-            options: monsters.map((monster) => ({
-              text: {
-                type: 'plain_text' as const,
-                text: monster.name,
-                emoji: true,
-              },
-              value: monster.id,
-            })),
-            ...(firstMonster
+            options,
+            ...(firstOption
               ? {
-                  initial_option: {
-                    text: {
-                      type: 'plain_text' as const,
-                      text: firstMonster.name,
-                      emoji: true,
-                    },
-                    value: firstMonster.id,
-                  },
+                  initial_option: firstOption,
                 }
               : {}),
           },
@@ -71,7 +80,7 @@ export function buildMonsterSelectionMessage(monsters: NearbyMonster[]) {
               emoji: true,
             },
             style: 'primary' as const,
-            value: 'attack_monster',
+            value: 'attack_target',
           },
         ],
       },
@@ -177,16 +186,28 @@ export const attackHandler = async ({
       return;
     }
 
-    // Get player info to find nearby monsters
-    const playerResult = await dmSdk.GetPlayer({
-      slackId: toClientId(userId),
-    });
+    // Get current location, then load entities at exact location
+    const playerResult = await dmSdk.GetPlayer({ slackId: toClientId(userId) });
     const player = playerResult.getPlayer.data;
-    if (!player || !player.nearbyMonsters?.length) {
-      await say({ text: 'No monsters nearby to attack!' });
+    if (!player) {
+      await say({ text: 'Could not find your player.' });
       return;
     }
-    await say(buildMonsterSelectionMessage(player.nearbyMonsters));
+    const { x, y } = player;
+    const entities = await dmSdk.GetLocationEntities({ x, y });
+    const monstersHere: NearbyMonster[] = (entities.getMonstersAtLocation || []).map(
+      (m) => ({ id: String(m.id), name: m.name }),
+    );
+    const playersHere: NearbyPlayer[] = (entities.getPlayersAtLocation || [])
+      .filter((p) => p.slackId !== toClientId(userId))
+      .map((p) => ({ slackId: p.slackId, name: p.name }));
+
+    if (monstersHere.length === 0 && playersHere.length === 0) {
+      await say({ text: 'No monsters or players here to attack!' });
+      return;
+    }
+
+    await say(buildTargetSelectionMessage(monstersHere, playersHere));
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(err, 'Failed to attack');
     await say({ text: errorMessage });

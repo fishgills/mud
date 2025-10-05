@@ -40,6 +40,20 @@ export const lookHandler = async ({ userId, say }: HandlerContext) => {
         await say({ text: `- ${monster.name}` });
       }
     }
+
+    // Also list any players at the same location
+    try {
+      const center = res.getLookView.data.location;
+      const entities = await dmSdk.GetLocationEntities({ x: center.x, y: center.y });
+      const playersHere = (entities.getPlayersAtLocation || []).filter(
+        (p) => p.slackId !== toClientId(userId),
+      );
+      if (playersHere.length > 0) {
+        await say({ text: `You see the following players at your location: ${playersHere.map((p) => p.name).join(', ')}` });
+      }
+    } catch {
+      // Ignore errors fetching co-located players; not critical to look output
+    }
     // Show performance stats summary if available
     const perf: Perf | undefined = (
       res.getLookView as unknown as {

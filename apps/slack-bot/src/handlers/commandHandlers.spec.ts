@@ -2,6 +2,7 @@ jest.mock('../gql-client', () => {
   const dmSdk = {
     Attack: jest.fn(),
     GetPlayer: jest.fn(),
+    GetLocationEntities: jest.fn(),
     CreatePlayer: jest.fn(),
     CompletePlayer: jest.fn(),
     DeletePlayer: jest.fn(),
@@ -34,6 +35,7 @@ import { toClientId } from '../utils/clientId';
 const mockedDmSdk = dmSdk as unknown as {
   Attack: jest.Mock;
   GetPlayer: jest.Mock;
+  GetLocationEntities: jest.Mock;
   CreatePlayer: jest.Mock;
   CompletePlayer: jest.Mock;
   DeletePlayer: jest.Mock;
@@ -154,19 +156,17 @@ describe('attackHandler', () => {
     expect(mockedDmSdk.Attack).not.toHaveBeenCalled();
   });
 
-  it('prompts the user to choose a monster when no mention is provided', async () => {
+  it('prompts the user to choose a target when no mention is provided', async () => {
     const say = makeSay();
     mockedDmSdk.GetPlayer.mockResolvedValueOnce({
-      getPlayer: {
-        success: true,
-        data: {
-          name: 'Hero',
-          nearbyMonsters: [
-            { id: '42', name: 'Goblin' },
-            { id: '43', name: 'Orc' },
-          ],
-        },
-      },
+      getPlayer: { success: true, data: { name: 'Hero', x: 0, y: 0 } },
+    });
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
+      getPlayersAtLocation: [],
+      getMonstersAtLocation: [
+        { id: '42', name: 'Goblin' },
+        { id: '43', name: 'Orc' },
+      ],
     });
 
     await attackHandler({
@@ -184,7 +184,7 @@ describe('attackHandler', () => {
         elements?: Array<Record<string, unknown>>;
       }>;
     };
-    expect(message.text).toContain('Choose a monster to attack');
+    expect(message.text).toContain('Choose a target to attack');
     const actionsBlock = message.blocks?.find(
       (block) => block.type === 'actions',
     );
@@ -202,16 +202,14 @@ describe('attackHandler', () => {
     );
   });
 
-  it('informs the user when no monsters are nearby', async () => {
+  it('informs the user when no monsters or players are nearby', async () => {
     const say = makeSay();
     mockedDmSdk.GetPlayer.mockResolvedValueOnce({
-      getPlayer: {
-        success: true,
-        data: {
-          name: 'Hero',
-          nearbyMonsters: [],
-        },
-      },
+      getPlayer: { success: true, data: { name: 'Hero', x: 0, y: 0 } },
+    });
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
+      getPlayersAtLocation: [],
+      getMonstersAtLocation: [],
     });
 
     await attackHandler({
@@ -220,7 +218,7 @@ describe('attackHandler', () => {
       say,
     } as HandlerContext);
 
-    expect(say).toHaveBeenCalledWith({ text: 'No monsters nearby to attack!' });
+    expect(say).toHaveBeenCalledWith({ text: 'No monsters or players here to attack!' });
   });
 
   it('reports failure messages from the API', async () => {
@@ -503,11 +501,18 @@ describe('deleteHandler', () => {
 describe('lookHandler', () => {
   it('renders the look view with monsters and perf stats', async () => {
     const say = makeSay();
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
+      getPlayersAtLocation: [
+        { id: '2', slackId: toClientId('U2'), name: 'Friend', x: 0, y: 0, hp: 10, maxHp: 10, strength: 1, agility: 1, health: 1, gold: 0, xp: 0, level: 1, skillPoints: 0, isAlive: true },
+      ],
+      getMonstersAtLocation: [],
+    });
     mockedDmSdk.GetLookView.mockResolvedValueOnce({
       getLookView: {
         success: true,
         data: {
           description: 'A vast plain',
+          location: { x: 0, y: 0, biomeName: 'plains', description: '', height: 0.5, temperature: 0.5, moisture: 0.5 },
           monsters: [{ name: 'Goblin' }, { name: 'Orc' }],
         },
         perf: {
@@ -534,6 +539,9 @@ describe('lookHandler', () => {
     });
     expect(say).toHaveBeenCalledWith({ text: '- Goblin' });
     expect(say).toHaveBeenCalledWith({ text: '- Orc' });
+    expect(say).toHaveBeenCalledWith({
+      text: 'You see the following players at your location: Friend',
+    });
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
         text: expect.stringContaining('Perf: total 50ms'),
@@ -580,6 +588,28 @@ describe('mapHandler', () => {
     await mapHandler({ userId: 'U1', text: '', say } as HandlerContext);
 
     expect(mockedSendPngMap).toHaveBeenCalledWith(say, 3, -4, 8);
+  });
+
+  it('displays co-located players after the map', async () => {
+    const say = makeSay();
+    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
+      getPlayer: {
+        success: true,
+        data: { x: 3, y: -4 },
+      },
+    });
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
+      getPlayersAtLocation: [
+        { id: '2', slackId: toClientId('U2'), name: 'Friend', x: 3, y: -4, hp: 10, maxHp: 10, strength: 1, agility: 1, health: 1, gold: 0, xp: 0, level: 1, skillPoints: 0, isAlive: true },
+      ],
+      getMonstersAtLocation: [],
+    });
+
+    await mapHandler({ userId: 'U1', text: '', say } as HandlerContext);
+
+    expect(say).toHaveBeenCalledWith({
+      text: 'You see the following players at your location: Friend',
+    });
   });
 
   it('announces map failures', async () => {
