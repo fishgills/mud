@@ -63,15 +63,20 @@ resource "google_cloud_run_v2_service" "services" {
               GCP_PROJECT_ID = var.project_id
               GCP_REGION     = var.region
               # Datadog configuration
-              DD_ENV                 = "prod"
-              DD_LOGS_INJECTION      = "true"
-              DD_GIT_REPOSITORY_URL  = "github.com/fishgills/mud"
+              DD_ENV                = "prod"
+              DD_LOGS_INJECTION     = "true"
+              DD_GIT_REPOSITORY_URL = "github.com/fishgills/mud"
               # Explicit service, site, and agentless APM endpoint for Cloud Run
-              DD_SERVICE             = "mud-${each.value.name}"
-              DD_SITE                = var.datadog_site
-              DD_TRACE_AGENT_URL     = "https://trace.agent.${var.datadog_site}"
+              DD_SERVICE         = "mud-${each.value.name}"
+              DD_SITE            = var.datadog_site
+              DD_TRACE_AGENT_URL = "https://trace.agent.${var.datadog_site}"
               # Attach version for better APM grouping (prefer git SHA, fallback to image tag)
-              DD_VERSION             = var.git_commit_sha == null ? var.image_version : var.git_commit_sha
+              DD_VERSION = var.git_commit_sha == null ? var.image_version : var.git_commit_sha
+              # Enable runtime metrics and profiling for better APM insights
+              DD_RUNTIME_METRICS_ENABLED = "true"
+              DD_PROFILING_ENABLED       = "true"
+              # Ensure traces are sent in agentless mode
+              DD_TRACE_ENABLED = "true"
             }
             # Optionally include the current git commit SHA when provided by CI
             , var.git_commit_sha == null ? {} : { DD_GIT_COMMIT_SHA = var.git_commit_sha }
