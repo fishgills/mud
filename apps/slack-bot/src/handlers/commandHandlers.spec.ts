@@ -218,7 +218,9 @@ describe('attackHandler', () => {
       say,
     } as HandlerContext);
 
-    expect(say).toHaveBeenCalledWith({ text: 'No monsters or players here to attack!' });
+    expect(say).toHaveBeenCalledWith({
+      text: 'No monsters or players here to attack!',
+    });
   });
 
   it('reports failure messages from the API', async () => {
@@ -503,7 +505,23 @@ describe('lookHandler', () => {
     const say = makeSay();
     mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
       getPlayersAtLocation: [
-        { id: '2', slackId: toClientId('U2'), name: 'Friend', x: 0, y: 0, hp: 10, maxHp: 10, strength: 1, agility: 1, health: 1, gold: 0, xp: 0, level: 1, skillPoints: 0, isAlive: true },
+        {
+          id: '2',
+          slackId: toClientId('U2'),
+          name: 'Friend',
+          x: 0,
+          y: 0,
+          hp: 10,
+          maxHp: 10,
+          strength: 1,
+          agility: 1,
+          health: 1,
+          gold: 0,
+          xp: 0,
+          level: 1,
+          skillPoints: 0,
+          isAlive: true,
+        },
       ],
       getMonstersAtLocation: [],
     });
@@ -512,7 +530,15 @@ describe('lookHandler', () => {
         success: true,
         data: {
           description: 'A vast plain',
-          location: { x: 0, y: 0, biomeName: 'plains', description: '', height: 0.5, temperature: 0.5, moisture: 0.5 },
+          location: {
+            x: 0,
+            y: 0,
+            biomeName: 'plains',
+            description: '',
+            height: 0.5,
+            temperature: 0.5,
+            moisture: 0.5,
+          },
           monsters: [{ name: 'Goblin' }, { name: 'Orc' }],
         },
         perf: {
@@ -545,6 +571,62 @@ describe('lookHandler', () => {
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
         text: expect.stringContaining('Perf: total 50ms'),
+      }),
+    );
+  });
+
+  it('does not list the current player in co-located players', async () => {
+    const say = makeSay();
+    // Only returns the invoking player at this location
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
+      getPlayersAtLocation: [
+        {
+          id: '1',
+          slackId: toClientId('U1'),
+          name: 'Hero',
+          x: 0,
+          y: 0,
+          hp: 10,
+          maxHp: 10,
+          strength: 1,
+          agility: 1,
+          health: 1,
+          gold: 0,
+          xp: 0,
+          level: 1,
+          skillPoints: 0,
+          isAlive: true,
+        },
+      ],
+      getMonstersAtLocation: [],
+    });
+    mockedDmSdk.GetLookView.mockResolvedValueOnce({
+      getLookView: {
+        success: true,
+        data: {
+          description: 'Scenery',
+          location: {
+            x: 0,
+            y: 0,
+            biomeName: 'plains',
+            description: '',
+            height: 0.5,
+            temperature: 0.5,
+            moisture: 0.5,
+          },
+          monsters: [],
+        },
+      },
+    });
+
+    await lookHandler({ userId: 'U1', text: '', say } as HandlerContext);
+
+    // Should not post a players-at-location message when only self is present
+    expect(say).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining(
+          'You see the following players at your location:',
+        ),
       }),
     );
   });
@@ -600,7 +682,23 @@ describe('mapHandler', () => {
     });
     mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
       getPlayersAtLocation: [
-        { id: '2', slackId: toClientId('U2'), name: 'Friend', x: 3, y: -4, hp: 10, maxHp: 10, strength: 1, agility: 1, health: 1, gold: 0, xp: 0, level: 1, skillPoints: 0, isAlive: true },
+        {
+          id: '2',
+          slackId: toClientId('U2'),
+          name: 'Friend',
+          x: 3,
+          y: -4,
+          hp: 10,
+          maxHp: 10,
+          strength: 1,
+          agility: 1,
+          health: 1,
+          gold: 0,
+          xp: 0,
+          level: 1,
+          skillPoints: 0,
+          isAlive: true,
+        },
       ],
       getMonstersAtLocation: [],
     });
@@ -610,6 +708,46 @@ describe('mapHandler', () => {
     expect(say).toHaveBeenCalledWith({
       text: 'You see the following players at your location: Friend',
     });
+  });
+
+  it('does not list the current player after the map', async () => {
+    const say = makeSay();
+    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
+      getPlayer: { success: true, data: { x: 5, y: 6 } },
+    });
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
+      getPlayersAtLocation: [
+        {
+          id: '1',
+          slackId: toClientId('U1'),
+          name: 'Hero',
+          x: 5,
+          y: 6,
+          hp: 10,
+          maxHp: 10,
+          strength: 1,
+          agility: 1,
+          health: 1,
+          gold: 0,
+          xp: 0,
+          level: 1,
+          skillPoints: 0,
+          isAlive: true,
+        },
+      ],
+      getMonstersAtLocation: [],
+    });
+
+    await mapHandler({ userId: 'U1', text: '', say } as HandlerContext);
+
+    // No player list should be posted when only self is present
+    expect(say).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining(
+          'You see the following players at your location:',
+        ),
+      }),
+    );
   });
 
   it('announces map failures', async () => {
