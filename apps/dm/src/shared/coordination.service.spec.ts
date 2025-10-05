@@ -37,7 +37,7 @@ type EnvOverrides = {
 };
 
 const instantiateService = (overrides: EnvOverrides = {}) => {
-  let ServiceClass: { new (): CoordinationServiceType };
+  let ServiceClass: { new (): CoordinationServiceType } | undefined;
   let client: RedisClientMock | undefined;
 
   jest.resetModules();
@@ -57,11 +57,16 @@ const instantiateService = (overrides: EnvOverrides = {}) => {
       },
     }));
 
-    const { CoordinationService: ServiceClass } = await import(
-      './coordination.service'
-    );
-    return ServiceClass;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const moduleExports = require('./coordination.service') as {
+      CoordinationService: { new (): CoordinationServiceType };
+    };
+    ServiceClass = moduleExports.CoordinationService;
   });
+
+  if (!ServiceClass) {
+    throw new Error('Failed to load CoordinationService');
+  }
 
   const service = new ServiceClass();
   return { service, client };

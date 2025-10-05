@@ -11,11 +11,17 @@ const players: Record<string, unknown>[] = [];
 jest.mock('@mud/database', () => ({
   getPrismaClient: () => ({
     player: {
-      findUnique: jest.fn(async ({ where: { slackId, clientId } }) => {
-        if (clientId) {
-          return players.find((p) => p.clientId === clientId) ?? null;
+      findUnique: jest.fn(async ({ where }) => {
+        if (where?.id) {
+          return players.find((p) => p.id === where.id) ?? null;
         }
-        return players.find((p) => p.slackId === slackId) ?? null;
+        if (where?.slackId) {
+          return players.find((p) => p.slackId === where.slackId) ?? null;
+        }
+        if (where?.clientId) {
+          return players.find((p) => p.clientId === where.clientId) ?? null;
+        }
+        return null;
       }),
       findFirst: jest.fn(async ({ where }) => {
         if (where.OR) {
@@ -114,14 +120,48 @@ jest.mock('@mud/database', () => ({
         players.push(player);
         return player;
       }),
-      update: jest.fn(async ({ where: { slackId }, data }) => {
-        const idx = players.findIndex((p) => p.slackId === slackId);
+      update: jest.fn(async ({ where, data }) => {
+        const idx = players.findIndex((p) =>
+          where.id !== undefined
+            ? p.id === where.id
+            : where.slackId
+              ? p.slackId === where.slackId
+              : where.clientId
+                ? p.clientId === where.clientId
+                : false,
+        );
         if (idx === -1) throw new Error('not found');
         players[idx] = { ...players[idx], ...data };
         return players[idx];
       }),
-      delete: jest.fn(async ({ where: { slackId } }) => {
-        const idx = players.findIndex((p) => p.slackId === slackId);
+      updateMany: jest.fn(async ({ where, data }) => {
+        let count = 0;
+        for (const player of players) {
+          const matches =
+            where?.OR?.some((condition: Record<string, unknown>) => {
+              if (condition.clientId) {
+                return player.clientId === condition.clientId;
+              }
+              if (condition.slackId) {
+                return player.slackId === condition.slackId;
+              }
+              return false;
+            }) ?? false;
+          if (matches) {
+            Object.assign(player, data);
+            count += 1;
+          }
+        }
+        return { count };
+      }),
+      delete: jest.fn(async ({ where }) => {
+        const idx = players.findIndex((p) =>
+          where.id !== undefined
+            ? p.id === where.id
+            : where.slackId
+              ? p.slackId === where.slackId
+              : false,
+        );
         if (idx === -1) throw new Error('not found');
         const [removed] = players.splice(idx, 1);
         return removed;
@@ -145,6 +185,8 @@ describe('PlayerService', () => {
     players.push({
       id: 99,
       slackId: 'EXIST',
+      clientId: 'slack:EXIST',
+      clientType: 'slack',
       name: 'Existing',
       x: 100,
       y: 100,
@@ -172,7 +214,8 @@ describe('PlayerService', () => {
       x: 0,
       y: 0,
     } as CreatePlayerInput);
-    expect(created.slackId).toBe('U1');
+    expect(created.clientType).toBe('slack');
+    expect(created.clientId).toBe('U1');
 
     await expect(
       service.createPlayer({
@@ -205,7 +248,7 @@ describe('PlayerService', () => {
     const moved = await service.movePlayer('EXIST', {
       direction: 'east',
     } as MovePlayerInput);
-    expect(moved.x).toBe(101);
+    expect(moved.position.x).toBe(101);
 
     await expect(
       service.movePlayer('EXIST', { x: 1 } as MovePlayerInput),
@@ -228,17 +271,17 @@ describe('PlayerService', () => {
       gold: 3,
       level: 2,
     } as PlayerStatsInput);
-    expect(updated.hp).toBe(5);
+    expect(updated.combat.hp).toBe(5);
 
     players[0].hp = 1;
     const rerolled = await service.rerollPlayerStats('EXIST');
-    expect(rerolled.maxHp).toBeGreaterThan(0);
+    expect(rerolled.combat.maxHp).toBeGreaterThan(0);
 
     const healed = await service.healPlayer('EXIST', 5);
-    expect(healed.hp).toBeLessThanOrEqual(healed.maxHp);
+    expect(healed.combat.hp).toBeLessThanOrEqual(healed.combat.maxHp);
 
     const damaged = await service.damagePlayer('EXIST', 200);
-    expect(damaged.isAlive).toBe(false);
+    expect(damaged.combat.isAlive).toBe(false);
   });
 
   it('levels up and awards skill points based on XP thresholds', async () => {
@@ -248,8 +291,8 @@ describe('PlayerService', () => {
     } as PlayerStatsInput);
 
     expect(leveled.level).toBe(5);
-    expect(leveled.maxHp).toBe(34);
-    expect(leveled.hp).toBe(34);
+    expect(leveled.combat.maxHp).toBe(34);
+    expect(leveled.combat.hp).toBe(34);
     expect(leveled.skillPoints).toBe(2);
   });
 
@@ -259,13 +302,13 @@ describe('PlayerService', () => {
 
     const afterStrength = await service.spendSkillPoint('EXIST', 'strength');
     expect(afterStrength.skillPoints).toBe(1);
-    expect(afterStrength.strength).toBe(11);
+    expect(afterStrength.attributes.strength).toBe(11);
 
     const maxHpBeforeHealth = players[0].maxHp;
     const afterHealth = await service.spendSkillPoint('EXIST', 'health');
     expect(afterHealth.skillPoints).toBe(0);
-    expect(afterHealth.health).toBe(11);
-    expect(afterHealth.maxHp).toBeGreaterThan(maxHpBeforeHealth);
+    expect(afterHealth.attributes.health).toBe(11);
+    expect(afterHealth.combat.maxHp).toBeGreaterThan(maxHpBeforeHealth);
 
     await expect(service.spendSkillPoint('EXIST', 'agility')).rejects.toThrow(
       'No skill points available.',
@@ -275,15 +318,17 @@ describe('PlayerService', () => {
   it('respawns, deletes, and finds players nearby', async () => {
     const service = new PlayerService(worldService);
     const respawned = await service.respawnPlayer('EXIST');
-    expect(respawned.isAlive).toBe(true);
+    expect(respawned.combat.isAlive).toBe(true);
 
     const removed = await service.deletePlayer('EXIST');
-    expect(removed.slackId).toBe('EXIST');
+    expect(removed.clientId).toBe('EXIST');
 
     players.push(
       {
         id: 101,
         slackId: 'A',
+        clientId: 'slack:A',
+        clientType: 'slack',
         name: 'A',
         x: 10,
         y: 10,
@@ -298,6 +343,8 @@ describe('PlayerService', () => {
       {
         id: 102,
         slackId: 'B',
+        clientId: 'slack:B',
+        clientType: 'slack',
         name: 'B',
         x: 12,
         y: 10,
@@ -355,8 +402,8 @@ describe('PlayerService', () => {
     const service = new PlayerService(worldService);
     await service.updateLastAction('EXIST');
 
-    const player = await service.getPlayer('EXIST');
-    expect(player.lastAction).toBeDefined();
+    const record = players.find((p) => p.slackId === 'EXIST');
+    expect(record?.lastAction).toBeDefined();
   });
 
   it('throws error when getPlayerByIdentifier receives no slackId or name', async () => {

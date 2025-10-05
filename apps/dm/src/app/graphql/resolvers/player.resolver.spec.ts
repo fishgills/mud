@@ -17,45 +17,70 @@ describe('PlayerResolver', () => {
   const basePlayer = {
     id: 1,
     slackId: 'U1',
+    clientId: 'U1',
+    clientType: 'slack' as const,
     name: 'Hero',
-    x: 0,
-    y: 0,
-    strength: 12,
-    agility: 14,
-    health: 13,
+    position: { x: 0, y: 0 },
+    attributes: { strength: 12, agility: 14, health: 13 },
+    combat: { hp: 10, maxHp: 12, isAlive: true },
     level: 2,
     xp: 150,
-    hp: 10,
-    maxHp: 12,
-    isAlive: true,
+    gold: 0,
     skillPoints: 0,
   };
 
   const createResolver = () => {
     const playerService = {
-      createPlayer: jest.fn().mockResolvedValue(basePlayer),
+      createPlayer: jest.fn().mockResolvedValue({ ...basePlayer }),
       getPlayerByIdentifier: jest
         .fn()
         .mockResolvedValue({ ...basePlayer, id: 42 }),
       getAllPlayers: jest
         .fn()
         .mockResolvedValue([
-          basePlayer,
-          { ...basePlayer, id: 2, slackId: 'U2', name: 'Villain' },
+          { ...basePlayer },
+          {
+            ...basePlayer,
+            id: 2,
+            slackId: 'U2',
+            clientId: 'U2',
+            name: 'Villain',
+            position: { x: 5, y: 5 },
+          },
         ]),
-      updatePlayerStats: jest.fn().mockResolvedValue(basePlayer),
-      rerollPlayerStats: jest.fn().mockResolvedValue(basePlayer),
-      healPlayer: jest.fn().mockResolvedValue({ ...basePlayer, hp: 12 }),
-      damagePlayer: jest.fn().mockResolvedValue({ ...basePlayer, hp: 3 }),
+      updatePlayerStats: jest.fn().mockResolvedValue({ ...basePlayer }),
+      rerollPlayerStats: jest.fn().mockResolvedValue({ ...basePlayer }),
+      healPlayer: jest
+        .fn()
+        .mockResolvedValue({
+          ...basePlayer,
+          combat: { ...basePlayer.combat, hp: 12 },
+        }),
+      damagePlayer: jest
+        .fn()
+        .mockResolvedValue({
+          ...basePlayer,
+          combat: { ...basePlayer.combat, hp: 3 },
+        }),
       respawnPlayer: jest
         .fn()
-        .mockResolvedValue({ ...basePlayer, hp: 12, x: 10, y: -10 }),
-      deletePlayer: jest.fn().mockResolvedValue(basePlayer),
-      getPlayersAtLocation: jest.fn().mockResolvedValue([basePlayer]),
-      getPlayer: jest.fn().mockResolvedValue(basePlayer),
+        .mockResolvedValue({
+          ...basePlayer,
+          combat: { ...basePlayer.combat, hp: 12 },
+          position: { x: 10, y: -10 },
+        }),
+      deletePlayer: jest.fn().mockResolvedValue({ ...basePlayer }),
+      getPlayersAtLocation: jest
+        .fn()
+        .mockResolvedValue([{ ...basePlayer }]),
+      getPlayer: jest.fn().mockResolvedValue({ ...basePlayer }),
       spendSkillPoint: jest
         .fn()
-        .mockResolvedValue({ ...basePlayer, strength: 13 }),
+        .mockResolvedValue({
+          ...basePlayer,
+          attributes: { ...basePlayer.attributes, strength: 13 },
+          skillPoints: 0,
+        }),
     } as unknown as {
       createPlayer: jest.Mock;
       getPlayerByIdentifier: jest.Mock;
@@ -176,11 +201,11 @@ describe('PlayerResolver', () => {
     expect(healFail.success).toBe(false);
 
     const damaged = await resolver.damagePlayer('U1', 7);
-    expect(damaged.data?.hp).toBe(3);
+      expect(damaged.data?.hp).toBe(3);
 
-    playerService.damagePlayer.mockRejectedValueOnce(new Error('hurt'));
-    const damageFail = await resolver.damagePlayer('U1', 1);
-    expect(damageFail.success).toBe(false);
+      playerService.damagePlayer.mockRejectedValueOnce(new Error('hurt'));
+      const damageFail = await resolver.damagePlayer('U1', 1);
+      expect(damageFail.success).toBe(false);
   });
 
   it('spends skill points and reports failures', async () => {
