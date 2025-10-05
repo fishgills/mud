@@ -12,6 +12,12 @@ resource "google_project_service" "apis" {
     "containerregistry.googleapis.com",
     "artifactregistry.googleapis.com",
     "aiplatform.googleapis.com",
+    # For Datadog GCP integration (metrics + resource discovery)
+    "monitoring.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "cloudasset.googleapis.com",
+    # Logging is not required for metrics-only but commonly enabled
+    "logging.googleapis.com",
   ])
 
   service            = each.key

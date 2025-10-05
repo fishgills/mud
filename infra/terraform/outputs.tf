@@ -55,3 +55,8 @@ output "github_actions_workload_identity_provider" {
   description = "Full resource name of the Workload Identity Provider for GitHub Actions."
   value       = try(google_iam_workload_identity_pool_provider.github_actions[0].name, null)
 }
+
+output "datadog_integration_service_account_email" {
+  description = "Service account email to add in Datadog GCP integration (project-level). Create a JSON key for this SA and upload to Datadog."
+  value       = google_service_account.datadog_gcp_service_account.email
+}

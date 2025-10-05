@@ -112,6 +112,13 @@ variable "datadog_api_key" {
   sensitive   = true
 }
 
+# Datadog site (e.g., datadoghq.com, datadoghq.eu)
+variable "datadog_site" {
+  description = "Datadog site domain for agentless APM and other endpoints"
+  type        = string
+  default     = "datadoghq.com"
+}
+
 # Slack secrets (optional)
 variable "slack_bot_token" {
   description = "Slack Bot Token (xoxb-...)"

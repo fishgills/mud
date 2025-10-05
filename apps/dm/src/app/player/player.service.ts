@@ -29,7 +29,7 @@ export class PlayerService {
   // Examples (base=100): L1->2: 100, L2->3: 300, L3->4: 600, L4->5: 1000
   private getXpForNextLevel(level: number): number {
     const BASE = 100;
-    return Math.floor(BASE * (level * (level + 1)) / 2);
+    return Math.floor((BASE * (level * (level + 1))) / 2);
   }
 
   private getConstitutionModifier(health: number): number {
@@ -566,7 +566,7 @@ export class PlayerService {
       };
     }
 
-    // Try to find a valid spawn position
+    // Try to find a valid spawn position on land (avoid water)
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       let candidateX: number;
       let candidateY: number;
@@ -597,13 +597,26 @@ export class PlayerService {
       });
 
       if (isValidPosition) {
-        return { x: candidateX, y: candidateY };
+        try {
+          const tile = await this.worldService.getTileInfo(
+            candidateX,
+            candidateY,
+          );
+          if (!isWaterBiome(tile.biomeName)) {
+            return { x: candidateX, y: candidateY };
+          }
+        } catch (err) {
+          // If world service fails, conservatively skip this candidate
+          this.logger.warn(
+            `Skipping spawn candidate due to tile lookup failure at (${candidateX}, ${candidateY})`,
+          );
+        }
       }
     }
 
-    // If we couldn't find a valid position after MAX_ATTEMPTS,
-    // find the position that's farthest from the nearest player
-    let bestPosition = { x: 0, y: 0 };
+    // If we couldn't find a valid land position after MAX_ATTEMPTS,
+    // find the land position that's farthest from the nearest player
+    let bestPosition: { x: number; y: number } | null = null;
     let maxMinDistance = 0;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -612,22 +625,67 @@ export class PlayerService {
       const candidateX = Math.floor(Math.cos(angle) * distance);
       const candidateY = Math.floor(Math.sin(angle) * distance);
 
-      // Find minimum distance to any existing player
-      const minDistance = Math.min(
-        ...alivePlayerPositions.map((pos) =>
-          Math.sqrt(
-            Math.pow(candidateX - pos.x, 2) + Math.pow(candidateY - pos.y, 2),
-          ),
-        ),
-      );
+      try {
+        const tile = await this.worldService.getTileInfo(
+          candidateX,
+          candidateY,
+        );
+        if (isWaterBiome(tile.biomeName)) {
+          continue; // skip water tiles
+        }
 
-      if (minDistance > maxMinDistance) {
-        maxMinDistance = minDistance;
-        bestPosition = { x: candidateX, y: candidateY };
+        // Find minimum distance to any existing player
+        const minDistance = Math.min(
+          ...alivePlayerPositions.map((pos) =>
+            Math.sqrt(
+              Math.pow(candidateX - pos.x, 2) + Math.pow(candidateY - pos.y, 2),
+            ),
+          ),
+        );
+
+        if (minDistance > maxMinDistance) {
+          maxMinDistance = minDistance;
+          bestPosition = { x: candidateX, y: candidateY };
+        }
+      } catch (err) {
+        // Skip candidates we can't validate
+        continue;
       }
     }
 
-    return bestPosition;
+    if (bestPosition) {
+      return bestPosition;
+    }
+
+    // As a final fallback, search locally around origin for first non-water tile
+    const fallback = await this.findNearestNonWater(0, 0, 25);
+    return fallback ?? { x: 0, y: 0 };
+  }
+
+  private async findNearestNonWater(
+    centerX: number,
+    centerY: number,
+    maxRadius = 25,
+  ): Promise<{ x: number; y: number } | null> {
+    for (let r = 0; r <= maxRadius; r++) {
+      // Scan the square ring at radius r
+      for (let dx = -r; dx <= r; dx++) {
+        for (let dy = -r; dy <= r; dy++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // only ring cells
+          const x = centerX + dx;
+          const y = centerY + dy;
+          try {
+            const tile = await this.worldService.getTileInfo(x, y);
+            if (!isWaterBiome(tile.biomeName)) {
+              return { x, y };
+            }
+          } catch (err) {
+            // ignore and continue
+          }
+        }
+      }
+    }
+    return null;
   }
 
   /**
