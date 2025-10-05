@@ -432,8 +432,8 @@ describe('CombatService', () => {
     expect(attackRollSpy).toHaveBeenCalledTimes(1);
     expect(damageSpy).toHaveBeenCalledTimes(1);
     expect(xpSpy).toHaveBeenCalledWith(
-      defenderPlayer.level,
       attackerPlayer.level,
+      defenderPlayer.level,
     );
     expect(goldSpy).toHaveBeenCalledWith(
       attackerPlayer.level,

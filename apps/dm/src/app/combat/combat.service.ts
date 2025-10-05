@@ -110,13 +110,31 @@ export class CombatService {
     return totalDamage;
   }
 
-  // Calculate XP gain based on level difference and 20d10
+  // Calculate XP gain based on opponent difficulty and level difference
+  // Goals:
+  // - Reasonable base XP at low levels (≈25–35 for equal levels)
+  // - More XP for defeating higher-level foes, less for lower-level
+  // - Naturally discourage high-level farming of level-1 monsters
   private calculateXpGain(winnerLevel: number, loserLevel: number): number {
-    const levelRatio = loserLevel / winnerLevel;
-    const baseXp = this.rollDice(20, 10); // 20d10
-    const finalXp = Math.max(10, Math.floor(levelRatio * baseXp));
+    // Base scales modestly with opponent level; add small variability
+    const base = 20 + 5 * Math.max(1, loserLevel);
+    const variability = this.rollDice(2, 6) - 2; // 0–10 swing
+
+    // Positive when opponent is higher level, negative when lower
+    const levelDiff = loserLevel - winnerLevel;
+    let multiplier: number;
+    if (levelDiff >= 0) {
+      // Reward upsets: +20% per level difference, capped at +200%
+      multiplier = 1 + Math.min(2, levelDiff * 0.2);
+    } else {
+      // Penalize bullying: -10% per level, floored at 0.25x
+      multiplier = Math.max(0.25, 1 + levelDiff * 0.1);
+    }
+
+    const rawXp = (base + variability) * multiplier;
+    const finalXp = Math.max(5, Math.floor(rawXp));
     this.logger.debug(
-      `XP calculation: (${loserLevel}/${winnerLevel}) * ${baseXp} = ${finalXp} (min 10)`,
+      `XP calc: base ~${base}+${variability}, diff=${levelDiff}, mult=${multiplier.toFixed(2)} => ${finalXp}`,
     );
     return finalXp;
   }
@@ -485,7 +503,7 @@ export class CombatService {
 
     const winner = combatant1.isAlive ? combatant1 : combatant2;
     const loser = combatant1.isAlive ? combatant2 : combatant1;
-    const xpAwarded = this.calculateXpGain(loser.level, winner.level);
+    const xpAwarded = this.calculateXpGain(winner.level, loser.level);
     const goldAwarded = this.calculateGoldReward(winner.level, loser.level);
 
     this.logger.log(`🏆 Winner: ${winner.name} (${winner.hp} HP remaining)`);

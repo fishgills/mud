@@ -23,8 +23,13 @@ export class PlayerService {
 
   constructor(private readonly worldService: WorldService) {}
 
+  // Returns the cumulative XP threshold required to reach the next level.
+  // Uses a triangular progression that grows with level:
+  // T(level) = base * (level * (level + 1) / 2)
+  // Examples (base=100): L1->2: 100, L2->3: 300, L3->4: 600, L4->5: 1000
   private getXpForNextLevel(level: number): number {
-    return level * 100;
+    const BASE = 100;
+    return Math.floor(BASE * (level * (level + 1)) / 2);
   }
 
   private getConstitutionModifier(health: number): number {

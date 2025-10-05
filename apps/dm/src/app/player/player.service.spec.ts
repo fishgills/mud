@@ -287,7 +287,8 @@ describe('PlayerService', () => {
   it('levels up and awards skill points based on XP thresholds', async () => {
     const service = new PlayerService(worldService);
     const leveled = await service.updatePlayerStats('EXIST', {
-      xp: 450,
+      // Triangular thresholds (base=100): 100, 300, 600, 1000 => level 5 at 1000
+      xp: 1000,
     } as PlayerStatsInput);
 
     expect(leveled.level).toBe(5);

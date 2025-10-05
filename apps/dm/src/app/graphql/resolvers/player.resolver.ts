@@ -360,10 +360,14 @@ export class PlayerResolver {
     const baseDamage = `1d6${strengthModifier >= 0 ? '+' : ''}${strengthModifier}`;
     const armorClass = 10 + agilityModifier; // Basic AC calculation
 
-    // Calculate XP needed for next level (simple progression: level * 100)
-    const xpForNextLevel = player.level * 100;
-    const xpProgress = player.xp - (player.level - 1) * 100;
-    const xpNeeded = xpForNextLevel - player.xp;
+    // Calculate XP progress using triangular progression (base=100)
+    // Threshold to reach next level L+1: T(L) = 100 * (L * (L + 1) / 2)
+    const xpThreshold = (lvl: number) =>
+      Math.floor(100 * (lvl * (lvl + 1)) / 2);
+    const xpForNextLevel = xpThreshold(player.level);
+    const prevThreshold = player.level > 1 ? xpThreshold(player.level - 1) : 0;
+    const xpProgress = Math.max(0, player.xp - prevThreshold);
+    const xpNeeded = Math.max(0, xpForNextLevel - player.xp);
 
     // Get recent combat history for this player's location
     const recentCombat = await this.combatService.getCombatLogForLocation(
