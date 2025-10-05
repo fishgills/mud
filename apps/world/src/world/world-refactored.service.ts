@@ -139,10 +139,10 @@ export class WorldService {
       settlement.y,
       settlement.size as 'large' | 'medium' | 'small' | 'tiny',
       coordRng,
-      {
-        type: settlement.type as any,
-        population: settlement.population as any,
-      },
+          {
+            type: settlement.type ?? undefined,
+            population: settlement.population ?? undefined,
+          },
     );
   }
 

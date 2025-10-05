@@ -29,6 +29,7 @@ import { moveHandler } from './move';
 import { rerollHandler } from './reroll';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import type { HandlerContext, SayMessage } from './types';
+import { toClientId } from '../utils/clientId';
 
 const mockedDmSdk = dmSdk as unknown as {
   Attack: jest.Mock;
@@ -83,7 +84,7 @@ beforeEach(() => {
       success: true,
       data: {
         id: '1',
-        slackId: 'U1',
+        slackId: toClientId('U1'),
         name: 'Hero',
         hp: 1,
         maxHp: 10,
@@ -125,7 +126,7 @@ describe('attackHandler', () => {
     } as HandlerContext);
 
     expect(mockedDmSdk.Attack).toHaveBeenCalledWith({
-      slackId: 'U1',
+      slackId: toClientId('U1'),
       input: {
         targetType: TargetType.Player,
         targetSlackId: 'U2',
@@ -296,7 +297,7 @@ describe('createHandler', () => {
     } as HandlerContext);
 
     expect(mockedDmSdk.CreatePlayer).toHaveBeenCalledWith({
-      input: { slackId: 'U1', name: 'Hero' },
+      input: { slackId: toClientId('U1'), name: 'Hero' },
     });
     expect(say).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -444,7 +445,9 @@ describe('deleteHandler', () => {
 
     await deleteHandler({ userId: 'U1', text: '', say } as HandlerContext);
 
-    expect(mockedDmSdk.DeletePlayer).toHaveBeenCalledWith({ slackId: 'U1' });
+    expect(mockedDmSdk.DeletePlayer).toHaveBeenCalledWith({
+      slackId: toClientId('U1'),
+    });
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
         text: expect.stringContaining('has been successfully deleted'),
@@ -624,7 +627,7 @@ describe('moveHandler', () => {
     } as HandlerContext);
 
     expect(mockedDmSdk.MovePlayer).toHaveBeenCalledWith({
-      slackId: 'U1',
+      slackId: toClientId('U1'),
       input: { direction: Direction.North },
     });
     expect(mockedSendPngMap).toHaveBeenCalledWith(say, 1, 2, 8);
@@ -657,7 +660,7 @@ describe('moveHandler', () => {
     } as HandlerContext);
 
     expect(mockedDmSdk.MovePlayer).toHaveBeenCalledWith({
-      slackId: 'U1',
+      slackId: toClientId('U1'),
       input: { x: 10, y: -5 },
     });
     expect(say).toHaveBeenCalledWith({

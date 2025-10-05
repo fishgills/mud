@@ -1,6 +1,6 @@
 import { MonsterService } from './monster.service';
 
-const monsters: any[] = [];
+const monsters: Record<string, unknown>[] = [];
 
 jest.mock('@mud/database', () => ({
   getPrismaClient: () => ({
@@ -14,7 +14,7 @@ jest.mock('@mud/database', () => ({
         monsters.push(monster);
         return monster;
       }),
-      findMany: jest.fn(async (args: any = {}) => {
+      findMany: jest.fn(async (args: Record<string, unknown> = {}) => {
         let result = monsters.filter((m) => m.isAlive !== false);
         const where = args.where ?? {};
         if (where.x?.gte !== undefined) {
@@ -80,7 +80,7 @@ describe('MonsterService', () => {
       currentSettlement: null,
       nearbySettlements: [],
     }),
-  } as any;
+  } as unknown as Parameters<typeof MonsterService.prototype.constructor>[0];
 
   beforeEach(() => {
     monsters.length = 0;
@@ -94,7 +94,7 @@ describe('MonsterService', () => {
   it('spawns monsters and prevents water spawns', async () => {
     const service = new MonsterService(worldService);
     const spawned = await service.spawnMonster(1, 2, 1);
-    expect(spawned.hp).toBeGreaterThan(0);
+    expect(spawned.combat.hp).toBeGreaterThan(0);
 
     await expect(service.spawnMonster(999, 2, 1)).rejects.toThrow('water');
   });
@@ -149,7 +149,7 @@ describe('MonsterService', () => {
     });
 
     const damaged = await service.damageMonster(2, 10);
-    expect(damaged.isAlive).toBe(false);
+    expect(damaged.combat.isAlive).toBe(false);
 
     await service.cleanupDeadMonsters();
     expect(monsters.find((m) => m.id === 2)).toBeUndefined();

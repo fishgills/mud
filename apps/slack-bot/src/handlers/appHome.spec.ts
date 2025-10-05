@@ -1,15 +1,45 @@
 import type { App } from '@slack/bolt';
+import type { ActionsBlock, KnownBlock } from '@slack/types';
 import { buildAppHomeBlocks, registerAppHome } from './appHome';
+import { dmSdk } from '../gql-client';
+
+// Mock the GraphQL client
+jest.mock('../gql-client', () => ({
+  dmSdk: {
+    GetPlayer: jest.fn(),
+  },
+}));
 
 type AppHomeHandler = (args: {
   event: { user: string };
   client: { views: { publish: jest.Mock } };
-  logger: { error: jest.Mock };
+  logger: { error: jest.Mock; info: jest.Mock };
 }) => Promise<void> | void;
 
+const isActionsBlock = (block: KnownBlock): block is ActionsBlock =>
+  block.type === 'actions';
+
+const buttonTextsFromBlock = (block: ActionsBlock): string[] =>
+  block.elements
+    .map((element) => {
+      if (element.type !== 'button') {
+        return undefined;
+      }
+      return element.text?.type === 'plain_text' ? element.text.text : undefined;
+    })
+    .filter((text): text is string => Boolean(text));
+
 describe('buildAppHomeBlocks', () => {
-  it('includes welcome header and help sections', () => {
-    const blocks = buildAppHomeBlocks();
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('includes welcome header and action buttons when user has no character', async () => {
+    (dmSdk.GetPlayer as jest.Mock).mockResolvedValue({
+      getPlayer: { success: false, data: null },
+    });
+
+    const blocks = await buildAppHomeBlocks('U123');
 
     expect(blocks[0]).toMatchObject({
       type: 'header',
@@ -17,34 +47,76 @@ describe('buildAppHomeBlocks', () => {
         text: expect.stringContaining('Welcome'),
       }),
     });
-    const contextBlock = blocks.find((block) => block.type === 'context');
-    expect(contextBlock).toBeDefined();
-    if (contextBlock && 'elements' in contextBlock) {
-      const text = contextBlock.elements
-        ?.map((element) => {
-          if (
-            (element.type === 'mrkdwn' || element.type === 'plain_text') &&
-            typeof (element as any).text === 'string'
-          ) {
-            return (element as any).text;
-          }
-          return '';
-        })
-        .join(' ');
-      expect(text).toEqual(expect.stringContaining('Need a refresher'));
+
+    // Should have action buttons for creating character
+    const actionBlock = blocks.find((block) => block.type === 'actions');
+    expect(actionBlock).toBeDefined();
+  });
+
+  it('includes character creation buttons when user has incomplete character', async () => {
+    (dmSdk.GetPlayer as jest.Mock).mockResolvedValue({
+      getPlayer: {
+        success: true,
+        data: {
+          name: 'TestChar',
+          isAlive: false, // Character not completed
+        },
+      },
+    });
+
+    const blocks = await buildAppHomeBlocks('U123');
+
+    const actionBlock = blocks.find((block) => block.type === 'actions');
+    expect(actionBlock).toBeDefined();
+    if (actionBlock && isActionsBlock(actionBlock)) {
+      const buttonTexts = buttonTextsFromBlock(actionBlock);
+      expect(buttonTexts).toContain('🎲 Reroll Stats');
+      expect(buttonTexts).toContain('✅ Complete Character');
+    }
+  });
+
+  it('includes gameplay buttons when user has active character', async () => {
+    (dmSdk.GetPlayer as jest.Mock).mockResolvedValue({
+      getPlayer: {
+        success: true,
+        data: {
+          name: 'TestChar',
+          isAlive: true, // Character is active
+        },
+      },
+    });
+
+    const blocks = await buildAppHomeBlocks('U123');
+
+    const actionBlock = blocks.find((block) => block.type === 'actions');
+    expect(actionBlock).toBeDefined();
+    if (actionBlock && isActionsBlock(actionBlock)) {
+      const buttonTexts = buttonTextsFromBlock(actionBlock);
+      expect(buttonTexts).toContain('👀 Look Around');
+      expect(buttonTexts).toContain('📊 View Stats');
+      expect(buttonTexts).toContain('🗺️ View Map');
     }
   });
 });
 
 describe('registerAppHome', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('registers an app_home_opened handler that publishes the view', async () => {
+    (dmSdk.GetPlayer as jest.Mock).mockResolvedValue({
+      getPlayer: { success: false, data: null },
+    });
+
     const handlers: Record<string, AppHomeHandler> = {};
     const views = { publish: jest.fn().mockResolvedValue(undefined) };
-    const logger = { error: jest.fn() };
+    const logger = { error: jest.fn(), info: jest.fn() };
     const app = {
       event: jest.fn((eventName: string, handler: AppHomeHandler) => {
         handlers[eventName] = handler;
       }),
+      action: jest.fn(), // Mock action handler registration
     } as unknown as App;
 
     registerAppHome(app);
@@ -73,13 +145,18 @@ describe('registerAppHome', () => {
   });
 
   it('logs an error when publishing fails', async () => {
+    (dmSdk.GetPlayer as jest.Mock).mockResolvedValue({
+      getPlayer: { success: false, data: null },
+    });
+
     const handlers: Record<string, AppHomeHandler> = {};
     const views = { publish: jest.fn().mockRejectedValue(new Error('fail')) };
-    const logger = { error: jest.fn() };
+    const logger = { error: jest.fn(), info: jest.fn() };
     const app = {
       event: jest.fn((eventName: string, handler: AppHomeHandler) => {
         handlers[eventName] = handler;
       }),
+      action: jest.fn(), // Mock action handler registration
     } as unknown as App;
 
     registerAppHome(app);

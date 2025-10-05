@@ -18,6 +18,7 @@ import { getAllHandlers } from './handlers/handlerRegistry';
 import { HandlerContext } from './handlers/types';
 import { dmSdk } from './gql-client';
 import { PlayerAttribute, TargetType } from './generated/dm-graphql';
+import { toClientId } from './utils/clientId';
 
 const mockedDmSdk = dmSdk as unknown as {
   Attack: jest.Mock;
@@ -26,18 +27,29 @@ const mockedDmSdk = dmSdk as unknown as {
 
 type AckMock = jest.Mock<Promise<void>, unknown[]>;
 type ConversationsOpenMock = jest.Mock<
-  Promise<{ channel: { id: string } }>,
+  Promise<{ channel: { id: string } | null }>,
   unknown[]
 >;
 type ChatPostMessageMock = jest.Mock<Promise<void>, unknown[]>;
 type ChatUpdateMock = jest.Mock<Promise<void>, unknown[]>;
 type ViewsOpenMock = jest.Mock<Promise<void>, unknown[]>;
+type FilesUploadV2Mock = jest.Mock<Promise<void>, unknown[]>;
 
 type MockSlackClient = {
   conversations: { open: ConversationsOpenMock };
   chat: { postMessage: ChatPostMessageMock; update: ChatUpdateMock };
   views?: { open: ViewsOpenMock };
+  files?: { uploadV2: FilesUploadV2Mock };
 };
+
+const createChatMocks = (): MockSlackClient['chat'] => ({
+  postMessage: jest
+    .fn<Promise<void>, unknown[]>()
+    .mockResolvedValue(undefined) as ChatPostMessageMock,
+  update: jest
+    .fn<Promise<void>, unknown[]>()
+    .mockResolvedValue(undefined) as ChatUpdateMock,
+});
 
 type SlackActionHandler = (args: {
   ack: AckMock;
@@ -275,28 +287,20 @@ describe('registerActions', () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     const client: MockSlackClient = {
       conversations: {
-        open: jest.fn().mockResolvedValue({
-          channel: { id: 'C5' },
-        }) as ConversationsOpenMock,
-      },
-      chat: {
-        postMessage: jest
+        open: jest
           .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
+          .mockResolvedValue({ channel: { id: 'C2' } }) as ConversationsOpenMock,
       },
+      chat: createChatMocks(),
     };
 
-    mockedDmSdk.Attack.mockResolvedValueOnce({
+    mockedDmSdk.Attack.mockResolvedValue({
       attack: {
         success: true,
-        message: 'done',
         data: {
           winnerName: 'Hero',
-          loserName: 'Goblin',
-          totalDamageDealt: 5,
           roundsCompleted: 3,
-          xpGained: 2,
+          xpGained: 50,
           goldGained: 1,
           message: 'Hero strikes down the goblin.',
         },
@@ -326,7 +330,7 @@ describe('registerActions', () => {
 
     expect(ack).toHaveBeenCalled();
     expect(mockedDmSdk.Attack).toHaveBeenCalledWith({
-      slackId: 'U1',
+      slackId: toClientId('U1'),
       input: { targetType: TargetType.Monster, targetId: 42 },
     });
     expect(client.chat.postMessage).toHaveBeenCalledWith(
@@ -397,15 +401,10 @@ describe('registerActions', () => {
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
-          channel: null as any,
+          channel: null,
         }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+      chat: createChatMocks(),
     };
 
     await actionHandlers[HELP_ACTIONS.LOOK]({
@@ -456,12 +455,7 @@ describe('registerActions', () => {
           channel: { id: 'C1' },
         }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+      chat: createChatMocks(),
       views: { open: viewsOpen },
     };
 
@@ -483,15 +477,10 @@ describe('registerActions', () => {
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
-          channel: null as any,
+          channel: null,
         }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+      chat: createChatMocks(),
       views: { open: viewsOpen },
     };
 
@@ -515,12 +504,7 @@ describe('registerActions', () => {
           channel: { id: 'C1' },
         }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+      chat: createChatMocks(),
     };
 
     await viewHandlers.create_character_view({
@@ -584,15 +568,10 @@ describe('registerActions', () => {
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
-          channel: null as any,
+          channel: null,
         }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+      chat: createChatMocks(),
     };
 
     await viewHandlers.create_character_view({
@@ -938,7 +917,7 @@ describe('registerActions', () => {
         message: null,
         data: {
           id: '1',
-          slackId: 'U1',
+          slackId: toClientId('U1'),
           name: 'Hero',
           hp: 18,
           maxHp: 18,
@@ -977,7 +956,7 @@ describe('registerActions', () => {
     });
 
     expect(mockedDmSdk.SpendSkillPoint).toHaveBeenCalledWith({
-      slackId: 'U1',
+      slackId: toClientId('U1'),
       attribute: PlayerAttribute.Strength,
     });
     expect(client.chat.update).toHaveBeenCalledWith(
@@ -1017,7 +996,7 @@ describe('registerActions', () => {
     });
 
     expect(mockedDmSdk.SpendSkillPoint).toHaveBeenCalledWith({
-      slackId: 'U1',
+      slackId: toClientId('U1'),
       attribute: PlayerAttribute.Agility,
     });
     expect(client.chat.update).not.toHaveBeenCalled();

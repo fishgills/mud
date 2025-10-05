@@ -6,6 +6,7 @@ import type {
   VisibleSettlement,
 } from './look-view-types';
 import { LookViewData, NearbyPlayerInfo } from '../types/response.types';
+import type { Settlement } from '../../world/world.service';
 import { Monster } from '@mud/database';
 
 @Injectable()
@@ -19,7 +20,7 @@ export class ResponseService {
     biomeSummary: BiomeSummary[],
     visiblePeaks: VisiblePeak[],
     visibleSettlements: VisibleSettlement[],
-    currentSettlement: any,
+    currentSettlement: Settlement | null,
     description: string,
     nearbyPlayers: NearbyPlayerInfo[],
     monsters: Monster[],
@@ -46,7 +47,7 @@ export class ResponseService {
             type: currentSettlement.type,
             size: currentSettlement.size,
             intensity: currentSettlement.intensity,
-            isCenter: currentSettlement.isCenter,
+            isCenter: Boolean(currentSettlement.isCenter),
           }
         : undefined,
       inSettlement: Boolean(

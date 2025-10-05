@@ -5,56 +5,100 @@ jest.mock('@mud/database', () => ({
 }));
 
 import { PlayerResolver } from './player.resolver';
-import { PlayerAttribute, TargetType } from '../inputs/player.input';
+import {
+  PlayerAttribute,
+  TargetType,
+  CreatePlayerInput,
+  PlayerStatsInput,
+  AttackInput,
+} from '../inputs/player.input';
 
 describe('PlayerResolver', () => {
   const basePlayer = {
     id: 1,
     slackId: 'U1',
+    clientId: 'U1',
+    clientType: 'slack' as const,
     name: 'Hero',
-    x: 0,
-    y: 0,
-    strength: 12,
-    agility: 14,
-    health: 13,
+    position: { x: 0, y: 0 },
+    attributes: { strength: 12, agility: 14, health: 13 },
+    combat: { hp: 10, maxHp: 12, isAlive: true },
     level: 2,
     xp: 150,
-    hp: 10,
-    maxHp: 12,
-    isAlive: true,
+    gold: 0,
     skillPoints: 0,
   };
 
   const createResolver = () => {
     const playerService = {
-      createPlayer: jest.fn().mockResolvedValue(basePlayer),
+      createPlayer: jest.fn().mockResolvedValue({ ...basePlayer }),
       getPlayerByIdentifier: jest
         .fn()
         .mockResolvedValue({ ...basePlayer, id: 42 }),
       getAllPlayers: jest
         .fn()
         .mockResolvedValue([
-          basePlayer,
-          { ...basePlayer, id: 2, slackId: 'U2', name: 'Villain' },
+          { ...basePlayer },
+          {
+            ...basePlayer,
+            id: 2,
+            slackId: 'U2',
+            clientId: 'U2',
+            name: 'Villain',
+            position: { x: 5, y: 5 },
+          },
         ]),
-      updatePlayerStats: jest.fn().mockResolvedValue(basePlayer),
-      rerollPlayerStats: jest.fn().mockResolvedValue(basePlayer),
-      healPlayer: jest.fn().mockResolvedValue({ ...basePlayer, hp: 12 }),
-      damagePlayer: jest.fn().mockResolvedValue({ ...basePlayer, hp: 3 }),
+      updatePlayerStats: jest.fn().mockResolvedValue({ ...basePlayer }),
+      rerollPlayerStats: jest.fn().mockResolvedValue({ ...basePlayer }),
+      healPlayer: jest
+        .fn()
+        .mockResolvedValue({
+          ...basePlayer,
+          combat: { ...basePlayer.combat, hp: 12 },
+        }),
+      damagePlayer: jest
+        .fn()
+        .mockResolvedValue({
+          ...basePlayer,
+          combat: { ...basePlayer.combat, hp: 3 },
+        }),
       respawnPlayer: jest
         .fn()
-        .mockResolvedValue({ ...basePlayer, hp: 12, x: 10, y: -10 }),
-      deletePlayer: jest.fn().mockResolvedValue(basePlayer),
-      getPlayersAtLocation: jest.fn().mockResolvedValue([basePlayer]),
-      getPlayer: jest.fn().mockResolvedValue(basePlayer),
+        .mockResolvedValue({
+          ...basePlayer,
+          combat: { ...basePlayer.combat, hp: 12 },
+          position: { x: 10, y: -10 },
+        }),
+      deletePlayer: jest.fn().mockResolvedValue({ ...basePlayer }),
+      getPlayersAtLocation: jest
+        .fn()
+        .mockResolvedValue([{ ...basePlayer }]),
+      getPlayer: jest.fn().mockResolvedValue({ ...basePlayer }),
       spendSkillPoint: jest
         .fn()
-        .mockResolvedValue({ ...basePlayer, strength: 13 }),
-    } as any;
+        .mockResolvedValue({
+          ...basePlayer,
+          attributes: { ...basePlayer.attributes, strength: 13 },
+          skillPoints: 0,
+        }),
+    } as unknown as {
+      createPlayer: jest.Mock;
+      getPlayerByIdentifier: jest.Mock;
+      getAllPlayers: jest.Mock;
+      updatePlayerStats: jest.Mock;
+      rerollPlayerStats: jest.Mock;
+      healPlayer: jest.Mock;
+      damagePlayer: jest.Mock;
+      respawnPlayer: jest.Mock;
+      deletePlayer: jest.Mock;
+      getPlayersAtLocation: jest.Mock;
+      getPlayer: jest.Mock;
+      spendSkillPoint: jest.Mock;
+    };
 
     const monsterService = {
       getMonstersAtLocation: jest.fn().mockResolvedValue([{ id: 1 }]),
-    } as any;
+    } as unknown as { getMonstersAtLocation: jest.Mock };
 
     const combatService = {
       playerAttackMonster: jest
@@ -64,7 +108,11 @@ describe('PlayerResolver', () => {
         .fn()
         .mockResolvedValue({ result: 'player defeated' }),
       getCombatLogForLocation: jest.fn().mockResolvedValue([{ id: 'log' }]),
-    } as any;
+    } as unknown as {
+      playerAttackMonster: jest.Mock;
+      playerAttackPlayer: jest.Mock;
+      getCombatLogForLocation: jest.Mock;
+    };
 
     const worldService = {
       getTileInfo: jest.fn().mockResolvedValue({
@@ -76,7 +124,7 @@ describe('PlayerResolver', () => {
         temperature: 0.4,
         moisture: 0.6,
       }),
-    } as any;
+    } as unknown as { getTileInfo: jest.Mock };
 
     const resolver = new PlayerResolver(
       playerService,
@@ -103,7 +151,7 @@ describe('PlayerResolver', () => {
     const result = await resolver.createPlayer({
       slackId: 'U1',
       name: 'Hero',
-    } as any);
+    } as CreatePlayerInput);
     expect(result.success).toBe(true);
     expect(playerService.createPlayer).toHaveBeenCalled();
   });
@@ -125,13 +173,15 @@ describe('PlayerResolver', () => {
 
   it('updates and rerolls and heals players', async () => {
     const { resolver, playerService } = createResolver();
-    const stats = await resolver.updatePlayerStats('U1', { hp: 5 } as any);
+    const stats = await resolver.updatePlayerStats('U1', {
+      hp: 5,
+    } as PlayerStatsInput);
     expect(stats.success).toBe(true);
 
     playerService.updatePlayerStats.mockRejectedValueOnce(new Error('boom'));
     const statsFailure = await resolver.updatePlayerStats('U1', {
       hp: 5,
-    } as any);
+    } as PlayerStatsInput);
     expect(statsFailure.success).toBe(false);
 
     const reroll = await resolver.rerollPlayerStats('U1');
@@ -151,11 +201,11 @@ describe('PlayerResolver', () => {
     expect(healFail.success).toBe(false);
 
     const damaged = await resolver.damagePlayer('U1', 7);
-    expect(damaged.data?.hp).toBe(3);
+      expect(damaged.data?.hp).toBe(3);
 
-    playerService.damagePlayer.mockRejectedValueOnce(new Error('hurt'));
-    const damageFail = await resolver.damagePlayer('U1', 1);
-    expect(damageFail.success).toBe(false);
+      playerService.damagePlayer.mockRejectedValueOnce(new Error('hurt'));
+      const damageFail = await resolver.damagePlayer('U1', 1);
+      expect(damageFail.success).toBe(false);
   });
 
   it('spends skill points and reports failures', async () => {
@@ -180,7 +230,7 @@ describe('PlayerResolver', () => {
     const vsMonster = await resolver.attack('U1', {
       targetType: TargetType.MONSTER,
       targetId: 10,
-    } as any);
+    } as AttackInput);
     expect(vsMonster.success).toBe(true);
     expect(combatService.playerAttackMonster).toHaveBeenCalledWith('U1', 10);
 
@@ -188,7 +238,7 @@ describe('PlayerResolver', () => {
       targetType: TargetType.PLAYER,
       targetSlackId: 'U2',
       ignoreLocation: true,
-    } as any);
+    } as AttackInput);
     expect(vsPlayerSlack.success).toBe(true);
     expect(combatService.playerAttackPlayer).toHaveBeenCalledWith(
       'U1',
@@ -199,28 +249,28 @@ describe('PlayerResolver', () => {
     const vsPlayerById = await resolver.attack('U1', {
       targetType: TargetType.PLAYER,
       targetId: 2,
-    } as any);
+    } as AttackInput);
     expect(vsPlayerById.success).toBe(true);
 
     await expect(
       resolver.attack('U1', {
         targetType: TargetType.PLAYER,
         targetId: undefined,
-      } as any),
+      } as AttackInput),
     ).resolves.toHaveProperty('success', false);
 
     playerService.getAllPlayers.mockResolvedValueOnce([basePlayer]);
     const missingTarget = await resolver.attack('U1', {
       targetType: TargetType.PLAYER,
       targetId: 999,
-    } as any);
+    } as AttackInput);
     expect(missingTarget.success).toBe(false);
 
     combatService.playerAttackMonster.mockRejectedValueOnce(new Error('ouch'));
     const failedAttack = await resolver.attack('U1', {
       targetType: TargetType.MONSTER,
       targetId: 1,
-    } as any);
+    } as AttackInput);
     expect(failedAttack.success).toBe(false);
   });
 
@@ -248,28 +298,28 @@ describe('PlayerResolver', () => {
     expect(stats.baseDamage).toContain('1d6');
     expect(playerService.getPlayerByIdentifier).toHaveBeenCalled();
 
-    const tile = await resolver.currentTile(basePlayer as any);
+    const tile = await resolver.currentTile(basePlayer as never);
     expect(tile?.biomeName).toBe('forest');
     worldService.getTileInfo.mockRejectedValueOnce(new Error('missing tile'));
-    const missingTile = await resolver.currentTile(basePlayer as any);
+    const missingTile = await resolver.currentTile(basePlayer as never);
     expect(missingTile).toBeNull();
 
-    const nearby = await resolver.nearbyPlayers(basePlayer as any);
+    const nearby = await resolver.nearbyPlayers(basePlayer as never);
     expect(Array.isArray(nearby)).toBe(true);
 
     playerService.getPlayersAtLocation.mockRejectedValueOnce(
       new Error('no players'),
     );
-    const fallback = await resolver.nearbyPlayers(basePlayer as any);
+    const fallback = await resolver.nearbyPlayers(basePlayer as never);
     expect(fallback).toEqual([]);
 
-    const monsters = await resolver.nearbyMonsters(basePlayer as any);
+    const monsters = await resolver.nearbyMonsters(basePlayer as never);
     expect(monsters.length).toBeGreaterThan(0);
 
     monsterService.getMonstersAtLocation.mockRejectedValueOnce(
       new Error('none'),
     );
-    const noMonsters = await resolver.nearbyMonsters(basePlayer as any);
+    const noMonsters = await resolver.nearbyMonsters(basePlayer as never);
     expect(noMonsters).toEqual([]);
   });
 });

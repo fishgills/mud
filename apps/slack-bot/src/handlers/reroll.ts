@@ -3,12 +3,15 @@ import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS } from '../commands';
+import { toClientId } from '../utils/clientId';
 
 export const rerollHandlerHelp = `Reroll your character's stats with "reroll". Example: Send "reroll" to reroll stats during character creation.`;
 
 export const rerollHandler = async ({ userId, say }: HandlerContext) => {
   try {
-    const result = await dmSdk.RerollPlayerStats({ slackId: userId });
+    const result = await dmSdk.RerollPlayerStats({
+      slackId: toClientId(userId),
+    });
     if (result.rerollPlayerStats.success) {
       const stats = result.rerollPlayerStats.data;
       await say({

@@ -23,6 +23,8 @@ jest.mock('./app/app.module', () => ({
   AppModule: class {},
 }));
 
+import type { Request, Response } from 'express';
+
 describe('main bootstrap', () => {
   beforeEach(() => {
     jest.resetModules();
@@ -62,8 +64,8 @@ describe('main bootstrap', () => {
           'content-type': 'application/json',
           'user-agent': 'jest',
         },
-      } as any,
-      {} as any,
+      } as Request,
+      {} as Response,
       next,
     );
 

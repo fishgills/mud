@@ -1,19 +1,44 @@
 import { ChunkResolver } from './chunk.resolver';
+import { WorldService } from './world-refactored.service';
+
+type WorldServiceMock = Pick<
+  WorldService,
+  | 'getChunkTiles'
+  | 'getChunkTileCount'
+  | 'getChunkSettlements'
+  | 'getChunkStats'
+  | 'getChunkBiomeStats'
+>;
 
 describe('ChunkResolver', () => {
   let resolver: ChunkResolver;
-  let worldService: any;
+  let worldService: jest.Mocked<WorldServiceMock>;
 
   beforeEach(() => {
     worldService = {
-      getChunkTiles: jest.fn(),
-      getChunkTileCount: jest.fn(),
-      getChunkSettlements: jest.fn(),
-      getChunkStats: jest.fn(),
-      getChunkBiomeStats: jest.fn(),
+      getChunkTiles: jest.fn<
+        ReturnType<WorldService['getChunkTiles']>,
+        Parameters<WorldService['getChunkTiles']>
+      >(),
+      getChunkTileCount: jest.fn<
+        ReturnType<WorldService['getChunkTileCount']>,
+        Parameters<WorldService['getChunkTileCount']>
+      >(),
+      getChunkSettlements: jest.fn<
+        ReturnType<WorldService['getChunkSettlements']>,
+        Parameters<WorldService['getChunkSettlements']>
+      >(),
+      getChunkStats: jest.fn<
+        ReturnType<WorldService['getChunkStats']>,
+        Parameters<WorldService['getChunkStats']>
+      >(),
+      getChunkBiomeStats: jest.fn<
+        ReturnType<WorldService['getChunkBiomeStats']>,
+        Parameters<WorldService['getChunkBiomeStats']>
+      >(),
     };
 
-    resolver = new ChunkResolver(worldService);
+    resolver = new ChunkResolver(worldService as unknown as WorldService);
   });
 
   describe('getChunk', () => {

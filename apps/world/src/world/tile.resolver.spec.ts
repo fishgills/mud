@@ -1,15 +1,21 @@
 import { TileResolver } from './tile.resolver';
+import { WorldService } from './world-refactored.service';
+
+type WorldServiceMock = Pick<WorldService, 'getTileWithNearbyBiomes'>;
 
 describe('TileResolver', () => {
   let resolver: TileResolver;
-  let worldService: any;
+  let worldService: jest.Mocked<WorldServiceMock>;
 
   beforeEach(() => {
     worldService = {
-      getTileWithNearbyBiomes: jest.fn(),
+      getTileWithNearbyBiomes: jest.fn<
+        ReturnType<WorldService['getTileWithNearbyBiomes']>,
+        Parameters<WorldService['getTileWithNearbyBiomes']>
+      >(),
     };
 
-    resolver = new TileResolver(worldService);
+    resolver = new TileResolver(worldService as unknown as WorldService);
   });
 
   describe('getTile', () => {

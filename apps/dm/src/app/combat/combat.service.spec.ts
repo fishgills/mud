@@ -1,24 +1,51 @@
 import { CombatService, Combatant } from './combat.service';
-import type { Player } from '@mud/database';
+import type { PlayerEntity } from '@mud/engine';
+import type { EventBridgeService } from '../../shared/event-bridge.service';
 import type { PlayerService } from '../player/player.service';
 import type { AiService } from '../../openai/ai.service';
-import type { CombatResult, DetailedCombatLog } from '../graphql';
+import type { DetailedCombatLog } from '../graphql';
 
-const mockPrisma = {
+type MockPrismaClient = {
   combatLog: {
-    findMany: jest.fn(),
-    create: jest.fn(),
-  },
+    findMany: jest.Mock;
+    create: jest.Mock;
+  };
   monster: {
-    findUnique: jest.fn(),
-    delete: jest.fn(),
-    update: jest.fn(),
-  },
+    findUnique: jest.Mock;
+    delete: jest.Mock;
+    update: jest.Mock;
+  };
 };
 
+function createMockPrisma(): MockPrismaClient {
+  return {
+    combatLog: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+    },
+    monster: {
+      findUnique: jest.fn(),
+      delete: jest.fn(),
+      update: jest.fn(),
+    },
+  };
+}
+
+function ensureCombatPrismaHolder() {
+  const globalObject = globalThis as Record<string, unknown>;
+  const key = '__combatPrismaHolder';
+  if (!globalObject[key]) {
+    globalObject[key] = { current: createMockPrisma() };
+  }
+
+  return globalObject[key] as { current: MockPrismaClient };
+}
+
 jest.mock('@mud/database', () => ({
-  getPrismaClient: () => mockPrisma,
+  getPrismaClient: () => ensureCombatPrismaHolder().current,
 }));
+
+const combatPrismaHolder = ensureCombatPrismaHolder();
 
 const accessPrivate = <T>(instance: object, key: string): T =>
   (instance as Record<string, unknown>)[key] as T;
@@ -34,12 +61,23 @@ const createHelperService = () => {
     getText: jest.fn(),
   } as unknown as AiService;
 
-  const service = new CombatService(playerService, aiService);
-  return { service, aiService: aiService as unknown as { getText: jest.Mock } };
+  const eventBridge = {
+    publishCombatNotifications: jest.fn().mockResolvedValue(undefined),
+  } as unknown as EventBridgeService;
+
+  const service = new CombatService(playerService, aiService, eventBridge);
+  return {
+    service,
+    aiService: aiService as unknown as { getText: jest.Mock },
+    eventBridge: eventBridge as unknown as {
+      publishCombatNotifications: jest.Mock;
+    },
+  };
 };
 
 describe('CombatService helpers', () => {
   beforeEach(() => {
+    combatPrismaHolder.current = createMockPrisma();
     jest.clearAllMocks();
   });
 
@@ -122,13 +160,17 @@ describe('CombatService helpers', () => {
   it('returns combat logs for a location via the prisma client', async () => {
     const { service } = createHelperService();
     const expected = [{ id: 1 }];
-    mockPrisma.combatLog.findMany.mockResolvedValue(expected);
+    combatPrismaHolder.current.combatLog.findMany.mockResolvedValue(
+      expected,
+    );
 
     await expect(service.getCombatLogForLocation(3, 4, 2)).resolves.toBe(
       expected,
     );
 
-    expect(mockPrisma.combatLog.findMany).toHaveBeenCalledWith({
+    expect(
+      combatPrismaHolder.current.combatLog.findMany,
+    ).toHaveBeenCalledWith({
       where: { x: 3, y: 4 },
       orderBy: { timestamp: 'desc' },
       take: 2,
@@ -136,26 +178,78 @@ describe('CombatService helpers', () => {
   });
 });
 
-const createPlayer = (overrides: Partial<Player>): Player => ({
-  id: overrides.id ?? 1,
-  slackId: overrides.slackId ?? 'player',
-  name: overrides.name ?? 'Player',
-  x: overrides.x ?? 0,
-  y: overrides.y ?? 0,
-  hp: overrides.hp ?? 10,
-  maxHp: overrides.maxHp ?? 10,
-  strength: overrides.strength ?? 10,
-  agility: overrides.agility ?? 10,
-  health: overrides.health ?? 10,
-  gold: overrides.gold ?? 0,
-  xp: overrides.xp ?? 0,
-  level: overrides.level ?? 1,
-  isAlive: overrides.isAlive ?? true,
-  lastAction: overrides.lastAction ?? new Date(),
-  createdAt: overrides.createdAt ?? new Date(),
-  updatedAt: overrides.updatedAt ?? new Date(),
-  worldTileId: overrides.worldTileId ?? null,
-});
+type TestPlayerEntity = PlayerEntity & {
+  slackId?: string;
+  hp: number;
+  maxHp: number;
+  strength: number;
+  agility: number;
+  health: number;
+  x: number;
+  y: number;
+  isAlive: boolean;
+  lastAction: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  worldTileId: number | null;
+};
+
+const createPlayer = (
+  overrides: Partial<
+    TestPlayerEntity & {
+      attributes: Partial<PlayerEntity['attributes']>;
+      combat: Partial<PlayerEntity['combat']>;
+      position: Partial<PlayerEntity['position']>;
+    }
+  > = {},
+): TestPlayerEntity => {
+  const attributes = {
+    strength: overrides.attributes?.strength ?? overrides.strength ?? 10,
+    agility: overrides.attributes?.agility ?? overrides.agility ?? 10,
+    health: overrides.attributes?.health ?? overrides.health ?? 10,
+  };
+  const combat = {
+    hp: overrides.combat?.hp ?? overrides.hp ?? 10,
+    maxHp: overrides.combat?.maxHp ?? overrides.maxHp ?? 10,
+    isAlive: overrides.combat?.isAlive ?? overrides.isAlive ?? true,
+  };
+  const position = {
+    x: overrides.position?.x ?? overrides.x ?? 0,
+    y: overrides.position?.y ?? overrides.y ?? 0,
+  };
+
+  const player = {
+    id: overrides.id ?? 1,
+    clientId:
+      overrides.clientId ??
+      (overrides.slackId ? `slack:${overrides.slackId}` : 'slack:player'),
+    clientType: overrides.clientType ?? 'slack',
+    name: overrides.name ?? 'Player',
+    gold: overrides.gold ?? 0,
+    xp: overrides.xp ?? 0,
+    level: overrides.level ?? 1,
+    skillPoints: overrides.skillPoints ?? 0,
+    partyId: overrides.partyId,
+    attributes,
+    combat,
+    position,
+    slackId: overrides.slackId ?? 'player',
+    hp: combat.hp,
+    maxHp: combat.maxHp,
+    strength: attributes.strength,
+    agility: attributes.agility,
+    health: attributes.health,
+    x: position.x,
+    y: position.y,
+    isAlive: combat.isAlive,
+    lastAction: overrides.lastAction ?? new Date(),
+    createdAt: overrides.createdAt ?? new Date(),
+    updatedAt: overrides.updatedAt ?? new Date(),
+    worldTileId: overrides.worldTileId ?? null,
+  } satisfies Partial<TestPlayerEntity>;
+
+  return player as TestPlayerEntity;
+};
 
 type CombatServiceInternals = {
   generateCombatNarrative: (
@@ -184,11 +278,9 @@ type CombatServiceInternals = {
   monsterToCombatant: (monsterId: number) => Promise<Combatant>;
 };
 
-type CombatResultWithLog = CombatResult & { combatLog: DetailedCombatLog };
-
 type MockPlayerService = Pick<
   PlayerService,
-  'getPlayer' | 'updatePlayerStats' | 'respawnPlayer'
+  'getPlayer' | 'updatePlayerStats' | 'respawnPlayer' | 'getPlayersAtLocation'
 >;
 
 type MockAiService = Pick<AiService, 'getText'>;
@@ -197,6 +289,7 @@ describe('CombatService', () => {
   let service: CombatService;
   let playerService: jest.Mocked<MockPlayerService>;
   let aiService: jest.Mocked<MockAiService>;
+  let eventBridge: { publishCombatNotifications: jest.Mock };
 
   const getInternals = () => service as unknown as CombatServiceInternals;
 
@@ -205,15 +298,21 @@ describe('CombatService', () => {
       getPlayer: jest.fn(),
       updatePlayerStats: jest.fn(),
       respawnPlayer: jest.fn(),
+      getPlayersAtLocation: jest.fn().mockResolvedValue([]),
     } as jest.Mocked<MockPlayerService>;
 
     aiService = {
       getText: jest.fn(),
     } as jest.Mocked<MockAiService>;
 
+    eventBridge = {
+      publishCombatNotifications: jest.fn().mockResolvedValue(undefined),
+    };
+
     service = new CombatService(
       playerService as unknown as PlayerService,
       aiService as unknown as AiService,
+      eventBridge as unknown as EventBridgeService,
     );
   });
 
@@ -277,10 +376,7 @@ describe('CombatService', () => {
       .spyOn(internals, 'calculateGoldReward')
       .mockReturnValue(45);
 
-    const result = (await service.playerAttackPlayer(
-      'attacker',
-      'defender',
-    )) as CombatResultWithLog;
+    const result = await service.playerAttackPlayer('attacker', 'defender');
 
     expect(result.success).toBe(true);
     expect(result.winnerName).toBe('Attacker');
@@ -306,23 +402,30 @@ describe('CombatService', () => {
       ]),
     );
 
-    // TODO Fix type errors
-    // expect(result.combatLog.winner).toBe('Attacker');
-    // expect(result.combatLog.loser).toBe('Defender');
-    // expect(result.combatLog.firstAttacker).toBe('Attacker');
-    // expect(result.combatLog.xpAwarded).toBe(120);
-    // expect(result.combatLog.goldAwarded).toBe(45);
-    // expect(result.combatLog.rounds).toHaveLength(1);
+    const [combatLog, attackerCombatant, defenderCombatant] = applyResultsSpy
+      .mock.calls[0] as [DetailedCombatLog, Combatant, Combatant];
 
-    // const [firstRound] = result.combatLog.rounds;
-    // expect(firstRound).toMatchObject({
-    //   attackerName: 'Attacker',
-    //   defenderName: 'Defender',
-    //   hit: true,
-    //   damage: 9,
-    //   defenderHpAfter: 0,
-    //   killed: true,
-    // });
+    expect(combatLog).toMatchObject({
+      winner: 'Attacker',
+      loser: 'Defender',
+      firstAttacker: 'Attacker',
+      xpAwarded: 120,
+      goldAwarded: 45,
+    });
+    expect(combatLog.rounds).toHaveLength(1);
+
+    const [firstRound] = combatLog.rounds;
+    expect(firstRound).toMatchObject({
+      attackerName: 'Attacker',
+      defenderName: 'Defender',
+      hit: true,
+      damage: 9,
+      defenderHpAfter: 0,
+      killed: true,
+    });
+
+    expect(attackerCombatant.name).toBe('Attacker');
+    expect(defenderCombatant.name).toBe('Defender');
 
     expect(playerService.getPlayer).toHaveBeenCalledTimes(2);
     expect(initiativeSpy).toHaveBeenCalledTimes(2);
@@ -341,12 +444,17 @@ describe('CombatService', () => {
       expect.objectContaining({ name: 'Attacker' }),
       expect.objectContaining({ name: 'Defender' }),
     );
-    expect(narrativeSpy).toHaveBeenNthCalledWith(1, result.combatLog, {
-      secondPersonName: 'Attacker',
-    });
-    expect(narrativeSpy).toHaveBeenNthCalledWith(2, result.combatLog, {
-      secondPersonName: 'Defender',
-    });
+
+    const [attackerLogArg, attackerOptions] = narrativeSpy.mock.calls[0];
+    const [defenderLogArg, defenderOptions] = narrativeSpy.mock.calls[1];
+    const [observerLogArg, observerOptions] = narrativeSpy.mock.calls[2];
+
+    expect(attackerLogArg).toBe(combatLog);
+    expect(attackerOptions).toEqual({ secondPersonName: 'Attacker' });
+    expect(defenderLogArg).toBe(combatLog);
+    expect(defenderOptions).toEqual({ secondPersonName: 'Defender' });
+    expect(observerLogArg).toBe(combatLog);
+    expect(observerOptions).toEqual({});
   });
 
   it('throws when players are in different locations', async () => {
@@ -380,7 +488,7 @@ describe('CombatService', () => {
 
     await expect(
       service.playerAttackPlayer('attacker', 'defender'),
-    ).rejects.toThrow('Defender is not at your location');
+    ).rejects.toThrow('Target is not at your location');
   });
 
   it('throws when either combatant is dead', async () => {
@@ -410,7 +518,7 @@ describe('CombatService', () => {
 
     await expect(
       service.playerAttackPlayer('attacker', 'defender'),
-    ).rejects.toThrow('One or both players are dead');
+    ).rejects.toThrow('One or both combatants are dead');
   });
 
   it('allows workspace attacks when ignoring location mismatch', async () => {
@@ -518,6 +626,7 @@ describe('CombatService', () => {
               isAlive: defenderPlayer.isAlive,
               x: defenderPlayer.x,
               y: defenderPlayer.y,
+              slackId: defenderPlayer.slackId,
             },
       );
 
@@ -549,6 +658,7 @@ describe('CombatService', () => {
     expect(result.xpGained).toBe(0);
     expect(result.goldGained).toBe(0);
     expect(result.message).toBe('Attacker perspective');
+    expect(result.playerMessages).toHaveLength(2);
     expect(result.playerMessages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -556,17 +666,21 @@ describe('CombatService', () => {
           name: 'Attacker',
           message: 'Attacker perspective',
         }),
+        expect.objectContaining({
+          slackId: 'defender',
+          name: 'Defender',
+          message: 'Defender perspective',
+        }),
       ]),
     );
 
     expect(runCombatSpy).toHaveBeenCalledTimes(1);
     expect(applyResultsSpy).toHaveBeenCalledTimes(1);
-    expect(narrativeSpy).toHaveBeenNthCalledWith(1, combatLog, {
-      secondPersonName: 'Attacker',
-    });
-    expect(narrativeSpy).toHaveBeenNthCalledWith(2, combatLog, {
-      secondPersonName: 'Defender',
-    });
+    expect(narrativeSpy.mock.calls).toHaveLength(3);
+    const [attackerCall, defenderCall, observerCall] = narrativeSpy.mock.calls;
+    expect(attackerCall).toEqual([combatLog, { secondPersonName: 'Attacker' }]);
+    expect(defenderCall).toEqual([combatLog, { secondPersonName: 'Defender' }]);
+    expect(observerCall).toEqual([combatLog, {}]);
   });
 
   it('omits defender message when slackId is missing', async () => {
@@ -711,12 +825,10 @@ describe('CombatService', () => {
     expect(playerToCombatantSpy).toHaveBeenCalledTimes(2);
     expect(runCombatSpy).toHaveBeenCalledTimes(1);
     expect(applyResultsSpy).toHaveBeenCalledTimes(1);
-    expect(narrativeSpy).toHaveBeenNthCalledWith(1, combatLog, {
-      secondPersonName: 'Attacker',
-    });
-    expect(narrativeSpy).toHaveBeenNthCalledWith(2, combatLog, {
-      secondPersonName: 'Defender',
-    });
+    expect(narrativeSpy.mock.calls).toHaveLength(2);
+    const [attackerCall, observerCall] = narrativeSpy.mock.calls;
+    expect(attackerCall).toEqual([combatLog, { secondPersonName: 'Attacker' }]);
+    expect(observerCall).toEqual([combatLog, {}]);
   });
 
   it('prevents player vs monster combat when they are apart', async () => {
@@ -758,7 +870,7 @@ describe('CombatService', () => {
       .mockResolvedValue(goblinCombatant);
 
     await expect(service.playerAttackMonster('hero', 99)).rejects.toThrow(
-      'Monster is not at your location',
+      'Target is not at your location',
     );
   });
 });

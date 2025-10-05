@@ -1,6 +1,6 @@
-const baseConfig = require('../../jest.base.config.cjs');
+import baseConfig from '../../jest.base.config.cjs';
 
-module.exports = {
+export default {
   ...baseConfig,
   displayName: 'world',
   collectCoverageFrom: ['src/**/*.{ts,js}'],

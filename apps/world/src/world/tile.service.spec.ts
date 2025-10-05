@@ -3,19 +3,51 @@ import { WorldDatabaseService } from './world-database.service';
 import { WorldUtilsService } from './world-utils.service';
 import { ChunkGeneratorService } from './chunk-generator.service';
 import { Settlement } from '@mud/database';
+import type { WorldTile } from './models/world-tile.model';
+
+type WorldDatabaseMock = Pick<
+  WorldDatabaseService,
+  'loadWorldSeed' | 'getSettlementsInRadius'
+>;
+type WorldUtilsMock = Pick<
+  WorldUtilsService,
+  'calculateDistance' | 'calculateDirection' | 'roundToDecimalPlaces'
+>;
+type ChunkGeneratorMock = {
+  generateTileAt: (
+    ...args: Parameters<ChunkGeneratorService['generateTileAt']>
+  ) => WorldTile | null;
+};
+
+const createSettlement = (overrides: Partial<Settlement> = {}): Settlement => {
+  const base = {
+    id: overrides.id ?? 1,
+    name: overrides.name ?? 'Settlement',
+    x: overrides.x ?? 0,
+    y: overrides.y ?? 0,
+    type: overrides.type ?? 'village',
+    size: overrides.size ?? 'small',
+    population: overrides.population ?? 0,
+    description: overrides.description ?? '',
+    createdAt: overrides.createdAt ?? new Date(),
+    updatedAt: overrides.updatedAt ?? new Date(),
+  };
+  return base as unknown as Settlement;
+};
 
 describe('TileService', () => {
   let service: TileService;
-  let worldDatabase: jest.Mocked<WorldDatabaseService>;
-  let worldUtils: jest.Mocked<WorldUtilsService>;
-  let chunkGenerator: jest.Mocked<ChunkGeneratorService>;
+  let worldDatabase: jest.Mocked<WorldDatabaseMock>;
+  let worldUtils: jest.Mocked<WorldUtilsMock>;
+  let chunkGenerator: jest.Mocked<ChunkGeneratorMock>;
 
-  const mockTile = {
+  const mockTile: WorldTile = {
     id: 1,
     x: 10,
     y: 20,
     biomeId: 1,
     biomeName: 'Forest',
+    description: null,
     height: 0.5,
     temperature: 0.6,
     moisture: 0.7,
@@ -24,29 +56,52 @@ describe('TileService', () => {
     chunkY: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
+    biome: null,
   };
 
   beforeEach(() => {
     worldDatabase = {
-      loadWorldSeed: jest.fn().mockResolvedValue(12345),
-      getSettlementsInRadius: jest.fn().mockResolvedValue([]),
-    } as any;
+      loadWorldSeed: jest.fn<
+        ReturnType<WorldDatabaseService['loadWorldSeed']>,
+        Parameters<WorldDatabaseService['loadWorldSeed']>
+      >(() => Promise.resolve(12345)),
+      getSettlementsInRadius: jest.fn<
+        ReturnType<WorldDatabaseService['getSettlementsInRadius']>,
+        Parameters<WorldDatabaseService['getSettlementsInRadius']>
+      >(() => Promise.resolve([])),
+    };
 
     worldUtils = {
-      calculateDistance: jest.fn((x1, y1, x2, y2) => {
+      calculateDistance: jest.fn<
+        ReturnType<WorldUtilsService['calculateDistance']>,
+        Parameters<WorldUtilsService['calculateDistance']>
+      >((x1, y1, x2, y2) => {
         const dx = x2 - x1;
         const dy = y2 - y1;
         return Math.sqrt(dx * dx + dy * dy);
       }),
-      calculateDirection: jest.fn(() => 'North'),
-      roundToDecimalPlaces: jest.fn((val) => Math.round(val * 10) / 10),
-    } as any;
+      calculateDirection: jest.fn<
+        ReturnType<WorldUtilsService['calculateDirection']>,
+        Parameters<WorldUtilsService['calculateDirection']>
+      >(() => 'North'),
+      roundToDecimalPlaces: jest.fn<
+        ReturnType<WorldUtilsService['roundToDecimalPlaces']>,
+        Parameters<WorldUtilsService['roundToDecimalPlaces']>
+      >((val) => Math.round(val * 10) / 10),
+    };
 
     chunkGenerator = {
-      generateTileAt: jest.fn().mockReturnValue(mockTile),
-    } as any;
+      generateTileAt: jest.fn<
+        ReturnType<ChunkGeneratorMock['generateTileAt']>,
+        Parameters<ChunkGeneratorService['generateTileAt']>
+      >(() => mockTile),
+    };
 
-    service = new TileService(worldDatabase, worldUtils, chunkGenerator);
+    service = new TileService(
+      worldDatabase as unknown as WorldDatabaseService,
+      worldUtils as unknown as WorldUtilsService,
+      chunkGenerator as unknown as ChunkGeneratorService,
+    );
   });
 
   it('should be defined', () => {
@@ -84,7 +139,7 @@ describe('TileService', () => {
       const nearbyTile = { ...mockTile, x: 11, y: 20, biomeName: 'Plains' };
       chunkGenerator.generateTileAt
         .mockReturnValueOnce(mockTile)
-        .mockReturnValueOnce(nearbyTile);
+        .mockReturnValueOnce(nearbyTile as unknown as WorldTile);
 
       const result = await service.getTileWithNearbyBiomes(10, 20);
 
@@ -96,7 +151,7 @@ describe('TileService', () => {
     });
 
     it('should throw error if tile not found', async () => {
-      (chunkGenerator.generateTileAt as jest.Mock).mockReturnValueOnce(null);
+      chunkGenerator.generateTileAt.mockReturnValueOnce(null);
 
       await expect(service.getTileWithNearbyBiomes(10, 20)).rejects.toThrow(
         'Tile not found at 10,20',
@@ -104,7 +159,7 @@ describe('TileService', () => {
     });
 
     it('should include current settlement if tile is at settlement center', async () => {
-      const settlement: Settlement = {
+      const settlement = createSettlement({
         id: 1,
         name: 'Test City',
         x: 10,
@@ -113,9 +168,7 @@ describe('TileService', () => {
         size: 'large',
         population: 10000,
         description: 'A test city',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       worldDatabase.getSettlementsInRadius.mockResolvedValueOnce([settlement]);
       chunkGenerator.generateTileAt.mockReturnValue(mockTile);
@@ -141,9 +194,9 @@ describe('TileService', () => {
       };
 
       chunkGenerator.generateTileAt
-        .mockReturnValueOnce(forestTile)
-        .mockReturnValueOnce(plainsTile)
-        .mockReturnValueOnce(mountainTile);
+        .mockReturnValueOnce(forestTile as unknown as WorldTile)
+        .mockReturnValueOnce(plainsTile as unknown as WorldTile)
+        .mockReturnValueOnce(mountainTile as unknown as WorldTile);
 
       const result = await service.findNearbyBiomes(10, 20, 'Forest');
 
@@ -157,7 +210,9 @@ describe('TileService', () => {
 
     it('should not include current biome in results', async () => {
       const forestTile = { ...mockTile, biomeName: 'Forest' };
-      chunkGenerator.generateTileAt.mockReturnValue(forestTile);
+      chunkGenerator.generateTileAt.mockReturnValue(
+        forestTile as unknown as WorldTile,
+      );
 
       const result = await service.findNearbyBiomes(10, 20, 'Forest');
 
@@ -179,7 +234,7 @@ describe('TileService', () => {
       chunkGenerator.generateTileAt.mockImplementation(() => ({
         ...mockTile,
         biomeName: biomes[callCount++ % biomes.length],
-      }));
+      } as unknown as WorldTile));
 
       const result = await service.findNearbyBiomes(10, 20, 'Forest');
 
@@ -198,7 +253,7 @@ describe('TileService', () => {
     });
 
     it('should identify current settlement at center', async () => {
-      const settlement: Settlement = {
+      const settlement = createSettlement({
         id: 1,
         name: 'Central City',
         x: 10,
@@ -207,9 +262,7 @@ describe('TileService', () => {
         size: 'large',
         population: 50000,
         description: 'Main city',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       worldDatabase.getSettlementsInRadius.mockResolvedValueOnce([settlement]);
 
@@ -221,8 +274,8 @@ describe('TileService', () => {
     });
 
     it('should calculate distances for nearby settlements', async () => {
-      const settlements: Settlement[] = [
-        {
+      const settlements = [
+        createSettlement({
           id: 1,
           name: 'City A',
           x: 15,
@@ -231,10 +284,8 @@ describe('TileService', () => {
           size: 'medium',
           population: 20000,
           description: 'City A',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        {
+        }),
+        createSettlement({
           id: 2,
           name: 'City B',
           x: 20,
@@ -243,9 +294,7 @@ describe('TileService', () => {
           size: 'small',
           population: 5000,
           description: 'City B',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
+        }),
       ];
 
       worldDatabase.getSettlementsInRadius.mockResolvedValueOnce(settlements);
@@ -260,8 +309,8 @@ describe('TileService', () => {
     });
 
     it('should sort settlements by distance', async () => {
-      const settlements: Settlement[] = [
-        {
+      const settlements = [
+        createSettlement({
           id: 1,
           name: 'Near Town',
           x: 12,
@@ -270,10 +319,8 @@ describe('TileService', () => {
           size: 'medium',
           population: 10000,
           description: 'Near',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        {
+        }),
+        createSettlement({
           id: 2,
           name: 'Medium Town',
           x: 20,
@@ -282,9 +329,7 @@ describe('TileService', () => {
           size: 'small',
           population: 5000,
           description: 'Medium distance',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
+        }),
       ];
 
       worldDatabase.getSettlementsInRadius.mockResolvedValueOnce(settlements);

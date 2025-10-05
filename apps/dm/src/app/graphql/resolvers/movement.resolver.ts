@@ -2,6 +2,7 @@ import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { Logger } from '@nestjs/common';
 import { PlayerService } from '../../player/player.service';
 import { WorldService } from '../../world/world.service';
+import type { Settlement } from '../../world/world.service';
 import {
   PlayerMoveResponse,
   LookViewResponse,
@@ -18,6 +19,7 @@ import {
   ResponseService,
 } from '../services';
 import { MonsterService } from '../../monster/monster.service';
+import { EntityToGraphQLAdapter } from '../adapters/entity-to-graphql.adapter';
 
 @Resolver()
 export class MovementResolver {
@@ -37,26 +39,49 @@ export class MovementResolver {
 
   @Mutation(() => PlayerMoveResponse)
   async movePlayer(
-    @Args('slackId') slackId: string,
     @Args('input') input: MovePlayerInput,
+    @Args('slackId', { nullable: true }) slackId?: string,
+    @Args('clientId', { nullable: true }) clientId?: string,
   ): Promise<PlayerMoveResponse> {
+    // Use clientId or fallback to slackId
+    const playerIdentifier = clientId || slackId;
+    if (!playerIdentifier) {
+      throw new Error('Either clientId or slackId must be provided');
+    }
+
     try {
-      const player = await this.playerService.movePlayer(slackId, input);
+      const player = await this.playerService.movePlayer(
+        playerIdentifier,
+        input,
+      );
       const [monsters, playersAtLocation] = await Promise.all([
-        this.monsterService.getMonstersAtLocation(player.x, player.y),
-        this.playerService.getPlayersAtLocation(player.x, player.y, slackId),
+        this.monsterService.getMonstersAtLocation(
+          player.position.x,
+          player.position.y,
+        ),
+        this.playerService.getPlayersAtLocation(
+          player.position.x,
+          player.position.y,
+          { excludePlayerId: player.id },
+        ),
       ]);
 
-      this.logger.debug(`Moved to (${player.x}, ${player.y})`);
+      this.logger.debug(
+        `Moved to (${player.position.x}, ${player.position.y})`,
+      );
       return {
         success: true,
-        player,
-        monsters: monsters ?? [],
-        playersAtLocation: playersAtLocation ?? [],
+        player: EntityToGraphQLAdapter.playerEntityToGraphQL(player),
+        monsters: EntityToGraphQLAdapter.monsterEntitiesToGraphQL(
+          monsters ?? [],
+        ),
+        playersAtLocation: EntityToGraphQLAdapter.playerEntitiesToGraphQL(
+          playersAtLocation ?? [],
+        ),
       };
     } catch (error) {
       const fallbackPlayer = await this.playerService
-        .getPlayer(slackId)
+        .getPlayer(playerIdentifier)
         .catch(() => null);
 
       if (!fallbackPlayer) {
@@ -69,7 +94,7 @@ export class MovementResolver {
         success: false,
         message:
           error instanceof Error ? error.message : 'Failed to move player',
-        player: fallbackPlayer,
+        player: EntityToGraphQLAdapter.playerEntityToGraphQL(fallbackPlayer),
         monsters: [],
         playersAtLocation: [],
       };
@@ -78,13 +103,20 @@ export class MovementResolver {
 
   @Query(() => LookViewResponse)
   async getLookView(
-    @Args('slackId') slackId: string,
+    @Args('slackId', { nullable: true }) slackId?: string,
+    @Args('clientId', { nullable: true }) clientId?: string,
   ): Promise<LookViewResponse> {
+    // Use clientId or fallback to slackId
+    const playerIdentifier = clientId || slackId;
+    if (!playerIdentifier) {
+      throw new Error('Either clientId or slackId must be provided');
+    }
+
     try {
       const aiProviderEnv = (process.env.DM_USE_VERTEX_AI || '').toLowerCase();
       const aiProvider = aiProviderEnv === 'true' ? 'vertex' : 'openai';
       this.logger.debug(
-        `getLookView start slackId=${slackId} provider=${aiProvider}`,
+        `getLookView start identifier=${playerIdentifier} provider=${aiProvider}`,
       );
       const t0 = Date.now();
       const timing: TimingMetrics = {
@@ -104,10 +136,10 @@ export class MovementResolver {
 
       // Get player and center tile data
       const tPlayerStart = Date.now();
-      const player = await this.playerService.getPlayer(slackId);
+      const player = await this.playerService.getPlayer(playerIdentifier);
 
       // Update lastAction for activity tracking (fire and forget)
-      this.playerService.updateLastAction(slackId).catch(() => {
+      this.playerService.updateLastAction(playerIdentifier).catch(() => {
         // Ignore errors - activity tracking shouldn't block the request
       });
 
@@ -116,7 +148,7 @@ export class MovementResolver {
       // Start center-with-nearby immediately (single request for center + nearby)
       const tCenterNearbyStart = Date.now();
       const centerWithNearbyPromise = this.worldService
-        .getTileInfoWithNearby(player.x, player.y)
+        .getTileInfoWithNearby(player.position.x, player.position.y)
         .then((d) => {
           timing.tGetCenterNearbyMs = Date.now() - tCenterNearbyStart;
           return d;
@@ -147,8 +179,8 @@ export class MovementResolver {
           };
         }
         return {
-          x: player.x,
-          y: player.y,
+          x: player.position.x,
+          y: player.position.y,
           biomeName: 'grassland',
           description: '',
           height: 0.5,
@@ -163,14 +195,14 @@ export class MovementResolver {
 
       // Process tile data within visibility bounds
       const { tiles, extTiles } = await this.visibilityService.processTileData(
-        player,
+        { x: player.position.x, y: player.position.y },
         visibilityRadius,
         timing,
       );
 
       // Process visible peaks
       const visiblePeaks = this.peakService.processVisiblePeaks(
-        player,
+        { x: player.position.x, y: player.position.y },
         visibilityRadius,
         extTiles,
         timing,
@@ -178,37 +210,41 @@ export class MovementResolver {
 
       // Generate biome summary
       const biomeSummary = this.biomeService.generateBiomeSummary(
-        player,
+        { x: player.position.x, y: player.position.y },
         tiles,
         timing,
       );
 
       // Get NearbyPlayers
       const nearbyPlayers = await this.playerService.getNearbyPlayers(
-        player.x,
-        player.y,
+        player.position.x,
+        player.position.y,
         slackId,
       );
       // Process visible settlements
       const visibleSettlements =
         this.settlementService.processVisibleSettlements(
-          player,
+          { x: player.position.x, y: player.position.y },
           visibilityRadius,
           centerWithNearby,
           timing,
         );
 
       const monsters = await this.monsterService.getMonstersAtLocation(
-        player.x,
-        player.y,
+        player.position.x,
+        player.position.y,
       );
 
       // Generate description (AI-enhanced or fallback)
-      const currentSettlement: {
-        name?: string;
-        type?: string;
-        intensity?: number;
-      } | null = centerWithNearby?.currentSettlement ?? null;
+      const currentSettlement: Settlement | null = centerWithNearby?.currentSettlement
+        ? {
+            name: centerWithNearby.currentSettlement.name,
+            type: centerWithNearby.currentSettlement.type,
+            size: centerWithNearby.currentSettlement.size,
+            intensity: centerWithNearby.currentSettlement.intensity,
+            isCenter: Boolean(centerWithNearby.currentSettlement.isCenter),
+          }
+        : null;
       const description = await this.descriptionService.generateAiDescription(
         centerTile,
         visibilityRadius,
@@ -230,7 +266,7 @@ export class MovementResolver {
         currentSettlement,
         description,
         nearbyPlayers,
-        monsters,
+        EntityToGraphQLAdapter.monsterEntitiesToGraphQL(monsters),
       );
 
       const totalMs = Date.now() - t0;

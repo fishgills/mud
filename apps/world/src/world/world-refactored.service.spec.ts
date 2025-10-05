@@ -3,60 +3,135 @@ import { WorldDatabaseService } from './world-database.service';
 import { ChunkGeneratorService } from './chunk-generator.service';
 import { TileService } from './tile.service';
 import { WorldUtilsService } from './world-utils.service';
+import type { ChunkData } from './types';
+import type { Settlement } from '@mud/database';
+import type { WorldTile } from './models';
+
+type WorldDatabaseMock = Pick<
+  WorldDatabaseService,
+  'initializeBiomes' | 'loadWorldSeed' | 'saveChunkSettlements' | 'getSettlementsInBounds'
+>;
+type ChunkGeneratorMock = Pick<
+  ChunkGeneratorService,
+  'generateChunk' | 'generateTileAt'
+>;
+type TileServiceMock = Pick<TileService, 'findNearbyBiomes' | 'analyzeSettlements'>;
+type WorldUtilsMock = Pick<
+  WorldUtilsService,
+  'getMinDistanceBetweenSettlements'
+>;
+
+const createWorldTile = (overrides: Partial<WorldTile> = {}): WorldTile => ({
+  id: overrides.id ?? 0,
+  x: overrides.x ?? 0,
+  y: overrides.y ?? 0,
+  biomeId: overrides.biomeId ?? 1,
+  biomeName: overrides.biomeName ?? 'Plains',
+  description: overrides.description ?? null,
+  height: overrides.height ?? 0.5,
+  temperature: overrides.temperature ?? 0.5,
+  moisture: overrides.moisture ?? 0.5,
+  seed: overrides.seed ?? 12345,
+  chunkX: overrides.chunkX ?? 0,
+  chunkY: overrides.chunkY ?? 0,
+  createdAt: overrides.createdAt ?? new Date(),
+  updatedAt: overrides.updatedAt ?? new Date(),
+  biome: overrides.biome ?? null,
+});
+
+const createChunkData = (overrides: Partial<ChunkData> = {}): ChunkData => ({
+  tiles: overrides.tiles ?? [],
+  settlements: overrides.settlements ?? [],
+  stats: {
+    biomes: overrides.stats?.biomes ?? {},
+    averageHeight: overrides.stats?.averageHeight ?? 0.5,
+    averageTemperature: overrides.stats?.averageTemperature ?? 0.5,
+    averageMoisture: overrides.stats?.averageMoisture ?? 0.5,
+  },
+});
+
+const createSettlement = (overrides: Partial<Settlement> = {}): Settlement => {
+  const base = {
+    id: overrides.id ?? 1,
+    name: overrides.name ?? 'Settlement',
+    x: overrides.x ?? 0,
+    y: overrides.y ?? 0,
+    type: overrides.type ?? 'village',
+    size: overrides.size ?? 'small',
+    population: overrides.population ?? 0,
+    description: overrides.description ?? '',
+    createdAt: overrides.createdAt ?? new Date(),
+    updatedAt: overrides.updatedAt ?? new Date(),
+  };
+  return base as unknown as Settlement;
+};
 
 describe('WorldService', () => {
   let service: WorldService;
-  let mockWorldDatabase: jest.Mocked<WorldDatabaseService>;
-  let mockChunkGenerator: jest.Mocked<ChunkGeneratorService>;
-  let mockTileService: jest.Mocked<TileService>;
-  let mockWorldUtils: jest.Mocked<WorldUtilsService>;
+  let mockWorldDatabase: jest.Mocked<WorldDatabaseMock>;
+  let mockChunkGenerator: jest.Mocked<ChunkGeneratorMock>;
+  let mockTileService: jest.Mocked<TileServiceMock>;
+  let mockWorldUtils: jest.Mocked<WorldUtilsMock>;
 
   beforeEach(() => {
     mockWorldDatabase = {
-      initializeBiomes: jest.fn().mockResolvedValue(undefined),
-      loadWorldSeed: jest.fn().mockResolvedValue(12345),
-      saveChunkSettlements: jest.fn().mockResolvedValue(undefined),
-    } as any;
+      initializeBiomes: jest.fn<
+        ReturnType<WorldDatabaseService['initializeBiomes']>,
+        Parameters<WorldDatabaseService['initializeBiomes']>
+      >(() => Promise.resolve()),
+      loadWorldSeed: jest.fn<
+        ReturnType<WorldDatabaseService['loadWorldSeed']>,
+        Parameters<WorldDatabaseService['loadWorldSeed']>
+      >(() => Promise.resolve(12345)),
+      saveChunkSettlements: jest.fn<
+        ReturnType<WorldDatabaseService['saveChunkSettlements']>,
+        Parameters<WorldDatabaseService['saveChunkSettlements']>
+      >(() => Promise.resolve()),
+      getSettlementsInBounds: jest.fn<
+        ReturnType<WorldDatabaseService['getSettlementsInBounds']>,
+        Parameters<WorldDatabaseService['getSettlementsInBounds']>
+      >(() => Promise.resolve([])),
+    };
 
     mockChunkGenerator = {
-      generateChunk: jest.fn().mockReturnValue({
-        tiles: [],
-        settlements: [],
-        stats: {
-          biomes: {},
-          averageHeight: 0.5,
-          averageTemperature: 0.5,
-          averageMoisture: 0.5,
-        },
-      }),
-      generateTileAt: jest.fn().mockReturnValue({
-        x: 0,
-        y: 0,
-        biomeId: 1,
-        biomeName: 'Plains',
-        height: 0.5,
-        temperature: 0.5,
-        moisture: 0.5,
-      }),
-    } as any;
+      generateChunk: jest.fn<
+        ReturnType<ChunkGeneratorService['generateChunk']>,
+        Parameters<ChunkGeneratorService['generateChunk']>
+      >(() => createChunkData()),
+      generateTileAt: jest.fn<
+        ReturnType<ChunkGeneratorService['generateTileAt']>,
+        Parameters<ChunkGeneratorService['generateTileAt']>
+      >(() => createWorldTile()),
+    };
 
     mockTileService = {
-      findNearbyBiomes: jest.fn().mockResolvedValue([]),
-      analyzeSettlements: jest.fn().mockResolvedValue({
-        nearbySettlements: [],
-        currentSettlement: null,
-      }),
-    } as any;
+      findNearbyBiomes: jest.fn<
+        ReturnType<TileService['findNearbyBiomes']>,
+        Parameters<TileService['findNearbyBiomes']>
+      >(() => Promise.resolve([])),
+      analyzeSettlements: jest.fn<
+        ReturnType<TileService['analyzeSettlements']>,
+        Parameters<TileService['analyzeSettlements']>
+      >(() =>
+        Promise.resolve({
+          nearbySettlements: [],
+          currentSettlement: undefined,
+        }),
+      ),
+    };
 
     mockWorldUtils = {
-      getMinDistanceBetweenSettlements: jest.fn().mockReturnValue(100),
-    } as any;
+      getMinDistanceBetweenSettlements: jest.fn<
+        ReturnType<WorldUtilsService['getMinDistanceBetweenSettlements']>,
+        Parameters<WorldUtilsService['getMinDistanceBetweenSettlements']>
+      >(() => 100),
+    };
 
     service = new WorldService(
-      mockWorldDatabase,
-      mockChunkGenerator,
-      mockTileService,
-      mockWorldUtils,
+      mockWorldDatabase as unknown as WorldDatabaseService,
+      mockChunkGenerator as unknown as ChunkGeneratorService,
+      mockTileService as unknown as TileService,
+      mockWorldUtils as unknown as WorldUtilsService,
     );
   });
 
@@ -88,7 +163,7 @@ describe('WorldService', () => {
     it('should save settlements if any are generated', async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const mockSettlement = {
+      const mockSettlement = createSettlement({
         id: 1,
         name: 'Test City',
         x: 10,
@@ -97,18 +172,11 @@ describe('WorldService', () => {
         size: 'large',
         population: 1000,
         description: 'A test city',
-      };
-
-      mockChunkGenerator.generateChunk.mockReturnValue({
-        tiles: [],
-        settlements: [mockSettlement] as any,
-        stats: {
-          biomes: {},
-          averageHeight: 0.5,
-          averageTemperature: 0.5,
-          averageMoisture: 0.5,
-        },
       });
+
+      mockChunkGenerator.generateChunk.mockReturnValue(
+        createChunkData({ settlements: [mockSettlement] }),
+      );
 
       await service.getChunk(0, 0);
 
@@ -174,14 +242,14 @@ describe('WorldService', () => {
     it('should return false when no settlements match', async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const settlements: any[] = [
-        {
+      const settlements = [
+        createSettlement({
           x: 100,
           y: 100,
           size: 'small',
           type: 'village',
           population: 50,
-        },
+        }),
       ];
 
       const result = service.isCoordinateInSettlement(0, 0, settlements);
@@ -194,14 +262,14 @@ describe('WorldService', () => {
     it('should return true when coordinate is in settlement footprint', async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const settlements: any[] = [
-        {
+      const settlements = [
+        createSettlement({
           x: 0,
           y: 0,
           size: 'small',
           type: 'village',
           population: 50,
-        },
+        }),
       ];
 
       // The regenerateSettlementFootprint will generate tiles around (0,0)
@@ -218,26 +286,17 @@ describe('WorldService', () => {
     it('should return all tiles when no pagination params', async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const mockTiles = Array.from({ length: 2500 }, (_, i) => ({
-        x: i % 50,
-        y: Math.floor(i / 50),
-        biomeId: 1,
-        biomeName: 'Plains',
-        height: 0.5,
-        temperature: 0.5,
-        moisture: 0.5,
-      }));
+      const mockTiles = Array.from({ length: 2500 }, (_, i) =>
+        createWorldTile({
+          id: i,
+          x: i % 50,
+          y: Math.floor(i / 50),
+        }),
+      );
 
-      mockChunkGenerator.generateChunk.mockReturnValue({
-        tiles: mockTiles as any,
-        settlements: [],
-        stats: {
-          biomes: {},
-          averageHeight: 0.5,
-          averageTemperature: 0.5,
-          averageMoisture: 0.5,
-        },
-      });
+      mockChunkGenerator.generateChunk.mockReturnValue(
+        createChunkData({ tiles: mockTiles }),
+      );
 
       const result = await service.getChunkTiles(0, 0);
 
@@ -247,26 +306,17 @@ describe('WorldService', () => {
     it('should apply limit when provided', async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const mockTiles = Array.from({ length: 2500 }, (_, i) => ({
-        x: i % 50,
-        y: Math.floor(i / 50),
-        biomeId: 1,
-        biomeName: 'Plains',
-        height: 0.5,
-        temperature: 0.5,
-        moisture: 0.5,
-      }));
+      const mockTiles = Array.from({ length: 2500 }, (_, i) =>
+        createWorldTile({
+          id: i,
+          x: i % 50,
+          y: Math.floor(i / 50),
+        }),
+      );
 
-      mockChunkGenerator.generateChunk.mockReturnValue({
-        tiles: mockTiles as any,
-        settlements: [],
-        stats: {
-          biomes: {},
-          averageHeight: 0.5,
-          averageTemperature: 0.5,
-          averageMoisture: 0.5,
-        },
-      });
+      mockChunkGenerator.generateChunk.mockReturnValue(
+        createChunkData({ tiles: mockTiles }),
+      );
 
       const result = await service.getChunkTiles(0, 0, 10);
 
@@ -276,26 +326,17 @@ describe('WorldService', () => {
     it('should apply offset and limit when provided', async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const mockTiles = Array.from({ length: 2500 }, (_, i) => ({
-        x: i % 50,
-        y: Math.floor(i / 50),
-        biomeId: 1,
-        biomeName: 'Plains',
-        height: 0.5,
-        temperature: 0.5,
-        moisture: 0.5,
-      }));
+      const mockTiles = Array.from({ length: 2500 }, (_, i) =>
+        createWorldTile({
+          id: i,
+          x: i % 50,
+          y: Math.floor(i / 50),
+        }),
+      );
 
-      mockChunkGenerator.generateChunk.mockReturnValue({
-        tiles: mockTiles as any,
-        settlements: [],
-        stats: {
-          biomes: {},
-          averageHeight: 0.5,
-          averageTemperature: 0.5,
-          averageMoisture: 0.5,
-        },
-      });
+      mockChunkGenerator.generateChunk.mockReturnValue(
+        createChunkData({ tiles: mockTiles }),
+      );
 
       const result = await service.getChunkTiles(0, 0, 10, 5);
 
@@ -318,9 +359,9 @@ describe('WorldService', () => {
     it('should fetch settlements in chunk bounds', async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      mockWorldDatabase.getSettlementsInBounds = jest.fn().mockResolvedValue([
-        { id: 1, name: 'Village', x: 10, y: 10 },
-        { id: 2, name: 'Town', x: 30, y: 30 },
+      mockWorldDatabase.getSettlementsInBounds.mockResolvedValue([
+        createSettlement({ id: 1, name: 'Village', x: 10, y: 10 }),
+        createSettlement({ id: 2, name: 'Town', x: 30, y: 30 }),
       ]);
 
       const result = await service.getChunkSettlements(0, 0);
@@ -337,9 +378,7 @@ describe('WorldService', () => {
     it('should calculate correct bounds for negative chunk coordinates', async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      mockWorldDatabase.getSettlementsInBounds = jest
-        .fn()
-        .mockResolvedValue([]);
+      mockWorldDatabase.getSettlementsInBounds.mockResolvedValue([]);
 
       await service.getChunkSettlements(-1, -1);
 
@@ -357,36 +396,37 @@ describe('WorldService', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       const mockTiles = [
-        {
+        createWorldTile({
+          id: 1,
           x: 0,
           y: 0,
-          biomeId: 1,
           biomeName: 'Plains',
           height: 0.3,
           temperature: 0.6,
           moisture: 0.4,
-        },
-        {
+        }),
+        createWorldTile({
+          id: 2,
           x: 1,
           y: 0,
-          biomeId: 1,
           biomeName: 'Plains',
           height: 0.7,
           temperature: 0.8,
           moisture: 0.6,
-        },
+        }),
       ];
 
-      mockChunkGenerator.generateChunk.mockReturnValue({
-        tiles: mockTiles as any,
-        settlements: [],
-        stats: {
-          biomes: {},
-          averageHeight: 0.5,
-          averageTemperature: 0.7,
-          averageMoisture: 0.5,
-        },
-      });
+      mockChunkGenerator.generateChunk.mockReturnValue(
+        createChunkData({
+          tiles: mockTiles,
+          stats: {
+            biomes: {},
+            averageHeight: 0.5,
+            averageTemperature: 0.7,
+            averageMoisture: 0.5,
+          },
+        }),
+      );
 
       const result = await service.getChunkStats(0, 0);
 
@@ -401,45 +441,14 @@ describe('WorldService', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       const mockTiles = [
-        {
-          x: 0,
-          y: 0,
-          biomeId: 1,
-          biomeName: 'Plains',
-          height: 0.5,
-          temperature: 0.5,
-          moisture: 0.5,
-        },
-        {
-          x: 1,
-          y: 0,
-          biomeId: 1,
-          biomeName: 'Plains',
-          height: 0.5,
-          temperature: 0.5,
-          moisture: 0.5,
-        },
-        {
-          x: 2,
-          y: 0,
-          biomeId: 2,
-          biomeName: 'Forest',
-          height: 0.6,
-          temperature: 0.6,
-          moisture: 0.7,
-        },
+        createWorldTile({ id: 1, x: 0, y: 0, biomeId: 1, biomeName: 'Plains' }),
+        createWorldTile({ id: 2, x: 1, y: 0, biomeId: 1, biomeName: 'Plains' }),
+        createWorldTile({ id: 3, x: 2, y: 0, biomeId: 2, biomeName: 'Forest' }),
       ];
 
-      mockChunkGenerator.generateChunk.mockReturnValue({
-        tiles: mockTiles as any,
-        settlements: [],
-        stats: {
-          biomes: {},
-          averageHeight: 0.5,
-          averageTemperature: 0.5,
-          averageMoisture: 0.5,
-        },
-      });
+      mockChunkGenerator.generateChunk.mockReturnValue(
+        createChunkData({ tiles: mockTiles }),
+      );
 
       const result = await service.getChunkBiomeStats(0, 0);
 
@@ -452,36 +461,13 @@ describe('WorldService', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       const mockTiles = [
-        {
-          x: 0,
-          y: 0,
-          biomeId: 1,
-          biomeName: null as any,
-          height: 0.5,
-          temperature: 0.5,
-          moisture: 0.5,
-        },
-        {
-          x: 1,
-          y: 0,
-          biomeId: 2,
-          biomeName: 'Forest',
-          height: 0.6,
-          temperature: 0.6,
-          moisture: 0.7,
-        },
+        createWorldTile({ id: 1, x: 0, y: 0, biomeId: 1, biomeName: '' }),
+        createWorldTile({ id: 2, x: 1, y: 0, biomeId: 2, biomeName: 'Forest' }),
       ];
 
-      mockChunkGenerator.generateChunk.mockReturnValue({
-        tiles: mockTiles as any,
-        settlements: [],
-        stats: {
-          biomes: {},
-          averageHeight: 0.5,
-          averageTemperature: 0.5,
-          averageMoisture: 0.5,
-        },
-      });
+      mockChunkGenerator.generateChunk.mockReturnValue(
+        createChunkData({ tiles: mockTiles }),
+      );
 
       const result = await service.getChunkBiomeStats(0, 0);
 

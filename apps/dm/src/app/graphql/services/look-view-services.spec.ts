@@ -10,15 +10,39 @@ import { SettlementService } from './settlement.service';
 import { DescriptionService } from './description.service';
 import { ResponseService } from './response.service';
 import { AiService } from '../../../openai/ai.service';
+import { NearbyPlayerInfo } from '../types/response.types';
+import type { WorldTile } from '../../../generated/world-graphql';
+
+const makeTile = (overrides: Partial<WorldTile> = {}): WorldTile => ({
+  id: overrides.id ?? 0,
+  x: overrides.x ?? 0,
+  y: overrides.y ?? 0,
+  biomeId: overrides.biomeId ?? 1,
+  biomeName: overrides.biomeName ?? 'forest',
+  chunkX: overrides.chunkX ?? 0,
+  chunkY: overrides.chunkY ?? 0,
+  createdAt:
+    overrides.createdAt ?? new Date('2024-01-01T00:00:00.000Z'),
+  updatedAt:
+    overrides.updatedAt ?? new Date('2024-01-01T00:00:00.000Z'),
+  description: overrides.description ?? '',
+  height: overrides.height ?? 0.5,
+  moisture: overrides.moisture ?? 0.5,
+  seed: overrides.seed ?? 0,
+  temperature: overrides.temperature ?? 0.5,
+});
 
 const createWorldService = () => ({
   getTilesInBounds: jest.fn().mockResolvedValue(
-    Array.from({ length: 6 }, (_, i) => ({
-      x: i,
-      y: i,
-      biomeName: i % 2 === 0 ? 'forest' : 'plains',
-      height: 0.3 + i * 0.1,
-    })),
+    Array.from({ length: 6 }, (_, i) =>
+      makeTile({
+        id: i,
+        x: i,
+        y: i,
+        biomeName: i % 2 === 0 ? 'forest' : 'plains',
+        height: 0.3 + i * 0.1,
+      }),
+    ),
   ),
 });
 
@@ -33,7 +57,11 @@ describe('Look view helper services', () => {
 
   it('calculates visibility and processes tiles', async () => {
     const worldService = createWorldService();
-    const service = new VisibilityService(worldService as any);
+    const service = new VisibilityService(
+      worldService as unknown as Parameters<
+        typeof VisibilityService.prototype.constructor
+      >[0],
+    );
     const timing = {
       tPlayerMs: 0,
       tGetCenterMs: 0,
@@ -65,7 +93,11 @@ describe('Look view helper services', () => {
 
   it('calculates visibility with edge case heights', () => {
     const worldService = createWorldService();
-    const service = new VisibilityService(worldService as any);
+    const service = new VisibilityService(
+      worldService as unknown as Parameters<
+        typeof VisibilityService.prototype.constructor
+      >[0],
+    );
 
     // Test minimum height (should clamp to minimum visibility)
     const minRadius = service.calculateVisibilityRadius({ height: 0 });
@@ -88,7 +120,11 @@ describe('Look view helper services', () => {
 
   it('processes tiles with various radii', async () => {
     const worldService = createWorldService();
-    const service = new VisibilityService(worldService as any);
+    const service = new VisibilityService(
+      worldService as unknown as Parameters<
+        typeof VisibilityService.prototype.constructor
+      >[0],
+    );
     const timing = {
       tPlayerMs: 0,
       tGetCenterMs: 0,
@@ -144,9 +180,9 @@ describe('Look view helper services', () => {
     const biomeSummary = biome.generateBiomeSummary(
       { x: 0, y: 0 },
       [
-        { x: 1, y: 1, biomeName: 'forest' },
-        { x: -1, y: 0, biomeName: 'forest' },
-        { x: 0, y: 2, biomeName: 'plains' },
+        makeTile({ id: 1, x: 1, y: 1, biomeName: 'forest' }),
+        makeTile({ id: 2, x: -1, y: 0, biomeName: 'forest' }),
+        makeTile({ id: 3, x: 0, y: 2, biomeName: 'plains' }),
       ],
       timing,
     );
@@ -156,8 +192,8 @@ describe('Look view helper services', () => {
       { x: 0, y: 0 },
       5,
       [
-        { x: 4, y: 0, height: 0.8 },
-        { x: 0, y: 4, height: 0.9 },
+        makeTile({ id: 4, x: 4, y: 0, height: 0.8 }),
+        makeTile({ id: 5, x: 0, y: 4, height: 0.9 }),
       ],
       timing,
     );
@@ -260,7 +296,7 @@ describe('Look view helper services', () => {
     const farPeaks = peaks.processVisiblePeaks(
       { x: 0, y: 0 },
       5,
-      [{ x: 100, y: 100, height: 0.9 }],
+      [makeTile({ id: 10, x: 100, y: 100, height: 0.9 })],
       timing,
     );
     expect(farPeaks).toHaveLength(1); // Far peaks are still processed if height >= 0.7
@@ -269,7 +305,7 @@ describe('Look view helper services', () => {
     const lowPeaks = peaks.processVisiblePeaks(
       { x: 0, y: 0 },
       5,
-      [{ x: 5, y: 5, height: 0.5 }],
+      [makeTile({ id: 11, x: 5, y: 5, height: 0.5 })],
       timing,
     );
     expect(lowPeaks).toHaveLength(0); // Below 0.7 threshold
@@ -279,8 +315,8 @@ describe('Look view helper services', () => {
       { x: 0, y: 0 },
       10,
       [
-        { x: 1, y: 1, height: 0.8 }, // distance ~1.4, minPeakDistance is 5
-        { x: 10, y: 0, height: 0.9 }, // distance 10, should be included
+        makeTile({ id: 12, x: 1, y: 1, height: 0.8 }), // distance ~1.4, minPeakDistance is 5
+        makeTile({ id: 13, x: 10, y: 0, height: 0.9 }), // distance 10, should be included
       ],
       timing,
     );
@@ -291,14 +327,14 @@ describe('Look view helper services', () => {
       { x: 0, y: 0 },
       20,
       [
-        { x: 20, y: 0, height: 0.75 },
-        { x: 0, y: 20, height: 0.95 },
-        { x: 15, y: 15, height: 0.85 },
-        { x: 20, y: 20, height: 0.72 },
-        { x: 25, y: 0, height: 0.88 },
-        { x: 0, y: 25, height: 0.91 },
-        { x: 18, y: 18, height: 0.78 },
-        { x: 22, y: 22, height: 0.82 },
+        makeTile({ id: 14, x: 20, y: 0, height: 0.75 }),
+        makeTile({ id: 15, x: 0, y: 20, height: 0.95 }),
+        makeTile({ id: 16, x: 15, y: 15, height: 0.85 }),
+        makeTile({ id: 17, x: 20, y: 20, height: 0.72 }),
+        makeTile({ id: 18, x: 25, y: 0, height: 0.88 }),
+        makeTile({ id: 19, x: 0, y: 25, height: 0.91 }),
+        makeTile({ id: 20, x: 18, y: 18, height: 0.78 }),
+        makeTile({ id: 21, x: 22, y: 22, height: 0.82 }),
       ],
       timing,
     );
@@ -426,7 +462,7 @@ describe('Look view helper services', () => {
           name: 'Scout',
           distance: 2,
           direction: 'north',
-        } as any,
+        } as NearbyPlayerInfo,
       ],
     );
 

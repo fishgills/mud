@@ -193,8 +193,8 @@ export class TileService {
           settlement.size as 'large' | 'medium' | 'small' | 'tiny',
           () => 0.5, // rng not used by generator's deterministic shape logic
           {
-            type: settlement.type as any,
-            population: settlement.population as any,
+            type: settlement.type ?? undefined,
+            population: settlement.population ?? undefined,
           },
         );
 

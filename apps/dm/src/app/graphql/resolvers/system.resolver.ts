@@ -11,6 +11,7 @@ import {
   GameState,
 } from '../types/response.types';
 import { SpawnMonsterInput } from '../inputs/player.input';
+import { EntityToGraphQLAdapter } from '../adapters/entity-to-graphql.adapter';
 
 @Resolver()
 export class SystemResolver {
@@ -86,12 +87,14 @@ export class SystemResolver {
     @Args('x') x: number,
     @Args('y') y: number,
   ): Promise<Monster[]> {
-    return await this.monsterService.getMonstersAtLocation(x, y);
+    const monsters = await this.monsterService.getMonstersAtLocation(x, y);
+    return EntityToGraphQLAdapter.monsterEntitiesToGraphQL(monsters);
   }
 
   @Query(() => [Monster])
   async getAllMonsters(): Promise<Monster[]> {
-    return await this.monsterService.getAllMonsters();
+    const monsters = await this.monsterService.getAllMonsters();
+    return EntityToGraphQLAdapter.monsterEntitiesToGraphQL(monsters);
   }
 
   @Mutation(() => MonsterResponse)
@@ -107,7 +110,7 @@ export class SystemResolver {
 
       return {
         success: true,
-        data: monster as Monster,
+        data: EntityToGraphQLAdapter.monsterEntityToGraphQL(monster),
         message: `Spawned ${monster.name} at (${input.x}, ${input.y})`,
       };
     } catch (error) {

@@ -6,6 +6,23 @@
       "dependsOn": ["^serve"]
     },
     "build": {
+      "env": [
+        "NODE_ENV",
+        "OPENAI_API_KEY",
+        "DM_OPENAI_TIMEOUT_MS",
+        "DM_OPENAI_CACHE_MAX",
+        "DM_OPENAI_CACHE_TTL_MS",
+        "DM_USE_VERTEX_AI",
+        "PORT",
+        "WORLD_SERVICE_URL",
+        "DM_CENTER_NEARBY_CACHE_TTL_MS",
+        "DM_CHUNK_CACHE_TTL_MS",
+        "GCP_PROJECT_ID",
+        "GOOGLE_CLOUD_PROJECT",
+        "GCP_REGION",
+        "VERTEX_LOCATION",
+        "WORLD_RENDER_CACHE_TTL_MS"
+      ],
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
@@ -39,7 +56,8 @@
       "cache": false
     },
     "test": {
-      "dependsOn": ["^build", "^test"]
+      "dependsOn": ["^build", "^test"],
+      "cache": false
     }
   }
 }

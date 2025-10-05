@@ -28,6 +28,7 @@ import {
   TargetType,
   PlayerAttribute,
 } from '../inputs/player.input';
+import { EntityToGraphQLAdapter } from '../adapters/entity-to-graphql.adapter';
 
 @Resolver(() => Player)
 export class PlayerResolver {
@@ -44,43 +45,57 @@ export class PlayerResolver {
   async createPlayer(
     @Args('input') input: CreatePlayerInput,
   ): Promise<PlayerResponse> {
-    const player = await this.playerService.createPlayer(input);
+    // Support both old (slackId) and new (clientId + clientType) formats
+    if (!input.clientId && !input.slackId) {
+      return {
+        success: false,
+        message: 'Either clientId/clientType or slackId must be provided',
+      };
+    }
+
+    const entity = await this.playerService.createPlayer(input);
+    const player = EntityToGraphQLAdapter.playerEntityToGraphQL(entity);
     return {
       success: true,
-      data: player as Player,
+      data: player,
     };
   }
 
   @Query(() => PlayerResponse)
   async getPlayer(
     @Args('slackId', { nullable: true }) slackId?: string,
+    @Args('clientId', { nullable: true }) clientId?: string,
     @Args('name', { nullable: true }) name?: string,
   ): Promise<PlayerResponse> {
-    if (!slackId && !name) {
+    if (!slackId && !clientId && !name) {
       return {
         success: false,
-        message: 'A Slack ID or player name must be provided',
+        message: 'A clientId, slackId, or player name must be provided',
       };
     }
 
-    const identifier = slackId
-      ? `slackId: ${slackId}`
-      : `name: ${name ?? 'unknown'}`;
+    const identifier = clientId
+      ? `clientId: ${clientId}`
+      : slackId
+        ? `slackId: ${slackId}`
+        : `name: ${name ?? 'unknown'}`;
     this.logger.log(`[DM-AUTH] Received getPlayer request for ${identifier}`);
     try {
       this.logger.log(
         `[DM-AUTH] Calling playerService.getPlayer for ${identifier}`,
       );
-      const player = await this.playerService.getPlayerByIdentifier({
+      const entity = await this.playerService.getPlayerByIdentifier({
         slackId,
+        clientId,
         name,
       });
+      const player = EntityToGraphQLAdapter.playerEntityToGraphQL(entity);
       this.logger.log(
         `[DM-AUTH] Successfully retrieved player for ${identifier}, player ID: ${player.id}`,
       );
       return {
         success: true,
-        data: player as Player,
+        data: player,
       };
     } catch (error) {
       this.logger.error(
@@ -97,7 +112,7 @@ export class PlayerResolver {
   @Query(() => [Player])
   async getAllPlayers(): Promise<Player[]> {
     const players = await this.playerService.getAllPlayers();
-    return players as Player[];
+    return EntityToGraphQLAdapter.playerEntitiesToGraphQL(players);
   }
 
   // movement-related resolvers have been moved to MovementResolver
@@ -111,7 +126,7 @@ export class PlayerResolver {
       const player = await this.playerService.updatePlayerStats(slackId, input);
       return {
         success: true,
-        data: player as Player,
+        data: EntityToGraphQLAdapter.playerEntityToGraphQL(player),
       };
     } catch (error) {
       return {
@@ -137,7 +152,7 @@ export class PlayerResolver {
       );
       return {
         success: true,
-        data: player as Player,
+        data: EntityToGraphQLAdapter.playerEntityToGraphQL(player),
       };
     } catch (error) {
       return {
@@ -158,7 +173,7 @@ export class PlayerResolver {
       const player = await this.playerService.rerollPlayerStats(slackId);
       return {
         success: true,
-        data: player as Player,
+        data: EntityToGraphQLAdapter.playerEntityToGraphQL(player),
       };
     } catch (error) {
       return {
@@ -180,7 +195,7 @@ export class PlayerResolver {
       const player = await this.playerService.healPlayer(slackId, amount);
       return {
         success: true,
-        data: player as Player,
+        data: EntityToGraphQLAdapter.playerEntityToGraphQL(player),
       };
     } catch (error) {
       return {
@@ -200,7 +215,7 @@ export class PlayerResolver {
       const player = await this.playerService.damagePlayer(slackId, damage);
       return {
         success: true,
-        data: player as Player,
+        data: EntityToGraphQLAdapter.playerEntityToGraphQL(player),
       };
     } catch (error) {
       return {
@@ -217,7 +232,7 @@ export class PlayerResolver {
     @Args('y') y: number,
   ): Promise<Player[]> {
     const players = await this.playerService.getPlayersAtLocation(x, y);
-    return players as Player[];
+    return EntityToGraphQLAdapter.playerEntitiesToGraphQL(players);
   }
 
   @Mutation(() => CombatResponse, {
@@ -251,12 +266,17 @@ export class PlayerResolver {
             if (!targetPlayer) {
               throw new Error('Target player not found');
             }
-            targetSlackId = targetPlayer.slackId;
+            // Use clientId from PlayerEntity
+            targetSlackId = targetPlayer.clientId || undefined;
           } else {
             throw new Error(
               'Must provide targetSlackId or targetId for player attacks',
             );
           }
+        }
+
+        if (!targetSlackId) {
+          throw new Error('Target player has no valid identifier');
         }
 
         const ignoreLocation = input.ignoreLocation === true;
@@ -287,7 +307,7 @@ export class PlayerResolver {
       const player = await this.playerService.respawnPlayer(slackId);
       return {
         success: true,
-        data: player as Player,
+        data: EntityToGraphQLAdapter.playerEntityToGraphQL(player),
         message: 'You have been resurrected at the starting location!',
       };
     } catch (_error) {
@@ -306,8 +326,8 @@ export class PlayerResolver {
       const player = await this.playerService.deletePlayer(slackId);
       return {
         success: true,
-        data: player as Player,
-        message: 'Character has been successfully deleted.',
+        data: EntityToGraphQLAdapter.playerEntityToGraphQL(player),
+        message: 'Player deleted successfully',
       };
     } catch (_error) {
       return {
@@ -331,12 +351,12 @@ export class PlayerResolver {
     });
 
     // Calculate D&D-like modifiers
-    const strengthModifier = Math.floor((player.strength - 10) / 2);
-    const agilityModifier = Math.floor((player.agility - 10) / 2);
-    const healthModifier = Math.floor((player.health - 10) / 2);
+    const strengthModifier = Math.floor((player.attributes.strength - 10) / 2);
+    const agilityModifier = Math.floor((player.attributes.agility - 10) / 2);
+    const healthModifier = Math.floor((player.attributes.health - 10) / 2);
 
     // Calculate derived stats
-    const dodgeChance = Math.max(0, (player.agility - 10) * 5); // 5% per point above 10
+    const dodgeChance = Math.max(0, (player.attributes.agility - 10) * 5); // 5% per point above 10
     const baseDamage = `1d6${strengthModifier >= 0 ? '+' : ''}${strengthModifier}`;
     const armorClass = 10 + agilityModifier; // Basic AC calculation
 
@@ -347,12 +367,12 @@ export class PlayerResolver {
 
     // Get recent combat history for this player's location
     const recentCombat = await this.combatService.getCombatLogForLocation(
-      player.x,
-      player.y,
+      player.position.x,
+      player.position.y,
     );
 
     return {
-      player: player as Player,
+      player: EntityToGraphQLAdapter.playerEntityToGraphQL(player),
       strengthModifier,
       agilityModifier,
       healthModifier,
@@ -398,7 +418,11 @@ export class PlayerResolver {
               player.x + dx,
               player.y + dy,
             );
-          nearbyPlayers.push(...(playersAtLocation as Player[]));
+          nearbyPlayers.push(
+            ...EntityToGraphQLAdapter.playerEntitiesToGraphQL(
+              playersAtLocation,
+            ),
+          );
         }
       }
       return nearbyPlayers;
@@ -410,10 +434,11 @@ export class PlayerResolver {
   @ResolveField(() => [Monster], { nullable: true })
   async nearbyMonsters(@Parent() player: Player): Promise<Monster[]> {
     try {
-      return (await this.monsterService.getMonstersAtLocation(
+      const monsters = await this.monsterService.getMonstersAtLocation(
         player.x,
         player.y,
-      )) as Monster[];
+      );
+      return EntityToGraphQLAdapter.monsterEntitiesToGraphQL(monsters);
     } catch {
       return [];
     }

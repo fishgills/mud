@@ -13,37 +13,68 @@ import { RenderService } from './render.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorldService } from '../world/world-refactored.service';
 import { CacheService } from '../shared/cache.service';
+import type { Settlement } from '@mud/database';
+import type { WorldTile } from '../world/models';
+
+type PrismaServiceMock = {
+  settlement: {
+    findMany: jest.Mock<Promise<Settlement[]>, [Record<string, unknown>?]>;
+  };
+  worldTile: {
+    findMany: jest.Mock<Promise<WorldTile[]>, [Record<string, unknown>?]>;
+  };
+};
+
+type WorldServiceMock = Pick<
+  WorldService,
+  'getCurrentSeed' | 'isCoordinateInSettlement'
+>;
+
+type CacheServiceMock = Pick<CacheService, 'get' | 'set'>;
 
 describe('RenderService', () => {
   let service: RenderService;
-  let mockPrisma: jest.Mocked<PrismaService>;
-  let mockWorldService: jest.Mocked<WorldService>;
-  let mockCache: jest.Mocked<CacheService>;
+  let mockPrisma: PrismaServiceMock;
+  let mockWorldService: jest.Mocked<WorldServiceMock>;
+  let mockCache: jest.Mocked<CacheServiceMock>;
 
   beforeEach(() => {
     mockPrisma = {
       settlement: {
-        findMany: jest.fn(),
+        findMany: jest.fn<Promise<Settlement[]>, [Record<string, unknown>?]>(),
       },
       worldTile: {
-        findMany: jest.fn(),
+        findMany: jest.fn<Promise<WorldTile[]>, [Record<string, unknown>?]>(),
       },
-    } as any;
+    };
 
     mockWorldService = {
-      getCurrentSeed: jest.fn().mockReturnValue(12345),
-      isCoordinateInSettlement: jest.fn().mockReturnValue({
+      getCurrentSeed: jest.fn<ReturnType<WorldService['getCurrentSeed']>, []>(
+        () => 12345,
+      ),
+      isCoordinateInSettlement: jest.fn<
+        ReturnType<WorldService['isCoordinateInSettlement']>,
+        Parameters<WorldService['isCoordinateInSettlement']>
+      >(() => ({
         isSettlement: false,
         intensity: 0,
-      }),
-    } as any;
+      })),
+    };
 
     mockCache = {
-      get: jest.fn().mockResolvedValue(null),
-      set: jest.fn().mockResolvedValue(undefined),
-    } as any;
+      get: jest.fn<ReturnType<CacheService['get']>, Parameters<CacheService['get']>>(
+        () => Promise.resolve(null),
+      ),
+      set: jest.fn<ReturnType<CacheService['set']>, Parameters<CacheService['set']>>(
+        () => Promise.resolve(undefined),
+      ),
+    };
 
-    service = new RenderService(mockPrisma, mockWorldService, mockCache);
+    service = new RenderService(
+      mockPrisma as unknown as PrismaService,
+      mockWorldService as unknown as WorldService,
+      mockCache as unknown as CacheService,
+    );
   });
 
   describe('prepareMapData', () => {
@@ -61,9 +92,7 @@ describe('RenderService', () => {
         },
       ];
 
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue(
-        mockSettlements,
-      );
+      mockPrisma.settlement.findMany.mockResolvedValue(mockSettlements);
 
       const result = await service.prepareMapData(0, 10, 0, 10, {
         includeSettlements: true,
@@ -108,7 +137,7 @@ describe('RenderService', () => {
 
   describe('renderMapAscii', () => {
     it('should generate ASCII map for a region', async () => {
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
 
       const result = await service.renderMapAscii(0, 10, 0, 10);
 
@@ -130,9 +159,7 @@ describe('RenderService', () => {
         updatedAt: new Date(),
       };
 
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([
-        mockSettlement,
-      ]);
+      mockPrisma.settlement.findMany.mockResolvedValue([mockSettlement]);
 
       mockWorldService.isCoordinateInSettlement.mockImplementation((x, y) => ({
         isSettlement: x === 5 && y === 5,
@@ -154,7 +181,7 @@ describe('RenderService', () => {
 
   describe('renderMap', () => {
     it('should render a map region', async () => {
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
       mockCache.get.mockResolvedValue(null);
 
       const canvas = await service.renderMap(0, 10, 0, 10, 4);
@@ -165,7 +192,7 @@ describe('RenderService', () => {
     });
 
     it('should use cached chunk data when available', async () => {
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
 
       // For this test, we need to mock the full image loading process
       // This is complex, so for now we just verify render works without cache
@@ -179,7 +206,7 @@ describe('RenderService', () => {
     });
 
     it('should handle different pixel sizes', async () => {
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
       mockCache.get.mockResolvedValue(null);
 
       const canvas = await service.renderMap(0, 10, 0, 10, 8);
@@ -189,7 +216,7 @@ describe('RenderService', () => {
     });
 
     it('should floor pixel size to minimum of 1', async () => {
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
       mockCache.get.mockResolvedValue(null);
 
       const canvas = await service.renderMap(0, 10, 0, 10, 0.5);
@@ -212,14 +239,12 @@ describe('RenderService', () => {
         updatedAt: new Date(),
       };
 
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([
-        mockSettlement,
-      ]);
+      mockPrisma.settlement.findMany.mockResolvedValue([mockSettlement]);
       mockCache.get.mockResolvedValue(null);
 
       mockWorldService.isCoordinateInSettlement.mockImplementation((x, y) => ({
         isSettlement: x >= 3 && x <= 7 && y >= 3 && y <= 7,
-        settlement: mockSettlement as any,
+        settlement: mockSettlement as unknown as Settlement,
         intensity: x === 5 && y === 5 ? 1 : 0.5,
       }));
 
@@ -230,7 +255,7 @@ describe('RenderService', () => {
     });
 
     it('should include center marker', async () => {
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
       mockCache.get.mockResolvedValue(null);
 
       const canvas = await service.renderMap(0, 10, 0, 10, 4);
@@ -240,7 +265,7 @@ describe('RenderService', () => {
     });
 
     it('should handle negative coordinates', async () => {
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
       mockCache.get.mockResolvedValue(null);
 
       const canvas = await service.renderMap(-10, 0, -10, 0, 4);
@@ -250,7 +275,7 @@ describe('RenderService', () => {
     });
 
     it('should opportunistically prewarm chunk cache', async () => {
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
       mockCache.get.mockResolvedValue(null);
 
       const canvas = await service.renderMap(0, 50, 0, 50, 4);
@@ -263,7 +288,7 @@ describe('RenderService', () => {
   describe('caching behavior', () => {
     it('should check cache for chunks', async () => {
       mockCache.get.mockResolvedValue(null);
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
 
       const canvas = await service.renderMap(0, 50, 0, 50, 4);
 
@@ -273,7 +298,7 @@ describe('RenderService', () => {
 
     it('should set cache after rendering chunks', async () => {
       mockCache.get.mockResolvedValue(null);
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
 
       // Wait for async render to complete
       await service.renderMap(0, 50, 0, 50, 4);
@@ -291,7 +316,7 @@ describe('RenderService', () => {
         expect(key).toContain('v2'); // RENDER_STYLE_VERSION = 2
         return Promise.resolve(null);
       });
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
 
       await service.renderMap(0, 50, 0, 50, 4);
     });
@@ -299,7 +324,7 @@ describe('RenderService', () => {
 
   describe('edge cases', () => {
     it('should handle single tile regions', async () => {
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
       mockCache.get.mockResolvedValue(null);
 
       const canvas = await service.renderMap(0, 1, 0, 1, 4);
@@ -309,7 +334,7 @@ describe('RenderService', () => {
     });
 
     it('should handle very large regions', async () => {
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
       mockCache.get.mockResolvedValue(null);
 
       const canvas = await service.renderMap(0, 100, 0, 100, 1);
@@ -319,7 +344,7 @@ describe('RenderService', () => {
     });
 
     it('should handle empty regions gracefully', async () => {
-      (mockPrisma.settlement.findMany as jest.Mock).mockResolvedValue([]);
+      mockPrisma.settlement.findMany.mockResolvedValue([]);
       mockCache.get.mockResolvedValue(null);
 
       // Coordinates where maxX <= minX result in 0-dimension canvas

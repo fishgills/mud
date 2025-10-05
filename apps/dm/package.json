@@ -13,9 +13,9 @@
     "start:prod": "node dist/main",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "lint": "eslint",
+    "lint": "eslint .",
     "codegen": "graphql-codegen --config codegen.ts"
   },
   "dependencies": {
@@ -23,6 +23,8 @@
     "@google-cloud/vertexai": "^1.10.0",
     "@mud/constants": "*",
     "@mud/database": "*",
+    "@mud/engine": "*",
+    "@mud/redis-client": "*",
     "@mud/gcp-auth": "*",
     "@nestjs/apollo": "^13.1.0",
     "@nestjs/common": "^11.1.6",
@@ -42,6 +44,9 @@
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
-    "@nestjs/cli": "^11.0.10"
+    "@nestjs/cli": "^11.0.10",
+    "@nestjs/testing": "^11.1.6",
+    "@mud/typescript-config": "*",
+    "@mud/eslint-config": "*"
   }
 }

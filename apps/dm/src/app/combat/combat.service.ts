@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { getPrismaClient, CombatLog as PrismaCombatLog } from '@mud/database';
+import { MonsterFactory, EventBus } from '@mud/engine';
 import { PlayerService } from '../player/player.service';
 import { PlayerStatsDto } from '../player/dto/player.dto';
 import { AiService } from '../../openai/ai.service';
+import { EventBridgeService } from '../../shared/event-bridge.service';
 import { CombatResult, CombatRound, DetailedCombatLog } from '../graphql';
 
 interface CombatNarrative {
@@ -14,10 +16,11 @@ interface NarrativeOptions {
   secondPersonName?: string;
 }
 
-interface PlayerCombatMessage {
+export interface CombatMessage {
   slackId: string;
   name: string;
   message: string;
+  role: 'attacker' | 'defender' | 'observer';
 }
 
 export interface Combatant {
@@ -43,6 +46,7 @@ export class CombatService {
   constructor(
     private playerService: PlayerService,
     private aiService: AiService,
+    private eventBridge: EventBridgeService,
   ) {}
 
   // Roll 1d20
@@ -289,14 +293,14 @@ export class CombatService {
       id: player.id,
       name: player.name,
       type: 'player' as const,
-      hp: player.hp,
-      maxHp: player.maxHp,
-      strength: player.strength,
-      agility: player.agility,
+      hp: player.combat.hp,
+      maxHp: player.combat.maxHp,
+      strength: player.attributes.strength,
+      agility: player.attributes.agility,
       level: player.level,
-      isAlive: player.isAlive,
-      x: player.x,
-      y: player.y,
+      isAlive: player.combat.isAlive,
+      x: player.position.x,
+      y: player.position.y,
       slackId: slackId, // Store the Slack ID for later use
     };
     this.logger.debug(
@@ -306,24 +310,22 @@ export class CombatService {
   }
 
   private async monsterToCombatant(monsterId: number): Promise<Combatant> {
-    const monster = await this.prisma.monster.findUnique({
-      where: { id: monsterId, isAlive: true },
-    });
-    if (!monster) {
+    const monster = await MonsterFactory.load(monsterId);
+    if (!monster || !monster.combat.isAlive) {
       throw new Error('Monster not found or already dead');
     }
     const combatant = {
       id: monster.id,
       name: monster.name,
       type: 'monster' as const,
-      hp: monster.hp,
-      maxHp: monster.maxHp,
-      strength: monster.strength,
-      agility: monster.agility,
+      hp: monster.combat.hp,
+      maxHp: monster.combat.maxHp,
+      strength: monster.attributes.strength,
+      agility: monster.attributes.agility,
       level: 1, // Default to level 1 for monsters
-      isAlive: monster.isAlive,
-      x: monster.x,
-      y: monster.y,
+      isAlive: monster.combat.isAlive,
+      x: monster.position.x,
+      y: monster.position.y,
     };
     this.logger.debug(
       `Monster combatant: ${combatant.name} (Str:${combatant.strength}, Agi:${combatant.agility}, HP:${combatant.hp}/${combatant.maxHp}, Lvl:${combatant.level})`,
@@ -340,6 +342,16 @@ export class CombatService {
     this.logger.log(
       `🗡️ COMBAT START: ${combatant1.name} vs ${combatant2.name} [ID: ${combatId}]`,
     );
+
+    // Emit combat start event
+    await EventBus.emit({
+      eventType: 'combat:start',
+      attacker: { type: combatant1.type, id: combatant1.id },
+      defender: { type: combatant2.type, id: combatant2.id },
+      x: combatant1.x,
+      y: combatant1.y,
+      timestamp: new Date(),
+    });
 
     // Roll initiative
     this.logger.debug(`Rolling initiative...`);
@@ -416,6 +428,42 @@ export class CombatService {
         killed,
       });
 
+      // Emit combat hit or miss event
+      if (hit) {
+        await EventBus.emit({
+          eventType: 'combat:hit',
+          attacker: {
+            type: attacker.type,
+            id: attacker.id,
+            name: attacker.name,
+          },
+          defender: {
+            type: defender.type,
+            id: defender.id,
+            name: defender.name,
+          },
+          damage,
+          x: attacker.x,
+          y: attacker.y,
+          timestamp: new Date(),
+        });
+      } else {
+        await EventBus.emit({
+          eventType: 'combat:miss',
+          attacker: {
+            type: attacker.type,
+            id: attacker.id,
+            name: attacker.name,
+          },
+          defender: {
+            type: defender.type,
+            id: defender.id,
+            name: defender.name,
+          },
+          timestamp: new Date(),
+        });
+      }
+
       if (killed) break;
 
       // Switch roles for next attack
@@ -465,6 +513,16 @@ export class CombatService {
       `💾 Combat log created with ${rounds.length} individual attacks and ${rounds.reduce((sum, round) => sum + round.damage, 0)} total damage`,
     );
 
+    // Emit combat end event
+    await EventBus.emit({
+      eventType: 'combat:end',
+      winner: { type: winner.type, id: winner.id },
+      loser: { type: loser.type, id: loser.id },
+      xpGained: xpAwarded,
+      goldGained: goldAwarded,
+      timestamp: new Date(),
+    });
+
     return combatLog;
   }
 
@@ -503,18 +561,20 @@ export class CombatService {
       }
     } else {
       if (!loser.isAlive) {
-        await this.prisma.monster.delete({ where: { id: loser.id } });
+        await MonsterFactory.delete(loser.id);
         this.logger.log(
           `🗑️ Removed defeated monster ${loser.name} from the world`,
         );
       } else {
-        await this.prisma.monster.update({
-          where: { id: loser.id },
-          data: { hp: loser.hp, isAlive: loser.isAlive },
-        });
-        this.logger.debug(
-          `Monster ${loser.name} updated: HP=${loser.hp}, alive=${loser.isAlive}`,
-        );
+        const monsterEntity = await MonsterFactory.load(loser.id);
+        if (monsterEntity) {
+          monsterEntity.combat.hp = loser.hp;
+          monsterEntity.combat.isAlive = loser.isAlive;
+          await MonsterFactory.save(monsterEntity);
+          this.logger.debug(
+            `Monster ${loser.name} updated: HP=${loser.hp}, alive=${loser.isAlive}`,
+          );
+        }
       }
     }
 
@@ -576,208 +636,159 @@ export class CombatService {
     this.logger.log(`💾 Combat results applied and logged to database`);
   }
 
-  async playerAttackMonster(
-    playerSlackId: string,
-    monsterId: number,
-  ): Promise<CombatResult> {
-    this.logger.log(
-      `🗡️ Player attack initiated: ${playerSlackId} attacking monster ${monsterId}`,
-    );
+  /**
+   * Generate combat messages for all participants and observers
+   */
+  private async generateCombatMessages(
+    combatLog: DetailedCombatLog,
+    attacker: Combatant,
+    defender: Combatant,
+  ): Promise<CombatMessage[]> {
+    const messages: CombatMessage[] = [];
+    const { x, y } = combatLog.location;
 
-    const player = await this.playerToCombatant(playerSlackId);
-    const monster = await this.monsterToCombatant(monsterId);
-
-    this.logger.debug(
-      `Combatants loaded: ${player.name} (${player.hp} HP) vs ${monster.name} (${monster.hp} HP)`,
-    );
-
-    if (!player.isAlive) {
-      this.logger.warn(`❌ Combat blocked: Player ${player.name} is dead`);
-      throw new Error('Player is dead and cannot attack');
+    // Generate personalized messages for attacker (if player)
+    if (attacker.type === 'player' && attacker.slackId) {
+      const attackerMessage = await this.generateCombatNarrative(combatLog, {
+        secondPersonName: attacker.name,
+      });
+      messages.push({
+        slackId: attacker.slackId,
+        name: attacker.name,
+        message: attackerMessage,
+        role: 'attacker',
+      });
     }
 
-    // Check if player and monster are at the same location
-    if (player.x !== monster.x || player.y !== monster.y) {
-      this.logger.warn(
-        `❌ Combat blocked: Location mismatch - Player at (${player.x},${player.y}), Monster at (${monster.x},${monster.y})`,
-      );
-      throw new Error('Monster is not at your location');
+    // Generate personalized messages for defender (if player and different from attacker)
+    if (
+      defender.type === 'player' &&
+      defender.slackId &&
+      defender.slackId !== attacker.slackId
+    ) {
+      const defenderMessage = await this.generateCombatNarrative(combatLog, {
+        secondPersonName: defender.name,
+      });
+      messages.push({
+        slackId: defender.slackId,
+        name: defender.name,
+        message: defenderMessage,
+        role: 'defender',
+      });
     }
 
-    this.logger.debug(`✅ Pre-combat checks passed, starting combat...`);
-    const combatLog = await this.runCombat(player, monster);
-    await this.applyCombatResults(combatLog, player, monster);
-
-    const totalDamage = combatLog.rounds
-      .filter((round) => round.attackerName === player.name)
-      .reduce((total, round) => total + round.damage, 0);
-
-    const aiMessage = await this.generateCombatNarrative(combatLog, {
-      secondPersonName: player.name,
+    // Get observers at the same location
+    const observers = await this.playerService.getPlayersAtLocation(x, y, {
+      excludePlayerId: attacker.type === 'player' ? attacker.id : undefined,
     });
 
-    const playerMessages: PlayerCombatMessage[] = player.slackId
-      ? [
-          {
-            slackId: player.slackId,
-            name: player.name,
-            message: aiMessage,
-          },
-        ]
-      : [];
+    // Generate third-person narrative for observers
+    const observerMessage = await this.generateCombatNarrative(combatLog, {});
 
-    const result = {
-      success: true,
-      winnerName: combatLog.winner,
-      loserName: combatLog.loser,
-      totalDamageDealt: totalDamage,
-      roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
-      xpGained: combatLog.winner === player.name ? combatLog.xpAwarded : 0,
-      goldGained: combatLog.winner === player.name ? combatLog.goldAwarded : 0,
-      message: aiMessage,
-      playerMessages,
-    };
+    for (const observer of observers) {
+      // Skip if observer is the defender (already has personalized message)
+      if (defender.type === 'player' && observer.id === defender.id) {
+        continue;
+      }
 
-    this.logger.log(`✅ Player vs Monster combat completed: ${result.message}`);
-    return result;
-  }
-
-  async monsterAttackPlayer(
-    monsterId: number,
-    playerSlackId: string,
-  ): Promise<CombatResult> {
-    this.logger.log(
-      `👹 Monster attack initiated: Monster ${monsterId} attacking player ${playerSlackId}`,
-    );
-
-    const monster = await this.monsterToCombatant(monsterId);
-    const player = await this.playerToCombatant(playerSlackId);
-
-    this.logger.debug(
-      `Combatants loaded: ${monster.name} (${monster.hp} HP) vs ${player.name} (${player.hp} HP)`,
-    );
-
-    if (!player.isAlive || !monster.isAlive) {
-      this.logger.warn(
-        `❌ Combat blocked: Player alive=${player.isAlive}, Monster alive=${monster.isAlive}`,
-      );
-      throw new Error('Monster or player not found/alive');
+      // Extract slackId from clientId (format: "slack:U123456")
+      if (observer.clientId && observer.clientId.startsWith('slack:')) {
+        const slackId = observer.clientId.replace('slack:', '');
+        messages.push({
+          slackId,
+          name: observer.name,
+          message: `📣 Combat nearby: ${observerMessage}`,
+          role: 'observer',
+        });
+      }
     }
 
-    this.logger.debug(`✅ Pre-combat checks passed, starting combat...`);
-    const combatLog = await this.runCombat(monster, player);
-    await this.applyCombatResults(combatLog, monster, player);
-
-    const totalDamage = combatLog.rounds
-      .filter((round) => round.attackerName === monster.name)
-      .reduce((total, round) => total + round.damage, 0);
-
-    const aiMessage = await this.generateCombatNarrative(combatLog, {
-      secondPersonName: player.name,
-    });
-
-    const playerMessages: PlayerCombatMessage[] = player.slackId
-      ? [
-          {
-            slackId: player.slackId,
-            name: player.name,
-            message: aiMessage,
-          },
-        ]
-      : [];
-
-    const result = {
-      success: true,
-      combatLog,
-      winnerName: combatLog.winner,
-      loserName: combatLog.loser,
-      totalDamageDealt: totalDamage,
-      roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
-      xpGained: combatLog.winner === player.name ? combatLog.xpAwarded : 0,
-      goldGained: combatLog.winner === player.name ? combatLog.goldAwarded : 0,
-      message: aiMessage,
-      playerMessages,
-    };
-
-    this.logger.log(`✅ Monster vs Player combat completed: ${result.message}`);
-    return result;
+    this.logger.debug(
+      `Generated ${messages.length} combat messages (${messages.filter((m) => m.role === 'observer').length} observers)`,
+    );
+    return messages;
   }
 
-  async playerAttackPlayer(
-    attackerSlackId: string,
-    defenderSlackId: string,
-    ignoreLocation = false,
+  /**
+   * Unified combat method - handles all combat scenarios (player vs player, player vs monster, monster vs player)
+   */
+  async initiateCombat(
+    attackerId: string | number,
+    attackerType: 'player' | 'monster',
+    defenderId: string | number,
+    defenderType: 'player' | 'monster',
+    options: { ignoreLocation?: boolean } = {},
   ): Promise<CombatResult> {
     this.logger.log(
-      `⚔️ Player vs Player combat initiated: ${attackerSlackId} attacking ${defenderSlackId}`,
+      `⚔️ Combat initiated: ${attackerType} ${attackerId} attacking ${defenderType} ${defenderId}`,
     );
 
-    const attacker = await this.playerToCombatant(attackerSlackId);
-    const defender = await this.playerToCombatant(defenderSlackId);
+    // Load combatants
+    const attacker =
+      attackerType === 'player'
+        ? await this.playerToCombatant(attackerId as string)
+        : await this.monsterToCombatant(attackerId as number);
+
+    const defender =
+      defenderType === 'player'
+        ? await this.playerToCombatant(defenderId as string)
+        : await this.monsterToCombatant(defenderId as number);
 
     this.logger.debug(
       `Combatants loaded: ${attacker.name} (${attacker.hp} HP) vs ${defender.name} (${defender.hp} HP)`,
     );
 
+    // Validate combatants are alive
     if (!attacker.isAlive || !defender.isAlive) {
       this.logger.warn(
         `❌ Combat blocked: Attacker alive=${attacker.isAlive}, Defender alive=${defender.isAlive}`,
       );
-      throw new Error('One or both players are dead');
+      throw new Error('One or both combatants are dead');
     }
 
-    // Check if players are at the same location unless overridden
-    if (
-      !ignoreLocation &&
-      (attacker.x !== defender.x || attacker.y !== defender.y)
-    ) {
-      this.logger.warn(
-        `❌ Combat blocked: Location mismatch - Attacker at (${attacker.x},${attacker.y}), Defender at (${defender.x},${defender.y})`,
-      );
-      throw new Error('Defender is not at your location');
-    }
-    if (ignoreLocation) {
-      this.logger.debug(
-        'Ignoring location check for PvP attack (workspace attack).',
-      );
+    // Check location unless overridden
+    if (!options.ignoreLocation) {
+      if (attacker.x !== defender.x || attacker.y !== defender.y) {
+        this.logger.warn(
+          `❌ Combat blocked: Location mismatch - Attacker at (${attacker.x},${attacker.y}), Defender at (${defender.x},${defender.y})`,
+        );
+        throw new Error('Target is not at your location');
+      }
     }
 
-    this.logger.debug(`✅ Pre-combat checks passed, starting PvP combat...`);
+    this.logger.debug(`✅ Pre-combat checks passed, starting combat...`);
     const combatLog = await this.runCombat(attacker, defender);
     await this.applyCombatResults(combatLog, attacker, defender);
+
+    // Generate messages for all participants and observers
+    const messages = await this.generateCombatMessages(
+      combatLog,
+      attacker,
+      defender,
+    );
+
+    // Publish combat notifications to clients via Redis
+    const winner = attacker.name === combatLog.winner ? attacker : defender;
+    const loser = attacker.name === combatLog.loser ? attacker : defender;
+
+    await this.eventBridge.publishCombatNotifications(
+      {
+        eventType: 'combat:end',
+        winner: { type: winner.type, id: winner.id },
+        loser: { type: loser.type, id: loser.id },
+        xpGained: combatLog.xpAwarded,
+        goldGained: combatLog.goldAwarded,
+        timestamp: new Date(),
+      },
+      messages,
+    );
 
     const totalDamage = combatLog.rounds
       .filter((round) => round.attackerName === attacker.name)
       .reduce((total, round) => total + round.damage, 0);
 
-    const [attackerMessage, defenderMessage] = await Promise.all([
-      this.generateCombatNarrative(combatLog, {
-        secondPersonName: attacker.name,
-      }),
-      this.generateCombatNarrative(combatLog, {
-        secondPersonName: defender.name,
-      }),
-    ]);
-
-    const playerMessages: PlayerCombatMessage[] = [];
-    if (attacker.slackId) {
-      playerMessages.push({
-        slackId: attacker.slackId,
-        name: attacker.name,
-        message: attackerMessage,
-      });
-    }
-    if (defender.slackId) {
-      playerMessages.push({
-        slackId: defender.slackId,
-        name: defender.name,
-        message: defenderMessage,
-      });
-    }
-
-    const result = {
+    const result: CombatResult = {
       success: true,
-      combatLog,
       winnerName: combatLog.winner,
       loserName: combatLog.loser,
       totalDamageDealt: totalDamage,
@@ -785,12 +796,57 @@ export class CombatService {
       xpGained: combatLog.winner === attacker.name ? combatLog.xpAwarded : 0,
       goldGained:
         combatLog.winner === attacker.name ? combatLog.goldAwarded : 0,
-      message: attackerMessage,
-      playerMessages,
+      message: messages[0]?.message || '',
+      playerMessages: messages,
     };
 
-    this.logger.log(`✅ Player vs Player combat completed: ${result.message}`);
+    this.logger.log(
+      `✅ Combat completed: ${attacker.name} vs ${defender.name} - Winner: ${result.winnerName}`,
+    );
     return result;
+  }
+
+  /**
+   * Player attacks monster (wrapper for initiateCombat)
+   */
+  async playerAttackMonster(
+    playerSlackId: string,
+    monsterId: number,
+  ): Promise<CombatResult> {
+    return this.initiateCombat(playerSlackId, 'player', monsterId, 'monster');
+  }
+
+  /**
+   * Monster attacks player (wrapper for initiateCombat)
+   */
+  /**
+   * Monster attacks player (wrapper for initiateCombat)
+   */
+  async monsterAttackPlayer(
+    monsterId: number,
+    playerSlackId: string,
+  ): Promise<CombatResult> {
+    return this.initiateCombat(monsterId, 'monster', playerSlackId, 'player');
+  }
+
+  /**
+   * Player attacks player (wrapper for initiateCombat)
+   */
+  /**
+   * Player attacks player (wrapper for initiateCombat)
+   */
+  async playerAttackPlayer(
+    attackerSlackId: string,
+    defenderSlackId: string,
+    ignoreLocation = false,
+  ): Promise<CombatResult> {
+    return this.initiateCombat(
+      attackerSlackId,
+      'player',
+      defenderSlackId,
+      'player',
+      { ignoreLocation },
+    );
   }
 
   async getCombatLogForLocation(

@@ -39,7 +39,9 @@ scalar DateTime
 
 type Player {
   id: ID!
-  slackId: String!
+  slackId: String @deprecated(reason: "Use clientId instead")
+  clientId: String
+  clientType: String
   name: String!
   x: Int!
   y: Int!
@@ -51,6 +53,7 @@ type Player {
   gold: Int!
   xp: Int!
   level: Int!
+  skillPoints: Int!
   isAlive: Boolean!
   lastAction: DateTime
   createdAt: DateTime
@@ -140,6 +143,7 @@ type CombatPlayerMessage {
   slackId: String!
   name: String!
   message: String!
+  role: String!
 }
 
 type CombatResult {
@@ -277,12 +281,13 @@ type LookViewResponse {
 }
 
 type Query {
-  getPlayer(slackId: String, name: String): PlayerResponse!
+  getPlayer(slackId: String, clientId: String, name: String): PlayerResponse!
   getAllPlayers: [Player!]!
   getPlayersAtLocation(x: Float!, y: Float!): [Player!]!
   getPlayerStats(slackId: String, name: String): PlayerStats!
-  getLookView(slackId: String!): LookViewResponse!
+  getLookView(slackId: String, clientId: String): LookViewResponse!
   health: HealthCheck!
+  hasActivePlayers(minutesThreshold: Float! = 30): Boolean!
   getGameState: GameStateResponse!
   getMonstersAtLocation(x: Float!, y: Float!): [Monster!]!
   getAllMonsters: [Monster!]!
@@ -291,6 +296,7 @@ type Query {
 type Mutation {
   createPlayer(input: CreatePlayerInput!): PlayerResponse!
   updatePlayerStats(slackId: String!, input: PlayerStatsInput!): PlayerResponse!
+  spendSkillPoint(slackId: String!, attribute: PlayerAttribute!): PlayerResponse!
   rerollPlayerStats(slackId: String!): PlayerResponse!
   healPlayer(slackId: String!, amount: Float!): PlayerResponse!
   damagePlayer(slackId: String!, damage: Float!): PlayerResponse!
@@ -299,16 +305,25 @@ type Mutation {
   attack(slackId: String!, input: AttackInput!): CombatResponse!
   respawn(slackId: String!): PlayerResponse!
   deletePlayer(slackId: String!): PlayerResponse!
-  movePlayer(slackId: String!, input: MovePlayerInput!): PlayerMoveResponse!
+  movePlayer(input: MovePlayerInput!, slackId: String, clientId: String): PlayerMoveResponse!
   processTick: SuccessResponse!
   spawnMonster(input: SpawnMonsterInput!): MonsterResponse!
 }
 
 input CreatePlayerInput {
-  slackId: String!
+  slackId: String
+  clientId: String
+  clientType: ClientType
   name: String!
   x: Int
   y: Int
+}
+
+"""Type of client platform"""
+enum ClientType {
+  SLACK
+  DISCORD
+  WEB
 }
 
 input PlayerStatsInput {
@@ -316,6 +331,12 @@ input PlayerStatsInput {
   xp: Int
   gold: Int
   level: Int
+}
+
+enum PlayerAttribute {
+  STRENGTH
+  AGILITY
+  HEALTH
 }
 
 input AttackInput {

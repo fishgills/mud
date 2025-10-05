@@ -58,7 +58,7 @@ const buildActionsBlock = (skillPoints: number): (KnownBlock | Block)[] => {
 export function buildPlayerStatsMessage(
   player: PlayerStatsSource,
   options: PlayerStatsFormatOptions = {},
-): SayMessage {
+) {
   const skillPoints = player.skillPoints ?? 0;
   const name = displayValue(player.name);
   const title = `${name} — Level ${displayValue(player.level)}`;

@@ -3,6 +3,7 @@ import { HandlerContext } from './types';
 import { Direction } from '../generated/dm-graphql';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
+import { toClientId } from '../utils/clientId';
 // No debug JSON on move; keep the channel clean.
 import { sendPngMap } from './mapUtils';
 import { COMMANDS } from '../commands';
@@ -55,7 +56,7 @@ export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
   try {
     const tDmStart = Date.now();
     const result = await dmSdk.MovePlayer({
-      slackId: userId,
+      slackId: toClientId(userId),
       input: direction
         ? { direction }
         : { x: targetX as number, y: targetY as number },

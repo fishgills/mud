@@ -10,6 +10,7 @@ import {
 } from './lookup';
 import { resolveTarget } from './target';
 import { PlayerStatsSource } from './types';
+import { toClientId } from '../../utils/clientId';
 
 export const statsHandlerHelp = `Show stats with "${COMMANDS.STATS}". Example: Send "${COMMANDS.STATS}" for yourself, "${COMMANDS.STATS} Alice" to inspect another adventurer, or "${COMMANDS.STATS} Goblin" to scout a nearby monster.`;
 
@@ -41,7 +42,7 @@ export const statsHandler = async ({
 
     if (target.isSelf) {
       const { player, message } = await fetchPlayerRecord(
-        { slackId: userId },
+        { slackId: toClientId(userId) },
         missingCharacterMessage,
       );
       await respondWithPlayer(say, player, message, missingCharacterMessage, {
@@ -57,7 +58,7 @@ export const statsHandler = async ({
         ? missingCharacterMessage
         : `I couldn't find a character for ${targetDescription}.`;
       const { player, message } = await fetchPlayerRecord(
-        { slackId: target.slackId },
+        { slackId: toClientId(target.slackId) },
         fallbackMessage,
       );
       await respondWithPlayer(say, player, message, fallbackMessage, {

@@ -3,8 +3,8 @@ import { GameTickService } from './game-tick.service';
 type PrismaMock = ReturnType<typeof createPrismaMock>;
 
 function createPrismaMock() {
-  let currentGameState: any = null;
-  let weatherState: any = null;
+  let currentGameState: Record<string, unknown> | null = null;
+  let weatherState: Record<string, unknown> | null = null;
 
   const prisma = {
     gameState: {
@@ -33,39 +33,68 @@ function createPrismaMock() {
 
   return {
     prisma,
-    setGameState: (state: any) => (currentGameState = state),
+    setGameState: (state: Record<string, unknown> | null) =>
+      (currentGameState = state),
     getGameState: () => currentGameState,
   };
 }
 
-const prismaHolder: {
+type GameTickPrismaHolder = {
   prisma?: PrismaMock['prisma'];
   controller?: ReturnType<typeof createPrismaMock>;
-} = {};
+};
+
+function ensureGameTickPrismaHolder(): GameTickPrismaHolder {
+  const globalObject = globalThis as Record<string, unknown>;
+  const key = '__gameTickPrismaHolder';
+  if (!globalObject[key]) {
+    globalObject[key] = {};
+  }
+
+  return globalObject[key] as GameTickPrismaHolder;
+}
 
 jest.mock('@mud/database', () => ({
   getPrismaClient: () => {
-    if (!prismaHolder.controller) {
-      prismaHolder.controller = createPrismaMock();
-      prismaHolder.prisma = prismaHolder.controller.prisma;
+    const holder = ensureGameTickPrismaHolder();
+    if (!holder.controller) {
+      const controller = createPrismaMock();
+      holder.controller = controller;
+      holder.prisma = controller.prisma;
     }
-    return prismaHolder.prisma;
+
+    return holder.prisma;
   },
 }));
+
+const gameTickPrismaHolder = ensureGameTickPrismaHolder();
 
 describe('GameTickService', () => {
   const createService = () => {
     const combatService = {
       monsterAttackPlayer: jest.fn(),
-    } as any;
+    } as unknown as { monsterAttackPlayer: jest.Mock };
     const playerService = {
-      getAllPlayers: jest
-        .fn()
-        .mockResolvedValue([{ slackId: 'U1', x: 1, y: 1, isAlive: true }]),
-      getPlayersAtLocation: jest
-        .fn()
-        .mockResolvedValue([{ slackId: 'U1', isAlive: true }]),
-    } as any;
+      getAllPlayers: jest.fn().mockResolvedValue([
+        {
+          clientId: 'client-U1',
+          slackId: 'U1',
+          position: { x: 1, y: 1 },
+          combat: { isAlive: true },
+        },
+      ]),
+      getPlayersAtLocation: jest.fn().mockResolvedValue([
+        {
+          clientId: 'client-U1',
+          slackId: 'U1',
+          position: { x: 1, y: 1 },
+          combat: { isAlive: true },
+        },
+      ]),
+    } as unknown as {
+      getAllPlayers: jest.Mock;
+      getPlayersAtLocation: jest.Mock;
+    };
     const populationService = {
       enforceDensityAround: jest.fn().mockResolvedValue({
         spawned: 2,
@@ -81,15 +110,19 @@ describe('GameTickService', () => {
           },
         ],
       }),
-    } as any;
+    } as unknown as { enforceDensityAround: jest.Mock };
     const monsterService = {
       getAllMonsters: jest.fn().mockResolvedValue([
-        { id: 1, x: 1, y: 1 },
-        { id: 2, x: 2, y: 2 },
+        { id: 1, position: { x: 1, y: 1 } },
+        { id: 2, position: { x: 2, y: 2 } },
       ]),
       moveMonster: jest.fn().mockResolvedValue(undefined),
       cleanupDeadMonsters: jest.fn().mockResolvedValue(undefined),
-    } as any;
+    } as unknown as {
+      getAllMonsters: jest.Mock;
+      moveMonster: jest.Mock;
+      cleanupDeadMonsters: jest.Mock;
+    };
 
     const service = new GameTickService(
       combatService,
@@ -108,8 +141,8 @@ describe('GameTickService', () => {
   };
 
   beforeEach(() => {
-    prismaHolder.controller = undefined;
-    prismaHolder.prisma = undefined;
+    gameTickPrismaHolder.controller = undefined;
+    gameTickPrismaHolder.prisma = undefined;
     const randomValues = [
       0.3,
       0.6, // monster move checks
@@ -145,10 +178,13 @@ describe('GameTickService', () => {
     expect(result1.tick).toBe(1);
     expect(populationService.enforceDensityAround).toHaveBeenCalled();
     expect(monsterService.moveMonster).toHaveBeenCalledWith(1);
-    expect(combatService.monsterAttackPlayer).toHaveBeenCalledWith(1, 'U1');
+    expect(combatService.monsterAttackPlayer).toHaveBeenCalledWith(
+      1,
+      'client-U1',
+    );
 
     // Prepare for weather update at tick 4
-    prismaHolder.controller?.setGameState({
+    gameTickPrismaHolder.controller?.setGameState({
       id: 1,
       tick: 3,
       gameHour: 0,
@@ -158,7 +194,7 @@ describe('GameTickService', () => {
     expect(result2.weatherUpdated).toBe(true);
 
     // Prepare for cleanup branch at tick 10
-    prismaHolder.controller?.setGameState({
+    gameTickPrismaHolder.controller?.setGameState({
       id: 1,
       tick: 9,
       gameHour: 1,
@@ -171,7 +207,7 @@ describe('GameTickService', () => {
 
   it('returns combined game state snapshot', async () => {
     const { service } = createService();
-    prismaHolder.controller?.setGameState({
+    gameTickPrismaHolder.controller?.setGameState({
       id: 1,
       tick: 5,
       gameHour: 2,

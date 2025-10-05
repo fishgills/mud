@@ -59,12 +59,12 @@ export class GameTickService {
     {
       const players = await this.playerService.getAllPlayers();
       for (const player of players) {
-        if (!player.isAlive) continue;
+        if (!player.combat.isAlive) continue;
         // Try to spawn up to N monsters to approach target densities in the area
         const { spawned, report } =
           await this.populationService.enforceDensityAround(
-            player.x,
-            player.y,
+            player.position.x,
+            player.position.y,
             12, // radius to consider
             6, // max spawns per player per tick
           );
@@ -79,7 +79,7 @@ export class GameTickService {
             .join(' | ');
           if (lines) {
             this.logger.debug(
-              `Density around (${player.x},${player.y}) -> ${lines}`,
+              `Density around (${player.position.x},${player.position.y}) -> ${lines}`,
             );
           }
         }
@@ -99,16 +99,22 @@ export class GameTickService {
     // Process monster attacks on players
     for (const monster of monsters) {
       const playersAtLocation = await this.playerService.getPlayersAtLocation(
-        monster.x,
-        monster.y,
+        monster.position.x,
+        monster.position.y,
       );
       for (const player of playersAtLocation) {
-        if (player.isAlive && Math.random() < 0.2) {
+        if (player.combat.isAlive && Math.random() < 0.2) {
           // 20% chance per encounter
           try {
+            // Use clientId or fallback to slackId for backwards compatibility
+            const playerIdentifier = player.clientId;
+            if (!playerIdentifier) {
+              console.log('Player has no clientId or slackId, skipping combat');
+              continue;
+            }
             await this.combatService.monsterAttackPlayer(
               monster.id,
-              player.slackId,
+              playerIdentifier,
             );
             combatEvents++;
           } catch (error) {

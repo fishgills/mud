@@ -4,6 +4,7 @@ jest.mock('@mud/database', () => ({
 }));
 
 import { MovementResolver } from './movement.resolver';
+import { MovePlayerInput } from '../inputs/player.input';
 import { VisibilityService } from '../services/visibility.service';
 import { PeakService } from '../services/peak.service';
 import { BiomeService } from '../services/biome.service';
@@ -14,7 +15,23 @@ import { AiService } from '../../../openai/ai.service';
 import { LookViewResponse } from '../types/response.types';
 
 describe('MovementResolver', () => {
-  const createResolver = (overrides: Partial<Record<string, any>> = {}) => {
+  const basePlayer = {
+    id: 1,
+    name: 'Hero',
+    clientId: 'U1',
+    clientType: 'slack' as const,
+    position: { x: 0, y: 0 },
+    attributes: { strength: 10, agility: 10, health: 10 },
+    combat: { hp: 10, maxHp: 10, isAlive: true },
+    level: 1,
+    xp: 0,
+    gold: 0,
+    skillPoints: 0,
+  } as const;
+
+  const createResolver = (
+    overrides: Partial<Record<string, unknown>> = {},
+  ) => {
     const playerService = {
       movePlayer: jest.fn(),
       getPlayersAtLocation: jest.fn().mockResolvedValue([{ name: 'Other' }]),
@@ -29,13 +46,20 @@ describe('MovementResolver', () => {
     const worldService = {
       getTileInfoWithNearby: jest.fn().mockResolvedValue({
         tile: {
+          id: 1,
           x: 5,
           y: 6,
+          biomeId: 1,
           biomeName: 'plains',
           description: 'flat',
           height: 0.6,
           temperature: 0.5,
           moisture: 0.4,
+          seed: 0,
+          chunkX: 0,
+          chunkY: 0,
+          createdAt: new Date('2024-01-01T00:00:00Z'),
+          updatedAt: new Date('2024-01-02T00:00:00Z'),
         },
         nearbySettlements: [
           {
@@ -54,20 +78,35 @@ describe('MovementResolver', () => {
           type: 'fort',
           size: 'large',
           intensity: 0.8,
+          isCenter: true,
         },
       }),
       getTilesInBounds: jest.fn().mockImplementation(() =>
         Promise.resolve(
           Array.from({ length: 10 }, (_, i) => ({
+            id: i,
             x: 3 + (i % 2),
             y: 4 + Math.floor(i / 2),
+            biomeId: 1,
             biomeName: i % 2 === 0 ? 'plains' : 'forest',
             height: 0.5 + i * 0.01,
+            temperature: 0.5,
+            moisture: 0.5,
+            seed: 0,
+            chunkX: 0,
+            chunkY: 0,
+            createdAt: new Date('2024-01-01T00:00:00Z'),
+            updatedAt: new Date('2024-01-02T00:00:00Z'),
+            description: '',
           })),
         ),
       ),
     };
-    const visibilityService = new VisibilityService(worldService as any);
+    const visibilityService = new VisibilityService(
+      worldService as unknown as Parameters<
+        typeof VisibilityService.prototype.constructor
+      >[0],
+    );
     const peakService = new PeakService();
     const biomeService = new BiomeService();
     const settlementService = new SettlementService();
@@ -84,15 +123,21 @@ describe('MovementResolver', () => {
     };
 
     const resolver = new MovementResolver(
-      playerService as any,
-      worldService as any,
+      playerService as unknown as Parameters<
+        typeof MovementResolver.prototype.constructor
+      >[0],
+      worldService as unknown as Parameters<
+        typeof MovementResolver.prototype.constructor
+      >[1],
       visibilityService,
       peakService,
       biomeService,
       settlementService,
       descriptionService,
       responseService,
-      monsterService as any,
+      monsterService as unknown as Parameters<
+        typeof MovementResolver.prototype.constructor
+      >[8],
     );
 
     return {
@@ -117,30 +162,41 @@ describe('MovementResolver', () => {
 
   it('moves a player and returns location data', async () => {
     const { resolver, playerService, monsterService } = createResolver();
-    playerService.movePlayer.mockResolvedValue({ x: 1, y: 2 });
+    playerService.movePlayer.mockResolvedValue({
+      ...basePlayer,
+      position: { x: 1, y: 2 },
+    });
 
-    const result = await resolver.movePlayer('U1', {
-      direction: 'north',
-    } as any);
+    const result = await resolver.movePlayer(
+      { direction: 'north' } as MovePlayerInput,
+      'U1',
+    );
 
     expect(result.success).toBe(true);
     expect(playerService.movePlayer).toHaveBeenCalledWith('U1', {
       direction: 'north',
     });
     expect(monsterService.getMonstersAtLocation).toHaveBeenCalledWith(1, 2);
+    expect(result.player?.x).toBe(1);
+    expect(result.player?.y).toBe(2);
   });
 
   it('falls back to current location when movement fails', async () => {
     const { resolver, playerService } = createResolver();
     playerService.movePlayer.mockRejectedValue(new Error('nope'));
-    playerService.getPlayer.mockResolvedValue({ x: 9, y: 9 });
+    playerService.getPlayer.mockResolvedValue({
+      ...basePlayer,
+      position: { x: 9, y: 9 },
+    });
 
-    const result = await resolver.movePlayer('U1', {
-      direction: 'east',
-    } as any);
+    const result = await resolver.movePlayer(
+      { direction: 'east' } as MovePlayerInput,
+      'U1',
+    );
 
     expect(result.success).toBe(false);
-    expect(result.player).toEqual({ x: 9, y: 9 });
+    expect(result.player?.x).toBe(9);
+    expect(result.player?.y).toBe(9);
   });
 
   it('builds look view using AI description', async () => {
@@ -149,9 +205,8 @@ describe('MovementResolver', () => {
       createResolver();
 
     playerService.getPlayer.mockResolvedValue({
-      x: 3,
-      y: 4,
-      isAlive: true,
+      ...basePlayer,
+      position: { x: 3, y: 4 },
     });
 
     const response = (await resolver.getLookView('U1')) as LookViewResponse;

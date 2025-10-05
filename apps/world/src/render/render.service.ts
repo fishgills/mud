@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { createCanvas, loadImage } from 'canvas';
+import { createCanvas, ImageSource, loadImage } from 'canvas';
 import { drawBiomeTile, drawBiomeEdges } from './graphics';
 import { PrismaService } from '../prisma/prisma.service';
 import { BIOMES } from '../constants';
@@ -12,6 +12,22 @@ import { DEFAULT_BIOMES } from '../gridmap/default-biomes';
 import { buildGridConfigs, deriveTemperature } from '../gridmap/utils';
 import { mapGridBiomeToBiomeInfo } from '../gridmap/biome-mapper';
 import { WORLD_CHUNK_SIZE } from '@mud/constants';
+
+type ComputedTile = {
+  x: number;
+  y: number;
+  biomeId: number;
+  biomeName: string;
+  description: string | null;
+  height: number;
+  temperature: number;
+  moisture: number;
+  seed: number;
+  chunkX: number;
+  chunkY: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
 @Injectable()
 export class RenderService {
   private readonly logger = new Logger(RenderService.name);
@@ -254,17 +270,18 @@ export class RenderService {
 
     // Pre-decode all chunk images in parallel to reduce latency
     const tDecodeStart = Date.now();
-    const decoded = await Promise.all(
-      needed.map((n) =>
-        n
-          ? loadImage(Buffer.from(n.imgB64, 'base64')).then((img) => ({
-              cx: n.cx,
-              cy: n.cy,
-              img,
-            }))
-          : Promise.resolve(null),
-      ),
-    );
+    const decoded: Array<{ cx: number; cy: number; img: ImageSource } | null> =
+      await Promise.all(
+        needed.map((n) =>
+          n
+            ? loadImage(Buffer.from(n.imgB64, 'base64')).then((img) => ({
+                cx: n.cx,
+                cy: n.cy,
+                img,
+              }))
+            : Promise.resolve(null),
+        ),
+      );
     const decodeMs = Date.now() - tDecodeStart;
 
     // Draw the relevant sub-rectangles of each chunk image
@@ -296,7 +313,7 @@ export class RenderService {
       const dw = sw;
       const dh = sh;
 
-      ctx.drawImage(img as any, sx, sy, sw, sh, dx, dy, dw, dh);
+      ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
     }
     const drawMs = Date.now() - tDrawStart;
 
@@ -329,21 +346,27 @@ export class RenderService {
     const maxChunkX = Math.floor((maxX - 1) / chunkSize);
     const minChunkY = Math.floor(minY / chunkSize);
     const maxChunkY = Math.floor((maxY - 1) / chunkSize);
-    const tasks: Promise<any>[] = [];
+    const chunkCoordinates: Array<{ cx: number; cy: number }> = [];
+    const tasks: Array<Promise<string>> = [];
     for (let cx = minChunkX; cx <= maxChunkX; cx++) {
       for (let cy = minChunkY; cy <= maxChunkY; cy++) {
-        tasks.push(
-          this.getChunkPngBase64(cx, cy, p).catch((e) => {
-            this.logger.debug(
-              `[chunkpng PREWARM FAIL] (${cx},${cy},p=${p}): ${
-                e?.message ?? e
-              }`,
-            );
-          }),
-        );
+        chunkCoordinates.push({ cx, cy });
+        tasks.push(this.getChunkPngBase64(cx, cy, p));
       }
     }
     const results = await Promise.allSettled(tasks);
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const coord = chunkCoordinates[index];
+        const reason =
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason);
+        this.logger.debug(
+          `[chunkpng PREWARM FAIL] (${coord.cx},${coord.cy},p=${p}): ${reason}`,
+        );
+      }
+    });
     const ok = results.filter((r) => r.status === 'fulfilled').length;
     const total = results.length;
     this.logger.debug(`[chunkpng PREWARM DONE] ${ok}/${total} chunks ready`);
@@ -464,7 +487,7 @@ export class RenderService {
       : [];
     const settlementMap = new Map(settlements.map((s) => [`${s.x},${s.y}`, s]));
 
-    const tileMap = new Map<string, WorldTile>();
+    const tileMap = new Map<string, ComputedTile>();
     // Compute-on-the-fly path: only fetch descriptions for tiles that have them
     const seed = this.worldService.getCurrentSeed();
     const { heightConfig, moistureConfig } = buildGridConfigs();
@@ -488,8 +511,7 @@ export class RenderService {
           y,
         );
         // Create a transient WorldTile-like shape (biome relation omitted; we’ll resolve via BIOMES)
-        tileMap.set(key, {
-          id: 0, // not used by renderer
+        const tileRecord: ComputedTile = {
           x,
           y,
           biomeId: biomeInfo.id,
@@ -501,10 +523,11 @@ export class RenderService {
           seed,
           chunkX: Math.floor(x / 50),
           chunkY: Math.floor(y / 50),
-          createdAt: new Date(0) as any,
-          updatedAt: new Date(0) as any,
-          // These extra relations/fields from Prisma types are not used in rendering
-        } as unknown as WorldTile);
+          createdAt: new Date(0),
+          updatedAt: new Date(0),
+        };
+
+        tileMap.set(key, tileRecord);
       }
     }
 

@@ -10,24 +10,57 @@ jest.mock('../env', () => ({
 }));
 
 import { RenderResolver } from './render.resolver';
+import { RenderService } from './render.service';
+import { CacheService } from '../shared/cache.service';
+
+type RenderServiceMock = Pick<
+  RenderService,
+  'prepareMapData' | 'renderMapAscii' | 'renderMap'
+>;
+type CacheServiceMock = Pick<
+  CacheService,
+  'get' | 'set' | 'clearAll' | 'clearPattern'
+>;
 
 describe('RenderResolver', () => {
   let resolver: RenderResolver;
-  let renderService: any;
-  let cacheService: any;
+  let renderService: jest.Mocked<RenderServiceMock>;
+  let cacheService: jest.Mocked<CacheServiceMock>;
 
   beforeEach(() => {
     renderService = {
-      prepareMapData: jest.fn(),
-      renderMapAscii: jest.fn(),
-      renderMap: jest.fn(),
+      prepareMapData:
+        jest.fn<
+          ReturnType<RenderService['prepareMapData']>,
+          Parameters<RenderService['prepareMapData']>
+        >(),
+      renderMapAscii: jest.fn<
+        ReturnType<RenderService['renderMapAscii']>,
+        Parameters<RenderService['renderMapAscii']>
+      >(),
+      renderMap: jest.fn<
+        ReturnType<RenderService['renderMap']>,
+        Parameters<RenderService['renderMap']>
+      >(),
     };
 
     cacheService = {
-      get: jest.fn(),
-      set: jest.fn(),
-      clearAll: jest.fn(),
-      clearPattern: jest.fn(),
+      get: jest.fn<
+        ReturnType<CacheService['get']>,
+        Parameters<CacheService['get']>
+      >(),
+      set: jest.fn<
+        ReturnType<CacheService['set']>,
+        Parameters<CacheService['set']>
+      >(),
+      clearAll: jest.fn<
+        ReturnType<CacheService['clearAll']>,
+        Parameters<CacheService['clearAll']>
+      >(),
+      clearPattern: jest.fn<
+        ReturnType<CacheService['clearPattern']>,
+        Parameters<CacheService['clearPattern']>
+      >(),
     };
 
     resolver = new RenderResolver(renderService, cacheService);

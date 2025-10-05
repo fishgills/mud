@@ -56,9 +56,19 @@ describe('VertexAiService', () => {
   it('is not configured when no project ID is provided', () => {
     const service = new VertexAiService();
 
-    expect((service as any).isConfigured()).toBe(false);
-    expect(() => (service as any).buildCacheKey('prompt')).not.toThrow();
-    expect((service as any).buildCacheKey('prompt')).toBe('vertex:prompt');
+    expect(
+      (service as unknown as { isConfigured: () => boolean }).isConfigured(),
+    ).toBe(false);
+    expect(() =>
+      (
+        service as unknown as { buildCacheKey: (prompt: string) => string }
+      ).buildCacheKey('prompt'),
+    ).not.toThrow();
+    expect(
+      (
+        service as unknown as { buildCacheKey: (prompt: string) => string }
+      ).buildCacheKey('prompt'),
+    ).toBe('vertex:prompt');
   });
 
   it('initializes Vertex AI client when configured and aggregates text parts', async () => {
@@ -73,7 +83,15 @@ describe('VertexAiService', () => {
 
     const service = new VertexAiService();
     await expect(
-      (service as any).invokeModel('prompt', 'system', { maxTokens: 99 }),
+      (
+        service as unknown as {
+          invokeModel: (
+            prompt: string,
+            system: string,
+            options?: { maxTokens?: number },
+          ) => Promise<string>;
+        }
+      ).invokeModel('prompt', 'system', { maxTokens: 99 }),
     ).resolves.toBe('Hello world');
 
     expect(mockVertexConstructor).toHaveBeenCalledWith({
@@ -95,7 +113,15 @@ describe('VertexAiService', () => {
 
     const service = new VertexAiService();
     await expect(
-      (service as any).invokeModel('prompt', 'system'),
+      (
+        service as unknown as {
+          invokeModel: (
+            prompt: string,
+            system: string,
+            options?: { maxTokens?: number },
+          ) => Promise<string>;
+        }
+      ).invokeModel('prompt', 'system'),
     ).resolves.toBe('No description generated.');
 
     expect(mockGenerateContent).toHaveBeenCalledWith({
@@ -110,7 +136,15 @@ describe('VertexAiService', () => {
 
     const service = new VertexAiService();
     await expect(
-      (service as any).invokeModel('prompt', 'system'),
+      (
+        service as unknown as {
+          invokeModel: (
+            prompt: string,
+            system: string,
+            options?: { maxTokens?: number },
+          ) => Promise<string>;
+        }
+      ).invokeModel('prompt', 'system'),
     ).rejects.toThrow('Vertex AI model not configured');
   });
 
@@ -126,7 +160,15 @@ describe('VertexAiService', () => {
     const errorSpy = jest.spyOn(service['logger'], 'error');
 
     await expect(
-      (service as any).invokeModel('prompt', 'system'),
+      (
+        service as unknown as {
+          invokeModel: (
+            prompt: string,
+            system: string,
+            options?: { maxTokens?: number },
+          ) => Promise<string>;
+        }
+      ).invokeModel('prompt', 'system'),
     ).rejects.toThrow('Vertex AI model not configured');
 
     expect(errorSpy).toHaveBeenCalledWith(
@@ -134,7 +176,15 @@ describe('VertexAiService', () => {
       'stack',
     );
     await expect(
-      (service as any).invokeModel('prompt', 'system'),
+      (
+        service as unknown as {
+          invokeModel: (
+            prompt: string,
+            system: string,
+            options?: { maxTokens?: number },
+          ) => Promise<string>;
+        }
+      ).invokeModel('prompt', 'system'),
     ).rejects.toThrow('Vertex AI model not configured');
     expect(mockVertexConstructor).toHaveBeenCalledTimes(1);
   });
@@ -149,7 +199,15 @@ describe('VertexAiService', () => {
     const errorSpy = jest.spyOn(service['logger'], 'error');
 
     await expect(
-      (service as any).invokeModel('prompt', 'system'),
+      (
+        service as unknown as {
+          invokeModel: (
+            prompt: string,
+            system: string,
+            options?: { maxTokens?: number },
+          ) => Promise<string>;
+        }
+      ).invokeModel('prompt', 'system'),
     ).rejects.toThrow('Vertex AI model not configured');
     expect(errorSpy).toHaveBeenCalledWith(
       'Failed to initialize VertexAI client',
