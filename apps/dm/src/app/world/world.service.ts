@@ -203,36 +203,33 @@ export class WorldService {
     return Promise.all(tilePromises);
   }
 
-  /** Fetch all tiles in [minX,maxX] x [minY,maxY] by combining overlapping chunks */
+  /** Fetch tiles in [minX,maxX] x [minY,maxY] directly from World in a single query. */
   async getTilesInBounds(
     minX: number,
     maxX: number,
     minY: number,
     maxY: number,
-    chunkSize = WORLD_CHUNK_SIZE,
   ): Promise<WorldTile[]> {
-    const minChunkX = Math.floor(minX / chunkSize);
-    const maxChunkX = Math.floor(maxX / chunkSize);
-    const minChunkY = Math.floor(minY / chunkSize);
-    const maxChunkY = Math.floor(maxY / chunkSize);
+    // Use the world API that returns only needed tiles to reduce payload
+    const result = await worldSdk.GetTilesInBounds({ minX, maxX, minY, maxY });
 
-    // Build list of unique chunk coords within the bounds
-    const coords: Array<[number, number]> = [];
-    for (let cx = minChunkX; cx <= maxChunkX; cx++) {
-      for (let cy = minChunkY; cy <= maxChunkY; cy++) {
-        coords.push([cx, cy]);
-      }
-    }
-
-    // Fetch all chunks in parallel (benefits from in-flight deduping & cache)
-    const chunks = await Promise.all(
-      coords.map(([cx, cy]) => this.getChunk(cx, cy)),
-    );
-
-    // Flatten and filter tiles by bounds
-    const tiles = chunks
-      .flat()
-      .filter((t) => t.x >= minX && t.x <= maxX && t.y >= minY && t.y <= maxY);
+    const tiles: WorldTile[] = (result?.getTilesInBounds ?? []).map((tile) => ({
+      // Fill minimal fields we actually use downstream for look
+      id: 0,
+      x: tile.x,
+      y: tile.y,
+      biomeId: 0,
+      biomeName: tile.biomeName,
+      description: '',
+      height: tile.height,
+      temperature: 0,
+      moisture: 0,
+      seed: 0,
+      chunkX: Math.floor(tile.x / WORLD_CHUNK_SIZE),
+      chunkY: Math.floor(tile.y / WORLD_CHUNK_SIZE),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
 
     return tiles;
   }

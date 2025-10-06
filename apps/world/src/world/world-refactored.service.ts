@@ -15,6 +15,17 @@ export class WorldService {
   private readonly logger = new Logger(WorldService.name);
   private currentSeed = 0;
 
+  // In-memory cache for computed chunks + in-flight de-duplication
+  private readonly chunkCache = new Map<
+    string,
+    { ts: number; chunk: ChunkData }
+  >();
+  private readonly inflightChunks = new Map<string, Promise<ChunkData>>();
+  private readonly CHUNK_CACHE_TTL_MS = Number.parseInt(
+    process.env.WORLD_CHUNK_CACHE_TTL_MS || '60000',
+    10,
+  );
+
   constructor(
     private worldDatabase: WorldDatabaseService,
     private chunkGenerator: ChunkGeneratorService,
@@ -40,32 +51,49 @@ export class WorldService {
   }
 
   async getChunk(chunkX: number, chunkY: number): Promise<ChunkData> {
-    const startTime = Date.now();
+    const key = `${chunkX}:${chunkY}`;
+    const now = Date.now();
 
-    try {
-      // Compute chunk deterministically from seed (no DB tile read)
-      const chunkData = this.chunkGenerator.generateChunk(
-        chunkX,
-        chunkY,
-        this.currentSeed,
-      );
-      // Persist only settlements if desired; tiles are not stored
-      if (chunkData.settlements?.length) {
-        await this.worldDatabase.saveChunkSettlements(chunkData.settlements);
-      }
-
-      const generationTime = Date.now() - startTime;
-      this.logger.debug(
-        `Generated chunk ${chunkX},${chunkY} in ${generationTime}ms. Biomes: ${Object.keys(
-          chunkData.stats.biomes,
-        ).join(', ')}`,
-      );
-
-      return chunkData;
-    } catch (error) {
-      this.logger.error(`Error getting chunk ${chunkX},${chunkY}:`, error);
-      throw error;
+    // Serve from cache if fresh
+    const cached = this.chunkCache.get(key);
+    if (cached && now - cached.ts < this.CHUNK_CACHE_TTL_MS) {
+      return cached.chunk;
     }
+
+    // Deduplicate concurrent requests
+    const inflight = this.inflightChunks.get(key);
+    if (inflight) return inflight;
+
+    const promise = (async () => {
+      const startTime = Date.now();
+      try {
+        // Compute chunk deterministically from seed (no DB tile read)
+        const chunkData = this.chunkGenerator.generateChunk(
+          chunkX,
+          chunkY,
+          this.currentSeed,
+        );
+        // Persist only settlements; tiles are not stored
+        if (chunkData.settlements?.length) {
+          await this.worldDatabase.saveChunkSettlements(chunkData.settlements);
+        }
+
+        const generationTime = Date.now() - startTime;
+        this.logger.debug(
+          `Generated chunk ${chunkX},${chunkY} in ${generationTime}ms (cached next).`,
+        );
+
+        // Cache for future callers
+        this.chunkCache.set(key, { ts: Date.now(), chunk: chunkData });
+        return chunkData;
+      } catch (error) {
+        this.logger.error(`Error getting chunk ${chunkX},${chunkY}:`, error);
+        throw error;
+      }
+    })().finally(() => this.inflightChunks.delete(key));
+
+    this.inflightChunks.set(key, promise);
+    return promise;
   }
 
   async getTileWithNearbyBiomes(
@@ -139,10 +167,10 @@ export class WorldService {
       settlement.y,
       settlement.size as 'large' | 'medium' | 'small' | 'tiny',
       coordRng,
-          {
-            type: settlement.type ?? undefined,
-            population: settlement.population ?? undefined,
-          },
+      {
+        type: settlement.type ?? undefined,
+        population: settlement.population ?? undefined,
+      },
     );
   }
 
@@ -243,5 +271,38 @@ export class WorldService {
       biomeName,
       count,
     }));
+  }
+
+  /**
+   * Returns tiles within the rectangular bounds [minX,maxX] x [minY,maxY].
+   * This computes covered chunks, reuses getChunk caching, and filters tiles
+   * server-side to reduce payload for callers like DM.getLookView.
+   */
+  async getTilesInBounds(
+    minX: number,
+    maxX: number,
+    minY: number,
+    maxY: number,
+  ): Promise<WorldTile[]> {
+    const chunkSize = WORLD_CHUNK_SIZE;
+    const minChunkX = Math.floor(minX / chunkSize);
+    const maxChunkX = Math.floor(maxX / chunkSize);
+    const minChunkY = Math.floor(minY / chunkSize);
+    const maxChunkY = Math.floor(maxY / chunkSize);
+
+    const coords: Array<[number, number]> = [];
+    for (let cx = minChunkX; cx <= maxChunkX; cx++) {
+      for (let cy = minChunkY; cy <= maxChunkY; cy++) {
+        coords.push([cx, cy]);
+      }
+    }
+
+    const chunks = await Promise.all(
+      coords.map(([cx, cy]) => this.getChunk(cx, cy)),
+    );
+
+    return chunks
+      .flatMap((c) => c.tiles)
+      .filter((t) => t.x >= minX && t.x <= maxX && t.y >= minY && t.y <= maxY);
   }
 }

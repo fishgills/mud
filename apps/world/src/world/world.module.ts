@@ -3,6 +3,7 @@ import { ChunkResolver } from './chunk.resolver';
 import { WorldTileResolver } from './world-tile.resolver';
 import { TileResolver } from './tile.resolver';
 import { WorldService } from './world-refactored.service';
+import { BoundsResolver } from './bounds.resolver';
 import { ChunkGeneratorService } from './chunk-generator.service';
 import { WorldDatabaseService } from './world-database.service';
 import { TileService } from './tile.service';
@@ -15,6 +16,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     ChunkResolver,
     WorldTileResolver,
     TileResolver,
+    BoundsResolver,
     WorldService,
     ChunkGeneratorService,
     WorldDatabaseService,
