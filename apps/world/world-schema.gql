@@ -147,6 +147,7 @@ type Query {
   ): String!
   getChunk(chunkX: Float!, chunkY: Float!): ChunkData!
   getTile(x: Int!, y: Int!): TileWithNearbyBiomes!
+  getTilesInBounds(minX: Int!, maxX: Int!, minY: Int!, maxY: Int!): [WorldTile!]!
 }
 
 type Mutation {

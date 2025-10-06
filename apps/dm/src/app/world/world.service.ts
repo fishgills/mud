@@ -210,26 +210,46 @@ export class WorldService {
     minY: number,
     maxY: number,
   ): Promise<WorldTile[]> {
-    // Use the world API that returns only needed tiles to reduce payload
-    const result = await worldSdk.GetTilesInBounds({ minX, maxX, minY, maxY });
+    // Fallback implementation using chunk queries to cover the bounds
+    // Compute chunk coverage
+    const minChunkX = Math.floor(minX / WORLD_CHUNK_SIZE);
+    const maxChunkX = Math.floor(maxX / WORLD_CHUNK_SIZE);
+    const minChunkY = Math.floor(minY / WORLD_CHUNK_SIZE);
+    const maxChunkY = Math.floor(maxY / WORLD_CHUNK_SIZE);
 
-    const tiles: WorldTile[] = (result?.getTilesInBounds ?? []).map((tile) => ({
-      // Fill minimal fields we actually use downstream for look
-      id: 0,
-      x: tile.x,
-      y: tile.y,
-      biomeId: 0,
-      biomeName: tile.biomeName,
-      description: '',
-      height: tile.height,
-      temperature: 0,
-      moisture: 0,
-      seed: 0,
-      chunkX: Math.floor(tile.x / WORLD_CHUNK_SIZE),
-      chunkY: Math.floor(tile.y / WORLD_CHUNK_SIZE),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
+    const chunkCoords: Array<{ chunkX: number; chunkY: number }> = [];
+    for (let cx = minChunkX; cx <= maxChunkX; cx++) {
+      for (let cy = minChunkY; cy <= maxChunkY; cy++) {
+        chunkCoords.push({ chunkX: cx, chunkY: cy });
+      }
+    }
+
+    // Fetch each chunk's lightweight tiles and filter to bounds
+    const chunks = await Promise.all(
+      chunkCoords.map(({ chunkX, chunkY }) =>
+        worldSdk.GetChunk({ chunkX, chunkY }),
+      ),
+    );
+
+    const tiles: WorldTile[] = chunks
+      .flatMap((c) => c.getChunk.tiles ?? [])
+      .filter((t) => t.x >= minX && t.x <= maxX && t.y >= minY && t.y <= maxY)
+      .map((tile) => ({
+        id: 0,
+        x: tile.x,
+        y: tile.y,
+        biomeId: 0,
+        biomeName: tile.biomeName,
+        description: '',
+        height: tile.height,
+        temperature: 0,
+        moisture: 0,
+        seed: 0,
+        chunkX: Math.floor(tile.x / WORLD_CHUNK_SIZE),
+        chunkY: Math.floor(tile.y / WORLD_CHUNK_SIZE),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
 
     return tiles;
   }

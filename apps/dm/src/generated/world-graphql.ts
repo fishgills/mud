@@ -511,24 +511,6 @@ export type GetTileWithNearbyQuery = {
   };
 };
 
-export type GetTilesInBoundsQueryVariables = Exact<{
-  minX: Scalars['Int']['input'];
-  maxX: Scalars['Int']['input'];
-  minY: Scalars['Int']['input'];
-  maxY: Scalars['Int']['input'];
-}>;
-
-export type GetTilesInBoundsQuery = {
-  __typename?: 'Query';
-  getTilesInBounds: Array<{
-    __typename?: 'WorldTile';
-    x: number;
-    y: number;
-    biomeName: string;
-    height: number;
-  }>;
-};
-
 export const GetTileDocument = gql`
   query GetTile($x: Int!, $y: Int!) {
     getTile(x: $x, y: $y) {
@@ -560,16 +542,6 @@ export const GetChunkDocument = gql`
         biomeName
         height
       }
-    }
-  }
-`;
-export const GetTilesInBoundsDocument = gql`
-  query GetTilesInBounds($minX: Int!, $maxX: Int!, $minY: Int!, $maxY: Int!) {
-    getTilesInBounds(minX: $minX, maxX: $maxX, minY: $minY, maxY: $maxY) {
-      x
-      y
-      biomeName
-      height
     }
   }
 `;
@@ -676,24 +648,6 @@ export function getSdk(
             signal,
           }),
         'GetChunk',
-        'query',
-        variables,
-      );
-    },
-    GetTilesInBounds(
-      variables: GetTilesInBoundsQueryVariables,
-      requestHeaders?: GraphQLClientRequestHeaders,
-      signal?: RequestInit['signal'],
-    ): Promise<GetTilesInBoundsQuery> {
-      return withWrapper(
-        (wrappedRequestHeaders) =>
-          client.request<GetTilesInBoundsQuery>({
-            document: GetTilesInBoundsDocument,
-            variables,
-            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
-            signal,
-          }),
-        'GetTilesInBounds',
         'query',
         variables,
       );
