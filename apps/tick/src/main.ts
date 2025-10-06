@@ -1,4 +1,4 @@
-import './tracer';
+import '@mud/tracer/register';
 
 import http from 'http';
 import { authorizedFetch, setAuthLogger } from '@mud/gcp-auth';

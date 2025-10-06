@@ -1,4 +1,4 @@
-import './tracer';
+import '@mud/tracer/register';
 import './env';
 
 import { Logger } from '@nestjs/common';

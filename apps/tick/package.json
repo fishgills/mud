@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "dependencies": {
-    "dd-trace": "^5.69.0"
+    "@mud/tracer": "*"
   },
   "devDependencies": {
     "@mud/gcp-auth": "*",
