@@ -65,6 +65,8 @@ resource "google_cloud_run_v2_service" "services" {
               # Signal that this service is running in Google Cloud Run
               GCP_CLOUD_RUN  = "true"
               GCP_PROJECT_ID = var.project_id
+              GOOGLE_CLOUD_PROJECT = var.project_id
+              GCLOUD_PROJECT       = var.project_id
               GCP_REGION     = var.region
               # Datadog configuration (sidecar agent)
               DD_ENV                = "prod"
@@ -79,7 +81,7 @@ resource "google_cloud_run_v2_service" "services" {
               # Runtime metrics require DogStatsD/UDP; keep disabled on Cloud Run
               DD_RUNTIME_METRICS_ENABLED = "false"
               # Enable if desired once validated with sidecar
-              DD_PROFILING_ENABLED = "false"
+              DD_PROFILING_ENABLED = "true"
               # Ensure tracing is enabled
               DD_TRACE_ENABLED = "true"
             }
