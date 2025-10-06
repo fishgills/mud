@@ -20,7 +20,7 @@ jest.mock('./mapUtils', () => ({
 import { TargetType, Direction } from '../generated/dm-graphql';
 import { dmSdk } from '../gql-client';
 import { sendPngMap } from './mapUtils';
-import { attackHandler } from './attack';
+import { attackHandler, SELF_ATTACK_ERROR } from './attack';
 import { createHandler } from './create';
 import { completeHandler } from './complete';
 import { deleteHandler } from './delete';
@@ -157,6 +157,19 @@ describe('attackHandler', () => {
     expect(mockedDmSdk.Attack).not.toHaveBeenCalled();
   });
 
+  it('prevents attacking yourself via mention', async () => {
+    const say = makeSay();
+
+    await attackHandler({
+      userId: 'U1',
+      text: `${COMMANDS.ATTACK} <@U1>`,
+      say,
+    } as HandlerContext);
+
+    expect(say).toHaveBeenCalledWith({ text: SELF_ATTACK_ERROR });
+    expect(mockedDmSdk.Attack).not.toHaveBeenCalled();
+  });
+
   it('prompts the user to choose a target when no mention is provided', async () => {
     const say = makeSay();
     mockedDmSdk.GetPlayer.mockResolvedValueOnce({
@@ -210,7 +223,7 @@ describe('attackHandler', () => {
     });
     mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
       getPlayersAtLocation: [
-        { id: '1', slackId: 'slack:U1', name: 'Hero' },
+        { id: '1', slackId: 'U1', name: 'Hero' },
         { id: '2', slackId: 'slack:U2', name: 'Friend' },
       ],
       getMonstersAtLocation: [],
@@ -547,6 +560,23 @@ describe('lookHandler', () => {
           id: '2',
           slackId: toClientId('U2'),
           name: 'Friend',
+          x: 0,
+          y: 0,
+          hp: 10,
+          maxHp: 10,
+          strength: 1,
+          agility: 1,
+          health: 1,
+          gold: 0,
+          xp: 0,
+          level: 1,
+          skillPoints: 0,
+          isAlive: true,
+        },
+        {
+          id: '1',
+          slackId: 'U1',
+          name: 'Hero',
           x: 0,
           y: 0,
           hp: 10,

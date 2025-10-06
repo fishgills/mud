@@ -5,9 +5,10 @@ import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
-import { fromClientId, toClientId } from '../utils/clientId';
+import { extractSlackId, toClientId } from '../utils/clientId';
 
 const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
+export const SELF_ATTACK_ERROR = "You can't attack yourself.";
 
 type AttackCombatResult = NonNullable<
   NonNullable<AttackMutation['attack']['data']>
@@ -141,6 +142,10 @@ export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
         });
         return;
       }
+      if (targetSlackId === userId) {
+        await say({ text: SELF_ATTACK_ERROR });
+        return;
+      }
       const attackResult = await dmSdk.Attack({
         slackId: toClientId(userId),
         input: {
@@ -181,24 +186,11 @@ export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
     ).map((m) => ({ id: String(m.id), name: m.name }));
     const playersHere: NearbyPlayer[] = (entities.getPlayersAtLocation || [])
       .map((p) => {
-        const rawSlackId =
-          typeof p.slackId === 'string' && p.slackId.length > 0
-            ? p.slackId
-            : undefined;
-
-        if (!rawSlackId) {
+        const slackId = extractSlackId(p);
+        if (!slackId || slackId === userId) {
           return null;
         }
-
-        const normalizedSlackId = rawSlackId.startsWith('slack:')
-          ? (fromClientId(rawSlackId) ?? rawSlackId)
-          : rawSlackId;
-
-        if (!normalizedSlackId || normalizedSlackId === userId) {
-          return null;
-        }
-
-        return { slackId: normalizedSlackId, name: p.name };
+        return { slackId, name: p.name };
       })
       .filter((p): p is NearbyPlayer => p !== null);
 

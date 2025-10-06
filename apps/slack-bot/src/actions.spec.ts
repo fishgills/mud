@@ -16,6 +16,7 @@ import {
 } from './commands';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { HandlerContext } from './handlers/types';
+import { SELF_ATTACK_ERROR } from './handlers/attack';
 import { dmSdk } from './gql-client';
 import { PlayerAttribute, TargetType } from './generated/dm-graphql';
 import { toClientId } from './utils/clientId';
@@ -287,11 +288,9 @@ describe('registerActions', () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     const client: MockSlackClient = {
       conversations: {
-        open: jest
-          .fn()
-          .mockResolvedValue({
-            channel: { id: 'C2' },
-          }) as ConversationsOpenMock,
+        open: jest.fn().mockResolvedValue({
+          channel: { id: 'C2' },
+        }) as ConversationsOpenMock,
       },
       chat: createChatMocks(),
     };
@@ -649,6 +648,51 @@ describe('registerActions', () => {
     expect(client.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         text: 'Please select a monster to attack first!',
+      }),
+    );
+  });
+
+  it('prevents selecting yourself as a player target', async () => {
+    const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+    const client: MockSlackClient = {
+      conversations: {
+        open: jest.fn().mockResolvedValue({
+          channel: { id: 'C1' },
+        }) as ConversationsOpenMock,
+      },
+      chat: {
+        postMessage: jest
+          .fn()
+          .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
+      },
+    };
+
+    await actionHandlers[ATTACK_ACTIONS.ATTACK_MONSTER]({
+      ack,
+      body: {
+        user: { id: 'U1' },
+        channel: { id: 'D1' },
+        state: {
+          values: {
+            attack_monster_selection_block: {
+              [ATTACK_ACTIONS.MONSTER_SELECT]: {
+                selected_option: {
+                  value: 'P:U1',
+                  text: { text: 'Player: Hero' },
+                },
+              },
+            },
+          },
+        },
+      },
+      client,
+    });
+
+    expect(mockedDmSdk.Attack).not.toHaveBeenCalled();
+    expect(client.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: SELF_ATTACK_ERROR,
       }),
     );
   });

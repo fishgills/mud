@@ -165,12 +165,13 @@ export function sanitizeDescription(text: string): string {
 
 // --- Centralized occupants rendering helpers ---
 import { dmSdk } from '../gql-client';
-import { toClientId } from '../utils/clientId';
+import { extractSlackId } from '../utils/clientId';
 
 export type NearbyPlayer = {
   id?: string | number;
   name: string;
   slackId?: string | null;
+  clientId?: string | null;
   isAlive?: boolean | null;
 };
 
@@ -210,13 +211,17 @@ export async function getOccupantsSummaryAt(
   y: number,
   currentSlackUserId?: string,
 ): Promise<string | null> {
-  const clientId = currentSlackUserId
-    ? toClientId(currentSlackUserId)
-    : undefined;
   const res = await dmSdk.GetLocationEntities({ x, y });
-  const players = (res.getPlayersAtLocation || []).filter((p) =>
-    clientId ? p.slackId !== clientId : true,
-  );
+  const players: NearbyPlayer[] = (res.getPlayersAtLocation || [])
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      slackId: extractSlackId(p),
+      isAlive: p.isAlive,
+    }))
+    .filter((p) =>
+      currentSlackUserId ? p.slackId !== currentSlackUserId : true,
+    );
   const monsters = res.getMonstersAtLocation || [];
   return buildOccupantsSummary(players, monsters);
 }
@@ -228,11 +233,15 @@ export async function sendOccupantsSummary(
   monsters: NearbyMonster[] | undefined,
   currentSlackUserId?: string,
 ): Promise<void> {
-  const clientId = currentSlackUserId
-    ? toClientId(currentSlackUserId)
-    : undefined;
-  const filteredPlayers = (players || []).filter((p) =>
-    clientId ? p.slackId !== clientId : true,
+  const normalizedPlayers: NearbyPlayer[] = (players || []).map((p) => {
+    const slackId = extractSlackId(p);
+    return {
+      ...p,
+      slackId: slackId ?? (typeof p.slackId === 'string' ? p.slackId : null),
+    };
+  });
+  const filteredPlayers = normalizedPlayers.filter((p) =>
+    currentSlackUserId ? p.slackId !== currentSlackUserId : true,
   );
   const text = buildOccupantsSummary(filteredPlayers, monsters || []);
   if (text) {

@@ -19,6 +19,7 @@ import {
 import { dmSdk } from './gql-client';
 import { PlayerAttribute, TargetType } from './generated/dm-graphql';
 import { getUserFriendlyErrorMessage } from './handlers/errorUtils';
+import { SELF_ATTACK_ERROR } from './handlers/attack';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { buildPlayerStatsMessage } from './handlers/stats/format';
 import type { HandlerContext, SayMessage } from './handlers/types';
@@ -324,6 +325,13 @@ export function registerActions(app: App) {
 
       try {
         const isMonster = selected.kind === 'monster';
+        if (!isMonster && selected.slackId === userId) {
+          await client.chat.postMessage({
+            channel: channelId,
+            text: SELF_ATTACK_ERROR,
+          });
+          return;
+        }
         const attackResult = await dmSdk.Attack({
           slackId: toClientId(userId),
           input: isMonster
