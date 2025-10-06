@@ -155,6 +155,8 @@ resource "google_cloud_run_v2_service" "services" {
         }
       }
 
+      # (Slack Bot specific defaults below; World service doesn't inject GQL endpoints)
+
       dynamic "env" {
         for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_BASE_URL") && contains(keys(local.service_runapp_alias), "world") ? { WORLD_BASE_URL = "${local.service_runapp_alias["world"]}/world" } : {}
         content {
