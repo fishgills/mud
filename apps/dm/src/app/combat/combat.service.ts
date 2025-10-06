@@ -365,6 +365,49 @@ export class CombatService {
     ];
   }
 
+  private getParticipantRewards(
+    combatLog: DetailedCombatLog,
+    participantName: string,
+  ): { xp: number; gold: number } {
+    const isWinner = combatLog.winner === participantName;
+    return {
+      xp: isWinner ? combatLog.xpAwarded : 0,
+      gold: isWinner ? combatLog.goldAwarded : 0,
+    };
+  }
+
+  private appendRewards(
+    base: string,
+    rewards: { xp: number; gold: number },
+  ): string {
+    return `${base}\n\nRewards: +${rewards.xp} XP, +${rewards.gold} gold.`;
+  }
+
+  private async buildParticipantMessage(
+    combatLog: DetailedCombatLog,
+    participant: Combatant,
+    role: 'attacker' | 'defender',
+  ): Promise<CombatMessage | null> {
+    if (participant.type !== 'player' || !participant.slackId) {
+      return null;
+    }
+
+    const options = { secondPersonName: participant.name };
+    const [narrative, summary] = await Promise.all([
+      this.generateCombatNarrative(combatLog, options),
+      this.generateEntertainingSummary(combatLog, options),
+    ]);
+    const rewards = this.getParticipantRewards(combatLog, participant.name);
+
+    return {
+      slackId: participant.slackId,
+      name: participant.name,
+      message: this.appendRewards(narrative, rewards),
+      role,
+      blocks: this.buildSummaryBlocks(this.appendRewards(summary, rewards)),
+    };
+  }
+
   // Convert Player/Monster to Combatant interface
   private async playerToCombatant(slackId: string): Promise<Combatant> {
     const player = await this.playerService.getPlayer(slackId);
@@ -727,26 +770,13 @@ export class CombatService {
     const { x, y } = combatLog.location;
 
     // Generate personalized messages for attacker (if player)
-    if (attacker.type === 'player' && attacker.slackId) {
-      let attackerMessage = await this.generateCombatNarrative(combatLog, {
-        secondPersonName: attacker.name,
-      });
-      let attackerSummary = await this.generateEntertainingSummary(combatLog, {
-        secondPersonName: attacker.name,
-      });
-      // Append reward info for clarity
-      const attackerIsWinner = combatLog.winner === attacker.name;
-      const attackerXp = attackerIsWinner ? combatLog.xpAwarded : 0;
-      const attackerGold = attackerIsWinner ? combatLog.goldAwarded : 0;
-      attackerMessage += `\n\nRewards: +${attackerXp} XP, +${attackerGold} gold.`;
-      attackerSummary += `\n\nRewards: +${attackerXp} XP, +${attackerGold} gold.`;
-      messages.push({
-        slackId: attacker.slackId,
-        name: attacker.name,
-        message: attackerMessage,
-        role: 'attacker',
-        blocks: this.buildSummaryBlocks(attackerSummary),
-      });
+    const attackerMessage = await this.buildParticipantMessage(
+      combatLog,
+      attacker,
+      'attacker',
+    );
+    if (attackerMessage) {
+      messages.push(attackerMessage);
     }
 
     // Generate personalized messages for defender (if player and different from attacker)
@@ -755,25 +785,14 @@ export class CombatService {
       defender.slackId &&
       defender.slackId !== attacker.slackId
     ) {
-      let defenderMessage = await this.generateCombatNarrative(combatLog, {
-        secondPersonName: defender.name,
-      });
-      let defenderSummary = await this.generateEntertainingSummary(combatLog, {
-        secondPersonName: defender.name,
-      });
-      // Append reward info for clarity
-      const defenderIsWinner = combatLog.winner === defender.name;
-      const defenderXp = defenderIsWinner ? combatLog.xpAwarded : 0;
-      const defenderGold = defenderIsWinner ? combatLog.goldAwarded : 0;
-      defenderMessage += `\n\nRewards: +${defenderXp} XP, +${defenderGold} gold.`;
-      defenderSummary += `\n\nRewards: +${defenderXp} XP, +${defenderGold} gold.`;
-      messages.push({
-        slackId: defender.slackId,
-        name: defender.name,
-        message: defenderMessage,
-        role: 'defender',
-        blocks: this.buildSummaryBlocks(defenderSummary),
-      });
+      const defenderMessage = await this.buildParticipantMessage(
+        combatLog,
+        defender,
+        'defender',
+      );
+      if (defenderMessage) {
+        messages.push(defenderMessage);
+      }
     }
 
     // Get observers at the same location
