@@ -6,7 +6,6 @@ console.log('🐕 [DATADOG] DD_ENV:', process.env.DD_ENV);
 console.log('🐕 [DATADOG] DD_SERVICE:', process.env.DD_SERVICE);
 console.log('🐕 [DATADOG] DD_VERSION:', process.env.DD_VERSION);
 console.log('🐕 [DATADOG] DD_SITE:', process.env.DD_SITE);
-console.log('🐕 [DATADOG] DD_TRACE_AGENT_URL:', process.env.DD_TRACE_AGENT_URL);
 console.log(
   '🐕 [DATADOG] DD_API_KEY:',
   process.env.DD_API_KEY ? '***SET***' : 'MISSING',
@@ -22,14 +21,9 @@ console.log(
 );
 console.log('🐕 [DATADOG] DD_LOGS_INJECTION:', process.env.DD_LOGS_INJECTION);
 
-// Initialize Datadog tracer with proper configuration for Cloud Run
-const tracerInstance = tracer.init({
-  // Let environment variables configure most settings (DD_SERVICE, DD_ENV, DD_VERSION, etc.)
-  // but explicitly enable features needed for serverless APM
-  runtimeMetrics: true,
-  profiling: true,
-  logInjection: true,
-});
+// Initialize Datadog tracer; rely on environment variables for configuration
+// (DD_SERVICE, DD_ENV, DD_VERSION, DD_TRACE_AGENT_URL, DD_LOGS_INJECTION, etc.)
+const tracerInstance = tracer.init();
 
 console.log('🐕 [DATADOG] Tracer initialized successfully');
 

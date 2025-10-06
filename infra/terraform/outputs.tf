@@ -36,7 +36,7 @@ output "service_urls" {
     for service_key, service in var.services :
     service.name => (try(coalesce(service.internal, false), false)
       ? "https://mud-${service.name}-${data.google_project.project.number}.${var.region}.run.app"
-      : "https://${service.name}.${var.domain}")
+    : "https://${service.name}.${var.domain}")
   }
 }
 

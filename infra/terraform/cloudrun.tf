@@ -19,6 +19,7 @@ resource "google_cloud_run_v2_service" "services" {
       egress = "PRIVATE_RANGES_ONLY"
     }
 
+    # Primary application container
     containers {
       image = coalesce(
         try(each.value.image, null),
@@ -65,20 +66,21 @@ resource "google_cloud_run_v2_service" "services" {
               GCP_CLOUD_RUN  = "true"
               GCP_PROJECT_ID = var.project_id
               GCP_REGION     = var.region
-              # Datadog configuration
-              DD_ENV                = "prod"
-              DD_LOGS_INJECTION     = "true"
-              DD_GIT_REPOSITORY_URL = "github.com/fishgills/mud"
-              # Explicit service, site, and agentless APM endpoint for Cloud Run
-              DD_SERVICE         = "mud-${each.value.name}"
-              DD_SITE            = var.datadog_site
-              DD_TRACE_AGENT_URL = "https://trace.agent.${var.datadog_site}"
+              # Datadog configuration (sidecar agent)
+              DD_ENV                     = "prod"
+              DD_LOGS_INJECTION          = "true"
+              DD_GIT_REPOSITORY_URL      = "github.com/fishgills/mud"
+              DD_SERVICE                 = "mud-${each.value.name}"
+              DD_SITE                    = var.datadog_site
+              # Send traces to local Datadog Agent sidecar
+              DD_TRACE_AGENT_URL         = "http://localhost:8126"
               # Attach version for better APM grouping (prefer git SHA, fallback to image tag)
               DD_VERSION = var.git_commit_sha == null ? var.image_version : var.git_commit_sha
-              # Enable runtime metrics and profiling for better APM insights
-              DD_RUNTIME_METRICS_ENABLED = "true"
-              DD_PROFILING_ENABLED       = "true"
-              # Ensure traces are sent in agentless mode
+              # Runtime metrics require DogStatsD/UDP; keep disabled on Cloud Run
+              DD_RUNTIME_METRICS_ENABLED = "false"
+              # Enable if desired once validated with sidecar
+              DD_PROFILING_ENABLED = "false"
+              # Ensure tracing is enabled
               DD_TRACE_ENABLED = "true"
               # Enable debug logging to troubleshoot APM issues
               DD_TRACE_DEBUG = "true"
@@ -93,19 +95,7 @@ resource "google_cloud_run_v2_service" "services" {
         }
       }
 
-      # Datadog API key from Secret Manager
-      dynamic "env" {
-        for_each = { DD_API_KEY = google_secret_manager_secret.datadog_api_key.name }
-        content {
-          name = env.key
-          value_source {
-            secret_key_ref {
-              secret  = env.value
-              version = "latest"
-            }
-          }
-        }
-      }
+      # Note: Application container no longer needs Datadog API keys in sidecar mode
 
       dynamic "env" {
         for_each = contains(["dm"], each.key) ? { OPENAI_API_KEY = "from-secret" } : {}
@@ -148,9 +138,9 @@ resource "google_cloud_run_v2_service" "services" {
         }
       }
 
-      # Default Slack Bot endpoint env vars derived from preferred URLs (domain for external, run.app for internal)
+      # Default Slack Bot endpoint env vars derived from the Cloud Run internal hostname
       dynamic "env" {
-        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "DM_GQL_ENDPOINT") && contains(keys(local.service_preferred_url), "dm") ? { DM_GQL_ENDPOINT = "${local.service_preferred_url["dm"]}/graphql" } : {}
+        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "DM_GQL_ENDPOINT") && contains(keys(local.service_runapp_alias), "dm") ? { DM_GQL_ENDPOINT = "${local.service_runapp_alias["dm"]}/graphql" } : {}
         content {
           name  = env.key
           value = env.value
@@ -158,7 +148,7 @@ resource "google_cloud_run_v2_service" "services" {
       }
 
       dynamic "env" {
-        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_GQL_ENDPOINT") && contains(keys(local.service_preferred_url), "world") ? { WORLD_GQL_ENDPOINT = "${local.service_preferred_url["world"]}/graphql" } : {}
+        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_GQL_ENDPOINT") && contains(keys(local.service_runapp_alias), "world") ? { WORLD_GQL_ENDPOINT = "${local.service_runapp_alias["world"]}/graphql" } : {}
         content {
           name  = env.key
           value = env.value
@@ -166,7 +156,7 @@ resource "google_cloud_run_v2_service" "services" {
       }
 
       dynamic "env" {
-        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_BASE_URL") && contains(keys(local.service_preferred_url), "world") ? { WORLD_BASE_URL = "${local.service_preferred_url["world"]}/world" } : {}
+        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_BASE_URL") && contains(keys(local.service_runapp_alias), "world") ? { WORLD_BASE_URL = "${local.service_runapp_alias["world"]}/world" } : {}
         content {
           name  = env.key
           value = env.value
@@ -208,6 +198,46 @@ resource "google_cloud_run_v2_service" "services" {
         content {
           name  = env.key
           value = env.value
+        }
+      }
+    }
+
+    # Datadog sidecar for APM/tracing (serverless-init)
+    containers {
+      name  = "datadog-agent"
+      image = "gcr.io/datadoghq/serverless-init:latest"
+
+      # Allocate modest resources to the agent sidecar
+      resources {
+        cpu_idle = true
+        limits = {
+          cpu    = "200m"
+          memory = "256Mi"
+        }
+      }
+
+      env {
+        name  = "DD_SITE"
+        value = var.datadog_site
+      }
+      env {
+        name  = "DD_ENV"
+        value = "prod"
+      }
+      # Explicitly disable logs collection from the sidecar
+      env {
+        name  = "DD_LOGS_ENABLED"
+        value = "false"
+      }
+
+      # Datadog API key from Secret Manager for the sidecar
+      env {
+        name = "DD_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.datadog_api_key.name
+            version = "latest"
+          }
         }
       }
     }

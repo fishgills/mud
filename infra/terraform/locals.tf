@@ -9,6 +9,8 @@ locals {
     if try(coalesce(v.enabled, true), true)
   }
 
+  datadog_site = var.datadog_site
+
   # Only external services (exclude internal ones)
   external_services = {
     for k, v in local.enabled_services : k => v
