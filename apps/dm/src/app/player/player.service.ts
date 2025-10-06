@@ -605,10 +605,11 @@ export class PlayerService {
           if (!isWaterBiome(tile.biomeName)) {
             return { x: candidateX, y: candidateY };
           }
-        } catch (err) {
-          // If world service fails, conservatively skip this candidate
+        } catch (error) {
+          // If world service fails, conservatively skip this candidate but log detail for troubleshooting
+          const reason = error instanceof Error ? error.message : `${error}`;
           this.logger.warn(
-            `Skipping spawn candidate due to tile lookup failure at (${candidateX}, ${candidateY})`,
+            `Skipping spawn candidate due to tile lookup failure at (${candidateX}, ${candidateY}): ${reason}`,
           );
         }
       }
@@ -647,8 +648,12 @@ export class PlayerService {
           maxMinDistance = minDistance;
           bestPosition = { x: candidateX, y: candidateY };
         }
-      } catch (err) {
-        // Skip candidates we can't validate
+      } catch (error) {
+        // Skip candidates we can't validate but record why in debug logs
+        const reason = error instanceof Error ? error.message : `${error}`;
+        this.logger.debug(
+          `Failed to validate spawn candidate at (${candidateX}, ${candidateY}): ${reason}`,
+        );
         continue;
       }
     }
@@ -679,7 +684,7 @@ export class PlayerService {
             if (!isWaterBiome(tile.biomeName)) {
               return { x, y };
             }
-          } catch (err) {
+          } catch {
             // ignore and continue
           }
         }
