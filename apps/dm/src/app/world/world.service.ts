@@ -87,8 +87,12 @@ export class WorldService {
     this.logger.log(`Initializing GraphQL client with URL: ${graphqlUrl}`);
   }
 
-  async getTileInfo(x: number, y: number): Promise<WorldTile> {
-    const defaultTile: WorldTile = {
+  private createDefaultTile(x: number, y: number): WorldTile {
+    const chunkX = Math.floor(x / WORLD_CHUNK_SIZE);
+    const chunkY = Math.floor(y / WORLD_CHUNK_SIZE);
+    const createdAt = new Date();
+    const updatedAt = new Date();
+    return {
       id: 0,
       x,
       y,
@@ -99,11 +103,83 @@ export class WorldService {
       temperature: 0.6,
       moisture: 0.5,
       seed: 12345,
-      chunkX: Math.floor(x / WORLD_CHUNK_SIZE),
-      chunkY: Math.floor(y / WORLD_CHUNK_SIZE),
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      chunkX,
+      chunkY,
+      createdAt,
+      updatedAt,
     };
+  }
+
+  private mapGraphqlTile(
+    tile: {
+      id?: number;
+      x?: number;
+      y?: number;
+      biomeId?: number;
+      biomeName?: string;
+      description?: string | null;
+      height?: number;
+      temperature?: number;
+      moisture?: number;
+      seed?: number;
+      chunkX?: number;
+      chunkY?: number;
+      createdAt?: string | Date | null;
+      updatedAt?: string | Date | null;
+    },
+    fallback: WorldTile,
+  ): WorldTile {
+    return {
+      ...fallback,
+      id: tile.id ?? fallback.id,
+      x: tile.x ?? fallback.x,
+      y: tile.y ?? fallback.y,
+      biomeId: tile.biomeId ?? fallback.biomeId,
+      biomeName: tile.biomeName ?? fallback.biomeName,
+      description: tile.description ?? fallback.description,
+      height: tile.height ?? fallback.height,
+      temperature: tile.temperature ?? fallback.temperature,
+      moisture: tile.moisture ?? fallback.moisture,
+      seed: tile.seed ?? fallback.seed,
+      chunkX: tile.chunkX ?? fallback.chunkX,
+      chunkY: tile.chunkY ?? fallback.chunkY,
+      createdAt:
+        tile.createdAt instanceof Date
+          ? tile.createdAt
+          : tile.createdAt
+            ? new Date(tile.createdAt)
+            : fallback.createdAt,
+      updatedAt:
+        tile.updatedAt instanceof Date
+          ? tile.updatedAt
+          : tile.updatedAt
+            ? new Date(tile.updatedAt)
+            : fallback.updatedAt,
+    };
+  }
+
+  private createLightweightTile(tile: {
+    x: number;
+    y: number;
+    biomeName?: string | null;
+    height?: number | null;
+  }): WorldTile {
+    const base = this.createDefaultTile(tile.x, tile.y);
+    return {
+      ...base,
+      id: 0,
+      biomeId: 0,
+      biomeName: tile.biomeName ?? base.biomeName,
+      description: '',
+      height: tile.height ?? base.height,
+      temperature: 0,
+      moisture: 0,
+      seed: 0,
+    };
+  }
+
+  async getTileInfo(x: number, y: number): Promise<WorldTile> {
+    const defaultTile = this.createDefaultTile(x, y);
 
     const result = await worldSdk.GetTile({
       x,
@@ -112,23 +188,7 @@ export class WorldService {
 
     if (result?.getTile) {
       // Convert the GraphQL response to the expected WorldTile format
-      const tile = result.getTile;
-      return {
-        id: tile.id,
-        x: tile.x,
-        y: tile.y,
-        biomeId: tile.biomeId,
-        biomeName: tile.biomeName,
-        description: tile.description || defaultTile.description,
-        height: tile.height,
-        temperature: tile.temperature,
-        moisture: tile.moisture,
-        seed: tile.seed,
-        chunkX: tile.chunkX,
-        chunkY: tile.chunkY,
-        createdAt: new Date(tile.createdAt),
-        updatedAt: new Date(tile.updatedAt),
-      };
+      return this.mapGraphqlTile(result.getTile, defaultTile);
     }
 
     return defaultTile;
@@ -150,27 +210,16 @@ export class WorldService {
     const promise = (async () => {
       const result = await worldSdk.GetChunk({ chunkX, chunkY });
 
-      let tiles: WorldTile[] = [];
-      if (result?.getChunk?.tiles) {
-        // Convert GraphQL response to WorldTile format
-        tiles = result.getChunk.tiles.map((tile) => ({
-          // Fill minimal fields we actually use downstream for look
-          id: 0,
-          x: tile.x,
-          y: tile.y,
-          biomeId: 0,
-          biomeName: tile.biomeName,
-          description: '',
-          height: tile.height,
-          temperature: 0,
-          moisture: 0,
-          seed: 0,
-          chunkX: Math.floor(tile.x / 50),
-          chunkY: Math.floor(tile.y / 50),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }));
-      }
+      const tiles: WorldTile[] = result?.getChunk?.tiles
+        ? result.getChunk.tiles.map((tile) =>
+            this.createLightweightTile({
+              x: tile.x,
+              y: tile.y,
+              biomeName: tile.biomeName,
+              height: tile.height,
+            }),
+          )
+        : [];
 
       // cache the result (even empty) to avoid hammering
       this.chunkCache.set(key, { tiles, ts: Date.now() });
@@ -234,22 +283,14 @@ export class WorldService {
     const tiles: WorldTile[] = chunks
       .flatMap((c) => c.getChunk.tiles ?? [])
       .filter((t) => t.x >= minX && t.x <= maxX && t.y >= minY && t.y <= maxY)
-      .map((tile) => ({
-        id: 0,
-        x: tile.x,
-        y: tile.y,
-        biomeId: 0,
-        biomeName: tile.biomeName,
-        description: '',
-        height: tile.height,
-        temperature: 0,
-        moisture: 0,
-        seed: 0,
-        chunkX: Math.floor(tile.x / WORLD_CHUNK_SIZE),
-        chunkY: Math.floor(tile.y / WORLD_CHUNK_SIZE),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }));
+      .map((tile) =>
+        this.createLightweightTile({
+          x: tile.x,
+          y: tile.y,
+          biomeName: tile.biomeName,
+          height: tile.height,
+        }),
+      );
 
     return tiles;
   }
@@ -282,22 +323,7 @@ export class WorldService {
     const inflight = this.inflightCenterNearby.get(cacheKey);
     if (inflight) return inflight;
 
-    const defaultTile: WorldTile = {
-      id: 0,
-      x,
-      y,
-      biomeId: 1,
-      biomeName: 'grassland',
-      description: '',
-      height: 0.5,
-      temperature: 0.6,
-      moisture: 0.5,
-      seed: 12345,
-      chunkX: Math.floor(x / WORLD_CHUNK_SIZE),
-      chunkY: Math.floor(y / WORLD_CHUNK_SIZE),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    const defaultTile = this.createDefaultTile(x, y);
 
     const promise = (async () => {
       const result = await worldSdk.GetTileWithNearby({
@@ -305,41 +331,23 @@ export class WorldService {
         y,
       });
 
-      let data: {
+      const data: {
         tile: WorldTile;
         nearbyBiomes: NearbyBiome[];
         nearbySettlements: NearbySettlement[];
         currentSettlement?: Settlement;
-      } = {
-        tile: defaultTile,
-        nearbyBiomes: [],
-        nearbySettlements: [],
-      };
-
-      if (result?.getTile) {
-        const tile = result.getTile;
-        data = {
-          tile: {
-            id: tile.id,
-            x: tile.x,
-            y: tile.y,
-            biomeId: tile.biomeId,
-            biomeName: tile.biomeName,
-            description: tile.description || defaultTile.description,
-            height: tile.height,
-            temperature: tile.temperature,
-            moisture: tile.moisture,
-            seed: tile.seed,
-            chunkX: tile.chunkX,
-            chunkY: tile.chunkY,
-            createdAt: new Date(tile.createdAt),
-            updatedAt: new Date(tile.updatedAt),
-          },
-          nearbyBiomes: tile.nearbyBiomes || [],
-          nearbySettlements: tile.nearbySettlements || [],
-          currentSettlement: tile.currentSettlement || undefined,
-        };
-      }
+      } = result?.getTile
+        ? {
+            tile: this.mapGraphqlTile(result.getTile, defaultTile),
+            nearbyBiomes: result.getTile.nearbyBiomes || [],
+            nearbySettlements: result.getTile.nearbySettlements || [],
+            currentSettlement: result.getTile.currentSettlement || undefined,
+          }
+        : {
+            tile: defaultTile,
+            nearbyBiomes: [],
+            nearbySettlements: [],
+          };
 
       this.centerNearbyCache.set(cacheKey, { data, ts: Date.now() });
       return data;
