@@ -155,6 +155,17 @@ export class MovementResolver {
         })
         .catch(() => null);
 
+      // In parallel, prefetch an upper-bound extended tile window so chunk fetches overlap
+      // Visibility radius is clamped to [3,12], so peak scan radius maxes at ~18
+      const peakScanUpperBound = 18;
+      const tExtPrefetchStart = Date.now();
+      const extTilesPrefetchPromise = this.worldService.getTilesInBounds(
+        player.position.x - peakScanUpperBound,
+        player.position.x + peakScanUpperBound,
+        player.position.y - peakScanUpperBound,
+        player.position.y + peakScanUpperBound,
+      );
+
       // Await center data and compute dynamic visibility
       const centerWithNearby = await centerWithNearbyPromise;
       const centerTile = ((): {
@@ -198,6 +209,10 @@ export class MovementResolver {
         { x: player.position.x, y: player.position.y },
         visibilityRadius,
         timing,
+        {
+          extTilesPromise: extTilesPrefetchPromise,
+          tExtStart: tExtPrefetchStart,
+        },
       );
 
       // Process visible peaks
@@ -215,8 +230,8 @@ export class MovementResolver {
         timing,
       );
 
-      // Get NearbyPlayers
-      const nearbyPlayers = await this.playerService.getNearbyPlayers(
+      // Kick off nearby players and monsters fetch concurrently
+      const nearbyPlayersPromise = this.playerService.getNearbyPlayers(
         player.position.x,
         player.position.y,
         slackId,
@@ -230,21 +245,27 @@ export class MovementResolver {
           timing,
         );
 
-      const monsters = await this.monsterService.getMonstersAtLocation(
+      const monstersPromise = this.monsterService.getMonstersAtLocation(
         player.position.x,
         player.position.y,
       );
 
       // Generate description (AI-enhanced or fallback)
-      const currentSettlement: Settlement | null = centerWithNearby?.currentSettlement
-        ? {
-            name: centerWithNearby.currentSettlement.name,
-            type: centerWithNearby.currentSettlement.type,
-            size: centerWithNearby.currentSettlement.size,
-            intensity: centerWithNearby.currentSettlement.intensity,
-            isCenter: Boolean(centerWithNearby.currentSettlement.isCenter),
-          }
-        : null;
+      const currentSettlement: Settlement | null =
+        centerWithNearby?.currentSettlement
+          ? {
+              name: centerWithNearby.currentSettlement.name,
+              type: centerWithNearby.currentSettlement.type,
+              size: centerWithNearby.currentSettlement.size,
+              intensity: centerWithNearby.currentSettlement.intensity,
+              isCenter: Boolean(centerWithNearby.currentSettlement.isCenter),
+            }
+          : null;
+      const [nearbyPlayers, monsters] = await Promise.all([
+        nearbyPlayersPromise,
+        monstersPromise,
+      ]);
+
       const description = await this.descriptionService.generateAiDescription(
         centerTile,
         visibilityRadius,

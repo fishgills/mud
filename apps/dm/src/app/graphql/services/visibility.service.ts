@@ -24,6 +24,10 @@ export class VisibilityService {
     player: Player,
     visibilityRadius: number,
     timing: TimingMetrics,
+    prefetch?: {
+      extTilesPromise?: Promise<WorldTile[]>;
+      tExtStart?: number;
+    },
   ): Promise<{
     tiles: WorldTile[];
     extTiles: WorldTile[];
@@ -41,18 +45,22 @@ export class VisibilityService {
       30,
       Math.max(14, Math.round(visibilityRadius * 1.5)),
     );
-    const tExtBoundsStart = Date.now();
-    const extTiles = await this.worldService
-      .getTilesInBounds(
-        player.x - peakScanRadiusMax,
-        player.x + peakScanRadiusMax,
-        player.y - peakScanRadiusMax,
-        player.y + peakScanRadiusMax,
-      )
-      .then((res) => {
-        timing.tExtBoundsMs = Date.now() - tExtBoundsStart;
-        return res;
-      });
+    // Either await a prefetched extTiles promise (started earlier for concurrency)
+    // or fetch here as before.
+    const tExtBoundsStart = prefetch?.tExtStart ?? Date.now();
+    const extTiles = await (
+      prefetch?.extTilesPromise
+        ? prefetch.extTilesPromise
+        : this.worldService.getTilesInBounds(
+            player.x - peakScanRadiusMax,
+            player.x + peakScanRadiusMax,
+            player.y - peakScanRadiusMax,
+            player.y + peakScanRadiusMax,
+          )
+    ).then((res) => {
+      timing.tExtBoundsMs = Date.now() - tExtBoundsStart;
+      return res;
+    });
     // Reuse the extended fetch result for visible tile list;
     // record tBoundsTilesMs equal to the ext fetch time to reflect shared work
     const boundTiles = extTiles.filter(
