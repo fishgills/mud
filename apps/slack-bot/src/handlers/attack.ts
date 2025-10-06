@@ -5,7 +5,7 @@ import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
-import { toClientId } from '../utils/clientId';
+import { fromClientId, toClientId } from '../utils/clientId';
 
 const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
 
@@ -180,8 +180,27 @@ export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
       entities.getMonstersAtLocation || []
     ).map((m) => ({ id: String(m.id), name: m.name }));
     const playersHere: NearbyPlayer[] = (entities.getPlayersAtLocation || [])
-      .filter((p) => p.slackId !== toClientId(userId))
-      .map((p) => ({ slackId: p.slackId, name: p.name }));
+      .map((p) => {
+        const rawSlackId =
+          typeof p.slackId === 'string' && p.slackId.length > 0
+            ? p.slackId
+            : undefined;
+
+        if (!rawSlackId) {
+          return null;
+        }
+
+        const normalizedSlackId = rawSlackId.startsWith('slack:')
+          ? (fromClientId(rawSlackId) ?? rawSlackId)
+          : rawSlackId;
+
+        if (!normalizedSlackId || normalizedSlackId === userId) {
+          return null;
+        }
+
+        return { slackId: normalizedSlackId, name: p.name };
+      })
+      .filter((p): p is NearbyPlayer => p !== null);
 
     if (monstersHere.length === 0 && playersHere.length === 0) {
       await say({ text: 'No monsters or players here to attack!' });

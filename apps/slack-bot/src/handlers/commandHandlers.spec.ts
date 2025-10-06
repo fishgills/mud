@@ -203,6 +203,43 @@ describe('attackHandler', () => {
     );
   });
 
+  it('excludes the invoking player from target options', async () => {
+    const say = makeSay();
+    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
+      getPlayer: { success: true, data: { name: 'Hero', x: 0, y: 0 } },
+    });
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
+      getPlayersAtLocation: [
+        { id: '1', slackId: 'slack:U1', name: 'Hero' },
+        { id: '2', slackId: 'slack:U2', name: 'Friend' },
+      ],
+      getMonstersAtLocation: [],
+    });
+
+    await attackHandler({
+      userId: 'U1',
+      text: COMMANDS.ATTACK,
+      say,
+    } as HandlerContext);
+
+    const message = say.mock.calls[0][0] as {
+      blocks?: Array<{
+        type: string;
+        elements?: Array<Record<string, unknown>>;
+      }>;
+    };
+    const actionsBlock = message.blocks?.find(
+      (block) => block.type === 'actions',
+    );
+    const select = actionsBlock?.elements?.find(
+      (element) => element.type === 'static_select',
+    ) as { options?: Array<{ value?: string }> } | undefined;
+    const optionValues = select?.options?.map((option) => option.value);
+
+    expect(optionValues).toContain('P:U2');
+    expect(optionValues).not.toContain('P:U1');
+  });
+
   it('informs the user when no monsters or players are nearby', async () => {
     const say = makeSay();
     mockedDmSdk.GetPlayer.mockResolvedValueOnce({

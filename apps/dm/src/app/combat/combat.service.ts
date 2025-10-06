@@ -728,13 +728,18 @@ export class CombatService {
 
     // Generate personalized messages for attacker (if player)
     if (attacker.type === 'player' && attacker.slackId) {
-      const attackerMessage = await this.generateCombatNarrative(combatLog, {
+      let attackerMessage = await this.generateCombatNarrative(combatLog, {
         secondPersonName: attacker.name,
       });
-      const attackerSummary = await this.generateEntertainingSummary(
-        combatLog,
-        { secondPersonName: attacker.name },
-      );
+      let attackerSummary = await this.generateEntertainingSummary(combatLog, {
+        secondPersonName: attacker.name,
+      });
+      // Append reward info for clarity
+      const attackerIsWinner = combatLog.winner === attacker.name;
+      const attackerXp = attackerIsWinner ? combatLog.xpAwarded : 0;
+      const attackerGold = attackerIsWinner ? combatLog.goldAwarded : 0;
+      attackerMessage += `\n\nRewards: +${attackerXp} XP, +${attackerGold} gold.`;
+      attackerSummary += `\n\nRewards: +${attackerXp} XP, +${attackerGold} gold.`;
       messages.push({
         slackId: attacker.slackId,
         name: attacker.name,
@@ -750,13 +755,18 @@ export class CombatService {
       defender.slackId &&
       defender.slackId !== attacker.slackId
     ) {
-      const defenderMessage = await this.generateCombatNarrative(combatLog, {
+      let defenderMessage = await this.generateCombatNarrative(combatLog, {
         secondPersonName: defender.name,
       });
-      const defenderSummary = await this.generateEntertainingSummary(
-        combatLog,
-        { secondPersonName: defender.name },
-      );
+      let defenderSummary = await this.generateEntertainingSummary(combatLog, {
+        secondPersonName: defender.name,
+      });
+      // Append reward info for clarity
+      const defenderIsWinner = combatLog.winner === defender.name;
+      const defenderXp = defenderIsWinner ? combatLog.xpAwarded : 0;
+      const defenderGold = defenderIsWinner ? combatLog.goldAwarded : 0;
+      defenderMessage += `\n\nRewards: +${defenderXp} XP, +${defenderGold} gold.`;
+      defenderSummary += `\n\nRewards: +${defenderXp} XP, +${defenderGold} gold.`;
       messages.push({
         slackId: defender.slackId,
         name: defender.name,

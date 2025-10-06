@@ -160,17 +160,13 @@ describe('CombatService helpers', () => {
   it('returns combat logs for a location via the prisma client', async () => {
     const { service } = createHelperService();
     const expected = [{ id: 1 }];
-    combatPrismaHolder.current.combatLog.findMany.mockResolvedValue(
-      expected,
-    );
+    combatPrismaHolder.current.combatLog.findMany.mockResolvedValue(expected);
 
     await expect(service.getCombatLogForLocation(3, 4, 2)).resolves.toBe(
       expected,
     );
 
-    expect(
-      combatPrismaHolder.current.combatLog.findMany,
-    ).toHaveBeenCalledWith({
+    expect(combatPrismaHolder.current.combatLog.findMany).toHaveBeenCalledWith({
       where: { x: 3, y: 4 },
       orderBy: { timestamp: 'desc' },
       take: 2,
@@ -385,19 +381,21 @@ describe('CombatService', () => {
     expect(result.goldGained).toBe(45);
     expect(result.roundsCompleted).toBe(1);
     expect(result.totalDamageDealt).toBe(9);
-    expect(result.message).toBe('Attacker POV summary');
+    expect(result.message).toBe(
+      'Attacker POV summary\n\nRewards: +120 XP, +45 gold.',
+    );
     expect(result.playerMessages).toHaveLength(2);
     expect(result.playerMessages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           slackId: 'attacker',
           name: 'Attacker',
-          message: 'Attacker POV summary',
+          message: 'Attacker POV summary\n\nRewards: +120 XP, +45 gold.',
         }),
         expect.objectContaining({
           slackId: 'defender',
           name: 'Defender',
-          message: 'Defender POV summary',
+          message: 'Defender POV summary\n\nRewards: +0 XP, +0 gold.',
         }),
       ]),
     );
@@ -657,19 +655,21 @@ describe('CombatService', () => {
     expect(result.roundsCompleted).toBe(1);
     expect(result.xpGained).toBe(0);
     expect(result.goldGained).toBe(0);
-    expect(result.message).toBe('Attacker perspective');
+    expect(result.message).toBe(
+      'Attacker perspective\n\nRewards: +0 XP, +0 gold.',
+    );
     expect(result.playerMessages).toHaveLength(2);
     expect(result.playerMessages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           slackId: 'attacker',
           name: 'Attacker',
-          message: 'Attacker perspective',
+          message: 'Attacker perspective\n\nRewards: +0 XP, +0 gold.',
         }),
         expect.objectContaining({
           slackId: 'defender',
           name: 'Defender',
-          message: 'Defender perspective',
+          message: 'Defender perspective\n\nRewards: +120 XP, +75 gold.',
         }),
       ]),
     );
@@ -814,12 +814,12 @@ describe('CombatService', () => {
     expect(result.goldGained).toBe(30);
     expect(result.totalDamageDealt).toBe(15);
     expect(result.roundsCompleted).toBe(1);
-    expect(result.message).toBe('Attacker recap');
+    expect(result.message).toBe('Attacker recap\n\nRewards: +80 XP, +30 gold.');
     expect(result.playerMessages).toHaveLength(1);
     expect(result.playerMessages[0]).toMatchObject({
       slackId: 'attacker',
       name: 'Attacker',
-      message: 'Attacker recap',
+      message: 'Attacker recap\n\nRewards: +80 XP, +30 gold.',
     });
 
     expect(playerToCombatantSpy).toHaveBeenCalledTimes(2);
