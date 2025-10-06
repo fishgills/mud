@@ -67,13 +67,13 @@ resource "google_cloud_run_v2_service" "services" {
               GCP_PROJECT_ID = var.project_id
               GCP_REGION     = var.region
               # Datadog configuration (sidecar agent)
-              DD_ENV                     = "prod"
-              DD_LOGS_INJECTION          = "true"
-              DD_GIT_REPOSITORY_URL      = "github.com/fishgills/mud"
-              DD_SERVICE                 = "mud-${each.value.name}"
-              DD_SITE                    = var.datadog_site
+              DD_ENV                = "prod"
+              DD_LOGS_INJECTION     = "true"
+              DD_GIT_REPOSITORY_URL = "github.com/fishgills/mud"
+              DD_SERVICE            = "mud-${each.value.name}"
+              DD_SITE               = var.datadog_site
               # Send traces to local Datadog Agent sidecar
-              DD_TRACE_AGENT_URL         = "http://localhost:8126"
+              DD_TRACE_AGENT_URL = "http://localhost:8126"
               # Attach version for better APM grouping (prefer git SHA, fallback to image tag)
               DD_VERSION = var.git_commit_sha == null ? var.image_version : var.git_commit_sha
               # Runtime metrics require DogStatsD/UDP; keep disabled on Cloud Run
@@ -82,8 +82,6 @@ resource "google_cloud_run_v2_service" "services" {
               DD_PROFILING_ENABLED = "false"
               # Ensure tracing is enabled
               DD_TRACE_ENABLED = "true"
-              # Enable debug logging to troubleshoot APM issues
-              DD_TRACE_DEBUG = "true"
             }
             # Optionally include the current git commit SHA when provided by CI
             , var.git_commit_sha == null ? {} : { DD_GIT_COMMIT_SHA = var.git_commit_sha }

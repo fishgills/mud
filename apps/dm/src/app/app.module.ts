@@ -23,6 +23,7 @@ import {
   ResponseService,
 } from './graphql/services';
 import { PopulationService } from './monster/population.service';
+import { PrefetchService } from './prefetch/prefetch.service';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
 
 @Module({
@@ -54,6 +55,7 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
     DescriptionService,
     ResponseService,
     PopulationService,
+    PrefetchService,
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
