@@ -7,7 +7,10 @@
  */
 
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { RedisEventBridge } from '@mud/redis-client';
+import {
+  RedisEventBridge,
+  type NotificationRecipient,
+} from '@mud/redis-client';
 import { EventBus, GameEvent } from '@mud/engine';
 import { env } from '../env';
 
@@ -60,5 +63,16 @@ export class EventBridgeService implements OnModuleInit, OnModuleDestroy {
     }>,
   ): Promise<void> {
     await this.bridge.publishCombatNotifications(event, messages);
+  }
+
+  async publishPlayerNotification(
+    event: GameEvent,
+    recipients: NotificationRecipient[],
+  ): Promise<void> {
+    await this.bridge.publishNotification({
+      type: 'player',
+      recipients,
+      event,
+    });
   }
 }
