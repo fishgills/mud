@@ -53,7 +53,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
       },
       {
         type: 'mrkdwn',
-        text: `*Explore & Fight*\n• \`${COMMANDS.NORTH}\`/\`${COMMANDS.SOUTH}\`/\`${COMMANDS.EAST}\`/\`${COMMANDS.WEST}\`\n• \`${COMMANDS.LOOK}\`\n• \`${COMMANDS.ATTACK}\`\n• \`${COMMANDS.SNIFF}\`\n• \`${COMMANDS.STATS}\``,
+        text: `*Explore & Fight*\n• \`${COMMANDS.NORTH}\`/\`${COMMANDS.SOUTH}\`/\`${COMMANDS.EAST}\`/\`${COMMANDS.WEST}\`\n• \`${COMMANDS.LOOK}\`\n• \`${COMMANDS.ATTACK}\`\n• \`${COMMANDS.STATS}\``,
       },
     ],
   },
@@ -74,7 +74,8 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: '*Game Systems*\n• Earn XP from monsters, quests, and discoveries.\n• Combat is turn-based; agility sets turn order and positioning matters.\n• Unlock abilities as you level and spend points in `stats`.',
+      text:
+        '*Game Systems*\n• Earn XP from monsters, quests, and discoveries.\n• Combat is turn-based; agility sets turn order and positioning matters.\n• Unlock abilities as you level and spend points in `stats`.',
     },
   },
   {
