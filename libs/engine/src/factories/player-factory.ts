@@ -7,6 +7,7 @@ import { getPrismaClient, Player } from '@mud/database';
 
 import { PlayerEntity, ClientType } from '../entities/player-entity.js';
 import { EventBus } from '../events/index.js';
+import { rollAbilityScore } from '../utils/dice.js';
 
 export interface CreatePlayerOptions {
   clientId: string;
@@ -352,21 +353,9 @@ export class PlayerFactory {
     health: number;
     maxHp: number;
   } {
-    // Roll 4d6 and drop the lowest (D&D standard ability generation)
-    const rollStat = () => {
-      const rolls = [
-        Math.floor(Math.random() * 6) + 1,
-        Math.floor(Math.random() * 6) + 1,
-        Math.floor(Math.random() * 6) + 1,
-        Math.floor(Math.random() * 6) + 1,
-      ];
-      rolls.sort((a, b) => a - b);
-      return rolls[1] + rolls[2] + rolls[3];
-    };
-
-    const strength = rollStat();
-    const agility = rollStat();
-    const health = rollStat();
+    const strength = rollAbilityScore();
+    const agility = rollAbilityScore();
+    const health = rollAbilityScore();
 
     const constitutionModifier = Math.floor((health - 10) / 2);
     const maxHp = Math.max(1, this.HIT_DIE_MAX + constitutionModifier);

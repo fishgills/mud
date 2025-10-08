@@ -1,4 +1,5 @@
 import { getPrismaClient } from '@mud/database';
+import { rollAbilityScore } from '../../libs/engine/src/utils/dice.js';
 
 export type ClientType = 'slack' | 'discord' | 'web';
 
@@ -397,15 +398,9 @@ export class PlayerFactory {
     health: number;
     maxHp: number;
   } {
-    const rollStat = () => {
-      const rolls = Array.from({ length: 4 }, () => Math.floor(Math.random() * 6) + 1);
-      rolls.sort((a, b) => a - b);
-      return rolls[1] + rolls[2] + rolls[3];
-    };
-
-    const strength = rollStat();
-    const agility = rollStat();
-    const health = rollStat();
+    const strength = rollAbilityScore();
+    const agility = rollAbilityScore();
+    const health = rollAbilityScore();
     const constitutionModifier = Math.floor((health - 10) / 2);
     const maxHp = Math.max(1, this.HIT_DIE_MAX + constitutionModifier);
 
