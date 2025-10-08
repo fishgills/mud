@@ -38,6 +38,11 @@ export interface Combatant {
   x: number;
   y: number;
   slackId?: string; // Only for players
+  levelUp?: {
+    previousLevel: number;
+    newLevel: number;
+    skillPointsAwarded: number;
+  };
 }
 
 @Injectable()
@@ -379,8 +384,27 @@ export class CombatService {
   private appendRewards(
     base: string,
     rewards: { xp: number; gold: number },
+    levelUp?: {
+      previousLevel: number;
+      newLevel: number;
+      skillPointsAwarded: number;
+    },
   ): string {
-    return `${base}\n\nRewards: +${rewards.xp} XP, +${rewards.gold} gold.`;
+    const rewardText = `${base}\n\nRewards: +${rewards.xp} XP, +${rewards.gold} gold.`;
+    if (!levelUp || levelUp.newLevel <= levelUp.previousLevel) {
+      return rewardText;
+    }
+
+    const skillPointSuffix = levelUp.skillPointsAwarded
+      ? ` Awarded +${levelUp.skillPointsAwarded} skill point${
+          levelUp.skillPointsAwarded === 1 ? '' : 's'
+        }.`
+      : '';
+
+    return (
+      rewardText +
+      `\n🎉 Level up! Reached level ${levelUp.newLevel}.${skillPointSuffix}`
+    );
   }
 
   private async buildParticipantMessage(
@@ -402,9 +426,11 @@ export class CombatService {
     return {
       slackId: participant.slackId,
       name: participant.name,
-      message: this.appendRewards(narrative, rewards),
+      message: this.appendRewards(narrative, rewards, participant.levelUp),
       role,
-      blocks: this.buildSummaryBlocks(this.appendRewards(summary, rewards)),
+      blocks: this.buildSummaryBlocks(
+        this.appendRewards(summary, rewards, participant.levelUp),
+      ),
     };
   }
 
@@ -713,13 +739,16 @@ export class CombatService {
       const currentPlayer = await this.playerService.getPlayer(winner.slackId);
       const newXp = currentPlayer.xp + combatLog.xpAwarded;
       const goldAwarded = Math.max(0, combatLog.goldAwarded ?? 0);
-      const updatedStats: PlayerStatsDto = { xp: newXp };
+      const updatedStats: PlayerStatsDto = { xp: newXp, hp: winner.hp };
       let newGoldTotal = currentPlayer.gold;
       if (goldAwarded > 0) {
         newGoldTotal = currentPlayer.gold + goldAwarded;
         updatedStats.gold = newGoldTotal;
       }
-      await this.playerService.updatePlayerStats(winner.slackId, updatedStats);
+      const updatedPlayer = await this.playerService.updatePlayerStats(
+        winner.slackId,
+        updatedStats,
+      );
       this.logger.log(
         `📈 ${winner.name} gained ${combatLog.xpAwarded} XP! Total XP: ${currentPlayer.xp} -> ${newXp}`,
       );
@@ -727,6 +756,21 @@ export class CombatService {
         this.logger.log(
           `💰 ${winner.name} gained ${goldAwarded} gold! Total Gold: ${currentPlayer.gold} -> ${newGoldTotal}`,
         );
+      }
+
+      if (updatedPlayer.level > currentPlayer.level) {
+        const skillPointsAwarded = Math.max(
+          0,
+          updatedPlayer.skillPoints - currentPlayer.skillPoints,
+        );
+        winner.level = updatedPlayer.level;
+        winner.maxHp = updatedPlayer.combat.maxHp;
+        winner.hp = updatedPlayer.combat.hp;
+        winner.levelUp = {
+          previousLevel: currentPlayer.level,
+          newLevel: updatedPlayer.level,
+          skillPointsAwarded,
+        };
       }
     } else {
       this.logger.debug(

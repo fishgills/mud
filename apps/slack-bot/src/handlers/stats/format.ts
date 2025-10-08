@@ -123,19 +123,19 @@ export function buildPlayerStatsMessage(
 
   if (typeof player.level === 'number' && typeof player.xp === 'number') {
     const xpForNextLevel = player.level * 100;
-    const xpNeeded = Math.max(0, xpForNextLevel - player.xp);
-    blocks.push({
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text:
-            xpNeeded > 0
-              ? `🏅 ${xpNeeded} XP needed for level ${player.level + 1}.`
-              : `🏅 You have enough XP to reach the next level!`,
-        },
-      ],
-    });
+    const xpNeeded = xpForNextLevel - player.xp;
+
+    if (xpNeeded > 0) {
+      blocks.push({
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: `🏅 ${xpNeeded} XP needed for level ${player.level + 1}.`,
+          },
+        ],
+      });
+    }
   }
 
   if (options.isSelf) {
