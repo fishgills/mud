@@ -71,8 +71,41 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     ],
   },
   {
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text:
+        '*Game Systems*\n• Earn XP from monsters, quests, and discoveries.\n• Combat is turn-based; agility sets turn order and positioning matters.\n• Unlock abilities as you level and spend points in `stats`.',
+    },
+  },
+  {
+    type: 'actions',
+    elements: [
+      {
+        type: 'button',
+        text: { type: 'plain_text', text: 'Leveling guide', emoji: true },
+        action_id: HELP_ACTIONS.LEVELING,
+      },
+      {
+        type: 'button',
+        text: { type: 'plain_text', text: 'Combat primer', emoji: true },
+        action_id: HELP_ACTIONS.COMBAT,
+      },
+      {
+        type: 'button',
+        text: { type: 'plain_text', text: 'Abilities overview', emoji: true },
+        action_id: HELP_ACTIONS.ABILITIES,
+      },
+    ],
+  },
+  {
     type: 'context',
-    elements: [{ type: 'mrkdwn', text: 'Need help? Type `help` anytime.' }],
+    elements: [
+      {
+        type: 'mrkdwn',
+        text: 'Tap a topic for deep dives, or type `help` anytime.',
+      },
+    ],
   },
 ];
 
