@@ -297,6 +297,28 @@ describe('CombatService', () => {
       getPlayersAtLocation: jest.fn().mockResolvedValue([]),
     } as jest.Mocked<MockPlayerService>;
 
+    playerService.updatePlayerStats.mockImplementation(
+      async (slackId: string, stats) => {
+        const current = await playerService.getPlayer(slackId);
+
+        if (!current) {
+          throw new Error(`Mock player not found for ${slackId}`);
+        }
+
+        return {
+          ...current,
+          xp: typeof stats.xp === 'number' ? stats.xp : current.xp,
+          gold: typeof stats.gold === 'number' ? stats.gold : current.gold,
+          level: typeof stats.level === 'number' ? stats.level : current.level,
+          skillPoints: current.skillPoints,
+          combat: {
+            ...current.combat,
+            hp: typeof stats.hp === 'number' ? stats.hp : current.combat.hp,
+          },
+        } as PlayerEntity;
+      },
+    );
+
     aiService = {
       getText: jest.fn(),
     } as jest.Mocked<MockAiService>;
@@ -681,6 +703,195 @@ describe('CombatService', () => {
     expect(attackerCall).toEqual([combatLog, { secondPersonName: 'Attacker' }]);
     expect(defenderCall).toEqual([combatLog, { secondPersonName: 'Defender' }]);
     expect(observerCall).toEqual([combatLog, {}]);
+  });
+
+  it('applies level ups for winning players and includes the details in messages', async () => {
+    const attackerPlayer = createPlayer({
+      id: 1,
+      name: 'Attacker',
+      slackId: 'attacker',
+      xp: 290,
+      level: 2,
+      skillPoints: 0,
+      strength: 16,
+      agility: 12,
+      health: 12,
+      hp: 8,
+      maxHp: 12,
+      x: 3,
+      y: 3,
+    });
+
+    const defenderPlayer = createPlayer({
+      id: 2,
+      name: 'Defender',
+      slackId: 'defender',
+      xp: 150,
+      level: 2,
+      hp: 0,
+      maxHp: 10,
+      strength: 12,
+      agility: 10,
+      x: 3,
+      y: 3,
+      isAlive: false,
+    });
+
+    playerService.getPlayer.mockImplementation(async (slackId: string) =>
+      slackId === 'attacker' ? attackerPlayer : defenderPlayer,
+    );
+
+    const leveledPlayer = createPlayer({
+      ...attackerPlayer,
+      level: 3,
+      xp: 310,
+      skillPoints: 1,
+      hp: 9,
+      maxHp: 14,
+      combat: { hp: 9, maxHp: 14, isAlive: true },
+      attributes: {
+        strength: attackerPlayer.attributes.strength,
+        agility: attackerPlayer.attributes.agility,
+        health: attackerPlayer.attributes.health,
+      },
+    });
+
+    const baseUpdate = playerService.updatePlayerStats.getMockImplementation();
+    playerService.updatePlayerStats.mockImplementation(
+      async (slackId, stats) => {
+        if (slackId === 'attacker') {
+          return leveledPlayer as unknown as PlayerEntity;
+        }
+        return baseUpdate!(slackId, stats);
+      },
+    );
+
+    const combatLog: DetailedCombatLog = {
+      combatId: 'combat-789',
+      participant1: 'Attacker',
+      participant2: 'Defender',
+      initiativeRolls: [],
+      firstAttacker: 'Attacker',
+      rounds: [
+        {
+          roundNumber: 1,
+          attackerName: 'Attacker',
+          defenderName: 'Defender',
+          attackRoll: 18,
+          attackModifier: 3,
+          totalAttack: 21,
+          defenderAC: 11,
+          hit: true,
+          damage: 7,
+          defenderHpAfter: 3,
+          killed: false,
+        },
+        {
+          roundNumber: 2,
+          attackerName: 'Defender',
+          defenderName: 'Attacker',
+          attackRoll: 12,
+          attackModifier: 1,
+          totalAttack: 13,
+          defenderAC: 12,
+          hit: true,
+          damage: 3,
+          defenderHpAfter: 5,
+          killed: false,
+        },
+        {
+          roundNumber: 3,
+          attackerName: 'Attacker',
+          defenderName: 'Defender',
+          attackRoll: 19,
+          attackModifier: 3,
+          totalAttack: 22,
+          defenderAC: 11,
+          hit: true,
+          damage: 6,
+          defenderHpAfter: 0,
+          killed: true,
+        },
+      ],
+      winner: 'Attacker',
+      loser: 'Defender',
+      xpAwarded: 20,
+      goldAwarded: 0,
+      timestamp: new Date(),
+      location: { x: 3, y: 3 },
+    };
+
+    const attackerCombatant: Combatant = {
+      id: attackerPlayer.id,
+      name: attackerPlayer.name,
+      type: 'player',
+      hp: 5,
+      maxHp: attackerPlayer.maxHp,
+      strength: attackerPlayer.attributes.strength,
+      agility: attackerPlayer.attributes.agility,
+      level: attackerPlayer.level,
+      isAlive: true,
+      x: attackerPlayer.x,
+      y: attackerPlayer.y,
+      slackId: 'attacker',
+    };
+
+    const defenderCombatant: Combatant = {
+      id: defenderPlayer.id,
+      name: defenderPlayer.name,
+      type: 'player',
+      hp: 0,
+      maxHp: defenderPlayer.maxHp,
+      strength: defenderPlayer.attributes.strength,
+      agility: defenderPlayer.attributes.agility,
+      level: defenderPlayer.level,
+      isAlive: false,
+      x: defenderPlayer.x,
+      y: defenderPlayer.y,
+      slackId: 'defender',
+    };
+
+    const internals = getInternals();
+
+    await internals.applyCombatResults(
+      combatLog,
+      attackerCombatant,
+      defenderCombatant,
+    );
+
+    expect(playerService.updatePlayerStats).toHaveBeenCalledWith(
+      'attacker',
+      expect.objectContaining({ xp: 310, hp: 5 }),
+    );
+    expect(attackerCombatant.level).toBe(3);
+    expect(attackerCombatant.maxHp).toBe(leveledPlayer.combat.maxHp);
+    expect(attackerCombatant.hp).toBe(leveledPlayer.combat.hp);
+    expect(attackerCombatant.levelUp).toEqual({
+      previousLevel: 2,
+      newLevel: 3,
+      skillPointsAwarded: 1,
+    });
+
+    jest
+      .spyOn(internals, 'generateCombatNarrative')
+      .mockResolvedValueOnce('Attacker POV')
+      .mockResolvedValueOnce('Defender POV')
+      .mockResolvedValueOnce('Observer POV');
+    jest
+      .spyOn(internals, 'generateEntertainingSummary')
+      .mockResolvedValueOnce('Attacker summary')
+      .mockResolvedValueOnce('Defender summary')
+      .mockResolvedValueOnce('Observer summary');
+
+    const messages = await internals.generateCombatMessages(
+      combatLog,
+      attackerCombatant,
+      defenderCombatant,
+    );
+    const attackerMessage = messages.find((msg) => msg.slackId === 'attacker');
+    expect(attackerMessage?.message).toContain('Rewards: +20 XP, +0 gold.');
+    expect(attackerMessage?.message).toContain('Level up! Reached level 3.');
+    expect(attackerMessage?.message).toContain('Awarded +1 skill point.');
   });
 
   it('omits defender message when slackId is missing', async () => {
