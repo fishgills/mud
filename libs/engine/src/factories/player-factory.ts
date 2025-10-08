@@ -7,6 +7,7 @@ import { getPrismaClient, Player } from '@mud/database';
 
 import { PlayerEntity, ClientType } from '../entities/player-entity.js';
 import { EventBus } from '../events/index.js';
+import { rollAbilityScore } from '../utils/dice.js';
 
 export interface CreatePlayerOptions {
   clientId: string;
@@ -18,6 +19,7 @@ export interface CreatePlayerOptions {
 
 export class PlayerFactory {
   private static prisma = getPrismaClient();
+  private static readonly HIT_DIE_MAX = 10;
 
   /**
    * Create a new player in the database and return a PlayerEntity
@@ -351,24 +353,12 @@ export class PlayerFactory {
     health: number;
     maxHp: number;
   } {
-    // Roll 3d6 for each stat (range: 3-18)
-    const rollStat = () => {
-      return (
-        Math.floor(Math.random() * 6) +
-        1 +
-        Math.floor(Math.random() * 6) +
-        1 +
-        Math.floor(Math.random() * 6) +
-        1
-      );
-    };
+    const strength = rollAbilityScore();
+    const agility = rollAbilityScore();
+    const health = rollAbilityScore();
 
-    const strength = rollStat();
-    const agility = rollStat();
-    const health = rollStat();
-
-    // Calculate starting HP: 10 base + (health * 2)
-    const maxHp = 10 + health * 2;
+    const constitutionModifier = Math.floor((health - 10) / 2);
+    const maxHp = Math.max(1, this.HIT_DIE_MAX + constitutionModifier);
 
     return { strength, agility, health, maxHp };
   }
