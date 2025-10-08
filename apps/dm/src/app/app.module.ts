@@ -24,6 +24,7 @@ import {
 } from './graphql/services';
 import { PopulationService } from './monster/population.service';
 import { PrefetchService } from './prefetch/prefetch.service';
+import { PlayerNotificationService } from './player/player-notification.service';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
 
 @Module({
@@ -56,6 +57,7 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
     ResponseService,
     PopulationService,
     PrefetchService,
+    PlayerNotificationService,
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
