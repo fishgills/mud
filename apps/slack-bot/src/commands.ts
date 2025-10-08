@@ -7,6 +7,7 @@ export const COMMANDS = {
   LOOK_SHORT: 'l',
   ATTACK: 'attack',
   STATS: 'stats',
+  SNIFF: 'sniff',
   MAP: 'map',
   MOVE: 'move',
   DELETE: 'delete',
