@@ -247,8 +247,9 @@ describe('PlayerService', () => {
     const service = new PlayerService(worldService);
     const moved = await service.movePlayer('EXIST', {
       direction: 'east',
+      distance: 3,
     } as MovePlayerInput);
-    expect(moved.position.x).toBe(101);
+    expect(moved.position.x).toBe(103);
 
     await expect(
       service.movePlayer('EXIST', { x: 1 } as MovePlayerInput),
@@ -257,6 +258,20 @@ describe('PlayerService', () => {
     await expect(
       service.movePlayer('EXIST', { direction: 'invalid' } as MovePlayerInput),
     ).rejects.toThrow('Invalid direction');
+
+    await expect(
+      service.movePlayer('EXIST', {
+        direction: 'south',
+        distance: 0,
+      } as MovePlayerInput),
+    ).rejects.toThrow('Distance must be a positive whole number.');
+
+    await expect(
+      service.movePlayer('EXIST', {
+        direction: 'east',
+        distance: 99,
+      } as MovePlayerInput),
+    ).rejects.toThrow('You can move up to 10 spaces based on your agility.');
 
     await expect(
       service.movePlayer('EXIST', { direction: 'north' } as MovePlayerInput),

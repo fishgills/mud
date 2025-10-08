@@ -36,9 +36,11 @@ describe('Player DTOs', () => {
     it('should define a valid move DTO with direction', () => {
       const dto: MovePlayerDto = {
         direction: 'north',
+        distance: 3,
       };
 
       expect(dto.direction).toBe('north');
+      expect(dto.distance).toBe(3);
       expect(dto.x).toBeUndefined();
       expect(dto.y).toBeUndefined();
     });
@@ -52,12 +54,14 @@ describe('Player DTOs', () => {
       expect(dto.x).toBe(15);
       expect(dto.y).toBe(25);
       expect(dto.direction).toBeUndefined();
+      expect(dto.distance).toBeUndefined();
     });
 
     it('should allow empty DTO', () => {
       const dto: MovePlayerDto = {};
 
       expect(dto.direction).toBeUndefined();
+      expect(dto.distance).toBeUndefined();
       expect(dto.x).toBeUndefined();
       expect(dto.y).toBeUndefined();
     });

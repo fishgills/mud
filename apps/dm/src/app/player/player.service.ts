@@ -262,22 +262,34 @@ export class PlayerService {
       newX = moveDto.x as number;
       newY = moveDto.y as number;
     } else if (moveDto.direction) {
+      const requestedDistance = moveDto.distance ?? 1;
+      if (!Number.isInteger(requestedDistance) || requestedDistance < 1) {
+        throw new Error('Distance must be a positive whole number.');
+      }
+      const agility = player.attributes.agility ?? 0;
+      const maxDistance = Math.max(1, agility);
+      if (requestedDistance > maxDistance) {
+        const spaceLabel = maxDistance === 1 ? 'space' : 'spaces';
+        throw new Error(
+          `You can move up to ${maxDistance} ${spaceLabel} based on your agility.`,
+        );
+      }
       switch (moveDto.direction.toLowerCase()) {
         case 'n':
         case 'north':
-          newY += 1;
+          newY += requestedDistance;
           break;
         case 's':
         case 'south':
-          newY -= 1;
+          newY -= requestedDistance;
           break;
         case 'e':
         case 'east':
-          newX += 1;
+          newX += requestedDistance;
           break;
         case 'w':
         case 'west':
-          newX -= 1;
+          newX -= requestedDistance;
           break;
         default:
           throw new Error('Invalid direction. Use n, s, e, w');
