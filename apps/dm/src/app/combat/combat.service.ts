@@ -183,39 +183,54 @@ export class CombatService {
     const attackerIsYou = secondPersonName === round.attackerName;
     const defenderIsYou = secondPersonName === round.defenderName;
 
+    const formatModifier = (value: number): string =>
+      value >= 0 ? `+ ${value}` : `- ${Math.abs(value)}`;
+
+    const attackDetails = `Attack: d20 ${round.attackRoll} ${formatModifier(
+      round.attackModifier,
+    )} = ${round.totalAttack} vs AC ${round.defenderAC} (${round.hit ? 'HIT' : 'MISS'})`;
+
+    const damageDetails = round.hit
+      ? `Damage: ${round.damage}${round.killed ? ' (defeated)' : ''}`
+      : null;
+
+    const mathDetails = damageDetails
+      ? `${attackDetails}; ${damageDetails}`
+      : attackDetails;
+
     if (round.hit) {
       if (attackerIsYou) {
         const base = `You strike ${round.defenderName} for ${round.damage} damage`;
         if (round.killed) {
-          return `${base}, defeating them!`;
+          return `${base}, defeating them! _(${mathDetails})_`;
         }
-        return `${base}!`;
+        return `${base}! _(${mathDetails})_`;
       }
 
       if (defenderIsYou) {
         const base = `${round.attackerName} hits you for ${round.damage} damage`;
         if (round.killed) {
-          return `${base}, leaving you defeated!`;
+          return `${base}, leaving you defeated! _(${mathDetails})_`;
         }
-        return `${base}!`;
+        return `${base}! _(${mathDetails})_`;
       }
 
       const base = `${round.attackerName} hits ${round.defenderName} for ${round.damage} damage`;
       if (round.killed) {
-        return `${base}, slaying them!`;
+        return `${base}, slaying them! _(${mathDetails})_`;
       }
-      return `${base}!`;
+      return `${base}! _(${mathDetails})_`;
     }
 
     if (attackerIsYou) {
-      return `You swing at ${round.defenderName} but miss.`;
+      return `You swing at ${round.defenderName} but miss. _(${mathDetails})_`;
     }
 
     if (defenderIsYou) {
-      return `${round.attackerName} swings at you but misses.`;
+      return `${round.attackerName} swings at you but misses. _(${mathDetails})_`;
     }
 
-    return `${round.attackerName} swings at ${round.defenderName} but misses.`;
+    return `${round.attackerName} swings at ${round.defenderName} but misses. _(${mathDetails})_`;
   }
 
   private createFallbackNarrative(
