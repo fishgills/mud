@@ -898,6 +898,32 @@ describe('moveHandler', () => {
     });
   });
 
+  it('moves multiple spaces when requested and reports the distance', async () => {
+    const say = makeSay();
+    mockedDmSdk.MovePlayer.mockResolvedValueOnce({
+      movePlayer: {
+        success: true,
+        player: { x: 4, y: 2 },
+        monsters: [],
+        playersAtLocation: [],
+      },
+    });
+
+    await moveHandler({
+      userId: 'U1',
+      text: 'move north 3',
+      say,
+    } as HandlerContext);
+
+    expect(mockedDmSdk.MovePlayer).toHaveBeenCalledWith({
+      slackId: toClientId('U1'),
+      input: { direction: Direction.North, distance: 3 },
+    });
+    expect(say).toHaveBeenCalledWith({
+      text: 'You moved north 3 spaces. You are now at (4, 2).',
+    });
+  });
+
   it('moves directly to coordinates', async () => {
     const say = makeSay();
     mockedDmSdk.MovePlayer.mockResolvedValueOnce({

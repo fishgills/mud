@@ -72,6 +72,9 @@ export class MovePlayerInput {
   direction?: Direction;
 
   @Field(() => Int, { nullable: true })
+  distance?: number;
+
+  @Field(() => Int, { nullable: true })
   x?: number;
 
   @Field(() => Int, { nullable: true })

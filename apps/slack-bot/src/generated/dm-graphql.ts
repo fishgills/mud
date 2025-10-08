@@ -2,21 +2,34 @@ import { GraphQLClient, RequestOptions } from 'graphql-request';
 import gql from 'graphql-tag';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
-export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
-export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
-export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
-export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
-export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
+export type Exact<T extends { [key: string]: unknown }> = {
+  [K in keyof T]: T[K];
+};
+export type MakeOptional<T, K extends keyof T> = Omit<T, K> & {
+  [SubKey in K]?: Maybe<T[SubKey]>;
+};
+export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & {
+  [SubKey in K]: Maybe<T[SubKey]>;
+};
+export type MakeEmpty<
+  T extends { [key: string]: unknown },
+  K extends keyof T,
+> = { [_ in K]?: never };
+export type Incremental<T> =
+  | T
+  | {
+      [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never;
+    };
 type GraphQLClientRequestHeaders = RequestOptions['requestHeaders'];
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
-  ID: { input: string; output: string; }
-  String: { input: string; output: string; }
-  Boolean: { input: boolean; output: boolean; }
-  Int: { input: number; output: number; }
-  Float: { input: number; output: number; }
+  ID: { input: string; output: string };
+  String: { input: string; output: string };
+  Boolean: { input: boolean; output: boolean };
+  Int: { input: number; output: number };
+  Float: { input: number; output: number };
   /** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
-  DateTime: { input: any; output: any; }
+  DateTime: { input: any; output: any };
 };
 
 export type AttackInput = {
@@ -116,7 +129,7 @@ export enum Direction {
   East = 'EAST',
   North = 'NORTH',
   South = 'SOUTH',
-  West = 'WEST'
+  West = 'WEST',
 }
 
 export type GameState = {
@@ -210,6 +223,7 @@ export type MonsterResponse = {
 
 export type MovePlayerInput = {
   direction?: InputMaybe<Direction>;
+  distance?: InputMaybe<Scalars['Int']['input']>;
   x?: InputMaybe<Scalars['Int']['input']>;
   y?: InputMaybe<Scalars['Int']['input']>;
 };
@@ -231,61 +245,50 @@ export type Mutation = {
   updatePlayerStats: PlayerResponse;
 };
 
-
 export type MutationAttackArgs = {
   input: AttackInput;
   slackId: Scalars['String']['input'];
 };
 
-
 export type MutationCreatePlayerArgs = {
   input: CreatePlayerInput;
 };
-
 
 export type MutationDamagePlayerArgs = {
   damage: Scalars['Float']['input'];
   slackId: Scalars['String']['input'];
 };
 
-
 export type MutationDeletePlayerArgs = {
   slackId: Scalars['String']['input'];
 };
-
 
 export type MutationHealPlayerArgs = {
   amount: Scalars['Float']['input'];
   slackId: Scalars['String']['input'];
 };
 
-
 export type MutationMovePlayerArgs = {
   input: MovePlayerInput;
   slackId: Scalars['String']['input'];
 };
 
-
 export type MutationRerollPlayerStatsArgs = {
   slackId: Scalars['String']['input'];
 };
-
 
 export type MutationRespawnArgs = {
   slackId: Scalars['String']['input'];
 };
 
-
 export type MutationSpawnMonsterArgs = {
   input: SpawnMonsterInput;
 };
-
 
 export type MutationSpendSkillPointArgs = {
   attribute: PlayerAttribute;
   slackId: Scalars['String']['input'];
 };
-
 
 export type MutationUpdatePlayerStatsArgs = {
   input: PlayerStatsInput;
@@ -346,7 +349,7 @@ export type Player = {
 export enum PlayerAttribute {
   Agility = 'AGILITY',
   Health = 'HEALTH',
-  Strength = 'STRENGTH'
+  Strength = 'STRENGTH',
 }
 
 export type PlayerMoveResponse = {
@@ -402,29 +405,24 @@ export type Query = {
   health: HealthCheck;
 };
 
-
 export type QueryGetLookViewArgs = {
   slackId: Scalars['String']['input'];
 };
-
 
 export type QueryGetMonstersAtLocationArgs = {
   x: Scalars['Float']['input'];
   y: Scalars['Float']['input'];
 };
 
-
 export type QueryGetPlayerArgs = {
   name?: InputMaybe<Scalars['String']['input']>;
   slackId?: InputMaybe<Scalars['String']['input']>;
 };
 
-
 export type QueryGetPlayerStatsArgs = {
   name?: InputMaybe<Scalars['String']['input']>;
   slackId?: InputMaybe<Scalars['String']['input']>;
 };
-
 
 export type QueryGetPlayersAtLocationArgs = {
   x: Scalars['Float']['input'];
@@ -445,7 +443,7 @@ export type SuccessResponse = {
 
 export enum TargetType {
   Monster = 'MONSTER',
-  Player = 'PLAYER'
+  Player = 'PLAYER',
 }
 
 export type TickResult = {
@@ -493,431 +491,908 @@ export type MovePlayerMutationVariables = Exact<{
   input: MovePlayerInput;
 }>;
 
-
-export type MovePlayerMutation = { __typename?: 'Mutation', movePlayer: { __typename?: 'PlayerMoveResponse', success: boolean, message?: string | null, monsters: Array<{ __typename?: 'Monster', name: string, id: string }>, playersAtLocation: Array<{ __typename?: 'Player', name: string, level: number }>, player: { __typename?: 'Player', x: number, y: number } } };
+export type MovePlayerMutation = {
+  __typename?: 'Mutation';
+  movePlayer: {
+    __typename?: 'PlayerMoveResponse';
+    success: boolean;
+    message?: string | null;
+    monsters: Array<{ __typename?: 'Monster'; name: string; id: string }>;
+    playersAtLocation: Array<{
+      __typename?: 'Player';
+      name: string;
+      level: number;
+    }>;
+    player: { __typename?: 'Player'; x: number; y: number };
+  };
+};
 
 export type AttackMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
   input: AttackInput;
 }>;
 
-
-export type AttackMutation = { __typename?: 'Mutation', attack: { __typename?: 'CombatResponse', success: boolean, message?: string | null, data?: { __typename?: 'CombatResult', winnerName: string, loserName: string, totalDamageDealt: number, roundsCompleted: number, xpGained: number, goldGained: number, message: string, success: boolean, playerMessages: Array<{ __typename?: 'CombatPlayerMessage', slackId: string, name: string, message: string }> } | null } };
+export type AttackMutation = {
+  __typename?: 'Mutation';
+  attack: {
+    __typename?: 'CombatResponse';
+    success: boolean;
+    message?: string | null;
+    data?: {
+      __typename?: 'CombatResult';
+      winnerName: string;
+      loserName: string;
+      totalDamageDealt: number;
+      roundsCompleted: number;
+      xpGained: number;
+      goldGained: number;
+      message: string;
+      success: boolean;
+      playerMessages: Array<{
+        __typename?: 'CombatPlayerMessage';
+        slackId: string;
+        name: string;
+        message: string;
+      }>;
+    } | null;
+  };
+};
 
 export type GetPlayerQueryVariables = Exact<{
   slackId?: InputMaybe<Scalars['String']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
 }>;
 
-
-export type GetPlayerQuery = { __typename?: 'Query', getPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, skillPoints: number, isAlive: boolean, nearbyMonsters?: Array<{ __typename?: 'Monster', id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
+export type GetPlayerQuery = {
+  __typename?: 'Query';
+  getPlayer: {
+    __typename?: 'PlayerResponse';
+    success: boolean;
+    message?: string | null;
+    data?: {
+      __typename?: 'Player';
+      id: string;
+      slackId: string;
+      name: string;
+      x: number;
+      y: number;
+      hp: number;
+      maxHp: number;
+      strength: number;
+      agility: number;
+      health: number;
+      gold: number;
+      xp: number;
+      level: number;
+      skillPoints: number;
+      isAlive: boolean;
+      nearbyMonsters?: Array<{
+        __typename?: 'Monster';
+        id: string;
+        name: string;
+        hp: number;
+        isAlive: boolean;
+      }> | null;
+    } | null;
+  };
+};
 
 export type GetLocationEntitiesQueryVariables = Exact<{
   x: Scalars['Float']['input'];
   y: Scalars['Float']['input'];
 }>;
 
-
-export type GetLocationEntitiesQuery = { __typename?: 'Query', getPlayersAtLocation: Array<{ __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, skillPoints: number, isAlive: boolean }>, getMonstersAtLocation: Array<{ __typename?: 'Monster', id: string, name: string, type: string, hp: number, maxHp: number, strength: number, agility: number, health: number, x: number, y: number, isAlive: boolean }> };
+export type GetLocationEntitiesQuery = {
+  __typename?: 'Query';
+  getPlayersAtLocation: Array<{
+    __typename?: 'Player';
+    id: string;
+    slackId: string;
+    name: string;
+    x: number;
+    y: number;
+    hp: number;
+    maxHp: number;
+    strength: number;
+    agility: number;
+    health: number;
+    gold: number;
+    xp: number;
+    level: number;
+    skillPoints: number;
+    isAlive: boolean;
+  }>;
+  getMonstersAtLocation: Array<{
+    __typename?: 'Monster';
+    id: string;
+    name: string;
+    type: string;
+    hp: number;
+    maxHp: number;
+    strength: number;
+    agility: number;
+    health: number;
+    x: number;
+    y: number;
+    isAlive: boolean;
+  }>;
+};
 
 export type GetPlayerWithLocationQueryVariables = Exact<{
   slackId: Scalars['String']['input'];
 }>;
 
-
-export type GetPlayerWithLocationQuery = { __typename?: 'Query', getPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, skillPoints: number, isAlive: boolean, nearbyMonsters?: Array<{ __typename?: 'Monster', id: string, name: string, hp: number, isAlive: boolean }> | null, currentTile?: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number } | null, nearbyPlayers?: Array<{ __typename?: 'Player', id: string, name: string, hp: number, isAlive: boolean }> | null } | null } };
+export type GetPlayerWithLocationQuery = {
+  __typename?: 'Query';
+  getPlayer: {
+    __typename?: 'PlayerResponse';
+    success: boolean;
+    message?: string | null;
+    data?: {
+      __typename?: 'Player';
+      id: string;
+      slackId: string;
+      name: string;
+      x: number;
+      y: number;
+      hp: number;
+      maxHp: number;
+      strength: number;
+      agility: number;
+      health: number;
+      gold: number;
+      xp: number;
+      level: number;
+      skillPoints: number;
+      isAlive: boolean;
+      nearbyMonsters?: Array<{
+        __typename?: 'Monster';
+        id: string;
+        name: string;
+        hp: number;
+        isAlive: boolean;
+      }> | null;
+      currentTile?: {
+        __typename?: 'TileInfo';
+        x: number;
+        y: number;
+        biomeName: string;
+        description?: string | null;
+        height: number;
+        temperature: number;
+        moisture: number;
+      } | null;
+      nearbyPlayers?: Array<{
+        __typename?: 'Player';
+        id: string;
+        name: string;
+        hp: number;
+        isAlive: boolean;
+      }> | null;
+    } | null;
+  };
+};
 
 export type GetLookViewQueryVariables = Exact<{
   slackId: Scalars['String']['input'];
 }>;
 
-
-export type GetLookViewQuery = { __typename?: 'Query', getLookView: { __typename?: 'LookViewResponse', success: boolean, message?: string | null, data?: { __typename?: 'LookViewData', visibilityRadius: number, description: string, location: { __typename?: 'TileInfo', x: number, y: number, biomeName: string, description?: string | null, height: number, temperature: number, moisture: number }, currentSettlement?: { __typename?: 'CurrentSettlementInfo', name: string, type: string, size: string, intensity: number, isCenter: boolean } | null, monsters?: Array<{ __typename?: 'Monster', id: string, name: string }> | null, biomeSummary: Array<{ __typename?: 'BiomeSectorSummary', biomeName: string, proportion: number, predominantDirections: Array<string> }>, visiblePeaks: Array<{ __typename?: 'VisiblePeakInfo', x: number, y: number, height: number, distance: number, direction: string }>, visibleSettlements: Array<{ __typename?: 'VisibleSettlementInfo', name: string, type: string, size: string, distance: number, direction: string }>, nearbyPlayers?: Array<{ __typename?: 'NearbyPlayerInfo', distance: number, direction: string, x: number, y: number }> | null } | null } };
+export type GetLookViewQuery = {
+  __typename?: 'Query';
+  getLookView: {
+    __typename?: 'LookViewResponse';
+    success: boolean;
+    message?: string | null;
+    data?: {
+      __typename?: 'LookViewData';
+      visibilityRadius: number;
+      description: string;
+      location: {
+        __typename?: 'TileInfo';
+        x: number;
+        y: number;
+        biomeName: string;
+        description?: string | null;
+        height: number;
+        temperature: number;
+        moisture: number;
+      };
+      currentSettlement?: {
+        __typename?: 'CurrentSettlementInfo';
+        name: string;
+        type: string;
+        size: string;
+        intensity: number;
+        isCenter: boolean;
+      } | null;
+      monsters?: Array<{
+        __typename?: 'Monster';
+        id: string;
+        name: string;
+      }> | null;
+      biomeSummary: Array<{
+        __typename?: 'BiomeSectorSummary';
+        biomeName: string;
+        proportion: number;
+        predominantDirections: Array<string>;
+      }>;
+      visiblePeaks: Array<{
+        __typename?: 'VisiblePeakInfo';
+        x: number;
+        y: number;
+        height: number;
+        distance: number;
+        direction: string;
+      }>;
+      visibleSettlements: Array<{
+        __typename?: 'VisibleSettlementInfo';
+        name: string;
+        type: string;
+        size: string;
+        distance: number;
+        direction: string;
+      }>;
+      nearbyPlayers?: Array<{
+        __typename?: 'NearbyPlayerInfo';
+        distance: number;
+        direction: string;
+        x: number;
+        y: number;
+      }> | null;
+    } | null;
+  };
+};
 
 export type CreatePlayerMutationVariables = Exact<{
   input: CreatePlayerInput;
 }>;
 
-
-export type CreatePlayerMutation = { __typename?: 'Mutation', createPlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, skillPoints: number, isAlive: boolean, updatedAt: any } | null } };
+export type CreatePlayerMutation = {
+  __typename?: 'Mutation';
+  createPlayer: {
+    __typename?: 'PlayerResponse';
+    success: boolean;
+    message?: string | null;
+    data?: {
+      __typename?: 'Player';
+      id: string;
+      slackId: string;
+      name: string;
+      x: number;
+      y: number;
+      hp: number;
+      maxHp: number;
+      strength: number;
+      agility: number;
+      health: number;
+      gold: number;
+      xp: number;
+      level: number;
+      skillPoints: number;
+      isAlive: boolean;
+      updatedAt: any;
+    } | null;
+  };
+};
 
 export type SpendSkillPointMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
   attribute: PlayerAttribute;
 }>;
 
-
-export type SpendSkillPointMutation = { __typename?: 'Mutation', spendSkillPoint: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, x: number, y: number, hp: number, maxHp: number, strength: number, agility: number, health: number, gold: number, xp: number, level: number, skillPoints: number, isAlive: boolean } | null } };
+export type SpendSkillPointMutation = {
+  __typename?: 'Mutation';
+  spendSkillPoint: {
+    __typename?: 'PlayerResponse';
+    success: boolean;
+    message?: string | null;
+    data?: {
+      __typename?: 'Player';
+      id: string;
+      slackId: string;
+      name: string;
+      x: number;
+      y: number;
+      hp: number;
+      maxHp: number;
+      strength: number;
+      agility: number;
+      health: number;
+      gold: number;
+      xp: number;
+      level: number;
+      skillPoints: number;
+      isAlive: boolean;
+    } | null;
+  };
+};
 
 export type RerollPlayerStatsMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
 }>;
 
-
-export type RerollPlayerStatsMutation = { __typename?: 'Mutation', rerollPlayerStats: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, strength: number, agility: number, health: number, maxHp: number } | null } };
+export type RerollPlayerStatsMutation = {
+  __typename?: 'Mutation';
+  rerollPlayerStats: {
+    __typename?: 'PlayerResponse';
+    success: boolean;
+    message?: string | null;
+    data?: {
+      __typename?: 'Player';
+      id: string;
+      slackId: string;
+      name: string;
+      strength: number;
+      agility: number;
+      health: number;
+      maxHp: number;
+    } | null;
+  };
+};
 
 export type CompletePlayerMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
 }>;
 
-
-export type CompletePlayerMutation = { __typename?: 'Mutation', updatePlayerStats: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string, isAlive: boolean } | null } };
+export type CompletePlayerMutation = {
+  __typename?: 'Mutation';
+  updatePlayerStats: {
+    __typename?: 'PlayerResponse';
+    success: boolean;
+    message?: string | null;
+    data?: {
+      __typename?: 'Player';
+      id: string;
+      slackId: string;
+      name: string;
+      isAlive: boolean;
+    } | null;
+  };
+};
 
 export type DeletePlayerMutationVariables = Exact<{
   slackId: Scalars['String']['input'];
 }>;
 
-
-export type DeletePlayerMutation = { __typename?: 'Mutation', deletePlayer: { __typename?: 'PlayerResponse', success: boolean, message?: string | null, data?: { __typename?: 'Player', id: string, slackId: string, name: string } | null } };
-
+export type DeletePlayerMutation = {
+  __typename?: 'Mutation';
+  deletePlayer: {
+    __typename?: 'PlayerResponse';
+    success: boolean;
+    message?: string | null;
+    data?: {
+      __typename?: 'Player';
+      id: string;
+      slackId: string;
+      name: string;
+    } | null;
+  };
+};
 
 export const MovePlayerDocument = gql`
-    mutation MovePlayer($slackId: String!, $input: MovePlayerInput!) {
-  movePlayer(slackId: $slackId, input: $input) {
-    success
-    message
-    monsters {
-      name
-      id
-    }
-    playersAtLocation {
-      name
-      level
-    }
-    player {
-      x
-      y
+  mutation MovePlayer($slackId: String!, $input: MovePlayerInput!) {
+    movePlayer(slackId: $slackId, input: $input) {
+      success
+      message
+      monsters {
+        name
+        id
+      }
+      playersAtLocation {
+        name
+        level
+      }
+      player {
+        x
+        y
+      }
     }
   }
-}
-    `;
+`;
 export const AttackDocument = gql`
-    mutation Attack($slackId: String!, $input: AttackInput!) {
-  attack(slackId: $slackId, input: $input) {
-    success
-    message
-    data {
-      winnerName
-      loserName
-      totalDamageDealt
-      roundsCompleted
-      xpGained
-      goldGained
+  mutation Attack($slackId: String!, $input: AttackInput!) {
+    attack(slackId: $slackId, input: $input) {
+      success
       message
-      playerMessages {
+      data {
+        winnerName
+        loserName
+        totalDamageDealt
+        roundsCompleted
+        xpGained
+        goldGained
+        message
+        playerMessages {
+          slackId
+          name
+          message
+        }
+        success
+      }
+    }
+  }
+`;
+export const GetPlayerDocument = gql`
+  query GetPlayer($slackId: String, $name: String) {
+    getPlayer(slackId: $slackId, name: $name) {
+      success
+      message
+      data {
+        id
         slackId
         name
-        message
-      }
-      success
-    }
-  }
-}
-    `;
-export const GetPlayerDocument = gql`
-    query GetPlayer($slackId: String, $name: String) {
-  getPlayer(slackId: $slackId, name: $name) {
-    success
-    message
-    data {
-      id
-      slackId
-      name
-      x
-      y
-      hp
-      maxHp
-      strength
-      agility
-      health
-      gold
-      xp
-      level
-      skillPoints
-      isAlive
-      nearbyMonsters {
-        id
-        name
+        x
+        y
         hp
+        maxHp
+        strength
+        agility
+        health
+        gold
+        xp
+        level
+        skillPoints
         isAlive
+        nearbyMonsters {
+          id
+          name
+          hp
+          isAlive
+        }
       }
     }
   }
-}
-    `;
+`;
 export const GetLocationEntitiesDocument = gql`
-    query GetLocationEntities($x: Float!, $y: Float!) {
-  getPlayersAtLocation(x: $x, y: $y) {
-    id
-    slackId
-    name
-    x
-    y
-    hp
-    maxHp
-    strength
-    agility
-    health
-    gold
-    xp
-    level
-    skillPoints
-    isAlive
+  query GetLocationEntities($x: Float!, $y: Float!) {
+    getPlayersAtLocation(x: $x, y: $y) {
+      id
+      slackId
+      name
+      x
+      y
+      hp
+      maxHp
+      strength
+      agility
+      health
+      gold
+      xp
+      level
+      skillPoints
+      isAlive
+    }
+    getMonstersAtLocation(x: $x, y: $y) {
+      id
+      name
+      type
+      hp
+      maxHp
+      strength
+      agility
+      health
+      x
+      y
+      isAlive
+    }
   }
-  getMonstersAtLocation(x: $x, y: $y) {
-    id
-    name
-    type
-    hp
-    maxHp
-    strength
-    agility
-    health
-    x
-    y
-    isAlive
-  }
-}
-    `;
+`;
 export const GetPlayerWithLocationDocument = gql`
-    query GetPlayerWithLocation($slackId: String!) {
-  getPlayer(slackId: $slackId) {
-    success
-    message
-    data {
-      id
-      slackId
-      name
-      x
-      y
-      hp
-      maxHp
-      strength
-      agility
-      health
-      gold
-      xp
-      level
-      skillPoints
-      isAlive
-      nearbyMonsters {
+  query GetPlayerWithLocation($slackId: String!) {
+    getPlayer(slackId: $slackId) {
+      success
+      message
+      data {
         id
+        slackId
         name
-        hp
-        isAlive
-      }
-      currentTile {
         x
         y
-        biomeName
-        description
-        height
-        temperature
-        moisture
-      }
-      nearbyPlayers {
-        id
-        name
         hp
+        maxHp
+        strength
+        agility
+        health
+        gold
+        xp
+        level
+        skillPoints
         isAlive
+        nearbyMonsters {
+          id
+          name
+          hp
+          isAlive
+        }
+        currentTile {
+          x
+          y
+          biomeName
+          description
+          height
+          temperature
+          moisture
+        }
+        nearbyPlayers {
+          id
+          name
+          hp
+          isAlive
+        }
       }
     }
   }
-}
-    `;
+`;
 export const GetLookViewDocument = gql`
-    query GetLookView($slackId: String!) {
-  getLookView(slackId: $slackId) {
-    success
-    message
-    data {
-      location {
-        x
-        y
-        biomeName
+  query GetLookView($slackId: String!) {
+    getLookView(slackId: $slackId) {
+      success
+      message
+      data {
+        location {
+          x
+          y
+          biomeName
+          description
+          height
+          temperature
+          moisture
+        }
+        currentSettlement {
+          name
+          type
+          size
+          intensity
+          isCenter
+        }
+        monsters {
+          id
+          name
+        }
+        visibilityRadius
+        biomeSummary {
+          biomeName
+          proportion
+          predominantDirections
+        }
+        visiblePeaks {
+          x
+          y
+          height
+          distance
+          direction
+        }
+        visibleSettlements {
+          name
+          type
+          size
+          distance
+          direction
+        }
+        nearbyPlayers {
+          distance
+          direction
+          x
+          y
+        }
         description
-        height
-        temperature
-        moisture
       }
-      currentSettlement {
-        name
-        type
-        size
-        intensity
-        isCenter
-      }
-      monsters {
-        id
-        name
-      }
-      visibilityRadius
-      biomeSummary {
-        biomeName
-        proportion
-        predominantDirections
-      }
-      visiblePeaks {
-        x
-        y
-        height
-        distance
-        direction
-      }
-      visibleSettlements {
-        name
-        type
-        size
-        distance
-        direction
-      }
-      nearbyPlayers {
-        distance
-        direction
-        x
-        y
-      }
-      description
     }
   }
-}
-    `;
+`;
 export const CreatePlayerDocument = gql`
-    mutation CreatePlayer($input: CreatePlayerInput!) {
-  createPlayer(input: $input) {
-    success
-    message
-    data {
-      id
-      slackId
-      name
-      x
-      y
-      hp
-      maxHp
-      strength
-      agility
-      health
-      gold
-      xp
-      level
-      skillPoints
-      isAlive
-      updatedAt
+  mutation CreatePlayer($input: CreatePlayerInput!) {
+    createPlayer(input: $input) {
+      success
+      message
+      data {
+        id
+        slackId
+        name
+        x
+        y
+        hp
+        maxHp
+        strength
+        agility
+        health
+        gold
+        xp
+        level
+        skillPoints
+        isAlive
+        updatedAt
+      }
     }
   }
-}
-    `;
+`;
 export const SpendSkillPointDocument = gql`
-    mutation SpendSkillPoint($slackId: String!, $attribute: PlayerAttribute!) {
-  spendSkillPoint(slackId: $slackId, attribute: $attribute) {
-    success
-    message
-    data {
-      id
-      slackId
-      name
-      x
-      y
-      hp
-      maxHp
-      strength
-      agility
-      health
-      gold
-      xp
-      level
-      skillPoints
-      isAlive
+  mutation SpendSkillPoint($slackId: String!, $attribute: PlayerAttribute!) {
+    spendSkillPoint(slackId: $slackId, attribute: $attribute) {
+      success
+      message
+      data {
+        id
+        slackId
+        name
+        x
+        y
+        hp
+        maxHp
+        strength
+        agility
+        health
+        gold
+        xp
+        level
+        skillPoints
+        isAlive
+      }
     }
   }
-}
-    `;
+`;
 export const RerollPlayerStatsDocument = gql`
-    mutation RerollPlayerStats($slackId: String!) {
-  rerollPlayerStats(slackId: $slackId) {
-    success
-    message
-    data {
-      id
-      slackId
-      name
-      strength
-      agility
-      health
-      maxHp
+  mutation RerollPlayerStats($slackId: String!) {
+    rerollPlayerStats(slackId: $slackId) {
+      success
+      message
+      data {
+        id
+        slackId
+        name
+        strength
+        agility
+        health
+        maxHp
+      }
     }
   }
-}
-    `;
+`;
 export const CompletePlayerDocument = gql`
-    mutation CompletePlayer($slackId: String!) {
-  updatePlayerStats(slackId: $slackId, input: {hp: 10}) {
-    success
-    message
-    data {
-      id
-      slackId
-      name
-      isAlive
+  mutation CompletePlayer($slackId: String!) {
+    updatePlayerStats(slackId: $slackId, input: { hp: 10 }) {
+      success
+      message
+      data {
+        id
+        slackId
+        name
+        isAlive
+      }
     }
   }
-}
-    `;
+`;
 export const DeletePlayerDocument = gql`
-    mutation DeletePlayer($slackId: String!) {
-  deletePlayer(slackId: $slackId) {
-    success
-    message
-    data {
-      id
-      slackId
-      name
+  mutation DeletePlayer($slackId: String!) {
+    deletePlayer(slackId: $slackId) {
+      success
+      message
+      data {
+        id
+        slackId
+        name
+      }
     }
   }
-}
-    `;
+`;
 
-export type SdkFunctionWrapper = <T>(action: (requestHeaders?:Record<string, string>) => Promise<T>, operationName: string, operationType?: string, variables?: any) => Promise<T>;
+export type SdkFunctionWrapper = <T>(
+  action: (requestHeaders?: Record<string, string>) => Promise<T>,
+  operationName: string,
+  operationType?: string,
+  variables?: any,
+) => Promise<T>;
 
+const defaultWrapper: SdkFunctionWrapper = (
+  action,
+  _operationName,
+  _operationType,
+  _variables,
+) => action();
 
-const defaultWrapper: SdkFunctionWrapper = (action, _operationName, _operationType, _variables) => action();
-
-export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = defaultWrapper) {
+export function getSdk(
+  client: GraphQLClient,
+  withWrapper: SdkFunctionWrapper = defaultWrapper,
+) {
   return {
-    MovePlayer(variables: MovePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<MovePlayerMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<MovePlayerMutation>({ document: MovePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'MovePlayer', 'mutation', variables);
+    MovePlayer(
+      variables: MovePlayerMutationVariables,
+      requestHeaders?: GraphQLClientRequestHeaders,
+      signal?: RequestInit['signal'],
+    ): Promise<MovePlayerMutation> {
+      return withWrapper(
+        (wrappedRequestHeaders) =>
+          client.request<MovePlayerMutation>({
+            document: MovePlayerDocument,
+            variables,
+            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
+            signal,
+          }),
+        'MovePlayer',
+        'mutation',
+        variables,
+      );
     },
-    Attack(variables: AttackMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<AttackMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<AttackMutation>({ document: AttackDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'Attack', 'mutation', variables);
+    Attack(
+      variables: AttackMutationVariables,
+      requestHeaders?: GraphQLClientRequestHeaders,
+      signal?: RequestInit['signal'],
+    ): Promise<AttackMutation> {
+      return withWrapper(
+        (wrappedRequestHeaders) =>
+          client.request<AttackMutation>({
+            document: AttackDocument,
+            variables,
+            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
+            signal,
+          }),
+        'Attack',
+        'mutation',
+        variables,
+      );
     },
-    GetPlayer(variables?: GetPlayerQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetPlayerQuery> {
-      return withWrapper((wrappedRequestHeaders) => client.request<GetPlayerQuery>({ document: GetPlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetPlayer', 'query', variables);
+    GetPlayer(
+      variables?: GetPlayerQueryVariables,
+      requestHeaders?: GraphQLClientRequestHeaders,
+      signal?: RequestInit['signal'],
+    ): Promise<GetPlayerQuery> {
+      return withWrapper(
+        (wrappedRequestHeaders) =>
+          client.request<GetPlayerQuery>({
+            document: GetPlayerDocument,
+            variables,
+            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
+            signal,
+          }),
+        'GetPlayer',
+        'query',
+        variables,
+      );
     },
-    GetLocationEntities(variables: GetLocationEntitiesQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetLocationEntitiesQuery> {
-      return withWrapper((wrappedRequestHeaders) => client.request<GetLocationEntitiesQuery>({ document: GetLocationEntitiesDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetLocationEntities', 'query', variables);
+    GetLocationEntities(
+      variables: GetLocationEntitiesQueryVariables,
+      requestHeaders?: GraphQLClientRequestHeaders,
+      signal?: RequestInit['signal'],
+    ): Promise<GetLocationEntitiesQuery> {
+      return withWrapper(
+        (wrappedRequestHeaders) =>
+          client.request<GetLocationEntitiesQuery>({
+            document: GetLocationEntitiesDocument,
+            variables,
+            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
+            signal,
+          }),
+        'GetLocationEntities',
+        'query',
+        variables,
+      );
     },
-    GetPlayerWithLocation(variables: GetPlayerWithLocationQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetPlayerWithLocationQuery> {
-      return withWrapper((wrappedRequestHeaders) => client.request<GetPlayerWithLocationQuery>({ document: GetPlayerWithLocationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetPlayerWithLocation', 'query', variables);
+    GetPlayerWithLocation(
+      variables: GetPlayerWithLocationQueryVariables,
+      requestHeaders?: GraphQLClientRequestHeaders,
+      signal?: RequestInit['signal'],
+    ): Promise<GetPlayerWithLocationQuery> {
+      return withWrapper(
+        (wrappedRequestHeaders) =>
+          client.request<GetPlayerWithLocationQuery>({
+            document: GetPlayerWithLocationDocument,
+            variables,
+            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
+            signal,
+          }),
+        'GetPlayerWithLocation',
+        'query',
+        variables,
+      );
     },
-    GetLookView(variables: GetLookViewQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GetLookViewQuery> {
-      return withWrapper((wrappedRequestHeaders) => client.request<GetLookViewQuery>({ document: GetLookViewDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GetLookView', 'query', variables);
+    GetLookView(
+      variables: GetLookViewQueryVariables,
+      requestHeaders?: GraphQLClientRequestHeaders,
+      signal?: RequestInit['signal'],
+    ): Promise<GetLookViewQuery> {
+      return withWrapper(
+        (wrappedRequestHeaders) =>
+          client.request<GetLookViewQuery>({
+            document: GetLookViewDocument,
+            variables,
+            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
+            signal,
+          }),
+        'GetLookView',
+        'query',
+        variables,
+      );
     },
-    CreatePlayer(variables: CreatePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<CreatePlayerMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<CreatePlayerMutation>({ document: CreatePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CreatePlayer', 'mutation', variables);
+    CreatePlayer(
+      variables: CreatePlayerMutationVariables,
+      requestHeaders?: GraphQLClientRequestHeaders,
+      signal?: RequestInit['signal'],
+    ): Promise<CreatePlayerMutation> {
+      return withWrapper(
+        (wrappedRequestHeaders) =>
+          client.request<CreatePlayerMutation>({
+            document: CreatePlayerDocument,
+            variables,
+            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
+            signal,
+          }),
+        'CreatePlayer',
+        'mutation',
+        variables,
+      );
     },
-    SpendSkillPoint(variables: SpendSkillPointMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<SpendSkillPointMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<SpendSkillPointMutation>({ document: SpendSkillPointDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'SpendSkillPoint', 'mutation', variables);
+    SpendSkillPoint(
+      variables: SpendSkillPointMutationVariables,
+      requestHeaders?: GraphQLClientRequestHeaders,
+      signal?: RequestInit['signal'],
+    ): Promise<SpendSkillPointMutation> {
+      return withWrapper(
+        (wrappedRequestHeaders) =>
+          client.request<SpendSkillPointMutation>({
+            document: SpendSkillPointDocument,
+            variables,
+            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
+            signal,
+          }),
+        'SpendSkillPoint',
+        'mutation',
+        variables,
+      );
     },
-    RerollPlayerStats(variables: RerollPlayerStatsMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RerollPlayerStatsMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<RerollPlayerStatsMutation>({ document: RerollPlayerStatsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RerollPlayerStats', 'mutation', variables);
+    RerollPlayerStats(
+      variables: RerollPlayerStatsMutationVariables,
+      requestHeaders?: GraphQLClientRequestHeaders,
+      signal?: RequestInit['signal'],
+    ): Promise<RerollPlayerStatsMutation> {
+      return withWrapper(
+        (wrappedRequestHeaders) =>
+          client.request<RerollPlayerStatsMutation>({
+            document: RerollPlayerStatsDocument,
+            variables,
+            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
+            signal,
+          }),
+        'RerollPlayerStats',
+        'mutation',
+        variables,
+      );
     },
-    CompletePlayer(variables: CompletePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<CompletePlayerMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<CompletePlayerMutation>({ document: CompletePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CompletePlayer', 'mutation', variables);
+    CompletePlayer(
+      variables: CompletePlayerMutationVariables,
+      requestHeaders?: GraphQLClientRequestHeaders,
+      signal?: RequestInit['signal'],
+    ): Promise<CompletePlayerMutation> {
+      return withWrapper(
+        (wrappedRequestHeaders) =>
+          client.request<CompletePlayerMutation>({
+            document: CompletePlayerDocument,
+            variables,
+            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
+            signal,
+          }),
+        'CompletePlayer',
+        'mutation',
+        variables,
+      );
     },
-    DeletePlayer(variables: DeletePlayerMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<DeletePlayerMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<DeletePlayerMutation>({ document: DeletePlayerDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'DeletePlayer', 'mutation', variables);
-    }
+    DeletePlayer(
+      variables: DeletePlayerMutationVariables,
+      requestHeaders?: GraphQLClientRequestHeaders,
+      signal?: RequestInit['signal'],
+    ): Promise<DeletePlayerMutation> {
+      return withWrapper(
+        (wrappedRequestHeaders) =>
+          client.request<DeletePlayerMutation>({
+            document: DeletePlayerDocument,
+            variables,
+            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
+            signal,
+          }),
+        'DeletePlayer',
+        'mutation',
+        variables,
+      );
+    },
   };
 }
 export type Sdk = ReturnType<typeof getSdk>;

@@ -9,6 +9,7 @@ export interface CreatePlayerDto {
 
 export interface MovePlayerDto {
   direction?: string;
+  distance?: number;
   x?: number;
   y?: number;
 }
