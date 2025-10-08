@@ -3,7 +3,7 @@ import type { PlayerEntity } from '@mud/engine';
 import type { EventBridgeService } from '../../shared/event-bridge.service';
 import type { PlayerService } from '../player/player.service';
 import type { AiService } from '../../openai/ai.service';
-import type { DetailedCombatLog } from '../graphql';
+import type { CombatRound, DetailedCombatLog } from '../graphql';
 
 type MockPrismaClient = {
   combatLog: {
@@ -84,32 +84,31 @@ describe('CombatService helpers', () => {
   it('describes combat rounds from the second-person perspective', () => {
     const { service } = createHelperService();
     const describeRound = accessPrivate<
-      (
-        round: {
-          roundNumber: number;
-          attackerName: string;
-          defenderName: string;
-          hit: boolean;
-          damage: number;
-          killed: boolean;
-        },
-        options?: { secondPersonName?: string },
-      ) => string
+      (round: CombatRound, options?: { secondPersonName?: string }) => string
     >(service, 'describeRound').bind(service);
 
-    const hitRound = {
+    const hitRound: CombatRound = {
       roundNumber: 1,
       attackerName: 'Hero',
       defenderName: 'Goblin',
+      attackRoll: 15,
+      attackModifier: 2,
+      totalAttack: 17,
+      defenderAC: 12,
       hit: true,
       damage: 6,
       killed: false,
+      defenderHpAfter: 4,
     };
 
     expect(describeRound(hitRound, { secondPersonName: 'Hero' })).toContain(
       'You strike Goblin',
     );
     expect(describeRound(hitRound)).toContain('Hero hits Goblin');
+    expect(describeRound(hitRound)).toContain(
+      'Attack: d20 15 + 2 = 17 vs AC 12 (HIT)',
+    );
+    expect(describeRound(hitRound)).toContain('Damage: 6');
   });
 
   it('falls back to deterministic combat narrative when AI response is empty', async () => {
@@ -155,6 +154,7 @@ describe('CombatService helpers', () => {
     expect(aiService.getText).toHaveBeenCalled();
     expect(narrative).toContain('**Combat Summary:**');
     expect(narrative).toContain('Round 1:');
+    expect(narrative).toContain('Attack: d20 15 + 2 = 17 vs AC 12 (HIT)');
   });
 
   it('returns combat logs for a location via the prisma client', async () => {
