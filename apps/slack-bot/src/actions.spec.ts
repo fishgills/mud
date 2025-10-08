@@ -151,6 +151,44 @@ describe('registerActions', () => {
     );
   });
 
+  it('sends deep-dive help messages when detail buttons are clicked', async () => {
+    const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+    const client: MockSlackClient = {
+      conversations: {
+        open: jest.fn().mockResolvedValue({
+          channel: { id: 'C1' },
+        }) as ConversationsOpenMock,
+      },
+      chat: createChatMocks(),
+    };
+
+    const detailActions = [
+      { id: HELP_ACTIONS.LEVELING, expected: 'Leveling & Progression' },
+      { id: HELP_ACTIONS.COMBAT, expected: 'Combat Primer' },
+      { id: HELP_ACTIONS.ABILITIES, expected: 'Abilities & Power' },
+    ];
+
+    for (const { id, expected } of detailActions) {
+      client.chat.postMessage.mockClear();
+      client.conversations.open.mockClear();
+
+      await actionHandlers[id]({
+        ack,
+        body: { user: { id: 'U99' } },
+        client,
+      });
+
+      expect(client.conversations.open).toHaveBeenCalledWith({ users: 'U99' });
+      expect(client.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'C1',
+          text: expect.stringContaining(expected),
+        }),
+      );
+    }
+    expect(ack).toHaveBeenCalledTimes(detailActions.length);
+  });
+
   it('sends movement commands when buttons are clicked', async () => {
     const northHandler = jest
       .fn<Promise<void>, [HandlerContext]>()

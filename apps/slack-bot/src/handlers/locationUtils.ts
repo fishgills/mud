@@ -164,8 +164,19 @@ export function sanitizeDescription(text: string): string {
 }
 
 // --- Centralized occupants rendering helpers ---
-import { dmSdk } from '../gql-client';
 import { extractSlackId } from '../utils/clientId';
+
+type DmSdk = (typeof import('../gql-client'))['dmSdk'];
+
+let dmSdkPromise: Promise<DmSdk> | null = null;
+
+const getDmSdk = async (): Promise<DmSdk> => {
+  if (!dmSdkPromise) {
+    dmSdkPromise = import('../gql-client').then((mod) => mod.dmSdk);
+  }
+
+  return dmSdkPromise;
+};
 
 export type NearbyPlayer = {
   id?: string | number;
@@ -211,6 +222,7 @@ export async function getOccupantsSummaryAt(
   y: number,
   currentSlackUserId?: string,
 ): Promise<string | null> {
+  const dmSdk = await getDmSdk();
   const res = await dmSdk.GetLocationEntities({ x, y });
   const players: NearbyPlayer[] = (res.getPlayersAtLocation || [])
     .map((p) => ({
