@@ -21,6 +21,8 @@ export interface PlayerData {
   partyId?: number;
 }
 
+const HIT_DIE_AVERAGE = 6; // Average roll for a d10 hit die (fighter-style class)
+
 export class PlayerEntity extends Character {
   public readonly clientId: string;
   public readonly clientType: ClientType;
@@ -83,9 +85,10 @@ export class PlayerEntity extends Character {
    * Calculate HP gain on level up
    */
   private calculateLevelUpHpGain(): number {
-    const hitDieAverage = 6;
-    const constitutionModifier = Math.floor((this.attributes.health - 10) / 2);
-    return Math.max(1, hitDieAverage + constitutionModifier);
+    const constitutionModifier = this.getConstitutionModifier(
+      this.attributes.health,
+    );
+    return Math.max(1, HIT_DIE_AVERAGE + constitutionModifier);
   }
 
   /**
@@ -100,16 +103,44 @@ export class PlayerEntity extends Character {
       return false; // Max attribute value
     }
 
-    this.attributes[attribute] += 1;
+    const previousValue = this.attributes[attribute];
+    const newValue = previousValue + 1;
+
+    this.attributes[attribute] = newValue;
     this.skillPoints -= 1;
 
-    // Recalculate maxHp if health was increased
+    // Recalculate maxHp if health (vitality) was increased
     if (attribute === 'health') {
-      this.combat.maxHp += 2;
-      this.combat.hp = Math.min(this.combat.hp + 2, this.combat.maxHp);
+      this.applyConstitutionAdjustment(previousValue, newValue);
     }
 
     return true;
+  }
+
+  private getConstitutionModifier(health: number): number {
+    return Math.floor((health - 10) / 2);
+  }
+
+  private applyConstitutionAdjustment(
+    previousHealth: number,
+    newHealth: number,
+  ): void {
+    const previousModifier = this.getConstitutionModifier(previousHealth);
+    const newModifier = this.getConstitutionModifier(newHealth);
+    const modifierDelta = newModifier - previousModifier;
+
+    if (modifierDelta === 0) {
+      return;
+    }
+
+    const hpDelta = modifierDelta * this.level;
+    this.combat.maxHp = Math.max(1, this.combat.maxHp + hpDelta);
+
+    if (hpDelta > 0) {
+      this.combat.hp = Math.min(this.combat.hp + hpDelta, this.combat.maxHp);
+    } else {
+      this.combat.hp = Math.min(this.combat.hp, this.combat.maxHp);
+    }
   }
 
   /**

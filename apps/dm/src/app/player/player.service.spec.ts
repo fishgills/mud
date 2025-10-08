@@ -8,168 +8,170 @@ import {
 
 const players: Record<string, unknown>[] = [];
 
-jest.mock('@mud/database', () => ({
-  getPrismaClient: () => ({
-    player: {
-      findUnique: jest.fn(async ({ where }) => {
-        if (where?.id) {
-          return players.find((p) => p.id === where.id) ?? null;
-        }
-        if (where?.slackId) {
-          return players.find((p) => p.slackId === where.slackId) ?? null;
-        }
-        if (where?.clientId) {
-          return players.find((p) => p.clientId === where.clientId) ?? null;
-        }
-        return null;
-      }),
-      findFirst: jest.fn(async ({ where }) => {
-        if (where.OR) {
-          for (const condition of where.OR) {
-            if (condition.clientId) {
-              const player = players.find(
-                (p) => p.clientId === condition.clientId,
-              );
-              if (player) return player;
-            }
-            if (condition.slackId) {
-              const player = players.find(
-                (p) => p.slackId === condition.slackId,
-              );
-              if (player) return player;
-            }
+jest.mock(
+  '@mud/database',
+  () => ({
+    getPrismaClient: () => ({
+      player: {
+        findUnique: jest.fn(async ({ where }) => {
+          if (where?.id) {
+            return players.find((p) => p.id === where.id) ?? null;
+          }
+          if (where?.slackId) {
+            return players.find((p) => p.slackId === where.slackId) ?? null;
+          }
+          if (where?.clientId) {
+            return players.find((p) => p.clientId === where.clientId) ?? null;
           }
           return null;
-        }
-        // Handle simple where clause
-        if (where.clientId) {
-          return players.find((p) => p.clientId === where.clientId) ?? null;
-        }
-        if (where.slackId) {
-          return players.find((p) => p.slackId === where.slackId) ?? null;
-        }
-        return null;
-      }),
-      findMany: jest.fn(async (args: Record<string, unknown> = {}) => {
-        let result = [...players];
-        const where = args.where ?? {};
-        if (where.isAlive !== undefined) {
-          result = result.filter((p) => p.isAlive === where.isAlive);
-        }
-        if (where.slackId?.not) {
-          result = result.filter((p) => p.slackId !== where.slackId.not);
-        }
-        if (where.x && where.x.gte !== undefined) {
-          result = result.filter(
-            (p) => p.x >= where.x.gte && p.x <= where.x.lte,
-          );
-        }
-        if (where.y && where.y.gte !== undefined) {
-          result = result.filter(
-            (p) => p.y >= where.y.gte && p.y <= where.y.lte,
-          );
-        }
-        if (where.name?.equals) {
-          const equals = where.name.equals.toLowerCase();
-          result = result.filter((p) => p.name.toLowerCase() === equals);
-        }
-        if (
-          where.x === undefined &&
-          where.y === undefined &&
-          where.name === undefined &&
-          where.isAlive === undefined &&
-          where.slackId === undefined &&
-          args.where?.id
-        ) {
-          result = result.filter((p) => p.id === args.where.id);
-        }
-        if (args.select) {
-          return result.map((player) => {
-            const selected: Record<string, unknown> = {};
-            for (const key of Object.keys(args.select)) {
-              if (args.select[key]) {
-                selected[key] = player[key];
-              }
-            }
-            return selected;
-          });
-        }
-        return result;
-      }),
-      count: jest.fn(async (args: Record<string, unknown> = {}) => {
-        let result = [...players];
-        const where = args.where ?? {};
-        if (where.lastAction?.gte) {
-          result = result.filter(
-            (p) => p.lastAction && p.lastAction >= where.lastAction.gte,
-          );
-        }
-        return result.length;
-      }),
-      create: jest.fn(async ({ data }) => {
-        const player = {
-          id: players.length + 1,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          xp: 0,
-          gold: 0,
-          lastAction: new Date(),
-          skillPoints: 0,
-          ...data,
-        };
-        players.push(player);
-        return player;
-      }),
-      update: jest.fn(async ({ where, data }) => {
-        const idx = players.findIndex((p) =>
-          where.id !== undefined
-            ? p.id === where.id
-            : where.slackId
-              ? p.slackId === where.slackId
-              : where.clientId
-                ? p.clientId === where.clientId
-                : false,
-        );
-        if (idx === -1) throw new Error('not found');
-        players[idx] = { ...players[idx], ...data };
-        return players[idx];
-      }),
-      updateMany: jest.fn(async ({ where, data }) => {
-        let count = 0;
-        for (const player of players) {
-          const matches =
-            where?.OR?.some((condition: Record<string, unknown>) => {
+        }),
+        findFirst: jest.fn(async ({ where }) => {
+          if (where.OR) {
+            for (const condition of where.OR) {
               if (condition.clientId) {
-                return player.clientId === condition.clientId;
+                const player = players.find(
+                  (p) => p.clientId === condition.clientId,
+                );
+                if (player) return player;
               }
               if (condition.slackId) {
-                return player.slackId === condition.slackId;
+                const player = players.find(
+                  (p) => p.slackId === condition.slackId,
+                );
+                if (player) return player;
               }
-              return false;
-            }) ?? false;
-          if (matches) {
-            Object.assign(player, data);
-            count += 1;
+            }
+            return null;
           }
-        }
-        return { count };
-      }),
-      delete: jest.fn(async ({ where }) => {
-        const idx = players.findIndex((p) =>
-          where.id !== undefined
-            ? p.id === where.id
-            : where.slackId
-              ? p.slackId === where.slackId
-              : false,
-        );
-        if (idx === -1) throw new Error('not found');
-        const [removed] = players.splice(idx, 1);
-        return removed;
-      }),
-    },
+          if (where.clientId) {
+            return players.find((p) => p.clientId === where.clientId) ?? null;
+          }
+          if (where.slackId) {
+            return players.find((p) => p.slackId === where.slackId) ?? null;
+          }
+          return null;
+        }),
+        findMany: jest.fn(async (args: Record<string, unknown> = {}) => {
+          let result = [...players];
+          const where = args.where ?? {};
+          if (where.isAlive !== undefined) {
+            result = result.filter((p) => p.isAlive === where.isAlive);
+          }
+          if (where.slackId?.not) {
+            result = result.filter((p) => p.slackId !== where.slackId.not);
+          }
+          if (where.x && where.x.gte !== undefined) {
+            result = result.filter(
+              (p) => p.x >= where.x.gte && p.x <= where.x.lte,
+            );
+          }
+          if (where.y && where.y.gte !== undefined) {
+            result = result.filter(
+              (p) => p.y >= where.y.gte && p.y <= where.y.lte,
+            );
+          }
+          if (where.name?.equals) {
+            const equals = where.name.equals.toLowerCase();
+            result = result.filter((p) => p.name.toLowerCase() === equals);
+          }
+          if (
+            where.x === undefined &&
+            where.y === undefined &&
+            where.name === undefined &&
+            where.isAlive === undefined &&
+            where.slackId === undefined &&
+            args.where?.id
+          ) {
+            result = result.filter((p) => p.id === args.where.id);
+          }
+          if (args.select) {
+            return result.map((player) => {
+              const selected: Record<string, unknown> = {};
+              for (const key of Object.keys(args.select)) {
+                if (args.select[key]) {
+                  selected[key] = player[key];
+                }
+              }
+              return selected;
+            });
+          }
+          return result;
+        }),
+        count: jest.fn(async (args: Record<string, unknown> = {}) => {
+          let result = [...players];
+          const where = args.where ?? {};
+          if (where.lastAction?.gte) {
+            result = result.filter(
+              (p) => p.lastAction && p.lastAction >= where.lastAction.gte,
+            );
+          }
+          return result.length;
+        }),
+        create: jest.fn(async ({ data }) => {
+          const player = {
+            id: players.length + 1,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            xp: 0,
+            gold: 0,
+            lastAction: new Date(),
+            skillPoints: 0,
+            ...data,
+          };
+          players.push(player);
+          return player;
+        }),
+        update: jest.fn(async ({ where, data }) => {
+          const idx = players.findIndex((p) =>
+            where.id !== undefined
+              ? p.id === where.id
+              : where.slackId
+                ? p.slackId === where.slackId
+                : where.clientId
+                  ? p.clientId === where.clientId
+                  : false,
+          );
+          if (idx === -1) throw new Error('not found');
+          players[idx] = { ...players[idx], ...data };
+          return players[idx];
+        }),
+        updateMany: jest.fn(async ({ where, data }) => {
+          let count = 0;
+          for (const player of players) {
+            const matches =
+              where?.OR?.some((condition: Record<string, unknown>) => {
+                if (condition.clientId) {
+                  return player.clientId === condition.clientId;
+                }
+                if (condition.slackId) {
+                  return player.slackId === condition.slackId;
+                }
+                return false;
+              }) ?? false;
+            if (matches) {
+              Object.assign(player, data);
+              count += 1;
+            }
+          }
+          return { count };
+        }),
+        delete: jest.fn(async ({ where }) => {
+          const idx = players.findIndex((p) =>
+            where.id !== undefined
+              ? p.id === where.id
+              : where.slackId
+                ? p.slackId === where.slackId
+                : false,
+          );
+          if (idx === -1) throw new Error('not found');
+          const [removed] = players.splice(idx, 1);
+          return removed;
+        }),
+      },
+    }),
   }),
-}));
-
+  { virtual: true },
+);
 describe('PlayerService', () => {
   const worldService = {
     getTileInfo: jest.fn().mockImplementation(async (x: number, y: number) => ({
@@ -299,17 +301,27 @@ describe('PlayerService', () => {
 
   it('spends skill points to increase attributes', async () => {
     const service = new PlayerService(worldService);
-    players[0].skillPoints = 2;
+    players[0].skillPoints = 3;
 
     const afterStrength = await service.spendSkillPoint('EXIST', 'strength');
-    expect(afterStrength.skillPoints).toBe(1);
+    expect(afterStrength.skillPoints).toBe(2);
     expect(afterStrength.attributes.strength).toBe(11);
 
-    const maxHpBeforeHealth = players[0].maxHp;
+    const maxHpBeforeHealth = afterStrength.combat.maxHp;
     const afterHealth = await service.spendSkillPoint('EXIST', 'health');
-    expect(afterHealth.skillPoints).toBe(0);
+    expect(afterHealth.skillPoints).toBe(1);
     expect(afterHealth.attributes.health).toBe(11);
-    expect(afterHealth.combat.maxHp).toBeGreaterThan(maxHpBeforeHealth);
+    expect(afterHealth.combat.maxHp).toBe(maxHpBeforeHealth);
+
+    const afterSecondHealth = await service.spendSkillPoint('EXIST', 'health');
+    expect(afterSecondHealth.skillPoints).toBe(0);
+    expect(afterSecondHealth.attributes.health).toBe(12);
+    const previousModifier = Math.floor((afterHealth.attributes.health - 10) / 2);
+    const newModifier = Math.floor((afterSecondHealth.attributes.health - 10) / 2);
+    const expectedMaxHp =
+      maxHpBeforeHealth +
+      (newModifier - previousModifier) * afterSecondHealth.level;
+    expect(afterSecondHealth.combat.maxHp).toBe(expectedMaxHp);
 
     await expect(service.spendSkillPoint('EXIST', 'agility')).rejects.toThrow(
       'No skill points available.',

@@ -19,7 +19,7 @@ export class PlayerService {
   private readonly SKILL_POINT_INTERVAL = 4;
   private readonly SKILL_POINTS_PER_INTERVAL = 2;
   private readonly HIT_DIE_AVERAGE = 6; // Average roll for a d10
-  private readonly BASE_HP_PER_HEALTH_POINT = 2; // HP gained per health attribute point
+  private readonly HIT_DIE_MAX = 10; // Maximum roll for a d10 at level 1
 
   constructor(private readonly worldService: WorldService) {}
 
@@ -719,8 +719,8 @@ export class PlayerService {
     const agility = roll4d6DropLowest();
     const health = roll4d6DropLowest();
 
-    // Calculate max HP based on health attribute (existing formula)
-    const maxHp = 80 + health * this.BASE_HP_PER_HEALTH_POINT;
+    const constitutionModifier = this.getConstitutionModifier(health);
+    const maxHp = Math.max(1, this.HIT_DIE_MAX + constitutionModifier);
 
     return { strength, agility, health, maxHp };
   }
