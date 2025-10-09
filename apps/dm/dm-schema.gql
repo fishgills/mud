@@ -106,6 +106,22 @@ type PlayerResponse {
   data: Player
 }
 
+type SniffData {
+  detectionRadius: Int!
+  monsterName: String
+  distance: Float
+  direction: String
+  monsterX: Int
+  monsterY: Int
+}
+
+type SniffResponse {
+  success: Boolean!
+  message: String
+  result: TickResult
+  data: SniffData
+}
+
 type MonsterResponse {
   success: Boolean!
   message: String
@@ -285,6 +301,7 @@ type Query {
   getAllPlayers: [Player!]!
   getPlayersAtLocation(x: Float!, y: Float!): [Player!]!
   getPlayerStats(slackId: String, name: String): PlayerStats!
+  sniffNearestMonster(slackId: String, clientId: String): SniffResponse!
   getLookView(slackId: String, clientId: String): LookViewResponse!
   health: HealthCheck!
   hasActivePlayers(minutesThreshold: Float! = 30): Boolean!

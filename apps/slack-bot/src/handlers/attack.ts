@@ -1,11 +1,9 @@
 import type { AttackMutation } from '../generated/dm-graphql';
 import { TargetType } from '../generated/dm-graphql';
-import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
-import { registerHandler } from './handlerRegistry';
-import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
-import { extractSlackId, toClientId } from '../utils/clientId';
+import { extractSlackId } from '../utils/clientId';
+import { PlayerCommandHandler } from './base';
 
 const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
 export const SELF_ATTACK_ERROR = "You can't attack yourself.";
@@ -121,21 +119,23 @@ export function buildCombatSummary(
   return msg;
 }
 
-export const attackHandlerHelp = `Attack the nearest monster using "attack". Or attack a player in this workspace from anywhere: "attack @username" or "attack username".`;
+export class AttackHandler extends PlayerCommandHandler {
+  constructor() {
+    super(COMMANDS.ATTACK, 'Failed to attack');
+  }
 
-export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
-  // For demo: attack the first nearby monster (could be improved with more context)
-  try {
-    // Try to parse a player target by username/mention
+  protected async perform({
+    userId,
+    say,
+    text,
+  }: HandlerContext): Promise<void> {
     const parts = text.trim().split(/\s+/);
     const maybeTarget = parts.length > 1 ? parts.slice(1).join(' ') : '';
     const mentionMatch = maybeTarget.match(/^<@([A-Z0-9]+)>$/i);
     const atNameMatch = maybeTarget.match(/^@([A-Za-z0-9._-]+)$/);
 
     if (mentionMatch || atNameMatch) {
-      // Attack player by Slack identifier within this workspace
       const targetSlackId = mentionMatch ? mentionMatch[1] : undefined;
-      // If we only have a username, we can't resolve to Slack ID here without Web API; delegate to DM by username support later if added.
       if (!targetSlackId) {
         await say({
           text: 'Please mention the user like "attack @username" so I can identify them.',
@@ -146,8 +146,8 @@ export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
         await say({ text: SELF_ATTACK_ERROR });
         return;
       }
-      const attackResult = await dmSdk.Attack({
-        slackId: toClientId(userId),
+      const attackResult = await this.sdk.Attack({
+        slackId: this.toClientId(userId),
         input: {
           targetType: TargetType.Player,
           targetSlackId,
@@ -163,8 +163,6 @@ export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
         await say({ text: 'Attack succeeded but no combat data returned.' });
         return;
       }
-      // Do not send combat summaries directly here; NotificationService
-      // will deliver tailored messages to both combatants via DM.
       await say({
         text: '⚔️ Combat initiated! Check your DMs for the results.',
       });
@@ -172,15 +170,16 @@ export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
       return;
     }
 
-    // Get current location, then load entities at exact location
-    const playerResult = await dmSdk.GetPlayer({ slackId: toClientId(userId) });
+    const playerResult = await this.sdk.GetPlayer({
+      slackId: this.toClientId(userId),
+    });
     const player = playerResult.getPlayer.data;
     if (!player) {
       await say({ text: 'Could not find your player.' });
       return;
     }
     const { x, y } = player;
-    const entities = await dmSdk.GetLocationEntities({ x, y });
+    const entities = await this.sdk.GetLocationEntities({ x, y });
     const monstersHere: NearbyMonster[] = (
       entities.getMonstersAtLocation || []
     ).map((m) => ({ id: String(m.id), name: m.name }));
@@ -200,10 +199,7 @@ export const attackHandler = async ({ userId, say, text }: HandlerContext) => {
     }
 
     await say(buildTargetSelectionMessage(monstersHere, playersHere));
-  } catch (err: unknown) {
-    const errorMessage = getUserFriendlyErrorMessage(err, 'Failed to attack');
-    await say({ text: errorMessage });
   }
-};
+}
 
-registerHandler(COMMANDS.ATTACK, attackHandler);
+export const attackHandler = new AttackHandler();

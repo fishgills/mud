@@ -1,7 +1,7 @@
 import type { KnownBlock } from '@slack/types';
 import { HandlerContext } from './types';
-import { registerHandler } from './handlerRegistry';
 import { COMMANDS, HELP_ACTIONS } from '../commands';
+import { SafeCommandHandler } from './base';
 
 export const helpHandlerHelp = `Show instructions for using the bot with "help".`;
 
@@ -108,12 +108,17 @@ export const buildHelpBlocks = (): KnownBlock[] => [
   },
 ];
 
-export const helpHandler = async ({ say }: HandlerContext) => {
-  await say({
-    text: 'MUD Bot Commands',
-    blocks: buildHelpBlocks(),
-  });
-};
+export class HelpHandler extends SafeCommandHandler {
+  constructor() {
+    super(COMMANDS.HELP, 'Failed to show help');
+  }
 
-// Register help handler for text command only
-registerHandler(COMMANDS.HELP, helpHandler);
+  protected async perform({ say }: HandlerContext): Promise<void> {
+    await say({
+      text: 'MUD Bot Commands',
+      blocks: buildHelpBlocks(),
+    });
+  }
+}
+
+export const helpHandler = new HelpHandler();

@@ -1,13 +1,10 @@
-import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
 import { Direction } from '../generated/dm-graphql';
-import { registerHandler } from './handlerRegistry';
-import { getUserFriendlyErrorMessage } from './errorUtils';
-import { toClientId } from '../utils/clientId';
 // No debug JSON on move; keep the channel clean.
 import { sendPngMap } from './mapUtils';
 import { COMMANDS } from '../commands';
 import { sendOccupantsSummary } from './locationUtils';
+import { MOVEMENT_COMMAND_SET, PlayerCommandHandler } from './base';
 
 const directionMap: Record<string, Direction> = {
   [COMMANDS.UP]: Direction.North,
@@ -21,155 +18,158 @@ const directionMap: Record<string, Direction> = {
 };
 
 export const moveHandlerHelp = `Move your character using direction words: up, down, left, right, north, south, east, west. Example: Send "up" or "north" to move north.`;
-export const moveHandler = async ({ userId, say, text }: HandlerContext) => {
-  const t0 = Date.now();
-  let dmMs = 0;
-  let pngMs = 0;
-  let finalMsgMs = 0;
-  let totalMs = 0;
-  const trimmedText = text.trim();
-  const coordinateMatch = trimmedText.match(/^move\s+(-?\d+)\s+(-?\d+)$/i);
-
-  let direction: Direction | undefined;
-  let targetX: number | undefined;
-  let targetY: number | undefined;
-  let requestedDistance: number | undefined;
-  let movementLabel = 'unknown';
-
-  if (coordinateMatch) {
-    targetX = Number.parseInt(coordinateMatch[1], 10);
-    targetY = Number.parseInt(coordinateMatch[2], 10);
-    movementLabel = `(${targetX}, ${targetY})`;
-  } else {
-    // Normalize input for matching
-    const lowerText = text.toLowerCase();
-    const found = Object.entries(directionMap).find(([key]) =>
-      lowerText.includes(key),
-    );
-    if (!found) {
-      await say({
-        text: 'Please use a direction: up, down, left, right, north, south, east, or west.',
-      });
-      return;
-    }
-    const [directionKey, mappedDirection] = found;
-    direction = mappedDirection;
-
-    const lowerTrimmed = trimmedText.toLowerCase();
-    const directionIndex = lowerTrimmed.indexOf(directionKey);
-    if (directionIndex >= 0) {
-      const afterDirection = trimmedText
-        .slice(directionIndex + directionKey.length)
-        .trim();
-      const distanceMatch = afterDirection.match(/(\d+)/);
-      if (distanceMatch) {
-        const parsedDistance = Number.parseInt(distanceMatch[1], 10);
-        if (!Number.isNaN(parsedDistance)) {
-          requestedDistance = parsedDistance;
-        }
-      }
-    }
-    if (requestedDistance === undefined) {
-      const fallbackMatch = trimmedText.match(
-        /\b(?:up|down|left|right|north|south|east|west)\b\D*(\d+)/i,
-      );
-      if (fallbackMatch) {
-        const parsedDistance = Number.parseInt(fallbackMatch[1], 10);
-        if (!Number.isNaN(parsedDistance)) {
-          requestedDistance = parsedDistance;
-        }
-      }
-    }
-    if (requestedDistance === undefined && directionIndex > 0) {
-      const beforeDirection = trimmedText
-        .slice(0, directionIndex)
-        .match(/(\d+)/);
-      if (beforeDirection) {
-        const parsedDistance = Number.parseInt(beforeDirection[1], 10);
-        if (!Number.isNaN(parsedDistance)) {
-          requestedDistance = parsedDistance;
-        }
-      }
-    }
-    movementLabel =
-      requestedDistance && requestedDistance > 1
-        ? `${direction.toLowerCase()} x${requestedDistance}`
-        : direction.toLowerCase();
+export class MoveHandler extends PlayerCommandHandler {
+  constructor() {
+    super(MOVEMENT_COMMAND_SET, 'Failed to move');
   }
-  try {
-    const tDmStart = Date.now();
-    const result = await dmSdk.MovePlayer({
-      slackId: toClientId(userId),
-      input: direction
-        ? {
-            direction,
-            ...(requestedDistance !== undefined
-              ? { distance: requestedDistance }
-              : {}),
+
+  protected async perform({
+    userId,
+    say,
+    text,
+  }: HandlerContext): Promise<void> {
+    const t0 = Date.now();
+    let dmMs = 0;
+    let pngMs = 0;
+    let finalMsgMs = 0;
+    let totalMs = 0;
+    const trimmedText = text.trim();
+    const coordinateMatch = trimmedText.match(/^move\s+(-?\d+)\s+(-?\d+)$/i);
+
+    let direction: Direction | undefined;
+    let targetX: number | undefined;
+    let targetY: number | undefined;
+    let requestedDistance: number | undefined;
+    let movementLabel = 'unknown';
+
+    if (coordinateMatch) {
+      targetX = Number.parseInt(coordinateMatch[1], 10);
+      targetY = Number.parseInt(coordinateMatch[2], 10);
+      movementLabel = `(${targetX}, ${targetY})`;
+    } else {
+      const lowerText = text.toLowerCase();
+      const found = Object.entries(directionMap).find(([key]) =>
+        lowerText.includes(key),
+      );
+      if (!found) {
+        await say({
+          text: 'Please use a direction: up, down, left, right, north, south, east, or west.',
+        });
+        return;
+      }
+      const [directionKey, mappedDirection] = found;
+      direction = mappedDirection;
+
+      const lowerTrimmed = trimmedText.toLowerCase();
+      const directionIndex = lowerTrimmed.indexOf(directionKey);
+      if (directionIndex >= 0) {
+        const afterDirection = trimmedText
+          .slice(directionIndex + directionKey.length)
+          .trim();
+        const distanceMatch = afterDirection.match(/(\d+)/);
+        if (distanceMatch) {
+          const parsedDistance = Number.parseInt(distanceMatch[1], 10);
+          if (!Number.isNaN(parsedDistance)) {
+            requestedDistance = parsedDistance;
           }
-        : { x: targetX as number, y: targetY as number },
-    });
-    dmMs = Date.now() - tDmStart;
-    if (!result.movePlayer.success) {
-      await say({ text: `Move failed: ${result.movePlayer.message}` });
-      totalMs = Date.now() - t0;
-      console.log(
-        `move timing (fail): user=${userId} move=${movementLabel} dmMs=${dmMs} totalMs=${totalMs}`,
-      );
-      return;
+        }
+      }
+      if (requestedDistance === undefined) {
+        const fallbackMatch = trimmedText.match(
+          /\b(?:up|down|left|right|north|south|east|west)\b\D*(\d+)/i,
+        );
+        if (fallbackMatch) {
+          const parsedDistance = Number.parseInt(fallbackMatch[1], 10);
+          if (!Number.isNaN(parsedDistance)) {
+            requestedDistance = parsedDistance;
+          }
+        }
+      }
+      if (requestedDistance === undefined && directionIndex > 0) {
+        const beforeDirection = trimmedText
+          .slice(0, directionIndex)
+          .match(/(\d+)/);
+        if (beforeDirection) {
+          const parsedDistance = Number.parseInt(beforeDirection[1], 10);
+          if (!Number.isNaN(parsedDistance)) {
+            requestedDistance = parsedDistance;
+          }
+        }
+      }
+      movementLabel =
+        requestedDistance && requestedDistance > 1
+          ? `${direction.toLowerCase()} x${requestedDistance}`
+          : direction.toLowerCase();
     }
-    const data = result.movePlayer.player;
-    if (!data) {
-      await say({ text: 'Move succeeded but no data returned.' });
-      totalMs = Date.now() - t0;
-      console.log(
-        `move timing (nodata): user=${userId} move=${movementLabel} dmMs=${dmMs} totalMs=${totalMs}`,
-      );
-      return;
-    }
-    // Send only the PNG map centered on the new location; no text.
-    const tPngStart = Date.now();
-    await sendPngMap(say, data.x, data.y, 8);
 
-    // Unified occupants summary using move response data
-    await sendOccupantsSummary(
-      say,
-      result.movePlayer.playersAtLocation,
-      result.movePlayer.monsters,
-      userId,
-    );
-    pngMs = Date.now() - tPngStart;
-    const tMsgStart = Date.now();
-    const stepsUsed = requestedDistance ?? 1;
-    const directionText = direction?.toLowerCase();
-    const movementText =
-      directionText && stepsUsed > 1
-        ? `You moved ${directionText} ${stepsUsed} spaces.`
-        : directionText
-          ? `You moved ${directionText}.`
-          : `You moved directly to (${data.x}, ${data.y}).`;
-    await say({
-      text: direction
-        ? `${movementText} You are now at (${data.x}, ${data.y}).`
-        : `You moved directly to (${data.x}, ${data.y}).`,
-    });
-    finalMsgMs = Date.now() - tMsgStart;
-    totalMs = Date.now() - t0;
-    console.log(
-      `move timing: user=${userId} move=${movementLabel} dmMs=${dmMs} pngMs=${pngMs} finalMsgMs=${finalMsgMs} totalMs=${totalMs}`,
-    );
-  } catch (err: unknown) {
-    const errorMessage = getUserFriendlyErrorMessage(err, 'Failed to move');
-    await say({ text: errorMessage });
-    totalMs = Date.now() - t0;
-    console.log(
-      `move timing (error): user=${userId} move=${movementLabel} dmMs=${dmMs} pngMs=${pngMs} finalMsgMs=${finalMsgMs} totalMs=${totalMs}`,
-    );
+    try {
+      const tDmStart = Date.now();
+      const result = await this.sdk.MovePlayer({
+        slackId: this.toClientId(userId),
+        input: direction
+          ? {
+              direction,
+              ...(requestedDistance !== undefined
+                ? { distance: requestedDistance }
+                : {}),
+            }
+          : { x: targetX as number, y: targetY as number },
+      });
+      dmMs = Date.now() - tDmStart;
+      if (!result.movePlayer.success) {
+        await say({ text: `Move failed: ${result.movePlayer.message}` });
+        totalMs = Date.now() - t0;
+        console.log(
+          `move timing (fail): user=${userId} move=${movementLabel} dmMs=${dmMs} totalMs=${totalMs}`,
+        );
+        return;
+      }
+      const data = result.movePlayer.player;
+      if (!data) {
+        await say({ text: 'Move succeeded but no data returned.' });
+        totalMs = Date.now() - t0;
+        console.log(
+          `move timing (nodata): user=${userId} move=${movementLabel} dmMs=${dmMs} totalMs=${totalMs}`,
+        );
+        return;
+      }
+      const tPngStart = Date.now();
+      await sendPngMap(say, data.x, data.y, 8);
+
+      await sendOccupantsSummary(
+        say,
+        result.movePlayer.playersAtLocation,
+        result.movePlayer.monsters,
+        userId,
+      );
+      pngMs = Date.now() - tPngStart;
+      const tMsgStart = Date.now();
+      const stepsUsed = requestedDistance ?? 1;
+      const directionText = direction?.toLowerCase();
+      const movementText =
+        directionText && stepsUsed > 1
+          ? `You moved ${directionText} ${stepsUsed} spaces.`
+          : directionText
+            ? `You moved ${directionText}.`
+            : `You moved directly to (${data.x}, ${data.y}).`;
+      await say({
+        text: direction
+          ? `${movementText} You are now at (${data.x}, ${data.y}).`
+          : `You moved directly to (${data.x}, ${data.y}).`,
+      });
+      finalMsgMs = Date.now() - tMsgStart;
+      totalMs = Date.now() - t0;
+      console.log(
+        `move timing: user=${userId} move=${movementLabel} dmMs=${dmMs} pngMs=${pngMs} finalMsgMs=${finalMsgMs} totalMs=${totalMs}`,
+      );
+    } catch (error) {
+      totalMs = Date.now() - t0;
+      console.log(
+        `move timing (error): user=${userId} move=${movementLabel} dmMs=${dmMs} pngMs=${pngMs} finalMsgMs=${finalMsgMs} totalMs=${totalMs}`,
+      );
+      throw error;
+    }
   }
-};
+}
 
-// Register handlers for all direction keys (emojis and words)
-Object.keys(directionMap).forEach((key) => {
-  registerHandler(key, moveHandler);
-});
-registerHandler(COMMANDS.MOVE, moveHandler);
+export const moveHandler = new MoveHandler();

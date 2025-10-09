@@ -120,7 +120,7 @@ describe('attackHandler', () => {
       },
     });
 
-    await attackHandler({
+    await attackHandler.handle({
       userId: 'U1',
       text: `${COMMANDS.ATTACK} <@U2>`,
       say,
@@ -145,7 +145,7 @@ describe('attackHandler', () => {
   it('asks for a mention when username lacks slack id', async () => {
     const say = makeSay();
 
-    await attackHandler({
+    await attackHandler.handle({
       userId: 'U1',
       text: `${COMMANDS.ATTACK} @someone`,
       say,
@@ -160,7 +160,7 @@ describe('attackHandler', () => {
   it('prevents attacking yourself via mention', async () => {
     const say = makeSay();
 
-    await attackHandler({
+    await attackHandler.handle({
       userId: 'U1',
       text: `${COMMANDS.ATTACK} <@U1>`,
       say,
@@ -183,7 +183,7 @@ describe('attackHandler', () => {
       ],
     });
 
-    await attackHandler({
+    await attackHandler.handle({
       userId: 'U1',
       text: COMMANDS.ATTACK,
       say,
@@ -229,7 +229,7 @@ describe('attackHandler', () => {
       getMonstersAtLocation: [],
     });
 
-    await attackHandler({
+    await attackHandler.handle({
       userId: 'U1',
       text: COMMANDS.ATTACK,
       say,
@@ -263,7 +263,7 @@ describe('attackHandler', () => {
       getMonstersAtLocation: [],
     });
 
-    await attackHandler({
+    await attackHandler.handle({
       userId: 'U1',
       text: COMMANDS.ATTACK,
       say,
@@ -280,7 +280,7 @@ describe('attackHandler', () => {
       attack: { success: false, message: 'Out of range' },
     });
 
-    await attackHandler({
+    await attackHandler.handle({
       userId: 'U1',
       text: `${COMMANDS.ATTACK} <@U2>`,
       say,
@@ -293,7 +293,7 @@ describe('attackHandler', () => {
     const say = makeSay();
     mockedDmSdk.GetPlayer.mockRejectedValueOnce(new Error('boom'));
 
-    await attackHandler({
+    await attackHandler.handle({
       userId: 'U1',
       text: COMMANDS.ATTACK,
       say,
@@ -307,7 +307,7 @@ describe('createHandler', () => {
   it('prompts for a name when missing', async () => {
     const say = makeSay();
 
-    await createHandler({
+    await createHandler.handle({
       userId: 'U1',
       text: COMMANDS.NEW,
       say,
@@ -341,7 +341,7 @@ describe('createHandler', () => {
       },
     });
 
-    await createHandler({
+    await createHandler.handle({
       userId: 'U1',
       text: `${COMMANDS.NEW} Hero`,
       say,
@@ -378,7 +378,7 @@ describe('createHandler', () => {
       },
     });
 
-    await createHandler({
+    await createHandler.handle({
       userId: 'U1',
       text: `${COMMANDS.NEW} Hero`,
       say,
@@ -393,7 +393,7 @@ describe('createHandler', () => {
       new Error('Player with slackId U1 already exists'),
     );
 
-    await createHandler({
+    await createHandler.handle({
       userId: 'U1',
       text: `${COMMANDS.NEW} Hero`,
       say,
@@ -410,7 +410,11 @@ describe('completeHandler', () => {
       updatePlayerStats: { success: true },
     });
 
-    await completeHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await completeHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
       text: '✅ Character creation complete! You can now move and attack.',
@@ -423,7 +427,11 @@ describe('completeHandler', () => {
       updatePlayerStats: { success: false, message: 'nope' },
     });
 
-    await completeHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await completeHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'Error: nope' });
   });
@@ -432,7 +440,11 @@ describe('completeHandler', () => {
     const say = makeSay();
     mockedDmSdk.CompletePlayer.mockRejectedValueOnce(new Error('boom'));
 
-    await completeHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await completeHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'boom' });
   });
@@ -445,7 +457,11 @@ describe('deleteHandler', () => {
       getPlayer: { success: false, data: null },
     });
 
-    await deleteHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await deleteHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
       text: `You don't have a character to delete! Use "new CharacterName" to create one.`,
@@ -466,7 +482,11 @@ describe('deleteHandler', () => {
       },
     });
 
-    await deleteHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await deleteHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -494,7 +514,11 @@ describe('deleteHandler', () => {
       deletePlayer: { success: true },
     });
 
-    await deleteHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await deleteHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+    } as HandlerContext);
 
     expect(mockedDmSdk.DeletePlayer).toHaveBeenCalledWith({
       slackId: toClientId('U1'),
@@ -523,7 +547,11 @@ describe('deleteHandler', () => {
       deletePlayer: { success: false, message: 'nope' },
     });
 
-    await deleteHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await deleteHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
       text: 'Failed to delete character: nope',
@@ -545,7 +573,11 @@ describe('deleteHandler', () => {
     });
     mockedDmSdk.DeletePlayer.mockRejectedValueOnce(new Error('boom'));
 
-    await deleteHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await deleteHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'boom' });
   });
@@ -625,7 +657,7 @@ describe('lookHandler', () => {
       },
     });
 
-    await lookHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await lookHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
     expect(say).toHaveBeenNthCalledWith(1, { text: 'A vast plain' });
     // Unified occupant summary (players + monsters at location)
@@ -695,7 +727,7 @@ describe('lookHandler', () => {
       },
     });
 
-    await lookHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await lookHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
     // Should not post an occupants summary when only self is present
     expect(say).not.toHaveBeenCalledWith(
@@ -714,7 +746,7 @@ describe('lookHandler', () => {
       },
     });
 
-    await lookHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await lookHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
       text: 'Failed to look: permission denied',
@@ -725,7 +757,7 @@ describe('lookHandler', () => {
     const say = makeSay();
     mockedDmSdk.GetLookView.mockRejectedValueOnce(new Error('boom'));
 
-    await lookHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await lookHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'boom' });
   });
@@ -741,7 +773,7 @@ describe('mapHandler', () => {
       },
     });
 
-    await mapHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
     expect(mockedSendPngMap).toHaveBeenCalledWith(say, 3, -4, 8);
   });
@@ -777,7 +809,7 @@ describe('mapHandler', () => {
       getMonstersAtLocation: [],
     });
 
-    await mapHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -819,7 +851,7 @@ describe('mapHandler', () => {
       getMonstersAtLocation: [],
     });
 
-    await mapHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
     // No occupants summary should be posted when only self is present
     expect(say).not.toHaveBeenCalledWith(
@@ -833,10 +865,10 @@ describe('mapHandler', () => {
     const say = makeSay();
     mockedDmSdk.GetPlayer.mockRejectedValueOnce(new Error('fail'));
 
-    await mapHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
-      text: 'Failed to load map: Error: fail',
+      text: 'Failed to load map: fail',
     });
   });
 });
@@ -845,7 +877,7 @@ describe('moveHandler', () => {
   it('validates direction input', async () => {
     const say = makeSay();
 
-    await moveHandler({
+    await moveHandler.handle({
       userId: 'U1',
       text: 'stand still',
       say,
@@ -867,7 +899,7 @@ describe('moveHandler', () => {
       },
     });
 
-    await moveHandler({
+    await moveHandler.handle({
       userId: 'U1',
       text: COMMANDS.NORTH,
       say,
@@ -909,7 +941,7 @@ describe('moveHandler', () => {
       },
     });
 
-    await moveHandler({
+    await moveHandler.handle({
       userId: 'U1',
       text: 'move north 3',
       say,
@@ -935,7 +967,7 @@ describe('moveHandler', () => {
       },
     });
 
-    await moveHandler({
+    await moveHandler.handle({
       userId: 'U1',
       text: 'move 10 -5',
       say,
@@ -956,7 +988,7 @@ describe('moveHandler', () => {
       movePlayer: { success: false, message: 'blocked' },
     });
 
-    await moveHandler({
+    await moveHandler.handle({
       userId: 'U1',
       text: COMMANDS.NORTH,
       say,
@@ -969,7 +1001,7 @@ describe('moveHandler', () => {
     const say = makeSay();
     mockedDmSdk.MovePlayer.mockRejectedValueOnce(new Error('boom'));
 
-    await moveHandler({
+    await moveHandler.handle({
       userId: 'U1',
       text: COMMANDS.NORTH,
       say,
@@ -994,7 +1026,11 @@ describe('rerollHandler', () => {
       },
     });
 
-    await rerollHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await rerollHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
       text: '🎲 Rerolled stats: Strength: 8, Agility: 7, Vitality: 6, Health Points: 12',
@@ -1007,7 +1043,11 @@ describe('rerollHandler', () => {
       rerollPlayerStats: { success: false, message: 'cooldown' },
     });
 
-    await rerollHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await rerollHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'Error: cooldown' });
   });
@@ -1016,7 +1056,11 @@ describe('rerollHandler', () => {
     const say = makeSay();
     mockedDmSdk.RerollPlayerStats.mockRejectedValueOnce(new Error('boom'));
 
-    await rerollHandler({ userId: 'U1', text: '', say } as HandlerContext);
+    await rerollHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'boom' });
   });

@@ -1,31 +1,41 @@
 import { HandlerContext } from './types';
-import { registerHandler } from './handlerRegistry';
-import { dmSdk } from '../gql-client';
 import { COMMANDS } from '../commands';
 import { sendPngMap } from './mapUtils';
 import { getOccupantsSummaryAt } from './locationUtils';
-import { toClientId } from '../utils/clientId';
+import { PlayerCommandHandler } from './base';
 
 export const mapHandlerHelp = `Display the ASCII map with "map". Example: Send "map" to see the world map.`;
 
-export const mapHandler = async ({ say, userId }: HandlerContext) => {
-  try {
-    const result = await dmSdk.GetPlayer({
-      slackId: toClientId(userId),
-    });
-    if (result.getPlayer.success && result.getPlayer.data) {
-      const x = result.getPlayer.data.x;
-      const y = result.getPlayer.data.y;
-
-      await sendPngMap(say, x, y, 8);
-
-      // After rendering the map, display co-located occupants in a unified format
-      const occupants = await getOccupantsSummaryAt(x, y, userId);
-      if (occupants) await say({ text: occupants });
-    }
-  } catch (err) {
-    await say({ text: `Failed to load map: ${err}` });
+export class MapHandler extends PlayerCommandHandler {
+  constructor() {
+    super(COMMANDS.MAP, 'Failed to load map');
   }
-};
 
-registerHandler(COMMANDS.MAP, mapHandler);
+  protected async perform({ say, userId }: HandlerContext): Promise<void> {
+    const result = await this.sdk.GetPlayer({
+      slackId: this.toClientId(userId),
+    });
+    if (!result.getPlayer.success || !result.getPlayer.data) {
+      await say({ text: 'Could not find your player.' });
+      return;
+    }
+
+    const { x, y } = result.getPlayer.data;
+    await sendPngMap(say, x, y, 8);
+
+    const occupants = await getOccupantsSummaryAt(x, y, userId);
+    if (occupants) {
+      await say({ text: occupants });
+    }
+  }
+
+  protected getFriendlyError(error: unknown): string {
+    const friendly = super.getFriendlyError(error);
+    if (friendly === this.defaultErrorMessage) {
+      return friendly;
+    }
+    return `Failed to load map: ${friendly}`;
+  }
+}
+
+export const mapHandler = new MapHandler();
