@@ -29,13 +29,12 @@ describe('MovementResolver', () => {
     skillPoints: 0,
   } as const;
 
-  const createResolver = (
-    overrides: Partial<Record<string, unknown>> = {},
-  ) => {
+  const createResolver = (overrides: Partial<Record<string, unknown>> = {}) => {
     const playerService = {
       movePlayer: jest.fn(),
       getPlayersAtLocation: jest.fn().mockResolvedValue([{ name: 'Other' }]),
       getPlayer: jest.fn(),
+      getPlayerByIdentifier: jest.fn(),
       getNearbyPlayers: jest
         .fn()
         .mockResolvedValue([
@@ -120,6 +119,7 @@ describe('MovementResolver', () => {
     const responseService = new ResponseService();
     const monsterService = {
       getMonstersAtLocation: jest.fn().mockResolvedValue([{ name: 'Goblin' }]),
+      findNearestMonsterWithinRadius: jest.fn().mockResolvedValue(null),
     };
 
     const resolver = new MovementResolver(
@@ -197,6 +197,80 @@ describe('MovementResolver', () => {
     expect(result.success).toBe(false);
     expect(result.player?.x).toBe(9);
     expect(result.player?.y).toBe(9);
+  });
+
+  it('sniffs the nearest monster within agility range', async () => {
+    const { resolver, playerService, monsterService } = createResolver();
+    playerService.getPlayerByIdentifier.mockResolvedValue({
+      ...basePlayer,
+      attributes: { ...basePlayer.attributes, agility: 12 },
+      position: { x: 3, y: 4 },
+    });
+    monsterService.findNearestMonsterWithinRadius.mockResolvedValue({
+      monster: {
+        name: 'Wolf',
+        position: { x: 6, y: 8 },
+      },
+      distance: 5.12,
+    });
+
+    const response = await resolver.sniffNearestMonster('U1');
+
+    expect(playerService.getPlayerByIdentifier).toHaveBeenCalledWith({
+      clientId: undefined,
+      slackId: 'U1',
+    });
+    expect(playerService.updateLastAction).toHaveBeenCalledWith('U1');
+    expect(monsterService.findNearestMonsterWithinRadius).toHaveBeenCalledWith(
+      3,
+      4,
+      12,
+    );
+    expect(response.success).toBe(true);
+    expect(response.data?.monsterName).toBe('Wolf');
+    expect(response.data?.direction).toBe('northeast');
+    expect(response.data?.distance).toBeCloseTo(5.1, 1);
+    expect(response.data?.detectionRadius).toBe(12);
+  });
+
+  it('reports when no monsters are detected while sniffing', async () => {
+    const { resolver, playerService, monsterService } = createResolver();
+    playerService.getPlayerByIdentifier.mockResolvedValue({
+      ...basePlayer,
+      attributes: { ...basePlayer.attributes, agility: 7 },
+      position: { x: 0, y: 0 },
+    });
+    monsterService.findNearestMonsterWithinRadius.mockResolvedValue(null);
+
+    const response = await resolver.sniffNearestMonster('U1');
+
+    expect(response.success).toBe(true);
+    expect(response.data?.monsterName).toBeUndefined();
+    expect(response.message).toContain("can't catch any monster scent");
+    expect(response.data?.detectionRadius).toBe(7);
+  });
+
+  it('sniffs using a clientId without updating Slack activity', async () => {
+    const { resolver, playerService, monsterService } = createResolver();
+    playerService.getPlayerByIdentifier.mockResolvedValue({
+      ...basePlayer,
+      clientId: 'client-123',
+      attributes: { ...basePlayer.attributes, agility: 5 },
+      position: { x: 1, y: 1 },
+    });
+
+    await resolver.sniffNearestMonster(undefined, 'client-123');
+
+    expect(playerService.getPlayerByIdentifier).toHaveBeenCalledWith({
+      clientId: 'client-123',
+      slackId: undefined,
+    });
+    expect(playerService.updateLastAction).not.toHaveBeenCalled();
+    expect(monsterService.findNearestMonsterWithinRadius).toHaveBeenCalledWith(
+      1,
+      1,
+      5,
+    );
   });
 
   it('builds look view using AI description', async () => {

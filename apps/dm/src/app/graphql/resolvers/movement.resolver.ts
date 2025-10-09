@@ -7,6 +7,7 @@ import {
   PlayerMoveResponse,
   LookViewResponse,
   PerformanceStats,
+  SniffResponse,
 } from '../types/response.types';
 import { MovePlayerInput } from '../inputs/player.input';
 import {
@@ -20,6 +21,7 @@ import {
 } from '../services';
 import { MonsterService } from '../../monster/monster.service';
 import { EntityToGraphQLAdapter } from '../adapters/entity-to-graphql.adapter';
+import { calculateDirection } from '../../shared/direction.util';
 
 @Resolver()
 export class MovementResolver {
@@ -36,6 +38,78 @@ export class MovementResolver {
     private responseService: ResponseService,
     private monsterService: MonsterService,
   ) {}
+
+  @Query(() => SniffResponse)
+  async sniffNearestMonster(
+    @Args('slackId', { nullable: true }) slackId?: string,
+    @Args('clientId', { nullable: true }) clientId?: string,
+  ): Promise<SniffResponse> {
+    if (!clientId && !slackId) {
+      throw new Error('Either clientId or slackId must be provided');
+    }
+
+    try {
+      const player = await this.playerService.getPlayerByIdentifier({
+        clientId,
+        slackId,
+      });
+
+      if (slackId) {
+        this.playerService.updateLastAction(slackId).catch(() => {
+          /* ignore activity errors */
+        });
+      }
+
+      const agility = player.attributes.agility ?? 0;
+      const detectionRadius = Math.max(1, agility);
+      const nearest = await this.monsterService.findNearestMonsterWithinRadius(
+        player.position.x,
+        player.position.y,
+        detectionRadius,
+      );
+
+      if (!nearest) {
+        const radiusLabel =
+          detectionRadius === 1 ? '1 tile' : `${detectionRadius} tiles`;
+        return {
+          success: true,
+          message: `You sniff the air but can't catch any monster scent within ${radiusLabel}.`,
+          data: {
+            detectionRadius,
+          },
+        };
+      }
+
+      const roundedDistance = Math.round(nearest.distance * 10) / 10;
+      const direction = calculateDirection(
+        player.position.x,
+        player.position.y,
+        nearest.monster.position.x,
+        nearest.monster.position.y,
+      );
+
+      return {
+        success: true,
+        data: {
+          detectionRadius,
+          monsterName: nearest.monster.name,
+          distance: roundedDistance,
+          direction,
+          monsterX: nearest.monster.position.x,
+          monsterY: nearest.monster.position.y,
+        },
+        message: `You catch the scent of ${nearest.monster.name} about ${roundedDistance} tiles ${direction}.`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to sniff for monsters',
+      };
+    }
+  }
 
   @Mutation(() => PlayerMoveResponse)
   async movePlayer(

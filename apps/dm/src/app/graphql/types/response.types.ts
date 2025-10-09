@@ -73,6 +73,33 @@ export class LocationResponse extends SuccessResponse {
 }
 
 @ObjectType()
+export class SniffData {
+  @Field(() => Int)
+  detectionRadius!: number;
+
+  @Field({ nullable: true })
+  monsterName?: string;
+
+  @Field(() => Float, { nullable: true })
+  distance?: number;
+
+  @Field({ nullable: true })
+  direction?: string;
+
+  @Field(() => Int, { nullable: true })
+  monsterX?: number;
+
+  @Field(() => Int, { nullable: true })
+  monsterY?: number;
+}
+
+@ObjectType()
+export class SniffResponse extends SuccessResponse {
+  @Field(() => SniffData, { nullable: true })
+  data?: SniffData;
+}
+
+@ObjectType()
 export class MonsterResponse extends SuccessResponse {
   @Field(() => Monster, { nullable: true })
   data?: Monster;

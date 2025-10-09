@@ -403,6 +403,7 @@ export type Query = {
   getPlayerStats: PlayerStats;
   getPlayersAtLocation: Array<Player>;
   health: HealthCheck;
+  sniffNearestMonster: SniffResponse;
 };
 
 export type QueryGetLookViewArgs = {
@@ -427,6 +428,29 @@ export type QueryGetPlayerStatsArgs = {
 export type QueryGetPlayersAtLocationArgs = {
   x: Scalars['Float']['input'];
   y: Scalars['Float']['input'];
+};
+
+export type QuerySniffNearestMonsterArgs = {
+  clientId?: InputMaybe<Scalars['String']['input']>;
+  slackId?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type SniffData = {
+  __typename?: 'SniffData';
+  detectionRadius: Scalars['Int']['output'];
+  direction?: Maybe<Scalars['String']['output']>;
+  distance?: Maybe<Scalars['Float']['output']>;
+  monsterName?: Maybe<Scalars['String']['output']>;
+  monsterX?: Maybe<Scalars['Int']['output']>;
+  monsterY?: Maybe<Scalars['Int']['output']>;
+};
+
+export type SniffResponse = {
+  __typename?: 'SniffResponse';
+  data?: Maybe<SniffData>;
+  message?: Maybe<Scalars['String']['output']>;
+  result?: Maybe<TickResult>;
+  success: Scalars['Boolean']['output'];
 };
 
 export type SpawnMonsterInput = {
@@ -739,6 +763,28 @@ export type GetLookViewQuery = {
         x: number;
         y: number;
       }> | null;
+    } | null;
+  };
+};
+
+export type SniffNearestMonsterQueryVariables = Exact<{
+  slackId: Scalars['String']['input'];
+}>;
+
+export type SniffNearestMonsterQuery = {
+  __typename?: 'Query';
+  sniffNearestMonster: {
+    __typename?: 'SniffResponse';
+    success: boolean;
+    message?: string | null;
+    data?: {
+      __typename?: 'SniffData';
+      detectionRadius: number;
+      monsterName?: string | null;
+      distance?: number | null;
+      direction?: string | null;
+      monsterX?: number | null;
+      monsterY?: number | null;
     } | null;
   };
 };
@@ -1080,6 +1126,22 @@ export const GetLookViewDocument = gql`
     }
   }
 `;
+export const SniffNearestMonsterDocument = gql`
+  query SniffNearestMonster($slackId: String!) {
+    sniffNearestMonster(slackId: $slackId) {
+      success
+      message
+      data {
+        detectionRadius
+        monsterName
+        distance
+        direction
+        monsterX
+        monsterY
+      }
+    }
+  }
+`;
 export const CreatePlayerDocument = gql`
   mutation CreatePlayer($input: CreatePlayerInput!) {
     createPlayer(input: $input) {
@@ -1299,6 +1361,24 @@ export function getSdk(
             signal,
           }),
         'GetLookView',
+        'query',
+        variables,
+      );
+    },
+    SniffNearestMonster(
+      variables: SniffNearestMonsterQueryVariables,
+      requestHeaders?: GraphQLClientRequestHeaders,
+      signal?: RequestInit['signal'],
+    ): Promise<SniffNearestMonsterQuery> {
+      return withWrapper(
+        (wrappedRequestHeaders) =>
+          client.request<SniffNearestMonsterQuery>({
+            document: SniffNearestMonsterDocument,
+            variables,
+            requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders },
+            signal,
+          }),
+        'SniffNearestMonster',
         'query',
         variables,
       );

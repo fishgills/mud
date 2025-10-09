@@ -45,6 +45,40 @@ export class MonsterService {
     return MonsterFactory.loadInBounds(minX, maxX, minY, maxY);
   }
 
+  async findNearestMonsterWithinRadius(
+    x: number,
+    y: number,
+    radius: number,
+  ): Promise<{ monster: MonsterEntity; distance: number } | null> {
+    if (!Number.isFinite(radius) || radius <= 0) {
+      return null;
+    }
+
+    const searchRadius = Math.max(1, Math.ceil(radius));
+    const monsters = await this.getMonstersInBounds(
+      x - searchRadius,
+      x + searchRadius,
+      y - searchRadius,
+      y + searchRadius,
+    );
+
+    let closest: { monster: MonsterEntity; distance: number } | null = null;
+
+    for (const monster of monsters) {
+      const dx = monster.position.x - x;
+      const dy = monster.position.y - y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance > radius) {
+        continue;
+      }
+      if (!closest || distance < closest.distance) {
+        closest = { monster, distance };
+      }
+    }
+
+    return closest;
+  }
+
   async moveMonster(monsterId: number): Promise<MonsterEntity> {
     const entity = await MonsterFactory.load(monsterId);
 

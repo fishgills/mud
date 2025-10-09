@@ -203,6 +203,21 @@ query GetLookView($slackId: String!) {
     }
   }
 }
+
+query SniffNearestMonster($slackId: String!) {
+  sniffNearestMonster(slackId: $slackId) {
+    success
+    message
+    data {
+      detectionRadius
+      monsterName
+      distance
+      direction
+      monsterX
+      monsterY
+    }
+  }
+}
 mutation CreatePlayer($input: CreatePlayerInput!) {
   createPlayer(input: $input) {
     success
