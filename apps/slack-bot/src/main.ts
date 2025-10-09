@@ -41,6 +41,7 @@ if (receiver?.router) {
 import './handlers/move';
 import './handlers/look';
 import './handlers/attack';
+import './handlers/sniff';
 import './handlers/create';
 import './handlers/reroll';
 import './handlers/complete';
@@ -66,6 +67,7 @@ app.event('app_mention', async ({ event, say }) => {
 **Once you have a character:**
 • Move with "${COMMANDS.NORTH}", "${COMMANDS.SOUTH}", "${COMMANDS.EAST}", "${COMMANDS.WEST}", "${COMMANDS.UP}", "${COMMANDS.DOWN}", "${COMMANDS.LEFT}", "${COMMANDS.RIGHT}"
 • Attack monsters with "${COMMANDS.ATTACK}"
+• Sniff out nearby monsters with "${COMMANDS.SNIFF}"
 • Check stats with "${COMMANDS.STATS}"
 • View map with "${COMMANDS.MAP}"
 
@@ -150,7 +152,8 @@ app.message(async ({ message, say, client }) => {
 • "${COMMANDS.UP}", "${COMMANDS.DOWN}", "${COMMANDS.LEFT}", "${COMMANDS.RIGHT}" - Alternative direction words
 
 ⚔️ **Actions:**
-• "${COMMANDS.ATTACK}" - Attack nearby monsters  
+• "${COMMANDS.ATTACK}" - Attack nearby monsters
+• "${COMMANDS.SNIFF}" - Sniff for nearby monsters
 • "${COMMANDS.STATS}" - View your character stats
 
 📋 **Other:**
