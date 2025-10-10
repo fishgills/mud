@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package world;
+
+import "common.proto";
+
+message GenerateTileRequest {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+message GenerateTileResponse {
+  common.Tile tile = 1;
+}
+
+service WorldService {
+  rpc GenerateTile(GenerateTileRequest) returns (GenerateTileResponse) {}
+}

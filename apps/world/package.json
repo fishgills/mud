@@ -15,10 +15,13 @@
     "test:watch": "jest --watch",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "lint": "eslint"
+    "lint": "eslint",
+    "proto:generate": "PATH=$PATH:$(pwd)/../../node_modules/.bin protoc --ts_proto_out=src/proto --ts_proto_opt=nestJsTrue=true --proto_path=../../libs/proto ../../libs/proto/world.proto ../../libs/proto/common.proto"
   },
   "dependencies": {
     "@apollo/server": "^4.11.3",
+    "@grpc/grpc-js": "^1.14.0",
+    "@grpc/proto-loader": "^0.8.0",
     "@mud/constants": "*",
     "@mud/database": "*",
     "@mud/gcp-auth": "*",
@@ -27,6 +30,7 @@
     "@nestjs/common": "^11.1.6",
     "@nestjs/core": "^11.1.6",
     "@nestjs/graphql": "^13.1.0",
+    "@nestjs/microservices": "^11.1.6",
     "@nestjs/platform-express": "^11.1.6",
     "canvas": "^3.2.0",
     "dotenv": "^17.2.2",
@@ -39,6 +43,7 @@
     "simplex-noise": "^4.0.3"
   },
   "devDependencies": {
-    "@nestjs/cli": "^11.0.10"
+    "@nestjs/cli": "^11.0.10",
+    "ts-proto": "^2.7.7"
   }
 }

@@ -756,6 +756,11 @@
   resolved "https://registry.yarnpkg.com/@borewit/text-codec/-/text-codec-0.1.1.tgz#7e7f27092473d5eabcffef693a849f2cc48431da"
   integrity sha512-5L/uBxmjaCIX5h8Z+uu+kA9BQLkc/Wl06UGR5ajNRxu+/XjonB5i8JpgFMrPj3LXTCPA0pv8yxUvbUi+QthGGA==
 
+"@bufbuild/protobuf@^2.0.0":
+  version "2.9.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/protobuf/-/protobuf-2.9.0.tgz#ff8827be3d8e56d74a03530cff8b0e1952aa115e"
+  integrity sha512-rnJenoStJ8nvmt9Gzye8nkYd6V22xUAnu4086ER7h1zJ508vStko4pMvDeQ446ilDTFpV5wnoc5YS7XvMwwMqA==
+
 "@colors/colors@1.5.0":
   version "1.5.0"
   resolved "https://registry.yarnpkg.com/@colors/colors/-/colors-1.5.0.tgz#bb504579c1cae923e6576a4f5da43d25f97bdbd9"
@@ -1751,6 +1756,24 @@
   resolved "https://registry.yarnpkg.com/@graphql-typed-document-node/core/-/core-3.2.0.tgz#5f3d96ec6b2354ad6d8a28bf216a1d97b5426861"
   integrity sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==
 
+"@grpc/grpc-js@^1.14.0":
+  version "1.14.0"
+  resolved "https://registry.yarnpkg.com/@grpc/grpc-js/-/grpc-js-1.14.0.tgz#a3c47e7816ca2b4d5490cba9e06a3cf324e675ad"
+  integrity sha512-N8Jx6PaYzcTRNzirReJCtADVoq4z7+1KQ4E70jTg/koQiMoUSN1kbNjPOqpPbhMFhfU1/l7ixspPl8dNY+FoUg==
+  dependencies:
+    "@grpc/proto-loader" "^0.8.0"
+    "@js-sdsl/ordered-map" "^4.4.2"
+
+"@grpc/proto-loader@^0.8.0":
+  version "0.8.0"
+  resolved "https://registry.yarnpkg.com/@grpc/proto-loader/-/proto-loader-0.8.0.tgz#b6c324dd909c458a0e4aa9bfd3d69cf78a4b9bd8"
+  integrity sha512-rc1hOQtjIWGxcxpb9aHAfLpIctjEnsDehj0DAiVfBlmT84uvR0uUtN2hEi/ecvWVjXUGf5qPF4qEgiLOx1YIMQ==
+  dependencies:
+    lodash.camelcase "^4.3.0"
+    long "^5.0.0"
+    protobufjs "^7.5.3"
+    yargs "^17.7.2"
+
 "@humanfs/core@^0.19.1":
   version "0.19.1"
   resolved "https://registry.yarnpkg.com/@humanfs/core/-/core-0.19.1.tgz#17c55ca7d426733fe3c561906b8173c336b40a77"
@@ -2273,6 +2296,11 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
+"@js-sdsl/ordered-map@^4.4.2":
+  version "4.4.2"
+  resolved "https://registry.yarnpkg.com/@js-sdsl/ordered-map/-/ordered-map-4.4.2.tgz#9299f82874bab9e4c7f9c48d865becbfe8d6907c"
+  integrity sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==
+
 "@jsep-plugin/assignment@^1.3.0":
   version "1.3.0"
   resolved "https://registry.yarnpkg.com/@jsep-plugin/assignment/-/assignment-1.3.0.tgz#fcfc5417a04933f7ceee786e8ab498aa3ce2b242"
@@ -2369,6 +2397,14 @@
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/@nestjs/mapped-types/-/mapped-types-2.1.0.tgz#b9b536b7c3571567aa1d0223db8baa1a51505a19"
   integrity sha512-W+n+rM69XsFdwORF11UqJahn4J3xi4g/ZEOlJNL6KoW5ygWSmBB2p0S2BZ4FQeS/NDH72e6xIcu35SfJnE8bXw==
+
+"@nestjs/microservices@^11.1.6":
+  version "11.1.6"
+  resolved "https://registry.yarnpkg.com/@nestjs/microservices/-/microservices-11.1.6.tgz#a295eba66c7beb655b6ff5e8fb45972b1147accd"
+  integrity sha512-5ibvCvZ8IBxKhpSkyAC+EBdtm0XVAu3h+GV4PmOi4bXbRvVBT3Kwqq4td2wkWDN3VqteChjQ0aTADv0jizhCrg==
+  dependencies:
+    iterare "1.2.1"
+    tslib "2.8.1"
 
 "@nestjs/platform-express@^11.1.6":
   version "11.1.6"
@@ -4123,6 +4159,11 @@ capital-case@^1.0.4:
     tslib "^2.0.3"
     upper-case-first "^2.0.2"
 
+case-anything@^2.1.13:
+  version "2.1.13"
+  resolved "https://registry.yarnpkg.com/case-anything/-/case-anything-2.1.13.tgz#0cdc16278cb29a7fcdeb072400da3f342ba329e9"
+  integrity sha512-zlOQ80VrQ2Ue+ymH5OuM/DlDq64mEm+B9UTdHULv5osUMD6HalNTblf2b1u/m6QecjsnOkBpqVZ+XPwIVsy7Ng==
+
 chalk@^4.0.0, chalk@^4.1.0, chalk@^4.1.2:
   version "4.1.2"
   resolved "https://registry.yarnpkg.com/chalk/-/chalk-4.1.2.tgz#aac4e2b7734a740867aeb16bf02aad556a1e7a01"
@@ -4703,6 +4744,11 @@ detect-indent@^6.0.0:
   resolved "https://registry.yarnpkg.com/detect-indent/-/detect-indent-6.1.0.tgz#592485ebbbf6b3b1ab2be175c8393d04ca0d57e6"
   integrity sha512-reYkTUJAZb9gUuZ2RvVCNhVHdg62RHnJ7WJl8ftMi4diZ6NWlciOzQN88pUhSELEwflJht4oQDv0F0BMlwaYtA==
 
+detect-libc@^1.0.3:
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/detect-libc/-/detect-libc-1.0.3.tgz#fa137c4bd698edf55cd5cd02ac559f91a4c4ba9b"
+  integrity sha512-pGjwhsmsp4kL2RTz08wcOlGN83otlqHeD/Z5T8GXZB+/YcpQ/dgo+lbU8ZsGxV0HIvqqxo9l7mqYwyYMD9bKDg==
+
 detect-libc@^2.0.0:
   version "2.1.1"
   resolved "https://registry.yarnpkg.com/detect-libc/-/detect-libc-2.1.1.tgz#9f1e511ace6bb525efea4651345beac424dac7b9"
@@ -4752,6 +4798,13 @@ dotenv@^17.2.2:
   version "17.2.2"
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-17.2.2.tgz#4010cfe1c2be4fc0f46fd3d951afb424bc067ac6"
   integrity sha512-Sf2LSQP+bOlhKWWyhFsn0UsfdK/kCWRv1iuA2gXAwt3dyNabr6QSj00I2V10pidqz69soatm9ZwZvpQMTIOd5Q==
+
+dprint-node@^1.0.8:
+  version "1.0.8"
+  resolved "https://registry.yarnpkg.com/dprint-node/-/dprint-node-1.0.8.tgz#a02470722d8208a7d7eb3704328afda1d6758625"
+  integrity sha512-iVKnUtYfGrYcW1ZAlfR/F59cUVL8QIhWoBJoSjkkdua/dkWIgjZfiLMeTjiB06X0ZLkQ0M2C1VbUj/CxkIf1zg==
+  dependencies:
+    detect-libc "^1.0.3"
 
 dset@^3.1.2, dset@^3.1.4:
   version "3.1.4"
@@ -6942,6 +6995,11 @@ locate-path@^6.0.0:
   dependencies:
     p-locate "^5.0.0"
 
+lodash.camelcase@^4.3.0:
+  version "4.3.0"
+  resolved "https://registry.yarnpkg.com/lodash.camelcase/-/lodash.camelcase-4.3.0.tgz#b28aa6288a2b9fc651035c7711f65ab6190331a6"
+  integrity sha512-TwuEnCnxbc3rAvhf/LbG7tJUDzhqXyFnv3dtzLOPgCG/hODL7WFnsbwktkD7yUV0RrreP/l1PALq/YSg6VvjlA==
+
 lodash.includes@^4.3.0:
   version "4.3.0"
   resolved "https://registry.yarnpkg.com/lodash.includes/-/lodash.includes-4.3.0.tgz#60bb98a87cb923c68ca1e51325483314849f553f"
@@ -8633,7 +8691,16 @@ string-length@^4.0.1:
     char-regex "^1.0.2"
     strip-ansi "^6.0.0"
 
-"string-width-cjs@npm:string-width@^4.2.0", string-width@^4.1.0, string-width@^4.2.0, string-width@^4.2.3:
+"string-width-cjs@npm:string-width@^4.2.0":
+  version "4.2.3"
+  resolved "https://registry.yarnpkg.com/string-width/-/string-width-4.2.3.tgz#269c7117d27b05ad2e536830a8ec895ef9c6d010"
+  integrity sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==
+  dependencies:
+    emoji-regex "^8.0.0"
+    is-fullwidth-code-point "^3.0.0"
+    strip-ansi "^6.0.1"
+
+string-width@^4.1.0, string-width@^4.2.0, string-width@^4.2.3:
   version "4.2.3"
   resolved "https://registry.yarnpkg.com/string-width/-/string-width-4.2.3.tgz#269c7117d27b05ad2e536830a8ec895ef9c6d010"
   integrity sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==
@@ -8675,7 +8742,14 @@ string_decoder@^1.1.1:
   dependencies:
     safe-buffer "~5.2.0"
 
-"strip-ansi-cjs@npm:strip-ansi@^6.0.1", strip-ansi@^6.0.0, strip-ansi@^6.0.1:
+"strip-ansi-cjs@npm:strip-ansi@^6.0.1":
+  version "6.0.1"
+  resolved "https://registry.yarnpkg.com/strip-ansi/-/strip-ansi-6.0.1.tgz#9e26c63d30f53443e9489495b2105d37b67a85d9"
+  integrity sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==
+  dependencies:
+    ansi-regex "^5.0.1"
+
+strip-ansi@^6.0.0, strip-ansi@^6.0.1:
   version "6.0.1"
   resolved "https://registry.yarnpkg.com/strip-ansi/-/strip-ansi-6.0.1.tgz#9e26c63d30f53443e9489495b2105d37b67a85d9"
   integrity sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==
@@ -9018,6 +9092,30 @@ ts-node@^10.4.0, ts-node@^10.9.2:
     make-error "^1.1.1"
     v8-compile-cache-lib "^3.0.1"
     yn "3.1.1"
+
+ts-poet@^6.12.0:
+  version "6.12.0"
+  resolved "https://registry.yarnpkg.com/ts-poet/-/ts-poet-6.12.0.tgz#f28eb91778fdff8e1b264600c7ddddb40cd39d84"
+  integrity sha512-xo+iRNMWqyvXpFTaOAvLPA5QAWO6TZrSUs5s4Odaya3epqofBu/fMLHEWl8jPmjhA0s9sgj9sNvF1BmaQlmQkA==
+  dependencies:
+    dprint-node "^1.0.8"
+
+ts-proto-descriptors@2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/ts-proto-descriptors/-/ts-proto-descriptors-2.0.0.tgz#3a0e301a91cc6e932ac8dd13f7e07caa8a032c43"
+  integrity sha512-wHcTH3xIv11jxgkX5OyCSFfw27agpInAd6yh89hKG6zqIXnjW9SYqSER2CVQxdPj4czeOhGagNvZBEbJPy7qkw==
+  dependencies:
+    "@bufbuild/protobuf" "^2.0.0"
+
+ts-proto@^2.7.7:
+  version "2.7.7"
+  resolved "https://registry.yarnpkg.com/ts-proto/-/ts-proto-2.7.7.tgz#a30f164b3dc65123816fe0f6af4a7bd7caf99d75"
+  integrity sha512-/OfN9/Yriji2bbpOysZ/Jzc96isOKz+eBTJEcKaIZ0PR6x1TNgVm4Lz0zfbo+J0jwFO7fJjJyssefBPQ0o1V9A==
+  dependencies:
+    "@bufbuild/protobuf" "^2.0.0"
+    case-anything "^2.1.13"
+    ts-poet "^6.12.0"
+    ts-proto-descriptors "2.0.0"
 
 tsconfig-paths-webpack-plugin@4.2.0:
   version "4.2.0"
@@ -9507,7 +9605,7 @@ wordwrap@^1.0.0:
   resolved "https://registry.yarnpkg.com/wordwrap/-/wordwrap-1.0.0.tgz#27584810891456a4171c8d0226441ade90cbcaeb"
   integrity sha512-gvVzJFlPycKc5dZN4yPkP8w7Dc37BtP1yczEneOb4uq34pXZcvrtRTmWV8W+Ume+XCxKgbjM+nevkyFPMybd4Q==
 
-"wrap-ansi-cjs@npm:wrap-ansi@^7.0.0", wrap-ansi@^7.0.0:
+"wrap-ansi-cjs@npm:wrap-ansi@^7.0.0":
   version "7.0.0"
   resolved "https://registry.yarnpkg.com/wrap-ansi/-/wrap-ansi-7.0.0.tgz#67e145cff510a6a6984bdf1152911d69d2eb9e43"
   integrity sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==
@@ -9520,6 +9618,15 @@ wrap-ansi@^6.2.0:
   version "6.2.0"
   resolved "https://registry.yarnpkg.com/wrap-ansi/-/wrap-ansi-6.2.0.tgz#e9393ba07102e6c91a3b221478f0257cd2856e53"
   integrity sha512-r6lPcBGxZXlIcymEu7InxDMhdW0KDxpLgoFLcguasxCaJ/SOIZwINatK9KY/tf+ZrlywOKU0UDj3ATXUBfxJXA==
+  dependencies:
+    ansi-styles "^4.0.0"
+    string-width "^4.1.0"
+    strip-ansi "^6.0.0"
+
+wrap-ansi@^7.0.0:
+  version "7.0.0"
+  resolved "https://registry.yarnpkg.com/wrap-ansi/-/wrap-ansi-7.0.0.tgz#67e145cff510a6a6984bdf1152911d69d2eb9e43"
+  integrity sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==
   dependencies:
     ansi-styles "^4.0.0"
     string-width "^4.1.0"
@@ -9639,7 +9746,7 @@ yargs@^15.3.1:
     y18n "^4.0.0"
     yargs-parser "^18.1.2"
 
-yargs@^17.0.0, yargs@^17.3.1:
+yargs@^17.0.0, yargs@^17.3.1, yargs@^17.7.2:
   version "17.7.2"
   resolved "https://registry.yarnpkg.com/yargs/-/yargs-17.7.2.tgz#991df39aca675a192b816e1e0363f9d75d2aa269"
   integrity sha512-7dSzzRQ++CKnNI/krKnYRV7JKKPUXMEh61soaHKg9mrWEhzFWhFnxPxGl+69cD1Ou63C13NUPCnmIcrvqCuM6w==
