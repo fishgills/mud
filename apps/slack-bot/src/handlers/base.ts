@@ -1,4 +1,4 @@
-import { dmSdk } from '../gql-client';
+import { dmSdk } from '../clients/dm-sdk';
 import { COMMANDS, MOVEMENT_COMMANDS } from '../commands';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { registerHandler } from './handlerRegistry';

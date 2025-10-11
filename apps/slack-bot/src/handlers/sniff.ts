@@ -1,4 +1,4 @@
-import { dmSdk } from '../gql-client';
+import { dmSdk } from '../clients/dm-sdk';
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';

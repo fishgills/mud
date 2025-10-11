@@ -1,4 +1,4 @@
-jest.mock('./gql-client', () => {
+jest.mock('./clients/dm-sdk', () => {
   const dmSdk = {
     Attack: jest.fn(),
     SpendSkillPoint: jest.fn(),
@@ -17,8 +17,7 @@ import {
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { HandlerContext } from './handlers/types';
 import { SELF_ATTACK_ERROR } from './handlers/attack';
-import { dmSdk } from './gql-client';
-import { PlayerAttribute, TargetType } from './generated/dm-graphql';
+import { dmSdk, PlayerAttribute, TargetType } from './clients/dm-sdk';
 import { toClientId } from './utils/clientId';
 
 const mockedDmSdk = dmSdk as unknown as {

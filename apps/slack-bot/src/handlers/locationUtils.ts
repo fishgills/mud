@@ -166,13 +166,13 @@ export function sanitizeDescription(text: string): string {
 // --- Centralized occupants rendering helpers ---
 import { extractSlackId } from '../utils/clientId';
 
-type DmSdk = (typeof import('../gql-client'))['dmSdk'];
+type DmSdk = typeof import('../clients/dm-sdk')['dmSdk'];
 
 let dmSdkPromise: Promise<DmSdk> | null = null;
 
 const getDmSdk = async (): Promise<DmSdk> => {
   if (!dmSdkPromise) {
-    dmSdkPromise = import('../gql-client').then((mod) => mod.dmSdk);
+    dmSdkPromise = import('../clients/dm-sdk').then((mod) => mod.dmSdk);
   }
 
   return dmSdkPromise;

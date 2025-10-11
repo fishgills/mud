@@ -1,4 +1,4 @@
-jest.mock('../gql-client', () => {
+jest.mock('../clients/dm-sdk', () => {
   const dmSdk = {
     Attack: jest.fn(),
     GetPlayer: jest.fn(),
@@ -17,8 +17,8 @@ jest.mock('./mapUtils', () => ({
   sendPngMap: jest.fn().mockResolvedValue(true),
 }));
 
-import { TargetType, Direction } from '../generated/dm-graphql';
-import { dmSdk } from '../gql-client';
+import { TargetType } from '../clients/dm-sdk';
+import { dmSdk } from '../clients/dm-sdk';
 import { sendPngMap } from './mapUtils';
 import { attackHandler, SELF_ATTACK_ERROR } from './attack';
 import { createHandler } from './create';
@@ -47,6 +47,10 @@ const mockedDmSdk = dmSdk as unknown as {
 const mockedSendPngMap = sendPngMap as unknown as jest.MockedFunction<
   typeof sendPngMap
 >;
+
+const Direction = {
+  North: 'north',
+} as const;
 
 type MockSlackClient = {
   conversations: {

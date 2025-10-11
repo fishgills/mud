@@ -1,10 +1,8 @@
-import { dmSdk } from '../../gql-client';
-import {
-  GetLocationEntitiesQuery,
-  GetLocationEntitiesQueryVariables,
-  GetPlayerQuery,
-  GetPlayerQueryVariables,
-} from '../../generated/dm-graphql';
+import type {
+  LocationResponse,
+  PlayerResponse,
+} from '@mud/api-contracts';
+import { dmSdk } from '../../clients/dm-sdk';
 import { toClientId } from '../../utils/clientId';
 
 interface PlayerLookupResult {

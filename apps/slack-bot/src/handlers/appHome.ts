@@ -3,7 +3,7 @@ import type { KnownBlock } from '@slack/types';
 import type { WebClient } from '@slack/web-api';
 import { COMMANDS } from '../commands';
 import { buildHelpBlocks } from './help';
-import { dmSdk } from '../gql-client';
+import { dmSdk } from '../clients/dm-sdk';
 import { toClientId } from '../utils/clientId';
 
 interface PlayerStatus {

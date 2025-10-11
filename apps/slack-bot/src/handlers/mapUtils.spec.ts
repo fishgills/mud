@@ -1,6 +1,6 @@
 jest.mock('../env', () => ({
   env: {
-    WORLD_BASE_URL: 'https://mud.example/world',
+    WORLD_RENDER_BASE_URL: 'https://mud.example/world',
   },
 }));
 

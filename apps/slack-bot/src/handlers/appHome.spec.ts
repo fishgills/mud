@@ -1,10 +1,9 @@
 import type { App } from '@slack/bolt';
 import type { ActionsBlock, KnownBlock } from '@slack/types';
 import { buildAppHomeBlocks, registerAppHome } from './appHome';
-import { dmSdk } from '../gql-client';
+import { dmSdk } from '../clients/dm-sdk';
 
-// Mock the GraphQL client
-jest.mock('../gql-client', () => ({
+jest.mock('../clients/dm-sdk', () => ({
   dmSdk: {
     GetPlayer: jest.fn(),
   },
