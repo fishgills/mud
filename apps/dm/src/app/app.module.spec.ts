@@ -1,74 +1,34 @@
-const forRootMock = jest.fn(() => 'GraphQLModuleMock');
-
-const decoratorFactory = () => () => undefined;
-
-jest.mock('@nestjs/graphql', () => ({
-  GraphQLModule: {
-    forRoot: forRootMock,
-  },
-  GqlExecutionContext: { create: jest.fn() },
-  ObjectType: () => (target: unknown) => target,
-  InputType: () => (target: unknown) => target,
-  ArgsType: () => (target: unknown) => target,
-  Field: decoratorFactory,
-  Int: () => Number,
-  Float: () => Number,
-  Resolver: () => (target: unknown) => target,
-  Query: decoratorFactory,
-  Mutation: decoratorFactory,
-  Args: decoratorFactory,
-  ResolveField: decoratorFactory,
-  Parent: decoratorFactory,
-  registerEnumType: jest.fn(),
-}));
-
-jest.mock('@nestjs/apollo', () => ({
-  ApolloDriver: class {},
-}));
-
-jest.mock('@mud/database', () => ({
-  getPrismaClient: jest.fn(),
-  Monster: class {},
-  Player: class {},
-}));
+import 'reflect-metadata';
 
 describe('AppModule definition', () => {
-  afterEach(() => {
-    forRootMock.mockClear();
-  });
-
-  it('registers GraphQL module and providers', async () => {
-    const module = await import('./app.module');
+  it('registers REST controllers and ts-rest interceptor', async () => {
+    const moduleRef = await import('./app.module');
     const { MODULE_METADATA } = await import('@nestjs/common/constants');
     const { APP_INTERCEPTOR } = await import('@nestjs/core');
-    const { LoggingInterceptor } = await import(
-      './interceptors/logging.interceptor'
-    );
+    const { TsRestHandlerInterceptor } = await import('@ts-rest/nest');
     const { AiModule } = await import('../openai/ai.module');
-
-    expect(module.AppModule).toBeDefined();
-    expect(forRootMock).toHaveBeenCalledWith({
-      driver: expect.any(Function),
-      autoSchemaFile: 'dm-schema.gql',
-    });
+    const { DmApiController } = await import('./api/dm-api.controller');
 
     const imports = Reflect.getMetadata(
       MODULE_METADATA.IMPORTS,
-      module.AppModule,
+      moduleRef.AppModule,
     );
     const providers = Reflect.getMetadata(
       MODULE_METADATA.PROVIDERS,
-      module.AppModule,
+      moduleRef.AppModule,
+    );
+    const controllers = Reflect.getMetadata(
+      MODULE_METADATA.CONTROLLERS,
+      moduleRef.AppModule,
     );
 
-    expect(imports).toEqual(
-      expect.arrayContaining(['GraphQLModuleMock', AiModule]),
-    );
+    expect(imports).toEqual(expect.arrayContaining([AiModule]));
+    expect(controllers).toEqual(expect.arrayContaining([DmApiController]));
     expect(providers).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           provide: APP_INTERCEPTOR,
-          useClass: LoggingInterceptor,
+          useClass: TsRestHandlerInterceptor,
         }),
       ]),
     );

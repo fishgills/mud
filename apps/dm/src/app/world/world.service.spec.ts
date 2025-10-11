@@ -27,7 +27,7 @@ describe('WorldService', () => {
 
   const createService = () => new WorldService();
 
-  it('maps GraphQL tile data to WorldTile structure', async () => {
+  it('maps tile data from API to WorldTile structure', async () => {
     const tileResponse = {
       id: 42,
       x: 10,
@@ -62,7 +62,7 @@ describe('WorldService', () => {
     expect(result.updatedAt).toBeInstanceOf(Date);
   });
 
-  it('falls back to default tile when GraphQL returns nothing', async () => {
+  it('falls back to default tile when API returns nothing', async () => {
     worldClient.getTile.mockResolvedValue({ status: 404 });
 
     const service = createService();

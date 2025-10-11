@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AiService } from '../../../openai/ai.service';
+import { AiService } from '../../openai/ai.service';
 import type {
   CenterTile,
   BiomeSummary,
@@ -7,8 +7,10 @@ import type {
   VisibleSettlement,
   TimingMetrics,
 } from './look-view-types';
-import type { Settlement } from '../../world/world.service';
-import { NearbyPlayerInfo } from '../types/response.types';
+import type { Settlement } from '../world/world.service';
+import type { LookViewData } from '@mud/api-contracts';
+
+type NearbyPlayerInfo = LookViewData['nearbyPlayers'][number];
 
 @Injectable()
 export class DescriptionService {

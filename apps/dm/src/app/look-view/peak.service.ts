@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { calculateDirection } from '../../shared/direction.util';
+import { calculateDirection } from '../shared/direction.util';
 import type { Player, VisiblePeak, TimingMetrics } from './look-view-types';
-import type { WorldTile } from '../../../generated/world-graphql';
+import type { WorldTile } from '../world/world.service';
 
 @Injectable()
 export class PeakService {

@@ -1,9 +1,13 @@
-import { CombatService, Combatant } from './combat.service';
+import {
+  CombatService,
+  Combatant,
+  type CombatRound,
+  type DetailedCombatLog,
+} from './combat.service';
 import type { PlayerEntity } from '@mud/engine';
 import type { EventBridgeService } from '../../shared/event-bridge.service';
 import type { PlayerService } from '../player/player.service';
 import type { AiService } from '../../openai/ai.service';
-import type { CombatRound, DetailedCombatLog } from '../graphql';
 
 type MockPrismaClient = {
   combatLog: {

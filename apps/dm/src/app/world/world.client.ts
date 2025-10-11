@@ -1,7 +1,7 @@
 import { initClient } from '@ts-rest/core';
 import { worldContract } from '@mud/api-contracts';
 import { authorizedFetch } from '@mud/gcp-auth';
-import { env } from '../env';
+import { env } from '../../env';
 
 const normalizeBaseUrl = (url: string): string => {
   if (!url) {

@@ -1,10 +1,10 @@
+import { BadRequestException } from '@nestjs/common';
 import { PlayerService } from './player.service';
-import { GraphQLError } from 'graphql';
 import {
-  CreatePlayerInput,
-  MovePlayerInput,
-  PlayerStatsInput,
-} from '../graphql/inputs/player.input';
+  CreatePlayerDto as CreatePlayerInput,
+  MovePlayerDto as MovePlayerInput,
+  PlayerStatsDto as PlayerStatsInput,
+} from './dto/player.dto';
 
 const players: Record<string, unknown>[] = [];
 
@@ -224,7 +224,7 @@ describe('PlayerService', () => {
         x: 0,
         y: 0,
       } as CreatePlayerInput),
-    ).rejects.toThrow(GraphQLError);
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('gets players by slack and name with error handling', async () => {
@@ -234,12 +234,14 @@ describe('PlayerService', () => {
 
     await expect(service.getPlayer('UNKNOWN')).rejects.toThrow();
 
-    await expect(service.getPlayerByName(' ')).rejects.toThrow(GraphQLError);
+    await expect(service.getPlayerByName(' ')).rejects.toThrow(
+      BadRequestException,
+    );
     await expect(service.getPlayerByName('missing')).rejects.toThrow();
 
     players.push({ ...players[0], id: 100, slackId: 'EX2', name: 'Existing' });
     await expect(service.getPlayerByName('Existing')).rejects.toThrow(
-      GraphQLError,
+      BadRequestException,
     );
   });
 

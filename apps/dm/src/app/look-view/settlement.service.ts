@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { calculateDirection } from '../../shared/direction.util';
-import type { NearbySettlement } from '../../world/world.service';
+import { calculateDirection } from '../shared/direction.util';
+import type { NearbySettlement } from '../world/world.service';
 import type {
   Player,
   VisibleSettlement,

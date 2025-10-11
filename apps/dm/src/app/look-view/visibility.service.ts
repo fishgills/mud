@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { WorldService } from '../../world/world.service';
+import { WorldService, type WorldTile } from '../world/world.service';
 import type { Player, TimingMetrics, CenterTile } from './look-view-types';
-import type { WorldTile } from '../../../generated/world-graphql';
 
 @Injectable()
 export class VisibilityService {

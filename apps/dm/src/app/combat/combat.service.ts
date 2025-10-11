@@ -5,7 +5,7 @@ import { PlayerService } from '../player/player.service';
 import { PlayerStatsDto } from '../player/dto/player.dto';
 import { AiService } from '../../openai/ai.service';
 import { EventBridgeService } from '../../shared/event-bridge.service';
-import { CombatResult, CombatRound, DetailedCombatLog } from '../graphql';
+import type { CombatResult } from '@mud/api-contracts';
 
 interface CombatNarrative {
   summary: string;
@@ -23,6 +23,47 @@ export interface CombatMessage {
   role: 'attacker' | 'defender' | 'observer';
   // Optional rich message payload for Slack (Block Kit-like structure)
   blocks?: Array<Record<string, unknown>>;
+}
+
+export interface CombatRound {
+  roundNumber: number;
+  attackerName: string;
+  defenderName: string;
+  attackRoll: number;
+  attackModifier: number;
+  totalAttack: number;
+  defenderAC: number;
+  hit: boolean;
+  damage: number;
+  defenderHpAfter: number;
+  killed: boolean;
+}
+
+export interface InitiativeRoll {
+  name: string;
+  roll: number;
+  modifier: number;
+  total: number;
+}
+
+export interface CombatLocation {
+  x: number;
+  y: number;
+}
+
+export interface DetailedCombatLog {
+  combatId: string;
+  participant1: string;
+  participant2: string;
+  initiativeRolls: InitiativeRoll[];
+  firstAttacker: string;
+  rounds: CombatRound[];
+  winner: string;
+  loser: string;
+  xpAwarded: number;
+  goldAwarded: number;
+  timestamp: Date;
+  location: CombatLocation;
 }
 
 export interface Combatant {

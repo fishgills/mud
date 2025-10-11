@@ -1,5 +1,5 @@
 /**
- * Adapters to convert engine entities to GraphQL models
+ * Adapter helpers to convert engine entities into API contract shapes.
  */
 
 import { PlayerEntity, MonsterEntity } from '@mud/engine';
@@ -49,6 +49,11 @@ const toDateOrUndefined = (value: unknown): Date | undefined => {
   }
 
   return undefined;
+};
+
+const toIsoOrNull = (value: unknown): string | null => {
+  const date = toDateOrUndefined(value);
+  return date ? date.toISOString() : null;
 };
 
 const toStringOrUndefined = (value: unknown): string | undefined => {
@@ -107,11 +112,11 @@ const resolveClientIdentity = (
   };
 };
 
-export class EntityToGraphQLAdapter {
+export class EntityToApiAdapter {
   /**
-   * Convert PlayerEntity to GraphQL Player model
+   * Convert PlayerEntity to API Player model
    */
-  static playerEntityToGraphQL(entity: PlayerLike): Player {
+  static playerEntityToApi(entity: PlayerLike): Player {
     const raw = entity as Record<string, unknown>;
     const position =
       (raw.position as Record<string, unknown> | undefined) ?? {};
@@ -127,9 +132,9 @@ export class EntityToGraphQLAdapter {
       hp,
     );
 
-    const lastAction = toDateOrUndefined(raw.lastAction);
-    const createdAt = toDateOrUndefined(raw.createdAt);
-    const updatedAt = toDateOrUndefined(raw.updatedAt) ?? new Date();
+    const lastAction = toIsoOrNull(raw.lastAction);
+    const createdAt = toIsoOrNull(raw.createdAt);
+    const updatedAt = toIsoOrNull(raw.updatedAt) ?? new Date().toISOString();
 
     const worldTileRaw = raw.worldTileId;
     const worldTileId =
@@ -159,16 +164,19 @@ export class EntityToGraphQLAdapter {
         hp > 0 || toBoolean(raw.isAlive, true),
       ),
       lastAction,
-      createdAt,
+      createdAt: createdAt ?? null,
       updatedAt,
       worldTileId,
+      currentTile: null,
+      nearbyPlayers: [],
+      nearbyMonsters: [],
     };
   }
 
   /**
-   * Convert MonsterEntity to GraphQL Monster model
+   * Convert MonsterEntity to API Monster model
    */
-  static monsterEntityToGraphQL(entity: MonsterLike): Monster {
+  static monsterEntityToApi(entity: MonsterLike): Monster {
     const raw = entity as Record<string, unknown>;
     const position =
       (raw.position as Record<string, unknown> | undefined) ?? {};
@@ -182,10 +190,10 @@ export class EntityToGraphQLAdapter {
       hp,
     );
 
-    const lastMove = toDateOrUndefined(raw.lastMove) ?? new Date(0);
-    const spawnedAt = toDateOrUndefined(raw.spawnedAt) ?? new Date(0);
-    const createdAt = toDateOrUndefined(raw.createdAt) ?? spawnedAt;
-    const updatedAt = toDateOrUndefined(raw.updatedAt) ?? new Date();
+    const lastMove = toIsoOrNull(raw.lastMove) ?? new Date(0).toISOString();
+    const spawnedAt = toIsoOrNull(raw.spawnedAt) ?? new Date(0).toISOString();
+    const createdAt = toIsoOrNull(raw.createdAt) ?? spawnedAt;
+    const updatedAt = toIsoOrNull(raw.updatedAt) ?? new Date().toISOString();
     const worldTileRaw = raw.worldTileId;
     const worldTileId =
       worldTileRaw === null || worldTileRaw === undefined
@@ -217,16 +225,16 @@ export class EntityToGraphQLAdapter {
   }
 
   /**
-   * Convert array of PlayerEntity to GraphQL Player models
+   * Convert array of PlayerEntity to API Player models
    */
-  static playerEntitiesToGraphQL(entities: PlayerLike[] = []): Player[] {
-    return entities.map((entity) => this.playerEntityToGraphQL(entity));
+  static playerEntitiesToApi(entities: PlayerLike[] = []): Player[] {
+    return entities.map((entity) => this.playerEntityToApi(entity));
   }
 
   /**
-   * Convert array of MonsterEntity to GraphQL Monster models
+   * Convert array of MonsterEntity to API Monster models
    */
-  static monsterEntitiesToGraphQL(entities: MonsterLike[] = []): Monster[] {
-    return entities.map((entity) => this.monsterEntityToGraphQL(entity));
+  static monsterEntitiesToApi(entities: MonsterLike[] = []): Monster[] {
+    return entities.map((entity) => this.monsterEntityToApi(entity));
   }
 }

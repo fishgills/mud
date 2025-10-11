@@ -9,9 +9,11 @@ import { BiomeService } from './biome.service';
 import { SettlementService } from './settlement.service';
 import { DescriptionService } from './description.service';
 import { ResponseService } from './response.service';
-import { AiService } from '../../../openai/ai.service';
-import { NearbyPlayerInfo } from '../types/response.types';
-import type { WorldTile } from '../../../generated/world-graphql';
+import { AiService } from '../../openai/ai.service';
+import type { LookViewData } from '@mud/api-contracts';
+import type { WorldTile } from '../world/world.service';
+
+type NearbyPlayerInfo = LookViewData['nearbyPlayers'][number];
 
 const makeTile = (overrides: Partial<WorldTile> = {}): WorldTile => ({
   id: overrides.id ?? 0,

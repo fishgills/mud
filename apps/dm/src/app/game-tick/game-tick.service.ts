@@ -3,7 +3,7 @@ import { getPrismaClient } from '@mud/database';
 import { CombatService } from '../combat/combat.service';
 import { PlayerService } from '../player/player.service';
 import { PopulationService } from '../monster/population.service';
-import { TickResult } from '../graphql';
+import type { TickResult } from '@mud/api-contracts';
 import { MonsterService } from '../monster/monster.service';
 
 @Injectable()

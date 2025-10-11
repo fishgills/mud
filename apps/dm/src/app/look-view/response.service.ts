@@ -5,9 +5,8 @@ import type {
   VisiblePeak,
   VisibleSettlement,
 } from './look-view-types';
-import { LookViewData, NearbyPlayerInfo } from '../types/response.types';
-import type { Settlement } from '../../world/world.service';
-import { Monster } from '@mud/database';
+import type { LookViewData, Monster as ApiMonster } from '@mud/api-contracts';
+import type { Settlement } from '../world/world.service';
 
 @Injectable()
 export class ResponseService {
@@ -22,8 +21,8 @@ export class ResponseService {
     visibleSettlements: VisibleSettlement[],
     currentSettlement: Settlement | null,
     description: string,
-    nearbyPlayers: NearbyPlayerInfo[],
-    monsters: Monster[],
+    nearbyPlayers: LookViewData['nearbyPlayers'],
+    monsters: ApiMonster[],
   ): LookViewData {
     return {
       location: {
