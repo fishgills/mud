@@ -106,7 +106,7 @@ export async function getCloudRunAuthHeaders(
 
 /**
  * Fetch implementation that injects Cloud Run ID token Authorization header automatically.
- * Pass this to libraries (e.g., graphql-request) that accept a custom fetch.
+ * Pass this to HTTP client libraries (e.g., ts-rest initClient) that accept a custom fetch.
  */
 export const authorizedFetch: typeof fetch = async (input, init) => {
   // Resolve URL string from the input variant
@@ -151,8 +151,9 @@ export const authorizedFetch: typeof fetch = async (input, init) => {
     // Apply auth header (overrides if already present)
     for (const [k, v] of Object.entries(authHeaders)) merged.set(k, v);
 
-    // Ensure GraphQL requests have the correct content type if caller didn't set it
-    if (urlStr.includes('/graphql') && !merged.has('content-type')) {
+    const method = (initOptions.method ?? 'GET').toUpperCase();
+    const expectsJsonBody = ['POST', 'PUT', 'PATCH'].includes(method);
+    if (expectsJsonBody && !merged.has('content-type')) {
       merged.set('content-type', 'application/json');
     }
 

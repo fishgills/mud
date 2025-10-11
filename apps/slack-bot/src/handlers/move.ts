@@ -1,20 +1,21 @@
 import { HandlerContext } from './types';
-import { Direction } from '../generated/dm-graphql';
 // No debug JSON on move; keep the channel clean.
 import { sendPngMap } from './mapUtils';
 import { COMMANDS } from '../commands';
 import { sendOccupantsSummary } from './locationUtils';
 import { MOVEMENT_COMMAND_SET, PlayerCommandHandler } from './base';
 
-const directionMap: Record<string, Direction> = {
-  [COMMANDS.UP]: Direction.North,
-  [COMMANDS.NORTH]: Direction.North,
-  [COMMANDS.DOWN]: Direction.South,
-  [COMMANDS.SOUTH]: Direction.South,
-  [COMMANDS.LEFT]: Direction.West,
-  [COMMANDS.WEST]: Direction.West,
-  [COMMANDS.RIGHT]: Direction.East,
-  [COMMANDS.EAST]: Direction.East,
+type MoveDirection = 'north' | 'south' | 'east' | 'west';
+
+const directionMap: Record<string, MoveDirection> = {
+  [COMMANDS.UP]: 'north',
+  [COMMANDS.NORTH]: 'north',
+  [COMMANDS.DOWN]: 'south',
+  [COMMANDS.SOUTH]: 'south',
+  [COMMANDS.LEFT]: 'west',
+  [COMMANDS.WEST]: 'west',
+  [COMMANDS.RIGHT]: 'east',
+  [COMMANDS.EAST]: 'east',
 };
 
 export const moveHandlerHelp = `Move your character using direction words: up, down, left, right, north, south, east, west. Example: Send "up" or "north" to move north.`;
@@ -36,7 +37,7 @@ export class MoveHandler extends PlayerCommandHandler {
     const trimmedText = text.trim();
     const coordinateMatch = trimmedText.match(/^move\s+(-?\d+)\s+(-?\d+)$/i);
 
-    let direction: Direction | undefined;
+    let direction: MoveDirection | undefined;
     let targetX: number | undefined;
     let targetY: number | undefined;
     let requestedDistance: number | undefined;
@@ -98,8 +99,8 @@ export class MoveHandler extends PlayerCommandHandler {
       }
       movementLabel =
         requestedDistance && requestedDistance > 1
-          ? `${direction.toLowerCase()} x${requestedDistance}`
-          : direction.toLowerCase();
+          ? `${direction} x${requestedDistance}`
+          : direction;
     }
 
     try {
@@ -145,7 +146,7 @@ export class MoveHandler extends PlayerCommandHandler {
       pngMs = Date.now() - tPngStart;
       const tMsgStart = Date.now();
       const stepsUsed = requestedDistance ?? 1;
-      const directionText = direction?.toLowerCase();
+      const directionText = direction;
       const movementText =
         directionText && stepsUsed > 1
           ? `You moved ${directionText} ${stepsUsed} spaces.`

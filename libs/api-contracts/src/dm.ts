@@ -69,28 +69,30 @@ const playerSchema = playerSummarySchema.extend({
   updatedAt: z.string(),
   worldTileId: z.number().int().nullable().optional(),
   currentTile: tileInfoSchema.nullish(),
-  nearbyPlayers: z.array(
-    playerSummarySchema.pick({
-      id: true,
-      name: true,
-      x: true,
-      y: true,
-      level: true,
-    }),
-  )
+  nearbyPlayers: z
+    .array(
+      playerSummarySchema.pick({
+        id: true,
+        name: true,
+        x: true,
+        y: true,
+        level: true,
+      }),
+    )
     .optional()
     .default([]),
-  nearbyMonsters: z.array(
-    monsterSchema.pick({
-      id: true,
-      name: true,
-      hp: true,
-      maxHp: true,
-      isAlive: true,
-      x: true,
-      y: true,
-    }),
-  )
+  nearbyMonsters: z
+    .array(
+      monsterSchema.pick({
+        id: true,
+        name: true,
+        hp: true,
+        maxHp: true,
+        isAlive: true,
+        x: true,
+        y: true,
+      }),
+    )
     .optional()
     .default([]),
 });
@@ -300,10 +302,7 @@ const createPlayerInputSchema = z
   .object({
     slackId: z.string().min(1).optional(),
     clientId: z.string().min(1).optional(),
-    clientType: z
-      .enum(['slack', 'discord', 'web'])
-      .optional()
-      .default('slack'),
+    clientType: z.enum(['slack', 'discord', 'web']).optional().default('slack'),
     name: z.string().min(1),
     x: z.coerce.number().int().optional(),
     y: z.coerce.number().int().optional(),
@@ -334,12 +333,9 @@ const playerStatsInputSchema = z
     gold: z.coerce.number().int().optional(),
     level: z.coerce.number().int().optional(),
   })
-  .refine(
-    (data) => Object.values(data).some((value) => value !== undefined),
-    {
-      message: 'At least one stat must be provided',
-    },
-  );
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: 'At least one stat must be provided',
+  });
 
 const spawnMonsterInputSchema = z.object({
   x: z.coerce.number().int(),
@@ -355,12 +351,11 @@ const requireIdentifier = <T extends z.ZodRawShape>(
   shape: T,
   message = 'slackId or clientId is required',
 ) =>
-  identifierBaseSchema.extend(shape).refine(
-    (data) => data.slackId || data.clientId,
-    {
+  identifierBaseSchema
+    .extend(shape)
+    .refine((data) => data.slackId || data.clientId, {
       message,
-    },
-  );
+    });
 
 const identifierSchema = requireIdentifier({});
 
@@ -632,3 +627,6 @@ export type GameState = z.infer<typeof gameStateSchema>;
 export type GameStateResponse = z.infer<typeof gameStateResponseSchema>;
 export type MonsterResponse = z.infer<typeof monsterResponseSchema>;
 export type HealthCheck = z.infer<typeof healthCheckSchema>;
+export type HasActivePlayersResponse = z.infer<
+  typeof hasActivePlayersResponseSchema
+>;

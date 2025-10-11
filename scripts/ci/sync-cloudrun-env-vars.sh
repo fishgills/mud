@@ -196,7 +196,7 @@ select_world_base_value() {
   local world_url="$2"
   local world_alias="$3"
 
-  mapfile -t values < <(env_values "$service_name" "WORLD_BASE_URL")
+  mapfile -t values < <(env_values "$service_name" "WORLD_RENDER_BASE_URL")
 
   local val
   for val in "${values[@]}"; do
@@ -286,12 +286,21 @@ if [ -n "$world_url" ]; then
 fi
 
 if [ -n "$dm_url" ]; then
-  ensure_service_env "$SERVICE_TICK" "DM_GRAPHQL_URL" "$(join_path "$dm_url" 'graphql')" "$(join_path "$dm_alias" 'graphql')"
-  ensure_service_env "$SERVICE_SLACK" "DM_GQL_ENDPOINT" "$(join_path "$dm_url" 'graphql')" "$(join_path "$dm_alias" 'graphql')"
+  ensure_service_env "$SERVICE_TICK" "DM_SERVICE_URL" "${dm_url%/}" "${dm_alias%/}"
+  ensure_service_env "$SERVICE_SLACK" "DM_SERVICE_URL" "${dm_url%/}" "${dm_alias%/}"
+  add_remove "$SERVICE_TICK" "DM_GRAPHQL_URL"
+  add_remove "$SERVICE_SLACK" "DM_GQL_ENDPOINT"
 fi
 
 if [ -n "$world_url" ]; then
-  ensure_service_env "$SERVICE_SLACK" "WORLD_GQL_ENDPOINT" "$(join_path "$world_url" 'graphql')" "$(join_path "$world_alias" 'graphql')"
+  world_service_primary="$(join_path "$world_url" 'world')"
+  if [ -n "$world_alias" ]; then
+    world_service_alias="$(join_path "$world_alias" 'world')"
+    ensure_service_env "$SERVICE_SLACK" "WORLD_SERVICE_URL" "$world_service_primary" "$world_service_alias"
+  else
+    ensure_service_env "$SERVICE_SLACK" "WORLD_SERVICE_URL" "$world_service_primary"
+  fi
+  add_remove "$SERVICE_SLACK" "WORLD_GQL_ENDPOINT"
 fi
 
 desired_world_base="$(select_world_base_value "$SERVICE_SLACK" "$world_url" "$world_alias")"
@@ -314,7 +323,7 @@ if [ -n "$desired_world_base" ]; then
     world_base_acceptables+=("$local_world_alias_url")
   fi
 
-  ensure_service_env "$SERVICE_SLACK" "WORLD_BASE_URL" "$desired_world_base" "${world_base_acceptables[@]}"
+  ensure_service_env "$SERVICE_SLACK" "WORLD_RENDER_BASE_URL" "$desired_world_base" "${world_base_acceptables[@]}"
 fi
 
 apply_updates "$SERVICE_DM" "$SERVICE_TICK" "$SERVICE_SLACK"

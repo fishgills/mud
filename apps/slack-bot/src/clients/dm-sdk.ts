@@ -1,5 +1,6 @@
 import {
   type CombatResponse,
+  type LocationEntitiesResponse,
   type LocationResponse,
   type LookViewResponse,
   type PlayerMoveResponse,
@@ -68,10 +69,28 @@ type SpendSkillPointVariables = {
 const normalizeIdentifier = (value?: string | null): string | undefined =>
   value === null || value === undefined || value === '' ? undefined : value;
 
-const unwrap = async <T>(promise: Promise<{ status: number; body: T }>): Promise<T> => {
+const unwrap = async <T>(
+  promise: Promise<{ status: number; body: T }>,
+): Promise<T> => {
   const response = await promise;
   if (response.status >= 400) {
-    throw new Error(`DM API request failed with status ${response.status}`);
+    let message = `DM API request failed with status ${response.status}`;
+    const body = response.body as unknown;
+    if (
+      body &&
+      typeof body === 'object' &&
+      'message' in body &&
+      typeof (body as { message?: unknown }).message === 'string'
+    ) {
+      const candidate = (body as { message: string }).message.trim();
+      if (candidate.length > 0) {
+        message = candidate;
+      }
+    }
+    const error = new Error(message);
+    (error as { status?: number }).status = response.status;
+    (error as { responseBody?: unknown }).responseBody = response.body;
+    throw error;
   }
   return response.body;
 };
@@ -263,7 +282,7 @@ export const dmSdk = {
     return {
       getLocationEntities: body,
     } satisfies {
-      getLocationEntities: LocationResponse;
+      getLocationEntities: LocationEntitiesResponse;
     };
   },
 

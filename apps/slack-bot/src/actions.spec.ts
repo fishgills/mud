@@ -1,9 +1,13 @@
 jest.mock('./clients/dm-sdk', () => {
+  const actual = jest.requireActual('./clients/dm-sdk');
   const dmSdk = {
     Attack: jest.fn(),
     SpendSkillPoint: jest.fn(),
   };
-  return { dmSdk };
+  return {
+    ...actual,
+    dmSdk,
+  };
 });
 
 import { registerActions } from './actions';
@@ -838,7 +842,7 @@ describe('registerActions', () => {
     );
   });
 
-  it('handles attack error with GraphQL error message', async () => {
+  it('handles attack error with API error message', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     const client: MockSlackClient = {
       conversations: {

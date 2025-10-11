@@ -3,10 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "dependencies": {
-    "@mud/tracer": "*"
+    "@mud/api-contracts": "*",
+    "@mud/gcp-auth": "*",
+    "@mud/tracer": "*",
+    "@ts-rest/core": "^3.52.1"
   },
   "devDependencies": {
-    "@mud/gcp-auth": "*",
     "@types/node": "^24.5.2"
   },
   "scripts": {

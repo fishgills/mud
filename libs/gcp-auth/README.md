@@ -13,12 +13,14 @@ Small helper for authenticating requests to private Google Cloud Run services fr
 In your HTTP client creation, pass `authorizedFetch`:
 
 ```ts
-import { GraphQLClient } from 'graphql-request';
+import { initClient } from '@ts-rest/core';
+import { dmContract } from '@mud/api-contracts';
 import { authorizedFetch, setAuthLogger } from '@mud/gcp-auth';
 
 setAuthLogger(customLogger); // optional, defaults to console
 
-const client = new GraphQLClient('https://your-cloud-run-url.a.run.app/graphql', {
+const client = initClient(dmContract, {
+  baseUrl: 'https://your-cloud-run-url.a.run.app',
   fetch: authorizedFetch,
 });
 ```

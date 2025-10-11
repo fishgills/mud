@@ -1,11 +1,5 @@
-import {
-  GetLocationEntitiesQuery,
-  GetPlayerQuery,
-} from '../../generated/dm-graphql';
+import type { LocationEntities, Player } from '@mud/api-contracts';
 
-export type PlayerStatsSource =
-  | NonNullable<GetPlayerQuery['getPlayer']['data']>
-  | GetLocationEntitiesQuery['getPlayersAtLocation'][number];
+export type PlayerStatsSource = Player;
 
-export type MonsterStatsSource =
-  GetLocationEntitiesQuery['getMonstersAtLocation'][number];
+export type MonsterStatsSource = LocationEntities['monsters'][number];

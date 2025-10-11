@@ -1,4 +1,5 @@
 jest.mock('../clients/dm-sdk', () => {
+  const actual = jest.requireActual('../clients/dm-sdk');
   const dmSdk = {
     Attack: jest.fn(),
     GetPlayer: jest.fn(),
@@ -10,7 +11,10 @@ jest.mock('../clients/dm-sdk', () => {
     MovePlayer: jest.fn(),
     RerollPlayerStats: jest.fn(),
   };
-  return { dmSdk };
+  return {
+    ...actual,
+    dmSdk,
+  };
 });
 
 jest.mock('./mapUtils', () => ({
@@ -80,6 +84,27 @@ const makeClient = (channelId = 'D1'): MockSlackClient => ({
     update: jest
       .fn<Promise<void>, [Record<string, unknown>]>()
       .mockResolvedValue(undefined),
+  },
+});
+
+const makeLocationEntitiesResponse = ({
+  players = [],
+  monsters = [],
+  success = true,
+  message,
+}: {
+  players?: Array<Record<string, unknown>>;
+  monsters?: Array<Record<string, unknown>>;
+  success?: boolean;
+  message?: string;
+} = {}) => ({
+  getLocationEntities: {
+    success,
+    message,
+    data: {
+      players,
+      monsters,
+    },
   },
 });
 
@@ -179,13 +204,15 @@ describe('attackHandler', () => {
     mockedDmSdk.GetPlayer.mockResolvedValueOnce({
       getPlayer: { success: true, data: { name: 'Hero', x: 0, y: 0 } },
     });
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [],
-      getMonstersAtLocation: [
-        { id: '42', name: 'Goblin' },
-        { id: '43', name: 'Orc' },
-      ],
-    });
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce(
+      makeLocationEntitiesResponse({
+        players: [],
+        monsters: [
+          { id: '42', name: 'Goblin' },
+          { id: '43', name: 'Orc' },
+        ],
+      }),
+    );
 
     await attackHandler.handle({
       userId: 'U1',
@@ -225,13 +252,15 @@ describe('attackHandler', () => {
     mockedDmSdk.GetPlayer.mockResolvedValueOnce({
       getPlayer: { success: true, data: { name: 'Hero', x: 0, y: 0 } },
     });
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [
-        { id: '1', slackId: 'U1', name: 'Hero' },
-        { id: '2', slackId: 'slack:U2', name: 'Friend' },
-      ],
-      getMonstersAtLocation: [],
-    });
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce(
+      makeLocationEntitiesResponse({
+        players: [
+          { id: '1', slackId: 'U1', name: 'Hero' },
+          { id: '2', slackId: 'slack:U2', name: 'Friend' },
+        ],
+        monsters: [],
+      }),
+    );
 
     await attackHandler.handle({
       userId: 'U1',
@@ -262,10 +291,12 @@ describe('attackHandler', () => {
     mockedDmSdk.GetPlayer.mockResolvedValueOnce({
       getPlayer: { success: true, data: { name: 'Hero', x: 0, y: 0 } },
     });
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [],
-      getMonstersAtLocation: [],
-    });
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce(
+      makeLocationEntitiesResponse({
+        players: [],
+        monsters: [],
+      }),
+    );
 
     await attackHandler.handle({
       userId: 'U1',
@@ -590,45 +621,47 @@ describe('deleteHandler', () => {
 describe('lookHandler', () => {
   it('renders the look view with monsters and perf stats', async () => {
     const say = makeSay();
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [
-        {
-          id: '2',
-          slackId: toClientId('U2'),
-          name: 'Friend',
-          x: 0,
-          y: 0,
-          hp: 10,
-          maxHp: 10,
-          strength: 1,
-          agility: 1,
-          health: 1,
-          gold: 0,
-          xp: 0,
-          level: 1,
-          skillPoints: 0,
-          isAlive: true,
-        },
-        {
-          id: '1',
-          slackId: 'U1',
-          name: 'Hero',
-          x: 0,
-          y: 0,
-          hp: 10,
-          maxHp: 10,
-          strength: 1,
-          agility: 1,
-          health: 1,
-          gold: 0,
-          xp: 0,
-          level: 1,
-          skillPoints: 0,
-          isAlive: true,
-        },
-      ],
-      getMonstersAtLocation: [{ name: 'Goblin' }, { name: 'Orc' }],
-    });
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce(
+      makeLocationEntitiesResponse({
+        players: [
+          {
+            id: '2',
+            slackId: toClientId('U2'),
+            name: 'Friend',
+            x: 0,
+            y: 0,
+            hp: 10,
+            maxHp: 10,
+            strength: 1,
+            agility: 1,
+            health: 1,
+            gold: 0,
+            xp: 0,
+            level: 1,
+            skillPoints: 0,
+            isAlive: true,
+          },
+          {
+            id: '1',
+            slackId: 'U1',
+            name: 'Hero',
+            x: 0,
+            y: 0,
+            hp: 10,
+            maxHp: 10,
+            strength: 1,
+            agility: 1,
+            health: 1,
+            gold: 0,
+            xp: 0,
+            level: 1,
+            skillPoints: 0,
+            isAlive: true,
+          },
+        ],
+        monsters: [{ name: 'Goblin' }, { name: 'Orc' }],
+      }),
+    );
     mockedDmSdk.GetLookView.mockResolvedValueOnce({
       getLookView: {
         success: true,
@@ -690,28 +723,30 @@ describe('lookHandler', () => {
   it('does not list the current player in co-located players', async () => {
     const say = makeSay();
     // Only returns the invoking player at this location
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [
-        {
-          id: '1',
-          slackId: toClientId('U1'),
-          name: 'Hero',
-          x: 0,
-          y: 0,
-          hp: 10,
-          maxHp: 10,
-          strength: 1,
-          agility: 1,
-          health: 1,
-          gold: 0,
-          xp: 0,
-          level: 1,
-          skillPoints: 0,
-          isAlive: true,
-        },
-      ],
-      getMonstersAtLocation: [],
-    });
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce(
+      makeLocationEntitiesResponse({
+        players: [
+          {
+            id: '1',
+            slackId: toClientId('U1'),
+            name: 'Hero',
+            x: 0,
+            y: 0,
+            hp: 10,
+            maxHp: 10,
+            strength: 1,
+            agility: 1,
+            health: 1,
+            gold: 0,
+            xp: 0,
+            level: 1,
+            skillPoints: 0,
+            isAlive: true,
+          },
+        ],
+        monsters: [],
+      }),
+    );
     mockedDmSdk.GetLookView.mockResolvedValueOnce({
       getLookView: {
         success: true,
@@ -790,28 +825,30 @@ describe('mapHandler', () => {
         data: { x: 3, y: -4 },
       },
     });
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [
-        {
-          id: '2',
-          slackId: toClientId('U2'),
-          name: 'Friend',
-          x: 3,
-          y: -4,
-          hp: 10,
-          maxHp: 10,
-          strength: 1,
-          agility: 1,
-          health: 1,
-          gold: 0,
-          xp: 0,
-          level: 1,
-          skillPoints: 0,
-          isAlive: true,
-        },
-      ],
-      getMonstersAtLocation: [],
-    });
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce(
+      makeLocationEntitiesResponse({
+        players: [
+          {
+            id: '2',
+            slackId: toClientId('U2'),
+            name: 'Friend',
+            x: 3,
+            y: -4,
+            hp: 10,
+            maxHp: 10,
+            strength: 1,
+            agility: 1,
+            health: 1,
+            gold: 0,
+            xp: 0,
+            level: 1,
+            skillPoints: 0,
+            isAlive: true,
+          },
+        ],
+        monsters: [],
+      }),
+    );
 
     await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
@@ -832,28 +869,30 @@ describe('mapHandler', () => {
     mockedDmSdk.GetPlayer.mockResolvedValueOnce({
       getPlayer: { success: true, data: { x: 5, y: 6 } },
     });
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [
-        {
-          id: '1',
-          slackId: toClientId('U1'),
-          name: 'Hero',
-          x: 5,
-          y: 6,
-          hp: 10,
-          maxHp: 10,
-          strength: 1,
-          agility: 1,
-          health: 1,
-          gold: 0,
-          xp: 0,
-          level: 1,
-          skillPoints: 0,
-          isAlive: true,
-        },
-      ],
-      getMonstersAtLocation: [],
-    });
+    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce(
+      makeLocationEntitiesResponse({
+        players: [
+          {
+            id: '1',
+            slackId: toClientId('U1'),
+            name: 'Hero',
+            x: 5,
+            y: 6,
+            hp: 10,
+            maxHp: 10,
+            strength: 1,
+            agility: 1,
+            health: 1,
+            gold: 0,
+            xp: 0,
+            level: 1,
+            skillPoints: 0,
+            isAlive: true,
+          },
+        ],
+        monsters: [],
+      }),
+    );
 
     await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 

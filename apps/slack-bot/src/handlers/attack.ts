@@ -1,5 +1,5 @@
-import type { AttackMutation } from '../generated/dm-graphql';
-import { TargetType } from '../generated/dm-graphql';
+import type { CombatResponse } from '@mud/api-contracts';
+import { TargetType } from '../clients/dm-sdk';
 import { HandlerContext } from './types';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import { extractSlackId } from '../utils/clientId';
@@ -8,9 +8,7 @@ import { PlayerCommandHandler } from './base';
 const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
 export const SELF_ATTACK_ERROR = "You can't attack yourself.";
 
-type AttackCombatResult = NonNullable<
-  NonNullable<AttackMutation['attack']['data']>
->;
+type AttackCombatResult = NonNullable<NonNullable<CombatResponse['data']>>;
 
 type NearbyMonster = { id: string; name: string };
 type NearbyPlayer = { slackId: string; name: string };
@@ -180,10 +178,14 @@ export class AttackHandler extends PlayerCommandHandler {
     }
     const { x, y } = player;
     const entities = await this.sdk.GetLocationEntities({ x, y });
-    const monstersHere: NearbyMonster[] = (
-      entities.getMonstersAtLocation || []
-    ).map((m) => ({ id: String(m.id), name: m.name }));
-    const playersHere: NearbyPlayer[] = (entities.getPlayersAtLocation || [])
+    const location = entities.getLocationEntities.data;
+    const monstersHere: NearbyMonster[] = (location?.monsters ?? []).map(
+      (m) => ({
+        id: String(m.id),
+        name: m.name,
+      }),
+    );
+    const playersHere: NearbyPlayer[] = (location?.players ?? [])
       .map((p) => {
         const slackId = extractSlackId(p);
         if (!slackId || slackId === userId) {

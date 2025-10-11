@@ -1,24 +1,32 @@
-import type {
-  LocationResponse,
-  PlayerResponse,
-} from '@mud/api-contracts';
+import type { LocationEntities, Player } from '@mud/api-contracts';
 import { dmSdk } from '../../clients/dm-sdk';
 import { toClientId } from '../../utils/clientId';
 
+type GetPlayerArgs = Parameters<typeof dmSdk.GetPlayer>[0];
+type GetLocationEntitiesArgs = Parameters<typeof dmSdk.GetLocationEntities>[0];
+
+type GetPlayerResult = Awaited<ReturnType<typeof dmSdk.GetPlayer>>;
+type PlayerRecord = NonNullable<GetPlayerResult['getPlayer']['data']>;
+
+type GetLocationEntitiesResult = Awaited<
+  ReturnType<typeof dmSdk.GetLocationEntities>
+>['getLocationEntities'];
+type LocationEntitiesData = NonNullable<GetLocationEntitiesResult['data']>;
+
 interface PlayerLookupResult {
-  player?: NonNullable<GetPlayerQuery['getPlayer']['data']>;
+  player?: PlayerRecord;
   message?: string;
 }
 
 interface PlayerWithLocationResult {
-  player?: NonNullable<GetPlayerQuery['getPlayer']['data']>;
-  playersHere?: GetLocationEntitiesQuery['getPlayersAtLocation'];
-  monstersHere?: GetLocationEntitiesQuery['getMonstersAtLocation'];
+  player?: PlayerRecord;
+  playersHere?: LocationEntities['players'];
+  monstersHere?: LocationEntities['monsters'];
   error?: string;
 }
 
 export async function fetchPlayerRecord(
-  variables: GetPlayerQueryVariables,
+  variables: GetPlayerArgs,
   defaultMessage: string,
 ): Promise<PlayerLookupResult> {
   const result = await dmSdk.GetPlayer(variables);
@@ -47,30 +55,46 @@ export async function fetchPlayerWithLocation(
     x: self.player.x,
     y: self.player.y,
   });
+  const data = location.getLocationEntities.data;
 
   return {
     player: self.player,
-    playersHere: location.getPlayersAtLocation ?? [],
-    monstersHere: location.getMonstersAtLocation ?? [],
+    playersHere: data?.players ?? [],
+    monstersHere: data?.monsters ?? [],
   };
 }
 
 export async function fetchLocationEntities(
-  variables: GetLocationEntitiesQueryVariables,
-) {
-  return dmSdk.GetLocationEntities(variables);
+  variables: GetLocationEntitiesArgs,
+): Promise<{
+  getLocationEntities: GetLocationEntitiesResult & {
+    data: LocationEntitiesData;
+  };
+}> {
+  const response = await dmSdk.GetLocationEntities(variables);
+  const data = response.getLocationEntities.data ?? {
+    players: [],
+    monsters: [],
+  };
+  return {
+    getLocationEntities: {
+      ...response.getLocationEntities,
+      data,
+    },
+  };
 }
 
 export function findNearbyMatches(
   name: string,
-  players: GetLocationEntitiesQuery['getPlayersAtLocation'] = [],
-  monsters: GetLocationEntitiesQuery['getMonstersAtLocation'] = [],
+  players: LocationEntities['players'] = [],
+  monsters: LocationEntities['monsters'] = [],
 ) {
+  const normalized = name.trim().toLowerCase();
   const matchingPlayers = players.filter((player) =>
-    namesMatch(player.name, name),
+    namesMatch(player.name, normalized),
   );
   const matchingMonsters = monsters.filter((monster) =>
-    namesMatch(monster.name, name),
+    namesMatch(monster.name, normalized),
   );
 
   return {
@@ -80,9 +104,12 @@ export function findNearbyMatches(
   };
 }
 
-function namesMatch(a: string | null | undefined, b: string): boolean {
-  if (!a) {
+function namesMatch(
+  value: Player['name'] | null | undefined,
+  normalizedTarget: string,
+): boolean {
+  if (!value) {
     return false;
   }
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
+  return value.trim().toLowerCase() === normalizedTarget;
 }

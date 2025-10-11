@@ -5,12 +5,10 @@ import {
 } from './errorUtils';
 
 describe('handlePlayerNotFoundError', () => {
-  it('detects GraphQL not found errors', () => {
+  it('detects API not found errors', () => {
     const error = {
-      response: {
-        errors: [
-          { message: 'Player not found', extensions: { code: 'NOT_FOUND' } },
-        ],
+      responseBody: {
+        message: 'Player not found',
       },
     };
 
@@ -35,14 +33,10 @@ describe('getUserFriendlyErrorMessage', () => {
     );
   });
 
-  it('scrubs sensitive slackId info from GraphQL errors', () => {
+  it('scrubs sensitive slackId info from API responses', () => {
     const error = {
-      response: {
-        errors: [
-          {
-            message: 'Player with slackId U123 not found',
-          },
-        ],
+      responseBody: {
+        message: 'Player with slackId U123 not found',
       },
     };
 

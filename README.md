@@ -1,13 +1,13 @@
 # Mud
 
-Mud is an AI-assisted multiplayer text adventure game built as a Turborepo monorepo. It features procedurally generated worlds, turn-based gameplay, and a Slack bot interface for player interaction. The core services are written with NestJS, communicate over GraphQL, and share a PostgreSQL + Redis backend through Prisma.
+Mud is an AI-assisted multiplayer text adventure game built as a Turborepo monorepo. It features procedurally generated worlds, turn-based gameplay, and a Slack bot interface for player interaction. The core services are written with NestJS, communicate over strongly typed REST APIs via ts-rest and Zod, and share a PostgreSQL + Redis backend through Prisma.
 
 ## Monorepo structure
 
 | Path              | Description                                                                                                                           |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/world`      | World generation and rendering service. Exposes GraphQL queries and REST rendering endpoints backed by Redis caching and Prisma.      |
-| `apps/dm`         | "Dungeon master" API that drives game ticks, combat, and AI generated descriptions. Provides a GraphQL API consumed by the Slack bot. |
+| `apps/world`      | World generation and rendering service. Exposes REST endpoints backed by Redis caching and Prisma.                                    |
+| `apps/dm`         | "Dungeon master" API that drives game ticks, combat, and AI generated descriptions. Provides a ts-rest API consumed by the Slack bot. |
 | `apps/slack-bot`  | Slack Bolt app that handles player commands, maps, and onboarding through Slack conversations.                                        |
 | `apps/tick`       | Lightweight worker that regularly calls the DM service to advance the world state.                                                    |
 | `libs/database`   | Shared Prisma client and schema for PostgreSQL.                                                                                       |
@@ -39,14 +39,14 @@ All services rely on the following shared configuration:
 
 ### DM service (`apps/dm`)
 
-| Variable                 | Description                                                                                                                   |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| `OPENAI_API_KEY`         | API key used for AI descriptions and responses.                                                                               |
-| `WORLD_SERVICE_URL`      | Base URL for the world service (e.g. `http://localhost:3001/world`). The DM app automatically appends `/graphql` when needed. |
-| `COORDINATION_PREFIX`    | Redis key namespace for coordination locks (defaults to `dm:coord:`).                                                         |
-| `TILE_DESC_LOCK_TTL_MS`  | TTL for tile description locks in Redis.                                                                                      |
-| `TILE_DESC_COOLDOWN_MS`  | Cooldown before retrying tile descriptions.                                                                                   |
-| `TILE_DESC_MIN_RETRY_MS` | Minimum retry delay when description generation fails.                                                                        |
+| Variable                 | Description                                                           |
+| ------------------------ | --------------------------------------------------------------------- |
+| `OPENAI_API_KEY`         | API key used for AI descriptions and responses.                       |
+| `WORLD_SERVICE_URL`      | Base URL for the world service (e.g. `http://localhost:3001/world`).  |
+| `COORDINATION_PREFIX`    | Redis key namespace for coordination locks (defaults to `dm:coord:`). |
+| `TILE_DESC_LOCK_TTL_MS`  | TTL for tile description locks in Redis.                              |
+| `TILE_DESC_COOLDOWN_MS`  | Cooldown before retrying tile descriptions.                           |
+| `TILE_DESC_MIN_RETRY_MS` | Minimum retry delay when description generation fails.                |
 
 ### World service (`apps/world`)
 
@@ -58,22 +58,22 @@ All services rely on the following shared configuration:
 
 ### Slack bot (`apps/slack-bot`)
 
-| Variable               | Description                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------------------- |
-| `SLACK_BOT_TOKEN`      | Bot token for your Slack app.                                                            |
-| `SLACK_SIGNING_SECRET` | Signing secret for request verification.                                                 |
-| `SLACK_APP_TOKEN`      | App-level token for the Bolt SDK.                                                        |
-| `DM_GQL_ENDPOINT`      | URL of the DM GraphQL endpoint (local default `http://localhost:3000/graphql`).          |
-| `WORLD_GQL_ENDPOINT`   | URL of the world GraphQL endpoint (local default `http://localhost:3001/world/graphql`). |
-| `WORLD_BASE_URL`       | Base REST URL for rendered assets (local default `http://localhost:3001/world`).         |
-| `PORT`                 | Port the Slack bot listens on (default `3002`).                                          |
+| Variable                | Description                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| `SLACK_BOT_TOKEN`       | Bot token for your Slack app.                                                   |
+| `SLACK_SIGNING_SECRET`  | Signing secret for request verification.                                        |
+| `SLACK_APP_TOKEN`       | App-level token for the Bolt SDK.                                               |
+| `DM_SERVICE_URL`        | Base URL of the DM REST API (local default `http://localhost:3000`).            |
+| `WORLD_SERVICE_URL`     | Base URL of the world REST API (local default `http://localhost:3001/world`).   |
+| `WORLD_RENDER_BASE_URL` | Base URL for rendered map assets (local default `http://localhost:3001/world`). |
+| `PORT`                  | Port the Slack bot listens on (default `3002`).                                 |
 
 ### Tick worker (`apps/tick`)
 
-| Variable         | Description                                                                                               |
-| ---------------- | --------------------------------------------------------------------------------------------------------- |
-| `DM_GRAPHQL_URL` | GraphQL endpoint that exposes the `processTick` mutation (local default `http://localhost:3000/graphql`). |
-| `PORT`           | HTTP port for the lightweight health server (default `3003`).                                             |
+| Variable         | Description                                                                                   |
+| ---------------- | --------------------------------------------------------------------------------------------- |
+| `DM_SERVICE_URL` | DM REST base URL used for the `processTick` endpoint (local default `http://localhost:3000`). |
+| `PORT`           | HTTP port for the lightweight health server (default `3003`).                                 |
 
 The shared `@mud/gcp-auth` utilities also look for the `GCP_CLOUD_RUN` or
 `K_SERVICE` environment variables to determine when to mint Cloud Run identity
@@ -98,11 +98,7 @@ tokens automatically.
    ```bash
    npx prisma generate --schema=libs/database/prisma/schema.prisma
    ```
-5. Generate GraphQL types:
-   ```bash
-   yarn turbo codegen
-   ```
-6. Export or define the environment variables described above. One convenient
+5. Export or define the environment variables described above. One convenient
    approach for local development is to create a `.env.local` file in each app
    directory or use environment variable management tools.
 
@@ -115,10 +111,10 @@ Run each service in its own terminal (or use Turbo's parallel execution):
 yarn serve
 
 # Or run individual services:
-# World generation service (GraphQL on http://localhost:3001/world/graphql)
+# World generation service (REST on http://localhost:3001/world)
 yarn turbo run serve --filter=@mud/world
 
-# DM GraphQL API (http://localhost:3000/graphql)
+# DM REST API (http://localhost:3000)
 yarn turbo run serve --filter=@mud/dm
 
 # Slack bot (requires Slack credentials)
@@ -135,11 +131,6 @@ world.
 
 ## Development workflows
 
-- **GraphQL code generation** – Regenerate typed GraphQL clients when schemas
-  change:
-  ```bash
-  yarn turbo codegen
-  ```
 - **Testing** – Run Jest unit tests:
 
   ```bash
@@ -197,18 +188,17 @@ provided `docker-compose.yml` + Nginx setup.
 
 ### Available Scripts
 
-| Script                   | Description                                    |
-| ------------------------ | ---------------------------------------------- |
-| `yarn build`             | Build all apps                                 |
-| `yarn test`              | Run all tests                                  |
-| `yarn serve`             | Start all development servers                  |
-| `yarn lint`              | Lint all code                                  |
-| `yarn format`            | Format code with Prettier                      |
-| `yarn turbo codegen`     | Generate TypeScript types from GraphQL schemas |
-| `yarn db:migrate:dev`    | Run Prisma migrations (development)            |
-| `yarn db:migrate:deploy` | Run Prisma migrations (production)             |
-| `yarn db:push`           | Push schema changes without migrations         |
-| `yarn db:seed`           | Seed database with initial data                |
+| Script                   | Description                            |
+| ------------------------ | -------------------------------------- |
+| `yarn build`             | Build all apps                         |
+| `yarn test`              | Run all tests                          |
+| `yarn serve`             | Start all development servers          |
+| `yarn lint`              | Lint all code                          |
+| `yarn format`            | Format code with Prettier              |
+| `yarn db:migrate:dev`    | Run Prisma migrations (development)    |
+| `yarn db:migrate:deploy` | Run Prisma migrations (production)     |
+| `yarn db:push`           | Push schema changes without migrations |
+| `yarn db:seed`           | Seed database with initial data        |
 
 ### Turborepo Features
 

@@ -49,7 +49,7 @@ services = {
     max_scale = 2
     env_vars = {
       NODE_ENV       = "production"
-      WORLD_BASE_URL = "https://world.battleforge.app/world"
+      WORLD_RENDER_BASE_URL = "https://world.battleforge.app/world"
     }
   }
   tick = {

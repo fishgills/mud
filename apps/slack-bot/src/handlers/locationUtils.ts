@@ -166,7 +166,7 @@ export function sanitizeDescription(text: string): string {
 // --- Centralized occupants rendering helpers ---
 import { extractSlackId } from '../utils/clientId';
 
-type DmSdk = typeof import('../clients/dm-sdk')['dmSdk'];
+type DmSdk = (typeof import('../clients/dm-sdk'))['dmSdk'];
 
 let dmSdkPromise: Promise<DmSdk> | null = null;
 
@@ -224,7 +224,8 @@ export async function getOccupantsSummaryAt(
 ): Promise<string | null> {
   const dmSdk = await getDmSdk();
   const res = await dmSdk.GetLocationEntities({ x, y });
-  const players: NearbyPlayer[] = (res.getPlayersAtLocation || [])
+  const data = res.getLocationEntities.data;
+  const players: NearbyPlayer[] = (data?.players ?? [])
     .map((p) => ({
       id: p.id,
       name: p.name,
@@ -234,7 +235,7 @@ export async function getOccupantsSummaryAt(
     .filter((p) =>
       currentSlackUserId ? p.slackId !== currentSlackUserId : true,
     );
-  const monsters = res.getMonstersAtLocation || [];
+  const monsters = data?.monsters ?? [];
   return buildOccupantsSummary(players, monsters);
 }
 
