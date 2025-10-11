@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { getPrismaClient } from '@mud/database';
 import { PlayerFactory, ClientType, PlayerEntity, EventBus } from '@mud/engine';
 import {
@@ -6,7 +11,6 @@ import {
   MovePlayerDto,
   PlayerStatsDto,
 } from './dto/player.dto';
-import { GraphQLError } from 'graphql';
 import { WorldService } from '../world/world.service';
 import { isWaterBiome } from '../shared/biome.util';
 import { WORLD_CHUNK_SIZE } from '@mud/constants';
@@ -46,11 +50,7 @@ export class PlayerService {
 
     // Validate that we have either clientId or slackId
     if (!clientId && !slackId) {
-      throw new GraphQLError('Either clientId or slackId must be provided', {
-        extensions: {
-          code: 'CLIENT_ID_REQUIRED',
-        },
-      });
+      throw new BadRequestException('Either clientId or slackId must be provided');
     }
 
     // Determine final clientId and clientType
@@ -65,22 +65,13 @@ export class PlayerService {
       finalClientId = slackId;
       finalClientType = 'slack';
     } else {
-      throw new GraphQLError('Either clientId or slackId must be provided', {
-        extensions: {
-          code: 'CLIENT_ID_REQUIRED',
-        },
-      });
+      throw new BadRequestException('Either clientId or slackId must be provided');
     }
 
     // Check if player already exists - PlayerFactory.load handles both formats
     const existing = await PlayerFactory.load(finalClientId, finalClientType);
     if (existing) {
-      throw new GraphQLError(`Player already exists`, {
-        extensions: {
-          code: 'PLAYER_EXISTS',
-          clientId: finalClientId,
-        },
-      });
+      throw new BadRequestException('Player already exists');
     }
 
     // Find a spawn position
@@ -145,11 +136,7 @@ export class PlayerService {
   async getPlayerByName(name: string): Promise<PlayerEntity> {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      throw new GraphQLError('Player name is required', {
-        extensions: {
-          code: 'PLAYER_NAME_REQUIRED',
-        },
-      });
+      throw new BadRequestException('Player name is required');
     }
 
     this.logger.log(`[DM-DB] Looking up player with name: ${trimmedName}`);
@@ -175,14 +162,8 @@ export class PlayerService {
         this.logger.warn(
           `[DM-DB] Multiple players found for name: ${trimmedName}`,
         );
-        throw new GraphQLError(
+        throw new BadRequestException(
           `Multiple players found with the name "${trimmedName}". Please specify the player's Slack handle instead.`,
-          {
-            extensions: {
-              code: 'PLAYER_NAME_AMBIGUOUS',
-              name: trimmedName,
-            },
-          },
         );
       }
       throw error;
@@ -208,13 +189,8 @@ export class PlayerService {
       return this.getPlayerByName(name);
     }
 
-    throw new GraphQLError(
+    throw new BadRequestException(
       'A client ID, Slack ID, or player name must be provided',
-      {
-        extensions: {
-          code: 'PLAYER_IDENTIFIER_REQUIRED',
-        },
-      },
     );
   }
 

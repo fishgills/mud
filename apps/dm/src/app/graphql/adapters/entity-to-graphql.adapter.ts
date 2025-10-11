@@ -3,8 +3,10 @@
  */
 
 import { PlayerEntity, MonsterEntity } from '@mud/engine';
-import { Player } from '../models/player.model';
-import { Monster } from '../models/monster.model';
+import type {
+  Player,
+  Monster,
+} from '@mud/api-contracts';
 
 type PlayerLike = PlayerEntity | (Partial<Player> & Record<string, unknown>);
 type MonsterLike =

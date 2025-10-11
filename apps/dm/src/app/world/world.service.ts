@@ -137,7 +137,14 @@ export class WorldService {
     return fallback;
   }
 
-  private mapApiTile(tile: ApiWorldTile, fallback: WorldTile): WorldTile {
+  private mapApiTile(
+    tile: Partial<ApiWorldTile> | undefined,
+    fallback: WorldTile,
+  ): WorldTile {
+    if (!tile) {
+      return fallback;
+    }
+
     return {
       ...fallback,
       id: tile.id ?? fallback.id,
@@ -185,16 +192,16 @@ export class WorldService {
     if (inflight) return inflight;
 
     const promise = (async () => {
-      const response = await worldClient.getChunk({
-        params: { chunkX, chunkY },
-      });
+    const response = await worldClient.getChunk({
+      params: { chunkX, chunkY },
+    });
 
-      const tiles: WorldTile[] =
-        response.status === 200 && response.body.tiles
-          ? response.body.tiles.map((tile) =>
-              this.mapApiTile(tile, this.createDefaultTile(tile.x, tile.y)),
-            )
-          : [];
+    const tiles: WorldTile[] =
+      response.status === 200 && response.body?.tiles
+        ? response.body.tiles.map((tile) =>
+            this.mapApiTile(tile, this.createDefaultTile(tile.x, tile.y)),
+          )
+        : [];
 
       // cache the result (even empty) to avoid hammering
       this.chunkCache.set(key, { tiles, ts: Date.now() });
@@ -257,7 +264,7 @@ export class WorldService {
 
     const tiles: WorldTile[] = tileResponses
       .filter((response) => response.status === 200)
-      .flatMap((response) => response.body.tiles ?? [])
+      .flatMap((response) => response.body?.tiles ?? [])
       .filter((tile) =>
         tile.x >= minX && tile.x <= maxX && tile.y >= minY && tile.y <= maxY,
       )
@@ -305,7 +312,7 @@ export class WorldService {
         nearbyBiomes: NearbyBiome[];
         nearbySettlements: NearbySettlement[];
         currentSettlement?: Settlement;
-      } = response.status === 200
+      } = response.status === 200 && response.body
         ? {
             tile: this.mapApiTile(response.body, defaultTile),
             nearbyBiomes: response.body.nearbyBiomes ?? [],
