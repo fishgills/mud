@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { worldSdk } from '../gql-client';
-import { WorldTile } from '../../generated/world-graphql';
+import { worldClient } from './world.client';
+import type {
+  WorldTile as ApiWorldTile,
+  TileWithNearby as ApiTileWithNearby,
+  ChunkData as ApiChunkData,
+} from '@mud/api-contracts';
 import { WORLD_CHUNK_SIZE } from '@mud/constants';
 export interface Biome {
   id: number;
@@ -32,11 +36,26 @@ export interface Settlement {
   isCenter: boolean;
 }
 
+export interface WorldTile {
+  id: number;
+  x: number;
+  y: number;
+  biomeId: number;
+  biomeName: string;
+  description: string;
+  height: number;
+  temperature: number;
+  moisture: number;
+  seed: number;
+  chunkX: number;
+  chunkY: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 @Injectable()
 export class WorldService {
   private readonly logger = new Logger(WorldService.name);
-  private readonly worldServiceUrl =
-    process.env.WORLD_SERVICE_URL || 'http://localhost:3000';
   // Simple in-memory cache and in-flight dedupe for chunk requests
   private readonly chunkCache = new Map<
     string,
@@ -78,13 +97,8 @@ export class WorldService {
   );
 
   constructor() {
-    // Ensure URL doesn't have double slashes
-    const baseUrl = this.worldServiceUrl.endsWith('/')
-      ? this.worldServiceUrl.slice(0, -1)
-      : this.worldServiceUrl;
-    const graphqlUrl = `${baseUrl}/graphql`;
-
-    this.logger.log(`Initializing GraphQL client with URL: ${graphqlUrl}`);
+    const targetUrl = process.env.WORLD_SERVICE_URL || 'http://localhost:3000/world';
+    this.logger.log(`Initializing World REST client targeting ${targetUrl}`);
   }
 
   private createDefaultTile(x: number, y: number): WorldTile {
@@ -110,25 +124,20 @@ export class WorldService {
     };
   }
 
-  private mapGraphqlTile(
-    tile: {
-      id?: number;
-      x?: number;
-      y?: number;
-      biomeId?: number;
-      biomeName?: string;
-      description?: string | null;
-      height?: number;
-      temperature?: number;
-      moisture?: number;
-      seed?: number;
-      chunkX?: number;
-      chunkY?: number;
-      createdAt?: string | Date | null;
-      updatedAt?: string | Date | null;
-    },
-    fallback: WorldTile,
-  ): WorldTile {
+  private parseDate(value: string | Date | null | undefined, fallback: Date) {
+    if (value instanceof Date) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    return fallback;
+  }
+
+  private mapApiTile(tile: ApiWorldTile, fallback: WorldTile): WorldTile {
     return {
       ...fallback,
       id: tile.id ?? fallback.id,
@@ -143,52 +152,20 @@ export class WorldService {
       seed: tile.seed ?? fallback.seed,
       chunkX: tile.chunkX ?? fallback.chunkX,
       chunkY: tile.chunkY ?? fallback.chunkY,
-      createdAt:
-        tile.createdAt instanceof Date
-          ? tile.createdAt
-          : tile.createdAt
-            ? new Date(tile.createdAt)
-            : fallback.createdAt,
-      updatedAt:
-        tile.updatedAt instanceof Date
-          ? tile.updatedAt
-          : tile.updatedAt
-            ? new Date(tile.updatedAt)
-            : fallback.updatedAt,
-    };
-  }
-
-  private createLightweightTile(tile: {
-    x: number;
-    y: number;
-    biomeName?: string | null;
-    height?: number | null;
-  }): WorldTile {
-    const base = this.createDefaultTile(tile.x, tile.y);
-    return {
-      ...base,
-      id: 0,
-      biomeId: 0,
-      biomeName: tile.biomeName ?? base.biomeName,
-      description: '',
-      height: tile.height ?? base.height,
-      temperature: 0,
-      moisture: 0,
-      seed: 0,
+      createdAt: this.parseDate(tile.createdAt, fallback.createdAt),
+      updatedAt: this.parseDate(tile.updatedAt, fallback.updatedAt),
     };
   }
 
   async getTileInfo(x: number, y: number): Promise<WorldTile> {
     const defaultTile = this.createDefaultTile(x, y);
 
-    const result = await worldSdk.GetTile({
-      x,
-      y,
+    const response = await worldClient.getTile({
+      params: { x, y },
     });
 
-    if (result?.getTile) {
-      // Convert the GraphQL response to the expected WorldTile format
-      return this.mapGraphqlTile(result.getTile, defaultTile);
+    if (response.status === 200) {
+      return this.mapApiTile(response.body, defaultTile);
     }
 
     return defaultTile;
@@ -208,18 +185,16 @@ export class WorldService {
     if (inflight) return inflight;
 
     const promise = (async () => {
-      const result = await worldSdk.GetChunk({ chunkX, chunkY });
+      const response = await worldClient.getChunk({
+        params: { chunkX, chunkY },
+      });
 
-      const tiles: WorldTile[] = result?.getChunk?.tiles
-        ? result.getChunk.tiles.map((tile) =>
-            this.createLightweightTile({
-              x: tile.x,
-              y: tile.y,
-              biomeName: tile.biomeName,
-              height: tile.height,
-            }),
-          )
-        : [];
+      const tiles: WorldTile[] =
+        response.status === 200 && response.body.tiles
+          ? response.body.tiles.map((tile) =>
+              this.mapApiTile(tile, this.createDefaultTile(tile.x, tile.y)),
+            )
+          : [];
 
       // cache the result (even empty) to avoid hammering
       this.chunkCache.set(key, { tiles, ts: Date.now() });
@@ -274,22 +249,20 @@ export class WorldService {
     }
 
     // Fetch each chunk's lightweight tiles and filter to bounds
-    const chunks = await Promise.all(
+    const tileResponses = await Promise.all(
       chunkCoords.map(({ chunkX, chunkY }) =>
-        worldSdk.GetChunk({ chunkX, chunkY }),
+        worldClient.getChunk({ params: { chunkX, chunkY } }),
       ),
     );
 
-    const tiles: WorldTile[] = chunks
-      .flatMap((c) => c.getChunk.tiles ?? [])
-      .filter((t) => t.x >= minX && t.x <= maxX && t.y >= minY && t.y <= maxY)
+    const tiles: WorldTile[] = tileResponses
+      .filter((response) => response.status === 200)
+      .flatMap((response) => response.body.tiles ?? [])
+      .filter((tile) =>
+        tile.x >= minX && tile.x <= maxX && tile.y >= minY && tile.y <= maxY,
+      )
       .map((tile) =>
-        this.createLightweightTile({
-          x: tile.x,
-          y: tile.y,
-          biomeName: tile.biomeName,
-          height: tile.height,
-        }),
+        this.mapApiTile(tile, this.createDefaultTile(tile.x, tile.y)),
       );
 
     return tiles;
@@ -297,9 +270,8 @@ export class WorldService {
 
   async healthCheck(): Promise<boolean> {
     try {
-      const result = await worldSdk.HealthCheck();
-
-      return result !== null;
+      const response = await worldClient.health();
+      return response.status === 200;
     } catch {
       return false;
     }
@@ -326,22 +298,19 @@ export class WorldService {
     const defaultTile = this.createDefaultTile(x, y);
 
     const promise = (async () => {
-      const result = await worldSdk.GetTileWithNearby({
-        x,
-        y,
-      });
+      const response = await worldClient.getTile({ params: { x, y } });
 
       const data: {
         tile: WorldTile;
         nearbyBiomes: NearbyBiome[];
         nearbySettlements: NearbySettlement[];
         currentSettlement?: Settlement;
-      } = result?.getTile
+      } = response.status === 200
         ? {
-            tile: this.mapGraphqlTile(result.getTile, defaultTile),
-            nearbyBiomes: result.getTile.nearbyBiomes || [],
-            nearbySettlements: result.getTile.nearbySettlements || [],
-            currentSettlement: result.getTile.currentSettlement || undefined,
+            tile: this.mapApiTile(response.body, defaultTile),
+            nearbyBiomes: response.body.nearbyBiomes ?? [],
+            nearbySettlements: response.body.nearbySettlements ?? [],
+            currentSettlement: response.body.currentSettlement ?? undefined,
           }
         : {
             tile: defaultTile,

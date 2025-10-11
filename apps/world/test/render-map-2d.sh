@@ -6,30 +6,11 @@ set -euo pipefail
 X=${1:-0}
 Y=${2:-0}
 
-# GraphQL endpoint (adjust if needed)
-ENDPOINT="http://localhost:3000/graphql"
+# REST endpoint for map tiles
+ENDPOINT="http://localhost:3000/world/render/map-tiles"
 
-
-RAW_QUERY=$(cat <<EOM
-{
-  renderMapTiles(x: $X, y: $Y) {
-    x
-    y
-    biomeName
-    symbol
-    hasSettlement
-    isSettlementCenter
-  }
-}
-EOM
-)
-
-# Encode the query as JSON using jq for safety
-JSON_BODY=$(jq -Rs --arg query "$RAW_QUERY" '{query: $query}' <<< "$RAW_QUERY")
-
-# Query the GraphQL API and extract the 2D array
-RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" \
-  --data-binary "$JSON_BODY" "$ENDPOINT")
+# Query the REST API and extract the 2D array
+RESPONSE=$(curl -s -G "$ENDPOINT" --data-urlencode "x=$X" --data-urlencode "y=$Y")
 
 # Use jq to extract and print the map
 if ! command -v jq &> /dev/null; then
@@ -38,7 +19,7 @@ if ! command -v jq &> /dev/null; then
 fi
 
 # Print each row as a string
-jq -r '.data.renderMapTiles[] | map(.symbol // " ") | join("")' <<< "$RESPONSE"
+jq -r '.[] | map(.symbol // " ") | join("")' <<< "$RESPONSE"
 
 # Print the legend (matching render.resolver.ts)
 cat <<'LEGEND'

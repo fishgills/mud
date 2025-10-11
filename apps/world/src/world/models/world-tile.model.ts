@@ -1,53 +1,19 @@
-import 'reflect-metadata';
-import { ObjectType, Field, Int, Float } from '@nestjs/graphql';
-import { Biome } from './biome.model';
+import type { Biome } from './biome.model';
 
-@ObjectType()
-export class WorldTile {
-  @Field(() => Int)
-  id!: number;
-
-  @Field(() => Int)
-  x!: number;
-
-  @Field(() => Int)
-  y!: number;
-
-  @Field(() => Int)
-  biomeId!: number;
-
-  @Field()
-  biomeName!: string;
-
-  @Field(() => String, { nullable: true })
+export interface WorldTile {
+  id: number;
+  x: number;
+  y: number;
+  biomeId: number;
+  biomeName: string;
   description?: string | null;
-
-  @Field(() => Float)
-  height!: number;
-
-  @Field(() => Float)
-  temperature!: number;
-
-  @Field(() => Float)
-  moisture!: number;
-
-  @Field(() => Int)
-  seed!: number;
-
-  @Field(() => Int)
-  chunkX!: number;
-
-  @Field(() => Int)
-  chunkY!: number;
-
-  @Field()
-  createdAt!: Date;
-
-  @Field()
-  updatedAt!: Date;
-
-  // These fields will be resolved by @ResolveField decorators
-  // Use forward reference to avoid circular dependency
-  @Field(() => Biome, { nullable: true })
+  height: number;
+  temperature: number;
+  moisture: number;
+  seed: number;
+  chunkX: number;
+  chunkY: number;
+  createdAt: Date;
+  updatedAt: Date;
   biome?: Biome | null;
 }

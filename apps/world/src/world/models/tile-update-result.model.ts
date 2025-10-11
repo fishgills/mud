@@ -1,10 +1,4 @@
-import { ObjectType, Field } from '@nestjs/graphql';
-
-@ObjectType()
-export class TileUpdateResult {
-  @Field()
-  success!: boolean;
-
-  @Field()
-  message!: string;
+export interface TileUpdateResult {
+  success: boolean;
+  message: string;
 }

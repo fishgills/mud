@@ -174,7 +174,7 @@ export class WorldService {
     );
   }
 
-  // GraphQL-friendly methods for field resolution
+  // Helper methods used by the API layer for lazy field resolution
   async getChunkTiles(
     chunkX: number,
     chunkY: number,
@@ -193,7 +193,7 @@ export class WorldService {
   }
 
   async getChunkTileCount(chunkX: number, chunkY: number): Promise<number> {
-    // Parameters are part of GraphQL signature but unused in compute-only mode
+    // Parameters kept for API parity but unused in compute-only mode
     void chunkX;
     void chunkY;
     // Compute-only mode: chunk size is fixed

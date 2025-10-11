@@ -1,21 +1,21 @@
-export { Biome } from './biome.model';
-export {
+export type { Biome } from './biome.model';
+export type {
   ChunkData,
   ChunkStats,
   BiomeCount,
   PaginatedTiles,
 } from './chunk.model';
-export { CombatLog } from './combat-log.model';
-export { GameState } from './game-state.model';
-export { Landmark } from './landmark.model';
-export { Settlement } from './settlement.model';
-export {
+export type { CombatLog } from './combat-log.model';
+export type { GameState } from './game-state.model';
+export type { Landmark } from './landmark.model';
+export type { Settlement } from './settlement.model';
+export type {
   TileWithNearbyBiomes,
   NearbyBiome,
   NearbySettlement,
   CurrentSettlement,
 } from './tile-with-nearby-biomes.model';
-export { TileUpdateResult } from './tile-update-result.model';
-export { WeatherState } from './weather-state.model';
-export { WorldSeed } from './world-seed.model';
-export { WorldTile } from './world-tile.model';
+export type { TileUpdateResult } from './tile-update-result.model';
+export type { WeatherState } from './weather-state.model';
+export type { WorldSeed } from './world-seed.model';
+export type { WorldTile } from './world-tile.model';

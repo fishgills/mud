@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
 import { RenderController } from './render.controller';
 import { RenderService } from './render.service';
-import { RenderResolver } from './render.resolver';
 import { PrismaModule } from '../prisma/prisma.module';
 import { WorldModule } from '../world/world.module';
 import { CacheService } from '../shared/cache.service';
+import { RenderApiController } from './render-api.controller';
 
 @Module({
-  controllers: [RenderController],
+  controllers: [RenderController, RenderApiController],
   imports: [WorldModule, PrismaModule],
-  providers: [RenderService, RenderResolver, CacheService],
+  providers: [RenderService, CacheService],
 })
 export class RenderModule {}

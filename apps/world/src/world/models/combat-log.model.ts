@@ -1,31 +1,11 @@
-import { ObjectType, Field, Int } from '@nestjs/graphql';
-
-@ObjectType()
-export class CombatLog {
-  @Field(() => Int)
-  id!: number;
-
-  @Field(() => Int)
-  attackerId!: number;
-
-  @Field()
-  attackerType!: string;
-
-  @Field(() => Int)
-  defenderId!: number;
-
-  @Field()
-  defenderType!: string;
-
-  @Field(() => Int)
-  damage!: number;
-
-  @Field(() => Int)
-  x!: number;
-
-  @Field(() => Int)
-  y!: number;
-
-  @Field()
-  timestamp!: Date;
+export interface CombatLog {
+  id: number;
+  attackerId: number;
+  attackerType: string;
+  defenderId: number;
+  defenderType: string;
+  damage: number;
+  x: number;
+  y: number;
+  timestamp: Date;
 }
