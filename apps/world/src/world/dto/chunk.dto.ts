@@ -5,6 +5,7 @@ export interface ChunkStats {
   averageHeight: number;
   averageTemperature: number;
   averageMoisture: number;
+  biomes?: Record<string, number>;
 }
 
 export interface BiomeCount {

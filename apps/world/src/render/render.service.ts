@@ -6,12 +6,12 @@ import { BIOMES } from '../constants';
 import { WorldService } from '../world/world-refactored.service';
 import { Settlement } from '@mud/database';
 import { CacheService } from '../shared/cache.service';
-import { WorldTile } from '../world/models';
 import { GridMapGenerator } from '../gridmap/gridmap-generator';
 import { DEFAULT_BIOMES } from '../gridmap/default-biomes';
 import { buildGridConfigs, deriveTemperature } from '../gridmap/utils';
 import { mapGridBiomeToBiomeInfo } from '../gridmap/biome-mapper';
 import { WORLD_CHUNK_SIZE } from '@mud/constants';
+import { WorldTile } from 'src/world/dto';
 
 type ComputedTile = {
   x: number;

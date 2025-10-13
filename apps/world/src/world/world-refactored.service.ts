@@ -183,12 +183,13 @@ export class WorldService {
     // Always compute tiles on-the-fly
     const chunk = await this.getChunk(chunkX, chunkY);
     // Apply pagination in-memory if requested
+    const tiles = chunk.tiles ?? [];
     if (limit !== undefined || offset !== undefined) {
       const start = offset ?? 0;
       const end = limit !== undefined ? start + limit : undefined;
-      return chunk.tiles.slice(start, end);
+      return tiles.slice(start, end);
     }
-    return chunk.tiles;
+    return tiles;
   }
 
   async getChunkTileCount(chunkX: number, chunkY: number): Promise<number> {
@@ -299,7 +300,7 @@ export class WorldService {
     );
 
     return chunks
-      .flatMap((c) => c.tiles)
+      .flatMap((c) => c.tiles ?? [])
       .filter((t) => t.x >= minX && t.x <= maxX && t.y >= minY && t.y <= maxY);
   }
 }

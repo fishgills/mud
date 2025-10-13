@@ -93,6 +93,8 @@ export class ChunkGeneratorService {
     );
 
     return {
+      chunkX,
+      chunkY,
       tiles: tiles as WorldTile[],
       settlements,
       stats: finalStats,

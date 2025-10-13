@@ -51,6 +51,21 @@ export class TileService {
   }
 
   reconstructChunkFromTiles(tiles: WorldTile[]): ChunkData {
+    if (tiles.length === 0) {
+      return {
+        chunkX: 0,
+        chunkY: 0,
+        tiles: [],
+        settlements: [],
+        stats: {
+          biomes: {},
+          averageHeight: 0,
+          averageTemperature: 0,
+          averageMoisture: 0,
+        },
+      };
+    }
+
     const biomeCount: Record<string, number> = {};
     let totalHeight = 0;
     let totalTemperature = 0;
@@ -63,7 +78,14 @@ export class TileService {
       totalMoisture += tile.moisture;
     });
 
+    const { chunkX, chunkY } = this.worldUtils.getChunkCoordinates(
+      tiles[0].x,
+      tiles[0].y,
+    );
+
     return {
+      chunkX,
+      chunkY,
       tiles: tiles,
       settlements: [], // Would need to fetch from Settlement table
       stats: {
