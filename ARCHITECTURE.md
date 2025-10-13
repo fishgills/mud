@@ -15,7 +15,7 @@ Our architecture uses a **hybrid microservices approach** where client-specific 
 │  (Cloud Run)│  (Cloud Run)│  (Cloud Run)│                 │
 └──────┬──────┴──────┬──────┴──────┬──────┴─────────────────┘
        │             │             │
-       │  GraphQL    │  GraphQL    │  GraphQL/WebSocket
+       │    REST     │    REST     │   REST/WebSocket
        │             │             │
        └─────────────┼─────────────┘
                      ↓
@@ -53,7 +53,7 @@ Our architecture uses a **hybrid microservices approach** where client-specific 
 
 - Receive commands from their respective platforms
 - Parse/validate input in client-specific format
-- Call game engine GraphQL API
+- Call game engine REST API
 - Format responses for their platform (Slack blocks, Discord embeds, HTML)
 - Handle platform-specific auth (Slack tokens, Discord OAuth, JWT)
 - Send notifications back to users
@@ -66,11 +66,11 @@ Our architecture uses a **hybrid microservices approach** where client-specific 
 
 **Example Flow (Slack)**:
 
-```typescript
-// Slack user types: /move north
+```text
+# Slack user types: /move north
 1. Slack adapter receives slash command
 2. Validates Slack signature
-3. Calls DM service: mutation { movePlayer(slackId: "U123", direction: NORTH) }
+3. Calls DM service: POST /movement/move { "slackId": "U123", "move": { "direction": "north" } }
 4. Receives response with player state + nearby entities
 5. Formats as Slack blocks
 6. Responds to Slack
@@ -87,7 +87,7 @@ Our architecture uses a **hybrid microservices approach** where client-specific 
 - Monster AI and behaviors
 - Party management
 - Event emission (for AI generation, notifications)
-- GraphQL API for client adapters
+- REST API for client adapters
 
 **Key Insight**: This service doesn't care if a player is from Slack, Discord, or Web. It just knows:
 
@@ -117,38 +117,33 @@ Our architecture uses a **hybrid microservices approach** where client-specific 
 
 ## Communication Patterns
 
-### Client → Game Engine (GraphQL)
+### Client → Game Engine (REST)
 
-All client adapters use GraphQL to communicate with the game engine:
+All client adapters use HTTP endpoints exposed by the game engine:
 
-```graphql
-# Common mutations
-mutation MovePlayer {
-  movePlayer(clientId: "slack:U123", direction: NORTH) {
-    success
-    player { x, y, hp }
-    monsters { id, name }
-    playersAtLocation { name }
-  }
+```http
+POST /movement/move
+Content-Type: application/json
+
+{
+  "slackId": "slack:U123",
+  "move": { "direction": "north", "distance": 1 }
 }
+```
 
-mutation Attack {
-  attack(clientId: "slack:U123", targetId: 123, targetType: MONSTER) {
-    success
-    combatLog { ... }
-    xpGained
-  }
-}
+```http
+POST /players/attack
+Content-Type: application/json
 
-# Common queries
-query GetPlayer {
-  getPlayer(clientId: "slack:U123") {
-    player { ... }
-    currentTile { description, biome }
-    nearbyPlayers { name }
-    nearbyMonsters { name, hp }
-  }
+{
+  "slackId": "slack:U123",
+  "input": { "targetType": "monster", "targetId": 123 }
 }
+```
+
+```http
+GET /players?slackId=slack:U123
+Accept: application/json
 ```
 
 ### Game Engine → Clients (Server-Sent Events / Push)
@@ -171,7 +166,7 @@ For real-time notifications (e.g., "A goblin appeared!", "Player joined your par
 ### Internal Service Communication
 
 - **Authentication**: GCP Cloud Run service-to-service auth (OIDC tokens)
-- **Protocol**: GraphQL over HTTPS
+- **Protocol**: REST over HTTPS
 - **Error Handling**: Retry with exponential backoff
 
 ## Database Schema Considerations
@@ -223,7 +218,7 @@ model DiscordUser {
 
 1. **mud-dm** (Game Engine)
    - Handles all game logic
-   - Exposed GraphQL API
+   - Exposed REST API
    - Autoscales based on request volume
 
 2. **mud-slack** (Slack Adapter)
@@ -288,7 +283,7 @@ This ensures:
    - Creates clientId: "slack:U123"
    ↓
 3. Slack adapter calls DM service:
-   mutation { movePlayer(clientId: "slack:U123", direction: NORTH) }
+   POST /movement/move { "slackId": "slack:U123", "move": { "direction": "north" } }
    ↓
 4. DM service (@mud/dm):
    - Loads player from DB using clientId
@@ -336,6 +331,6 @@ To implement this architecture:
 1. Update `Player` schema to use `clientId` instead of `slackId`
 2. Add `clientType` enum to Player
 3. Refactor DM service to be client-agnostic
-4. Create GraphQL mutations that use `clientId` instead of `slackId`
+4. Create REST endpoints that accept `clientId` instead of `slackId`
 5. Update Slack bot to call DM API instead of direct DB access
 6. Create Discord adapter skeleton

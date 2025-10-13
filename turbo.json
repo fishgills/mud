@@ -17,6 +17,7 @@
         "WORLD_SERVICE_URL",
         "DM_CENTER_NEARBY_CACHE_TTL_MS",
         "DM_CHUNK_CACHE_TTL_MS",
+        "WORLD_CHUNK_CACHE_TTL_MS",
         "GCP_PROJECT_ID",
         "GOOGLE_CLOUD_PROJECT",
         "GCP_REGION",
@@ -47,9 +48,6 @@
     "generate": {
       "dependsOn": ["^generate"],
       "cache": false
-    },
-    "codegen": {
-      "dependsOn": ["^codegen"]
     },
     "lint": {
       "dependsOn": ["^generate"],

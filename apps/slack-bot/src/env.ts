@@ -6,9 +6,8 @@ export const env = cleanEnv(process.env, {
   SLACK_BOT_TOKEN: str(),
   SLACK_SIGNING_SECRET: str(),
   SLACK_APP_TOKEN: str(),
-  DM_GQL_ENDPOINT: url({ default: 'http://localhost:3001/graphql' }),
-  WORLD_GQL_ENDPOINT: url({ default: 'http://localhost:3000/graphql' }),
-  WORLD_BASE_URL: url({ default: 'http://localhost:3001/world' }),
+  DM_API_BASE_URL: url({ default: 'http://localhost:3000' }),
+  WORLD_API_BASE_URL: url({ default: 'http://localhost:3001/world' }),
   REDIS_URL: url({ default: 'redis://localhost:6379' }),
   PORT: str({ default: '3002' }),
 });

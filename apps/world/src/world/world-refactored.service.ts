@@ -3,11 +3,11 @@ import seedrandom from 'seedrandom';
 import { ChunkData, SettlementFootprint } from './types';
 import { WorldDatabaseService } from './world-database.service';
 import { ChunkGeneratorService } from './chunk-generator.service';
-import { TileService, TileWithNearbyBiomes } from './tile.service';
+import { TileService } from './tile.service';
 import { WorldUtilsService } from './world-utils.service';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
 import { Settlement } from '@mud/database';
-import { WorldTile } from './models';
+import type { WorldTile, TileWithNearbyBiomes } from './dto';
 import { WORLD_CHUNK_SIZE } from '@mud/constants';
 
 @Injectable()
@@ -174,7 +174,6 @@ export class WorldService {
     );
   }
 
-  // GraphQL-friendly methods for field resolution
   async getChunkTiles(
     chunkX: number,
     chunkY: number,
@@ -193,10 +192,8 @@ export class WorldService {
   }
 
   async getChunkTileCount(chunkX: number, chunkY: number): Promise<number> {
-    // Parameters are part of GraphQL signature but unused in compute-only mode
     void chunkX;
     void chunkY;
-    // Compute-only mode: chunk size is fixed
     return 50 * 50;
   }
 

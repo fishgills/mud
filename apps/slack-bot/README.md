@@ -1,6 +1,6 @@
 # Slack Bot
 
-This is a Slack bot for the MUD game, built with Slack Bolt JS. It interacts with the DM and World services via GraphQL.
+This is a Slack bot for the MUD game, built with Slack Bolt JS. It interacts with the DM and World services via REST APIs.
 
 ## Setup
 
@@ -12,4 +12,4 @@ This is a Slack bot for the MUD game, built with Slack Bolt JS. It interacts wit
 
 - Player creation and rerolling stats
 - Movement and attack commands
-- Interacts with DM and World services using GraphQL
+- Interacts with DM and World services using REST endpoints

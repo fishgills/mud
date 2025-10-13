@@ -1,7 +1,16 @@
-import { Controller, Get, Logger, Query, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Delete,
+  Get,
+  Logger,
+  Query,
+  Res,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { RenderService } from './render.service';
 import { CacheService } from '../shared/cache.service';
+import type { MapTileDto } from './map-tile.dto';
 
 @Controller('render')
 export class RenderController {
@@ -11,6 +20,27 @@ export class RenderController {
     private readonly cache: CacheService,
   ) {}
 
+  private parseCenter(param: string | undefined): number {
+    if (param === undefined) return 0;
+    const n = Number.parseInt(param, 10);
+    if (Number.isNaN(n)) {
+      throw new BadRequestException('Center coordinates must be integers');
+    }
+    return n;
+  }
+
+  private resolveBounds(x?: string, y?: string) {
+    const centerX = this.parseCenter(x);
+    const centerY = this.parseCenter(y);
+    const half = 25;
+    return {
+      minX: centerX - half,
+      maxX: centerX + half,
+      minY: centerY - half,
+      maxY: centerY + half,
+    };
+  }
+
   @Get('map.png')
   async getMapPng(
     @Res() res: Response,
@@ -18,19 +48,13 @@ export class RenderController {
     @Query('y') y?: string,
     @Query('p') pixelWidth?: string,
   ) {
-    const centerX = Number.isFinite(Number(x)) ? parseInt(x ?? '0', 10) : 0;
-    const centerY = Number.isFinite(Number(y)) ? parseInt(y ?? '0', 10) : 0;
+    const { minX, maxX, minY, maxY } = this.resolveBounds(x, y);
     const pStr = pixelWidth ?? '4';
     const p = Math.max(
       1,
       Math.floor(Number.isFinite(Number(pStr)) ? parseInt(pStr, 10) : 4),
     );
 
-    const half = 25;
-    const minX = centerX - half;
-    const maxX = centerX + half;
-    const minY = centerY - half;
-    const maxY = centerY + half;
     const cacheKey = `${minX},${minY},${maxX},${maxY},p=${p}`;
     const ttlMs = Number(process.env.WORLD_RENDER_CACHE_TTL_MS ?? 30000);
 
@@ -75,5 +99,67 @@ export class RenderController {
       `public, max-age=${Math.floor(ttlMs / 1000)}`,
     );
     return res.send(buf);
+  }
+
+  @Get('map-tiles')
+  async getMapTiles(
+    @Query('x') x?: string,
+    @Query('y') y?: string,
+  ): Promise<MapTileDto[][]> {
+    const { minX, maxX, minY, maxY } = this.resolveBounds(x, y);
+    const { tileData } = await this.renderService.prepareMapData(
+      minX,
+      maxX,
+      minY,
+      maxY,
+    );
+
+    const rows: MapTileDto[][] = [];
+    for (let yVal = minY; yVal < maxY; yVal++) {
+      const row: MapTileDto[] = [];
+      for (let xVal = minX; xVal < maxX; xVal++) {
+        const tileInfo = tileData.find(
+          (t) => t.x === xVal && t.y === yVal,
+        );
+        row.push({
+          x: xVal,
+          y: yVal,
+          biomeName: tileInfo?.biome?.name ?? undefined,
+          symbol: tileInfo?.biome?.ascii ?? undefined,
+          hasSettlement: !!tileInfo?.settlement,
+          isSettlementCenter:
+            !!tileInfo?.settlement &&
+            tileInfo.settlement.x === xVal &&
+            tileInfo.settlement.y === yVal,
+        });
+      }
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  @Get('map.ascii')
+  async getMapAscii(
+    @Query('x') x?: string,
+    @Query('y') y?: string,
+  ): Promise<{ ascii: string }> {
+    const { minX, maxX, minY, maxY } = this.resolveBounds(x, y);
+    const ascii = await this.renderService.renderMapAscii(
+      minX,
+      maxX,
+      minY,
+      maxY,
+    );
+    return { ascii };
+  }
+
+  @Delete('cache')
+  async clearCache(
+    @Query('pattern') pattern?: string,
+  ): Promise<{ removed: number }> {
+    const removed = pattern
+      ? await this.cache.clearPattern(pattern)
+      : await this.cache.clearAll();
+    return { removed };
   }
 }

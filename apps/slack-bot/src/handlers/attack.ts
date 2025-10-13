@@ -1,5 +1,4 @@
-import type { AttackMutation } from '../generated/dm-graphql';
-import { TargetType } from '../generated/dm-graphql';
+import { TargetType } from '../dm-types';
 import { HandlerContext } from './types';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import { extractSlackId } from '../utils/clientId';
@@ -8,9 +7,15 @@ import { PlayerCommandHandler } from './base';
 const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
 export const SELF_ATTACK_ERROR = "You can't attack yourself.";
 
-type AttackCombatResult = NonNullable<
-  NonNullable<AttackMutation['attack']['data']>
->;
+type AttackCombatResult = {
+  winnerName: string;
+  loserName: string;
+  totalDamageDealt: number;
+  roundsCompleted: number;
+  xpGained: number;
+  goldGained: number;
+  message: string;
+};
 
 type NearbyMonster = { id: string; name: string };
 type NearbyPlayer = { slackId: string; name: string };
@@ -146,14 +151,20 @@ export class AttackHandler extends PlayerCommandHandler {
         await say({ text: SELF_ATTACK_ERROR });
         return;
       }
-      const attackResult = await this.sdk.Attack({
+      const attackResult = (await this.sdk.Attack({
         slackId: this.toClientId(userId),
         input: {
           targetType: TargetType.Player,
           targetSlackId,
           ignoreLocation: true,
         },
-      });
+      })) as {
+        attack: {
+          success: boolean;
+          message?: string;
+          data?: AttackCombatResult;
+        };
+      };
       if (!attackResult.attack.success) {
         await say({ text: `Attack failed: ${attackResult.attack.message}` });
         return;

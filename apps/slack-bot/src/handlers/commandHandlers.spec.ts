@@ -17,7 +17,7 @@ jest.mock('./mapUtils', () => ({
   sendPngMap: jest.fn().mockResolvedValue(true),
 }));
 
-import { TargetType, Direction } from '../generated/dm-graphql';
+import { TargetType, Direction } from '../dm-types';
 import { dmSdk } from '../gql-client';
 import { sendPngMap } from './mapUtils';
 import { attackHandler, SELF_ATTACK_ERROR } from './attack';

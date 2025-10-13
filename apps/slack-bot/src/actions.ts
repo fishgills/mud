@@ -17,7 +17,7 @@ import {
   COMBAT_ACTIONS,
 } from './commands';
 import { dmSdk } from './gql-client';
-import { PlayerAttribute, TargetType } from './generated/dm-graphql';
+import { PlayerAttribute, TargetType } from './dm-types';
 import { getUserFriendlyErrorMessage } from './handlers/errorUtils';
 import { SELF_ATTACK_ERROR } from './handlers/attack';
 import { getAllHandlers } from './handlers/handlerRegistry';

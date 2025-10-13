@@ -4,33 +4,8 @@ import { WorldUtilsService } from './world-utils.service';
 import { ChunkData } from './types';
 import { ChunkGeneratorService } from './chunk-generator.service';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
-import { WorldTile } from './models';
+import type { WorldTile, TileWithNearbyBiomes } from './dto';
 import { WORLD_CHUNK_SIZE } from '@mud/constants';
-
-export interface TileWithNearbyBiomes extends WorldTile {
-  nearbyBiomes: Array<{
-    biomeName: string;
-    distance: number;
-    direction: string;
-  }>;
-  nearbySettlements: Array<{
-    name: string;
-    type: string;
-    size: string;
-    population: number;
-    x: number;
-    y: number;
-    description: string;
-    distance: number;
-  }>;
-  currentSettlement?: {
-    name: string;
-    type: string;
-    size: string;
-    intensity: number;
-    isCenter: boolean;
-  };
-}
 
 @Injectable()
 export class TileService {

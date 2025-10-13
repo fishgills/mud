@@ -1,5 +1,5 @@
 import { HandlerContext } from './types';
-import { Direction } from '../generated/dm-graphql';
+import { Direction } from '../dm-types';
 // No debug JSON on move; keep the channel clean.
 import { sendPngMap } from './mapUtils';
 import { COMMANDS } from '../commands';

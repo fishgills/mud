@@ -5,7 +5,11 @@ import { PlayerService } from '../player/player.service';
 import { PlayerStatsDto } from '../player/dto/player.dto';
 import { AiService } from '../../openai/ai.service';
 import { EventBridgeService } from '../../shared/event-bridge.service';
-import { CombatResult, CombatRound, DetailedCombatLog } from '../graphql';
+import type {
+  CombatResult,
+  CombatRound,
+  DetailedCombatLog,
+} from '../api';
 
 interface CombatNarrative {
   summary: string;

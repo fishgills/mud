@@ -3,7 +3,7 @@ import type { ActionsBlock, KnownBlock } from '@slack/types';
 import { buildAppHomeBlocks, registerAppHome } from './appHome';
 import { dmSdk } from '../gql-client';
 
-// Mock the GraphQL client
+// Mock the DM API client
 jest.mock('../gql-client', () => ({
   dmSdk: {
     GetPlayer: jest.fn(),

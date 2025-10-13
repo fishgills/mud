@@ -130,7 +130,7 @@ resource "google_cloud_run_v2_service" "services" {
       # Pass-through any explicitly provided Slack Bot endpoint env vars
       dynamic "env" {
         for_each = contains(["slack-bot"], each.key) ? {
-          for k, v in each.value.env_vars : k => v if contains(["DM_GQL_ENDPOINT", "WORLD_GQL_ENDPOINT", "WORLD_BASE_URL"], k)
+          for k, v in each.value.env_vars : k => v if contains(["DM_API_BASE_URL", "WORLD_API_BASE_URL"], k)
         } : {}
         content {
           name  = env.key
@@ -140,7 +140,7 @@ resource "google_cloud_run_v2_service" "services" {
 
       # Default Slack Bot endpoint env vars derived from the Cloud Run internal hostname
       dynamic "env" {
-        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "DM_GQL_ENDPOINT") && contains(keys(local.service_runapp_alias), "dm") ? { DM_GQL_ENDPOINT = "${local.service_runapp_alias["dm"]}/graphql" } : {}
+        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "DM_API_BASE_URL") && contains(keys(local.service_runapp_alias), "dm") ? { DM_API_BASE_URL = local.service_runapp_alias["dm"] } : {}
         content {
           name  = env.key
           value = env.value
@@ -148,22 +148,14 @@ resource "google_cloud_run_v2_service" "services" {
       }
 
       dynamic "env" {
-        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_GQL_ENDPOINT") && contains(keys(local.service_runapp_alias), "world") ? { WORLD_GQL_ENDPOINT = "${local.service_runapp_alias["world"]}/graphql" } : {}
+        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_API_BASE_URL") && contains(keys(local.service_runapp_alias), "world") ? { WORLD_API_BASE_URL = local.service_runapp_alias["world"] } : {}
         content {
           name  = env.key
           value = env.value
         }
       }
 
-      # (Slack Bot specific defaults below; World service doesn't inject GQL endpoints)
-
-      dynamic "env" {
-        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_BASE_URL") && contains(keys(local.service_runapp_alias), "world") ? { WORLD_BASE_URL = "${local.service_runapp_alias["world"]}/world" } : {}
-        content {
-          name  = env.key
-          value = env.value
-        }
-      }
+      # (Slack Bot specific defaults below)
 
       # Auto-inject WORLD_SERVICE_URL for DM if not provided, pointing to the World service base URL
       dynamic "env" {
@@ -174,9 +166,9 @@ resource "google_cloud_run_v2_service" "services" {
         }
       }
 
-      # Auto-inject DM_GRAPHQL_URL for tick service (defaults to DM service /graphql)
+      # Auto-inject DM_API_BASE_URL for tick service
       dynamic "env" {
-        for_each = contains(["tick"], each.key) && !contains(keys(try(each.value.env_vars, {})), "DM_GRAPHQL_URL") && contains(keys(local.service_preferred_url), "dm") ? { DM_GRAPHQL_URL = "${local.service_preferred_url["dm"]}/graphql" } : {}
+        for_each = contains(["tick"], each.key) && !contains(keys(try(each.value.env_vars, {})), "DM_API_BASE_URL") && contains(keys(local.service_preferred_url), "dm") ? { DM_API_BASE_URL = local.service_preferred_url["dm"] } : {}
         content {
           name  = env.key
           value = env.value

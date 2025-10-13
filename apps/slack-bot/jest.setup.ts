@@ -1,3 +1,4 @@
+/* eslint-disable turbo/no-undeclared-env-vars */
 process.env.SLACK_BOT_TOKEN =
   process.env.SLACK_BOT_TOKEN ?? 'test-slack-bot-token';
 process.env.SLACK_SIGNING_SECRET =

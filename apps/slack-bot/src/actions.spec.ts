@@ -18,7 +18,7 @@ import { getAllHandlers } from './handlers/handlerRegistry';
 import { HandlerContext } from './handlers/types';
 import { SELF_ATTACK_ERROR } from './handlers/attack';
 import { dmSdk } from './gql-client';
-import { PlayerAttribute, TargetType } from './generated/dm-graphql';
+import { PlayerAttribute, TargetType } from './dm-types';
 import { toClientId } from './utils/clientId';
 
 const mockedDmSdk = dmSdk as unknown as {
@@ -839,7 +839,7 @@ describe('registerActions', () => {
     );
   });
 
-  it('handles attack error with GraphQL error message', async () => {
+  it('handles attack error with network failure', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     const client: MockSlackClient = {
       conversations: {

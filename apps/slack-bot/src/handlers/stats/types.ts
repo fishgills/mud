@@ -1,11 +1,28 @@
-import {
-  GetLocationEntitiesQuery,
-  GetPlayerQuery,
-} from '../../generated/dm-graphql';
+export interface PlayerStatsSource {
+  id?: number;
+  slackId?: string;
+  name?: string;
+  x?: number;
+  y?: number;
+  hp?: number;
+  maxHp?: number;
+  strength?: number;
+  agility?: number;
+  health?: number;
+  gold?: number;
+  xp?: number;
+  level?: number;
+  skillPoints?: number;
+  isAlive?: boolean;
+}
 
-export type PlayerStatsSource =
-  | NonNullable<GetPlayerQuery['getPlayer']['data']>
-  | GetLocationEntitiesQuery['getPlayersAtLocation'][number];
-
-export type MonsterStatsSource =
-  GetLocationEntitiesQuery['getMonstersAtLocation'][number];
+export interface MonsterStatsSource {
+  id?: number;
+  name?: string;
+  type?: string;
+  hp?: number;
+  maxHp?: number;
+  x?: number;
+  y?: number;
+  isAlive?: boolean;
+}

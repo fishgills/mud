@@ -1,5 +1,5 @@
 import { Settlement } from '@mud/database';
-import { WorldTile } from './models';
+import type { ChunkData } from './dto';
 
 export interface TileData {
   x: number;
@@ -77,13 +77,4 @@ export interface SettlementWithFootprint extends Settlement {
   footprint?: SettlementFootprint;
 }
 
-export interface ChunkData {
-  tiles: WorldTile[];
-  settlements: Settlement[];
-  stats: {
-    biomes: Record<string, number>;
-    averageHeight: number;
-    averageTemperature: number;
-    averageMoisture: number;
-  };
-}
+export type { ChunkData };

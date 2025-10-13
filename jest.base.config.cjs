@@ -8,7 +8,7 @@ module.exports = {
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
-  transformIgnorePatterns: ['node_modules/(?!(graphql-request)/)'],
+  transformIgnorePatterns: ['node_modules/'],
   moduleFileExtensions: ['ts', 'js', 'html'],
   collectCoverage: true,
   coverageReporters: ['text-summary', 'lcov', 'html'],

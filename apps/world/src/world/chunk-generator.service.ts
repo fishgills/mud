@@ -3,7 +3,7 @@ import { ChunkData, TileData, BiomeInfo } from './types';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
 import { WorldUtilsService } from './world-utils.service';
 import { Settlement } from '@mud/database';
-import { WorldTile } from './models';
+import type { WorldTile } from './dto';
 import { GridMapGenerator } from '../gridmap/gridmap-generator';
 import { DEFAULT_BIOMES } from '../gridmap/default-biomes';
 import { mapGridBiomeToBiomeInfo } from '../gridmap/biome-mapper';

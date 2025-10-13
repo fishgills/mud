@@ -1,35 +1,30 @@
 import { dmSdk } from '../../gql-client';
-import {
-  GetLocationEntitiesQuery,
-  GetLocationEntitiesQueryVariables,
-  GetPlayerQuery,
-  GetPlayerQueryVariables,
-} from '../../generated/dm-graphql';
 import { toClientId } from '../../utils/clientId';
+import type { PlayerStatsSource, MonsterStatsSource } from './types';
 
-interface PlayerLookupResult {
-  player?: NonNullable<GetPlayerQuery['getPlayer']['data']>;
+export interface PlayerLookupResult {
+  player?: PlayerStatsSource;
   message?: string;
 }
 
-interface PlayerWithLocationResult {
-  player?: NonNullable<GetPlayerQuery['getPlayer']['data']>;
-  playersHere?: GetLocationEntitiesQuery['getPlayersAtLocation'];
-  monstersHere?: GetLocationEntitiesQuery['getMonstersAtLocation'];
+export interface PlayerWithLocationResult {
+  player?: PlayerStatsSource;
+  playersHere?: PlayerStatsSource[];
+  monstersHere?: MonsterStatsSource[];
   error?: string;
 }
 
 export async function fetchPlayerRecord(
-  variables: GetPlayerQueryVariables,
+  variables: { slackId?: string; clientId?: string; name?: string },
   defaultMessage: string,
 ): Promise<PlayerLookupResult> {
   const result = await dmSdk.GetPlayer(variables);
   if (result.getPlayer.success && result.getPlayer.data) {
-    return { player: result.getPlayer.data };
+    return { player: result.getPlayer.data as PlayerStatsSource };
   }
 
   return {
-    message: result.getPlayer.message ?? defaultMessage,
+    message: (result.getPlayer.message as string | undefined) ?? defaultMessage,
   };
 }
 
@@ -46,8 +41,8 @@ export async function fetchPlayerWithLocation(
   }
 
   const location = await fetchLocationEntities({
-    x: self.player.x,
-    y: self.player.y,
+    x: self.player.x ?? 0,
+    y: self.player.y ?? 0,
   });
 
   return {
@@ -57,16 +52,20 @@ export async function fetchPlayerWithLocation(
   };
 }
 
-export async function fetchLocationEntities(
-  variables: GetLocationEntitiesQueryVariables,
-) {
-  return dmSdk.GetLocationEntities(variables);
+export async function fetchLocationEntities(variables: {
+  x: number;
+  y: number;
+}) {
+  return dmSdk.GetLocationEntities(variables) as Promise<{
+    getPlayersAtLocation: PlayerStatsSource[];
+    getMonstersAtLocation: MonsterStatsSource[];
+  }>;
 }
 
 export function findNearbyMatches(
   name: string,
-  players: GetLocationEntitiesQuery['getPlayersAtLocation'] = [],
-  monsters: GetLocationEntitiesQuery['getMonstersAtLocation'] = [],
+  players: PlayerStatsSource[] = [],
+  monsters: MonsterStatsSource[] = [],
 ) {
   const matchingPlayers = players.filter((player) =>
     namesMatch(player.name, name),
