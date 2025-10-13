@@ -24,13 +24,13 @@ import type {
   PlayerStats,
   CombatResult,
 } from '../dto/responses.dto';
-import {
+import type {
   AttackRequest,
   CreatePlayerRequest,
   PlayerAttribute,
   PlayerStatsRequest,
-  TargetType,
 } from '../dto/player-requests.dto';
+import { TargetType } from '../dto/player-requests.dto';
 
 interface StatsUpdatePayload {
   slackId: string;
@@ -69,7 +69,9 @@ export class PlayersController {
   ) {}
 
   @Post()
-  async createPlayer(@Body() input: CreatePlayerRequest): Promise<PlayerResponse> {
+  async createPlayer(
+    @Body() input: CreatePlayerRequest,
+  ): Promise<PlayerResponse> {
     if (!input?.clientId && !input?.slackId) {
       return {
         success: false,
@@ -157,7 +159,9 @@ export class PlayersController {
   }
 
   @Post('stats')
-  async updatePlayerStats(@Body() payload: StatsUpdatePayload): Promise<PlayerResponse> {
+  async updatePlayerStats(
+    @Body() payload: StatsUpdatePayload,
+  ): Promise<PlayerResponse> {
     if (!payload?.slackId) {
       throw new BadRequestException('slackId is required');
     }
@@ -182,7 +186,9 @@ export class PlayersController {
   }
 
   @Post('spend-skill-point')
-  async spendSkillPoint(@Body() payload: AttributePayload): Promise<PlayerResponse> {
+  async spendSkillPoint(
+    @Body() payload: AttributePayload,
+  ): Promise<PlayerResponse> {
     if (!payload?.slackId) {
       throw new BadRequestException('slackId is required');
     }
@@ -211,7 +217,9 @@ export class PlayersController {
   }
 
   @Post('reroll')
-  async rerollPlayerStats(@Body() payload: { slackId: string }): Promise<PlayerResponse> {
+  async rerollPlayerStats(
+    @Body() payload: { slackId: string },
+  ): Promise<PlayerResponse> {
     if (!payload?.slackId) {
       throw new BadRequestException('slackId is required');
     }
@@ -255,9 +263,7 @@ export class PlayersController {
       return {
         success: false,
         message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to heal player',
+          error instanceof Error ? error.message : 'Failed to heal player',
       };
     }
   }
@@ -283,9 +289,7 @@ export class PlayersController {
       return {
         success: false,
         message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to damage player',
+          error instanceof Error ? error.message : 'Failed to damage player',
       };
     }
   }
@@ -305,14 +309,15 @@ export class PlayersController {
     } catch (error) {
       return {
         success: false,
-        message:
-          error instanceof Error ? error.message : 'Respawn failed',
+        message: error instanceof Error ? error.message : 'Respawn failed',
       };
     }
   }
 
   @Delete(':slackId')
-  async deletePlayer(@Param('slackId') slackId: string): Promise<PlayerResponse> {
+  async deletePlayer(
+    @Param('slackId') slackId: string,
+  ): Promise<PlayerResponse> {
     if (!slackId) {
       throw new BadRequestException('slackId is required');
     }
@@ -327,9 +332,7 @@ export class PlayersController {
       return {
         success: false,
         message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to delete character',
+          error instanceof Error ? error.message : 'Failed to delete character',
       };
     }
   }
@@ -352,7 +355,8 @@ export class PlayersController {
     const baseDamage = `1d6${strengthModifier >= 0 ? '+' : ''}${strengthModifier}`;
     const armorClass = 10 + agilityModifier;
 
-    const xpThreshold = (lvl: number) => Math.floor(100 * (lvl * (lvl + 1)) / 2);
+    const xpThreshold = (lvl: number) =>
+      Math.floor((100 * (lvl * (lvl + 1))) / 2);
     const xpForNextLevel = xpThreshold(player.level);
     const prevThreshold = player.level > 1 ? xpThreshold(player.level - 1) : 0;
     const xpProgress = Math.max(0, player.xp - prevThreshold);
@@ -393,7 +397,9 @@ export class PlayersController {
 
       if (input.targetType === TargetType.MONSTER) {
         if (typeof input.targetId !== 'number') {
-          throw new BadRequestException('targetId is required for monster attacks');
+          throw new BadRequestException(
+            'targetId is required for monster attacks',
+          );
         }
         result = (await this.combatService.playerAttackMonster(
           slackId,
@@ -404,7 +410,9 @@ export class PlayersController {
         if (!targetSlackId) {
           if (typeof input.targetId === 'number') {
             const allPlayers = await this.playerService.getAllPlayers();
-            const targetPlayer = allPlayers.find((p) => p.id === input.targetId);
+            const targetPlayer = allPlayers.find(
+              (p) => p.id === input.targetId,
+            );
             if (!targetPlayer) {
               throw new BadRequestException('Target player not found');
             }
@@ -417,7 +425,9 @@ export class PlayersController {
         }
 
         if (!targetSlackId) {
-          throw new BadRequestException('Target player has no valid identifier');
+          throw new BadRequestException(
+            'Target player has no valid identifier',
+          );
         }
 
         const ignoreLocation = input.ignoreLocation === true;
@@ -447,7 +457,7 @@ export class PlayersController {
     options: { includeDetails?: boolean; includeNearby?: boolean } = {},
   ): Promise<Player> {
     const { includeDetails = true, includeNearby = false } = options;
-    const base = EntityToDtoAdapter.playerEntityToDto(entity as Player);
+    const base = EntityToDtoAdapter.playerEntityToDto(entity);
 
     if (!includeDetails && !includeNearby) {
       return base;

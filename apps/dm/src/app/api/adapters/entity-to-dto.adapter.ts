@@ -2,7 +2,10 @@ import { PlayerEntity, MonsterEntity } from '@mud/engine';
 import type { Player } from '../dto/player.dto';
 import type { Monster } from '../dto/monster.dto';
 
-type PlayerLike = PlayerEntity | (Partial<Player> & Record<string, unknown>);
+type PlayerLike =
+  | PlayerEntity
+  | Player
+  | (Partial<Player> & Record<string, unknown>);
 type MonsterLike =
   | MonsterEntity
   | (Partial<Monster> & Record<string, unknown>);
