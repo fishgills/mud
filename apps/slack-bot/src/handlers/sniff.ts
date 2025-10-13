@@ -1,4 +1,4 @@
-import { dmSdk } from '../gql-client';
+import { sniffNearestMonster } from '../dm-client';
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
@@ -18,19 +18,18 @@ const formatDistance = (distance: number | null | undefined): string => {
 
 export const sniffHandler = async ({ userId, say }: HandlerContext) => {
   try {
-    const response = await dmSdk.SniffNearestMonster({
+    const response = await sniffNearestMonster({
       slackId: toClientId(userId),
     });
 
-    const payload = response.sniffNearestMonster;
-    if (!payload.success) {
+    if (!response.success) {
       await say({
-        text: payload.message ?? 'Failed to sniff for monsters.',
+        text: response.message ?? 'Failed to sniff for monsters.',
       });
       return;
     }
 
-    const data = payload.data;
+    const data = response.data;
     if (!data || !data.monsterName) {
       const radius = data?.detectionRadius;
       const radiusLabel =
@@ -39,7 +38,7 @@ export const sniffHandler = async ({ userId, say }: HandlerContext) => {
           : 'your range';
       await say({
         text:
-          payload.message ??
+          response.message ??
           `You sniff the air but can't catch any monster scent within ${radiusLabel}.`,
       });
       return;
@@ -49,7 +48,7 @@ export const sniffHandler = async ({ userId, say }: HandlerContext) => {
     const distanceText = formatDistance(data.distance);
     await say({
       text:
-        payload.message ??
+        response.message ??
         `You catch the scent of ${data.monsterName} about ${distanceText} ${direction}.`,
     });
   } catch (err) {

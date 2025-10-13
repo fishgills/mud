@@ -42,12 +42,12 @@ export class CreateHandler extends PlayerCommandHandler {
     };
 
     try {
-      const result = await this.sdk.CreatePlayer({ input });
-      if (result.createPlayer.success && result.createPlayer.data) {
+      const result = await this.dm.createPlayer(input);
+      if (result.success && result.data) {
         const introText = `Welcome <@${userId}>! Your character creation has started.`;
         const instructions =
           'Use "reroll" to reroll your stats, and "complete" when you are done.';
-        const statsMessage = buildPlayerStatsMessage(result.createPlayer.data, {
+        const statsMessage = buildPlayerStatsMessage(result.data, {
           isSelf: true,
         });
         await say({
@@ -67,28 +67,14 @@ export class CreateHandler extends PlayerCommandHandler {
         return;
       }
 
-      console.log('CreatePlayer error:', result.createPlayer);
-      await say({ text: `Error: ${result.createPlayer.message}` });
+      console.log('CreatePlayer error:', result);
+      await say({ text: `Error: ${result.message}` });
     } catch (err: unknown) {
-      if (
-        err &&
-        typeof err === 'object' &&
-        'response' in err &&
-        err.response &&
-        typeof err.response === 'object' &&
-        'errors' in err.response
-      ) {
-        const errors = err.response.errors as Array<{
-          extensions?: { code?: string };
-          message: string;
-        }>;
-        const playerExists = errors.find(
-          (e) => e.extensions?.code === 'PLAYER_EXISTS',
-        );
-        if (playerExists) {
-          await say({ text: `You already have a character!` });
-          return;
-        }
+      const message =
+        err instanceof Error ? err.message : String(err ?? 'Unknown error');
+      if (/already exists/i.test(message)) {
+        await say({ text: `You already have a character!` });
+        return;
       }
 
       throw err;

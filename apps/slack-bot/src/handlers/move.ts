@@ -104,7 +104,7 @@ export class MoveHandler extends PlayerCommandHandler {
 
     try {
       const tDmStart = Date.now();
-      const result = await this.sdk.MovePlayer({
+      const result = await this.dm.movePlayer({
         slackId: this.toClientId(userId),
         input: direction
           ? {
@@ -116,15 +116,15 @@ export class MoveHandler extends PlayerCommandHandler {
           : { x: targetX as number, y: targetY as number },
       });
       dmMs = Date.now() - tDmStart;
-      if (!result.movePlayer.success) {
-        await say({ text: `Move failed: ${result.movePlayer.message}` });
+      if (!result.success) {
+        await say({ text: `Move failed: ${result.message}` });
         totalMs = Date.now() - t0;
         console.log(
           `move timing (fail): user=${userId} move=${movementLabel} dmMs=${dmMs} totalMs=${totalMs}`,
         );
         return;
       }
-      const data = result.movePlayer.player;
+      const data = result.player;
       if (!data) {
         await say({ text: 'Move succeeded but no data returned.' });
         totalMs = Date.now() - t0;
@@ -133,13 +133,21 @@ export class MoveHandler extends PlayerCommandHandler {
         );
         return;
       }
+      if (typeof data.x !== 'number' || typeof data.y !== 'number') {
+        await say({ text: 'Move succeeded but your new location is unclear.' });
+        totalMs = Date.now() - t0;
+        console.log(
+          `move timing (noloc): user=${userId} move=${movementLabel} dmMs=${dmMs} totalMs=${totalMs}`,
+        );
+        return;
+      }
       const tPngStart = Date.now();
       await sendPngMap(say, data.x, data.y, 8);
 
       await sendOccupantsSummary(
         say,
-        result.movePlayer.playersAtLocation,
-        result.movePlayer.monsters,
+        result.playersAtLocation,
+        result.monsters,
         userId,
       );
       pngMs = Date.now() - tPngStart;

@@ -10,20 +10,21 @@ export class DeleteHandler extends PlayerCommandHandler {
   }
 
   protected async perform({ userId, say }: HandlerContext): Promise<void> {
-    const playerResult = await this.sdk.GetPlayer({
+    const playerResult = await this.dm.getPlayer({
       slackId: this.toClientId(userId),
     });
 
-    if (!playerResult.getPlayer.success || !playerResult.getPlayer.data) {
+    if (!playerResult.success || !playerResult.data) {
       await say({
         text: `You don't have a character to delete! Use "new CharacterName" to create one.`,
       });
       return;
     }
 
-    const player = playerResult.getPlayer.data;
+    const player = playerResult.data;
     const isInCreationPhase =
-      player.hp <= 1 || (player.level <= 1 && player.xp === 0);
+      (player.hp ?? 0) <= 1 ||
+      ((player.level ?? 0) <= 1 && (player.xp ?? 0) === 0);
 
     if (!isInCreationPhase) {
       await say({
@@ -32,11 +33,11 @@ export class DeleteHandler extends PlayerCommandHandler {
       return;
     }
 
-    const deleteResult = await this.sdk.DeletePlayer({
+    const deleteResult = await this.dm.deletePlayer({
       slackId: this.toClientId(userId),
     });
 
-    if (deleteResult.deletePlayer.success) {
+    if (deleteResult.success) {
       await say({
         text: `✅ Character "${player.name}" has been successfully deleted during creation phase. You can create a new character with "new CharacterName"`,
       });
@@ -44,7 +45,7 @@ export class DeleteHandler extends PlayerCommandHandler {
     }
 
     await say({
-      text: `Failed to delete character: ${deleteResult.deletePlayer.message}`,
+      text: `Failed to delete character: ${deleteResult.message}`,
     });
   }
 }

@@ -10,18 +10,18 @@ export class RerollHandler extends PlayerCommandHandler {
   }
 
   protected async perform({ userId, say }: HandlerContext): Promise<void> {
-    const result = await this.sdk.RerollPlayerStats({
+    const result = await this.dm.rerollPlayerStats({
       slackId: this.toClientId(userId),
     });
-    if (result.rerollPlayerStats.success) {
-      const stats = result.rerollPlayerStats.data;
+    if (result.success) {
+      const stats = result.data;
       await say({
         text: `🎲 Rerolled stats: Strength: ${stats?.strength}, Agility: ${stats?.agility}, Vitality: ${stats?.health}, Health Points: ${stats?.maxHp}`,
       });
       return;
     }
 
-    await say({ text: `Error: ${result.rerollPlayerStats.message}` });
+    await say({ text: `Error: ${result.message}` });
   }
 }
 

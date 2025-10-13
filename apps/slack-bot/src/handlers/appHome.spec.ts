@@ -1,13 +1,14 @@
 import type { App } from '@slack/bolt';
 import type { ActionsBlock, KnownBlock } from '@slack/types';
 import { buildAppHomeBlocks, registerAppHome } from './appHome';
-import { dmSdk } from '../gql-client';
+import { getPlayer } from '../dm-client';
 
 // Mock the DM API client
-jest.mock('../gql-client', () => ({
-  dmSdk: {
-    GetPlayer: jest.fn(),
-  },
+jest.mock('../dm-client', () => ({
+  getPlayer: jest.fn(),
+  rerollPlayerStats: jest.fn(),
+  completePlayer: jest.fn(),
+  deletePlayer: jest.fn(),
 }));
 
 type AppHomeHandler = (args: {
@@ -35,8 +36,9 @@ describe('buildAppHomeBlocks', () => {
   });
 
   it('includes welcome header and action buttons when user has no character', async () => {
-    (dmSdk.GetPlayer as jest.Mock).mockResolvedValue({
-      getPlayer: { success: false, data: null },
+    (getPlayer as jest.Mock).mockResolvedValue({
+      success: false,
+      data: null,
     });
 
     const blocks = await buildAppHomeBlocks('U123');
@@ -54,13 +56,11 @@ describe('buildAppHomeBlocks', () => {
   });
 
   it('includes character creation buttons when user has incomplete character', async () => {
-    (dmSdk.GetPlayer as jest.Mock).mockResolvedValue({
-      getPlayer: {
-        success: true,
-        data: {
-          name: 'TestChar',
-          isAlive: false, // Character not completed
-        },
+    (getPlayer as jest.Mock).mockResolvedValue({
+      success: true,
+      data: {
+        name: 'TestChar',
+        isAlive: false, // Character not completed
       },
     });
 
@@ -76,13 +76,11 @@ describe('buildAppHomeBlocks', () => {
   });
 
   it('includes gameplay buttons when user has active character', async () => {
-    (dmSdk.GetPlayer as jest.Mock).mockResolvedValue({
-      getPlayer: {
-        success: true,
-        data: {
-          name: 'TestChar',
-          isAlive: true, // Character is active
-        },
+    (getPlayer as jest.Mock).mockResolvedValue({
+      success: true,
+      data: {
+        name: 'TestChar',
+        isAlive: true, // Character is active
       },
     });
 
@@ -105,8 +103,9 @@ describe('registerAppHome', () => {
   });
 
   it('registers an app_home_opened handler that publishes the view', async () => {
-    (dmSdk.GetPlayer as jest.Mock).mockResolvedValue({
-      getPlayer: { success: false, data: null },
+    (getPlayer as jest.Mock).mockResolvedValue({
+      success: false,
+      data: null,
     });
 
     const handlers: Record<string, AppHomeHandler> = {};
@@ -145,8 +144,9 @@ describe('registerAppHome', () => {
   });
 
   it('logs an error when publishing fails', async () => {
-    (dmSdk.GetPlayer as jest.Mock).mockResolvedValue({
-      getPlayer: { success: false, data: null },
+    (getPlayer as jest.Mock).mockResolvedValue({
+      success: false,
+      data: null,
     });
 
     const handlers: Record<string, AppHomeHandler> = {};

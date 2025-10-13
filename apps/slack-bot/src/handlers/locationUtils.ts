@@ -165,17 +165,18 @@ export function sanitizeDescription(text: string): string {
 
 // --- Centralized occupants rendering helpers ---
 import { extractSlackId } from '../utils/clientId';
+import type { MonsterRecord, PlayerRecord } from '../dm-client';
 
-type DmSdk = (typeof import('../gql-client'))['dmSdk'];
+type DmClient = (typeof import('../dm-client'))['dmClient'];
 
-let dmSdkPromise: Promise<DmSdk> | null = null;
+let dmClientPromise: Promise<DmClient> | null = null;
 
-const getDmSdk = async (): Promise<DmSdk> => {
-  if (!dmSdkPromise) {
-    dmSdkPromise = import('../gql-client').then((mod) => mod.dmSdk);
+const getDmClient = async (): Promise<DmClient> => {
+  if (!dmClientPromise) {
+    dmClientPromise = import('../dm-client').then((mod) => mod.dmClient);
   }
 
-  return dmSdkPromise;
+  return dmClientPromise;
 };
 
 export type NearbyPlayer = {
@@ -222,41 +223,74 @@ export async function getOccupantsSummaryAt(
   y: number,
   currentSlackUserId?: string,
 ): Promise<string | null> {
-  const dmSdk = await getDmSdk();
-  const res = await dmSdk.GetLocationEntities({ x, y });
-  const players: NearbyPlayer[] = (res.getPlayersAtLocation || [])
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      slackId: extractSlackId(p),
-      isAlive: p.isAlive,
-    }))
+  const client = await getDmClient();
+  const res = await client.getLocationEntities({ x, y });
+  const players: NearbyPlayer[] = (res.players || [])
+    .map((p) => toNearbyPlayer(p))
     .filter((p) =>
       currentSlackUserId ? p.slackId !== currentSlackUserId : true,
     );
-  const monsters = res.getMonstersAtLocation || [];
+  const monsters = (res.monsters || []).map((m) => toNearbyMonster(m));
   return buildOccupantsSummary(players, monsters);
 }
 
 // Send occupants summary using arrays already available (e.g., from move mutation)
 export async function sendOccupantsSummary(
   say: (message: { text: string }) => Promise<unknown>,
-  players: NearbyPlayer[] | undefined,
-  monsters: NearbyMonster[] | undefined,
+  players: Array<NearbyPlayer | PlayerRecord> | undefined,
+  monsters: Array<NearbyMonster | MonsterRecord> | undefined,
   currentSlackUserId?: string,
 ): Promise<void> {
-  const normalizedPlayers: NearbyPlayer[] = (players || []).map((p) => {
-    const slackId = extractSlackId(p);
-    return {
-      ...p,
-      slackId: slackId ?? (typeof p.slackId === 'string' ? p.slackId : null),
-    };
-  });
+  const normalizedPlayers: NearbyPlayer[] = (players || []).map((p) =>
+    toNearbyPlayer(p),
+  );
   const filteredPlayers = normalizedPlayers.filter((p) =>
     currentSlackUserId ? p.slackId !== currentSlackUserId : true,
   );
-  const text = buildOccupantsSummary(filteredPlayers, monsters || []);
+  const normalizedMonsters: NearbyMonster[] = (monsters || []).map((m) =>
+    toNearbyMonster(m),
+  );
+  const text = buildOccupantsSummary(filteredPlayers, normalizedMonsters);
   if (text) {
     await say({ text });
   }
+}
+
+function toNearbyPlayer(record: NearbyPlayer | PlayerRecord): NearbyPlayer {
+  const id = record.id ?? null;
+  const name = typeof record.name === 'string' && record.name.length
+    ? record.name
+    : 'Unknown Adventurer';
+  const slackId = extractSlackId(record) ?? null;
+  const clientId =
+    typeof record.clientId === 'string' ? record.clientId : null;
+  const isAliveValue =
+    typeof record.isAlive === 'boolean' ? record.isAlive : null;
+
+  return {
+    id: id ?? undefined,
+    name,
+    slackId,
+    clientId,
+    isAlive: isAliveValue,
+  };
+}
+
+function toNearbyMonster(
+  record: NearbyMonster | MonsterRecord,
+): NearbyMonster {
+  const id = record.id ?? null;
+  const name = typeof record.name === 'string' && record.name.length
+    ? record.name
+    : 'Unknown Monster';
+  const isAliveValue =
+    typeof record.isAlive === 'boolean' ? record.isAlive : null;
+  const hpValue = typeof record.hp === 'number' ? record.hp : null;
+
+  return {
+    id: id ?? undefined,
+    name,
+    isAlive: isAliveValue,
+    hp: hpValue,
+  };
 }

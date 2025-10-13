@@ -1,16 +1,16 @@
-jest.mock('../gql-client', () => {
-  const dmSdk = {
-    Attack: jest.fn(),
-    GetPlayer: jest.fn(),
-    GetLocationEntities: jest.fn(),
-    CreatePlayer: jest.fn(),
-    CompletePlayer: jest.fn(),
-    DeletePlayer: jest.fn(),
-    GetLookView: jest.fn(),
-    MovePlayer: jest.fn(),
-    RerollPlayerStats: jest.fn(),
+jest.mock('../dm-client', () => {
+  const dmClient = {
+    attack: jest.fn(),
+    getPlayer: jest.fn(),
+    getLocationEntities: jest.fn(),
+    createPlayer: jest.fn(),
+    completePlayer: jest.fn(),
+    deletePlayer: jest.fn(),
+    getLookView: jest.fn(),
+    movePlayer: jest.fn(),
+    rerollPlayerStats: jest.fn(),
   };
-  return { dmSdk };
+  return { dmClient };
 });
 
 jest.mock('./mapUtils', () => ({
@@ -18,7 +18,7 @@ jest.mock('./mapUtils', () => ({
 }));
 
 import { TargetType, Direction } from '../dm-types';
-import { dmSdk } from '../gql-client';
+import { dmClient } from '../dm-client';
 import { sendPngMap } from './mapUtils';
 import { attackHandler, SELF_ATTACK_ERROR } from './attack';
 import { createHandler } from './create';
@@ -32,16 +32,16 @@ import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import type { HandlerContext, SayMessage } from './types';
 import { toClientId } from '../utils/clientId';
 
-const mockedDmSdk = dmSdk as unknown as {
-  Attack: jest.Mock;
-  GetPlayer: jest.Mock;
-  GetLocationEntities: jest.Mock;
-  CreatePlayer: jest.Mock;
-  CompletePlayer: jest.Mock;
-  DeletePlayer: jest.Mock;
-  GetLookView: jest.Mock;
-  MovePlayer: jest.Mock;
-  RerollPlayerStats: jest.Mock;
+const mockedDmClient = dmClient as unknown as {
+  attack: jest.Mock;
+  getPlayer: jest.Mock;
+  getLocationEntities: jest.Mock;
+  createPlayer: jest.Mock;
+  completePlayer: jest.Mock;
+  deletePlayer: jest.Mock;
+  getLookView: jest.Mock;
+  movePlayer: jest.Mock;
+  rerollPlayerStats: jest.Mock;
 };
 
 const mockedSendPngMap = sendPngMap as unknown as jest.MockedFunction<
@@ -81,8 +81,7 @@ const makeClient = (channelId = 'D1'): MockSlackClient => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockedDmSdk.GetPlayer.mockResolvedValue({
-    getPlayer: {
+  mockedDmClient.getPlayer.mockResolvedValue({
       success: true,
       data: {
         id: '1',
@@ -97,8 +96,7 @@ beforeEach(() => {
         y: 0,
         nearbyMonsters: [],
       },
-    },
-  });
+    });
 });
 
 describe('attackHandler', () => {
@@ -106,17 +104,15 @@ describe('attackHandler', () => {
     const say = makeSay();
     const client = makeClient();
 
-    mockedDmSdk.Attack.mockResolvedValueOnce({
-      attack: {
-        success: true,
-        message: 'ok',
-        data: {
-          message: 'combat summary',
-          playerMessages: [
-            { slackId: 'U1', message: 'attacker wins' },
-            { slackId: 'U2', message: 'defender loses' },
-          ],
-        },
+    mockedDmClient.attack.mockResolvedValueOnce({
+      success: true,
+      message: 'ok',
+      data: {
+        message: 'combat summary',
+        playerMessages: [
+          { slackId: 'U1', message: 'attacker wins' },
+          { slackId: 'U2', message: 'defender loses' },
+        ],
       },
     });
 
@@ -127,7 +123,7 @@ describe('attackHandler', () => {
       client: client as unknown as HandlerContext['client'],
     } as HandlerContext);
 
-    expect(mockedDmSdk.Attack).toHaveBeenCalledWith({
+    expect(mockedDmClient.attack).toHaveBeenCalledWith({
       slackId: toClientId('U1'),
       input: {
         targetType: TargetType.Player,
@@ -154,7 +150,7 @@ describe('attackHandler', () => {
     expect(say).toHaveBeenCalledWith({
       text: 'Please mention the user like "attack @username" so I can identify them.',
     });
-    expect(mockedDmSdk.Attack).not.toHaveBeenCalled();
+    expect(mockedDmClient.attack).not.toHaveBeenCalled();
   });
 
   it('prevents attacking yourself via mention', async () => {
@@ -167,17 +163,15 @@ describe('attackHandler', () => {
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: SELF_ATTACK_ERROR });
-    expect(mockedDmSdk.Attack).not.toHaveBeenCalled();
+    expect(mockedDmClient.attack).not.toHaveBeenCalled();
   });
 
   it('prompts the user to choose a target when no mention is provided', async () => {
     const say = makeSay();
-    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
-      getPlayer: { success: true, data: { name: 'Hero', x: 0, y: 0 } },
-    });
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [],
-      getMonstersAtLocation: [
+    mockedDmClient.getPlayer.mockResolvedValueOnce({ success: true, data: { name: 'Hero', x: 0, y: 0 } });
+    mockedDmClient.getLocationEntities.mockResolvedValueOnce({
+      players: [],
+      monsters: [
         { id: '42', name: 'Goblin' },
         { id: '43', name: 'Orc' },
       ],
@@ -189,7 +183,7 @@ describe('attackHandler', () => {
       say,
     } as HandlerContext);
 
-    expect(mockedDmSdk.Attack).not.toHaveBeenCalled();
+    expect(mockedDmClient.attack).not.toHaveBeenCalled();
     expect(say).toHaveBeenCalledTimes(1);
     const message = say.mock.calls[0][0] as {
       text?: string;
@@ -218,15 +212,13 @@ describe('attackHandler', () => {
 
   it('excludes the invoking player from target options', async () => {
     const say = makeSay();
-    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
-      getPlayer: { success: true, data: { name: 'Hero', x: 0, y: 0 } },
-    });
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [
+    mockedDmClient.getPlayer.mockResolvedValueOnce({ success: true, data: { name: 'Hero', x: 0, y: 0 } });
+    mockedDmClient.getLocationEntities.mockResolvedValueOnce({
+      players: [
         { id: '1', slackId: 'U1', name: 'Hero' },
         { id: '2', slackId: 'slack:U2', name: 'Friend' },
       ],
-      getMonstersAtLocation: [],
+      monsters: [],
     });
 
     await attackHandler.handle({
@@ -255,12 +247,10 @@ describe('attackHandler', () => {
 
   it('informs the user when no monsters or players are nearby', async () => {
     const say = makeSay();
-    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
-      getPlayer: { success: true, data: { name: 'Hero', x: 0, y: 0 } },
-    });
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [],
-      getMonstersAtLocation: [],
+    mockedDmClient.getPlayer.mockResolvedValueOnce({ success: true, data: { name: 'Hero', x: 0, y: 0 } });
+    mockedDmClient.getLocationEntities.mockResolvedValueOnce({
+      players: [],
+      monsters: [],
     });
 
     await attackHandler.handle({
@@ -276,9 +266,7 @@ describe('attackHandler', () => {
 
   it('reports failure messages from the API', async () => {
     const say = makeSay();
-    mockedDmSdk.Attack.mockResolvedValueOnce({
-      attack: { success: false, message: 'Out of range' },
-    });
+    mockedDmClient.attack.mockResolvedValueOnce({ success: false, message: 'Out of range' });
 
     await attackHandler.handle({
       userId: 'U1',
@@ -291,7 +279,7 @@ describe('attackHandler', () => {
 
   it('surfaces unexpected errors via user friendly message', async () => {
     const say = makeSay();
-    mockedDmSdk.GetPlayer.mockRejectedValueOnce(new Error('boom'));
+    mockedDmClient.getPlayer.mockRejectedValueOnce(new Error('boom'));
 
     await attackHandler.handle({
       userId: 'U1',
@@ -316,13 +304,12 @@ describe('createHandler', () => {
     expect(say).toHaveBeenCalledWith({
       text: 'Please provide a name for your character! Example: "new AwesomeDude"',
     });
-    expect(mockedDmSdk.CreatePlayer).not.toHaveBeenCalled();
+    expect(mockedDmClient.createPlayer).not.toHaveBeenCalled();
   });
 
   it('creates a character and shows stats', async () => {
     const say = makeSay();
-    mockedDmSdk.CreatePlayer.mockResolvedValueOnce({
-      createPlayer: {
+    mockedDmClient.createPlayer.mockResolvedValueOnce({
         success: true,
         data: {
           name: 'Hero',
@@ -338,8 +325,7 @@ describe('createHandler', () => {
           x: 0,
           y: 0,
         },
-      },
-    });
+      });
 
     await createHandler.handle({
       userId: 'U1',
@@ -347,8 +333,9 @@ describe('createHandler', () => {
       say,
     } as HandlerContext);
 
-    expect(mockedDmSdk.CreatePlayer).toHaveBeenCalledWith({
-      input: { slackId: toClientId('U1'), name: 'Hero' },
+    expect(mockedDmClient.createPlayer).toHaveBeenCalledWith({
+      slackId: toClientId('U1'),
+      name: 'Hero',
     });
     expect(say).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -367,16 +354,9 @@ describe('createHandler', () => {
 
   it('handles existing player errors explicitly', async () => {
     const say = makeSay();
-    mockedDmSdk.CreatePlayer.mockRejectedValueOnce({
-      response: {
-        errors: [
-          {
-            message: 'exists',
-            extensions: { code: 'PLAYER_EXISTS' },
-          },
-        ],
-      },
-    });
+    mockedDmClient.createPlayer.mockRejectedValueOnce(
+      new Error('Player already exists'),
+    );
 
     await createHandler.handle({
       userId: 'U1',
@@ -389,8 +369,8 @@ describe('createHandler', () => {
 
   it('falls back to user friendly messages for other errors', async () => {
     const say = makeSay();
-    mockedDmSdk.CreatePlayer.mockRejectedValueOnce(
-      new Error('Player with slackId U1 already exists'),
+    mockedDmClient.createPlayer.mockRejectedValueOnce(
+      new Error('Boom! Something bad happened'),
     );
 
     await createHandler.handle({
@@ -399,16 +379,16 @@ describe('createHandler', () => {
       say,
     } as HandlerContext);
 
-    expect(say).toHaveBeenCalledWith({ text: 'Player already exists' });
+    expect(say).toHaveBeenCalledWith({
+      text: 'Boom! Something bad happened',
+    });
   });
 });
 
 describe('completeHandler', () => {
   it('confirms completion on success', async () => {
     const say = makeSay();
-    mockedDmSdk.CompletePlayer.mockResolvedValueOnce({
-      updatePlayerStats: { success: true },
-    });
+    mockedDmClient.completePlayer.mockResolvedValueOnce({ success: true });
 
     await completeHandler.handle({
       userId: 'U1',
@@ -423,9 +403,7 @@ describe('completeHandler', () => {
 
   it('reports API failures', async () => {
     const say = makeSay();
-    mockedDmSdk.CompletePlayer.mockResolvedValueOnce({
-      updatePlayerStats: { success: false, message: 'nope' },
-    });
+    mockedDmClient.completePlayer.mockResolvedValueOnce({ success: false, message: 'nope' });
 
     await completeHandler.handle({
       userId: 'U1',
@@ -438,7 +416,7 @@ describe('completeHandler', () => {
 
   it('handles unexpected errors', async () => {
     const say = makeSay();
-    mockedDmSdk.CompletePlayer.mockRejectedValueOnce(new Error('boom'));
+    mockedDmClient.completePlayer.mockRejectedValueOnce(new Error('boom'));
 
     await completeHandler.handle({
       userId: 'U1',
@@ -453,9 +431,7 @@ describe('completeHandler', () => {
 describe('deleteHandler', () => {
   it('asks players to create a character when none exists', async () => {
     const say = makeSay();
-    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
-      getPlayer: { success: false, data: null },
-    });
+    mockedDmClient.getPlayer.mockResolvedValueOnce({ success: false, data: null });
 
     await deleteHandler.handle({
       userId: 'U1',
@@ -470,8 +446,7 @@ describe('deleteHandler', () => {
 
   it('rejects deletions after creation phase', async () => {
     const say = makeSay();
-    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
-      getPlayer: {
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
         success: true,
         data: {
           name: 'Hero',
@@ -479,8 +454,7 @@ describe('deleteHandler', () => {
           level: 2,
           xp: 5,
         },
-      },
-    });
+      });
 
     await deleteHandler.handle({
       userId: 'U1',
@@ -499,8 +473,7 @@ describe('deleteHandler', () => {
 
   it('deletes characters during creation phase', async () => {
     const say = makeSay();
-    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
-      getPlayer: {
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
         success: true,
         data: {
           name: 'Hero',
@@ -508,11 +481,8 @@ describe('deleteHandler', () => {
           level: 1,
           xp: 0,
         },
-      },
-    });
-    mockedDmSdk.DeletePlayer.mockResolvedValueOnce({
-      deletePlayer: { success: true },
-    });
+      });
+    mockedDmClient.deletePlayer.mockResolvedValueOnce({ success: true });
 
     await deleteHandler.handle({
       userId: 'U1',
@@ -520,7 +490,7 @@ describe('deleteHandler', () => {
       say,
     } as HandlerContext);
 
-    expect(mockedDmSdk.DeletePlayer).toHaveBeenCalledWith({
+    expect(mockedDmClient.deletePlayer).toHaveBeenCalledWith({
       slackId: toClientId('U1'),
     });
     expect(say).toHaveBeenCalledWith(
@@ -532,8 +502,7 @@ describe('deleteHandler', () => {
 
   it('reports failures when delete mutation fails', async () => {
     const say = makeSay();
-    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
-      getPlayer: {
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
         success: true,
         data: {
           name: 'Hero',
@@ -541,11 +510,8 @@ describe('deleteHandler', () => {
           level: 1,
           xp: 0,
         },
-      },
-    });
-    mockedDmSdk.DeletePlayer.mockResolvedValueOnce({
-      deletePlayer: { success: false, message: 'nope' },
-    });
+      });
+    mockedDmClient.deletePlayer.mockResolvedValueOnce({ success: false, message: 'nope' });
 
     await deleteHandler.handle({
       userId: 'U1',
@@ -560,8 +526,7 @@ describe('deleteHandler', () => {
 
   it('handles unexpected delete errors', async () => {
     const say = makeSay();
-    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
-      getPlayer: {
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
         success: true,
         data: {
           name: 'Hero',
@@ -569,9 +534,8 @@ describe('deleteHandler', () => {
           level: 1,
           xp: 0,
         },
-      },
-    });
-    mockedDmSdk.DeletePlayer.mockRejectedValueOnce(new Error('boom'));
+      });
+    mockedDmClient.deletePlayer.mockRejectedValueOnce(new Error('boom'));
 
     await deleteHandler.handle({
       userId: 'U1',
@@ -586,8 +550,8 @@ describe('deleteHandler', () => {
 describe('lookHandler', () => {
   it('renders the look view with monsters and perf stats', async () => {
     const say = makeSay();
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [
+    mockedDmClient.getLocationEntities.mockResolvedValueOnce({
+      players: [
         {
           id: '2',
           slackId: toClientId('U2'),
@@ -623,10 +587,9 @@ describe('lookHandler', () => {
           isAlive: true,
         },
       ],
-      getMonstersAtLocation: [{ name: 'Goblin' }, { name: 'Orc' }],
+      monsters: [{ name: 'Goblin' }, { name: 'Orc' }],
     });
-    mockedDmSdk.GetLookView.mockResolvedValueOnce({
-      getLookView: {
+    mockedDmClient.getLookView.mockResolvedValueOnce({
         success: true,
         data: {
           description: 'A vast plain',
@@ -654,8 +617,7 @@ describe('lookHandler', () => {
           aiMs: 7,
           aiProvider: 'mock',
         },
-      },
-    });
+      });
 
     await lookHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
@@ -686,8 +648,8 @@ describe('lookHandler', () => {
   it('does not list the current player in co-located players', async () => {
     const say = makeSay();
     // Only returns the invoking player at this location
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [
+    mockedDmClient.getLocationEntities.mockResolvedValueOnce({
+      players: [
         {
           id: '1',
           slackId: toClientId('U1'),
@@ -706,10 +668,9 @@ describe('lookHandler', () => {
           isAlive: true,
         },
       ],
-      getMonstersAtLocation: [],
+      monsters: [],
     });
-    mockedDmSdk.GetLookView.mockResolvedValueOnce({
-      getLookView: {
+    mockedDmClient.getLookView.mockResolvedValueOnce({
         success: true,
         data: {
           description: 'Scenery',
@@ -724,8 +685,7 @@ describe('lookHandler', () => {
           },
           monsters: [],
         },
-      },
-    });
+      });
 
     await lookHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
@@ -739,12 +699,10 @@ describe('lookHandler', () => {
 
   it('reports look failures from the API', async () => {
     const say = makeSay();
-    mockedDmSdk.GetLookView.mockResolvedValueOnce({
-      getLookView: {
+    mockedDmClient.getLookView.mockResolvedValueOnce({
         success: false,
         message: 'permission denied',
-      },
-    });
+      });
 
     await lookHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
@@ -755,7 +713,7 @@ describe('lookHandler', () => {
 
   it('handles unexpected look errors', async () => {
     const say = makeSay();
-    mockedDmSdk.GetLookView.mockRejectedValueOnce(new Error('boom'));
+    mockedDmClient.getLookView.mockRejectedValueOnce(new Error('boom'));
 
     await lookHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
@@ -766,12 +724,10 @@ describe('lookHandler', () => {
 describe('mapHandler', () => {
   it('requests a PNG map for the current location', async () => {
     const say = makeSay();
-    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
-      getPlayer: {
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
         success: true,
         data: { x: 3, y: -4 },
-      },
-    });
+      });
 
     await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
@@ -780,14 +736,12 @@ describe('mapHandler', () => {
 
   it('displays co-located players after the map', async () => {
     const say = makeSay();
-    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
-      getPlayer: {
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
         success: true,
         data: { x: 3, y: -4 },
-      },
-    });
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [
+      });
+    mockedDmClient.getLocationEntities.mockResolvedValueOnce({
+      players: [
         {
           id: '2',
           slackId: toClientId('U2'),
@@ -806,7 +760,7 @@ describe('mapHandler', () => {
           isAlive: true,
         },
       ],
-      getMonstersAtLocation: [],
+      monsters: [],
     });
 
     await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
@@ -825,11 +779,9 @@ describe('mapHandler', () => {
 
   it('does not list the current player after the map', async () => {
     const say = makeSay();
-    mockedDmSdk.GetPlayer.mockResolvedValueOnce({
-      getPlayer: { success: true, data: { x: 5, y: 6 } },
-    });
-    mockedDmSdk.GetLocationEntities.mockResolvedValueOnce({
-      getPlayersAtLocation: [
+    mockedDmClient.getPlayer.mockResolvedValueOnce({ success: true, data: { x: 5, y: 6 } });
+    mockedDmClient.getLocationEntities.mockResolvedValueOnce({
+      players: [
         {
           id: '1',
           slackId: toClientId('U1'),
@@ -848,7 +800,7 @@ describe('mapHandler', () => {
           isAlive: true,
         },
       ],
-      getMonstersAtLocation: [],
+      monsters: [],
     });
 
     await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
@@ -863,7 +815,7 @@ describe('mapHandler', () => {
 
   it('announces map failures', async () => {
     const say = makeSay();
-    mockedDmSdk.GetPlayer.mockRejectedValueOnce(new Error('fail'));
+    mockedDmClient.getPlayer.mockRejectedValueOnce(new Error('fail'));
 
     await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
 
@@ -890,14 +842,12 @@ describe('moveHandler', () => {
 
   it('moves in a cardinal direction and reports surroundings', async () => {
     const say = makeSay();
-    mockedDmSdk.MovePlayer.mockResolvedValueOnce({
-      movePlayer: {
+    mockedDmClient.movePlayer.mockResolvedValueOnce({
         success: true,
         player: { x: 1, y: 2 },
         monsters: [{ name: 'Goblin' }],
         playersAtLocation: [{ name: 'Friend' }],
-      },
-    });
+      });
 
     await moveHandler.handle({
       userId: 'U1',
@@ -905,7 +855,7 @@ describe('moveHandler', () => {
       say,
     } as HandlerContext);
 
-    expect(mockedDmSdk.MovePlayer).toHaveBeenCalledWith({
+    expect(mockedDmClient.movePlayer).toHaveBeenCalledWith({
       slackId: toClientId('U1'),
       input: { direction: Direction.North },
     });
@@ -932,14 +882,12 @@ describe('moveHandler', () => {
 
   it('moves multiple spaces when requested and reports the distance', async () => {
     const say = makeSay();
-    mockedDmSdk.MovePlayer.mockResolvedValueOnce({
-      movePlayer: {
+    mockedDmClient.movePlayer.mockResolvedValueOnce({
         success: true,
         player: { x: 4, y: 2 },
         monsters: [],
         playersAtLocation: [],
-      },
-    });
+      });
 
     await moveHandler.handle({
       userId: 'U1',
@@ -947,7 +895,7 @@ describe('moveHandler', () => {
       say,
     } as HandlerContext);
 
-    expect(mockedDmSdk.MovePlayer).toHaveBeenCalledWith({
+    expect(mockedDmClient.movePlayer).toHaveBeenCalledWith({
       slackId: toClientId('U1'),
       input: { direction: Direction.North, distance: 3 },
     });
@@ -958,14 +906,12 @@ describe('moveHandler', () => {
 
   it('moves directly to coordinates', async () => {
     const say = makeSay();
-    mockedDmSdk.MovePlayer.mockResolvedValueOnce({
-      movePlayer: {
+    mockedDmClient.movePlayer.mockResolvedValueOnce({
         success: true,
         player: { x: 10, y: -5 },
         monsters: [],
         playersAtLocation: [],
-      },
-    });
+      });
 
     await moveHandler.handle({
       userId: 'U1',
@@ -973,7 +919,7 @@ describe('moveHandler', () => {
       say,
     } as HandlerContext);
 
-    expect(mockedDmSdk.MovePlayer).toHaveBeenCalledWith({
+    expect(mockedDmClient.movePlayer).toHaveBeenCalledWith({
       slackId: toClientId('U1'),
       input: { x: 10, y: -5 },
     });
@@ -984,9 +930,7 @@ describe('moveHandler', () => {
 
   it('reports move failures', async () => {
     const say = makeSay();
-    mockedDmSdk.MovePlayer.mockResolvedValueOnce({
-      movePlayer: { success: false, message: 'blocked' },
-    });
+    mockedDmClient.movePlayer.mockResolvedValueOnce({ success: false, message: 'blocked' });
 
     await moveHandler.handle({
       userId: 'U1',
@@ -999,7 +943,7 @@ describe('moveHandler', () => {
 
   it('handles unexpected move errors', async () => {
     const say = makeSay();
-    mockedDmSdk.MovePlayer.mockRejectedValueOnce(new Error('boom'));
+    mockedDmClient.movePlayer.mockRejectedValueOnce(new Error('boom'));
 
     await moveHandler.handle({
       userId: 'U1',
@@ -1014,8 +958,7 @@ describe('moveHandler', () => {
 describe('rerollHandler', () => {
   it('announces new stats on success', async () => {
     const say = makeSay();
-    mockedDmSdk.RerollPlayerStats.mockResolvedValueOnce({
-      rerollPlayerStats: {
+    mockedDmClient.rerollPlayerStats.mockResolvedValueOnce({
         success: true,
         data: {
           strength: 8,
@@ -1023,8 +966,7 @@ describe('rerollHandler', () => {
           health: 6,
           maxHp: 12,
         },
-      },
-    });
+      });
 
     await rerollHandler.handle({
       userId: 'U1',
@@ -1039,9 +981,7 @@ describe('rerollHandler', () => {
 
   it('relays failure responses', async () => {
     const say = makeSay();
-    mockedDmSdk.RerollPlayerStats.mockResolvedValueOnce({
-      rerollPlayerStats: { success: false, message: 'cooldown' },
-    });
+    mockedDmClient.rerollPlayerStats.mockResolvedValueOnce({ success: false, message: 'cooldown' });
 
     await rerollHandler.handle({
       userId: 'U1',
@@ -1054,7 +994,7 @@ describe('rerollHandler', () => {
 
   it('handles reroll errors', async () => {
     const say = makeSay();
-    mockedDmSdk.RerollPlayerStats.mockRejectedValueOnce(new Error('boom'));
+    mockedDmClient.rerollPlayerStats.mockRejectedValueOnce(new Error('boom'));
 
     await rerollHandler.handle({
       userId: 'U1',

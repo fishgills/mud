@@ -25,29 +25,32 @@ export class LookHandler extends PlayerCommandHandler {
   }
 
   protected async perform({ userId, say }: HandlerContext): Promise<void> {
-    const res = await this.sdk.GetLookView({
+    const res = await this.dm.getLookView({
       slackId: this.toClientId(userId),
     });
-    if (!res.getLookView.success || !res.getLookView.data) {
+    if (!res.success || !res.data) {
       await say({
-        text: `Failed to look: ${res.getLookView.message ?? 'unknown error'}`,
+        text: `Failed to look: ${res.message ?? 'unknown error'}`,
       });
       return;
     }
 
-    await say({ text: res.getLookView.data.description });
+    if (res.data.description) {
+      await say({ text: res.data.description });
+    }
 
-    const center = res.getLookView.data.location;
+    const center = res.data.location;
+    if (!center || typeof center.x !== 'number' || typeof center.y !== 'number') {
+      await say({ text: 'Unable to determine your current location.' });
+      return;
+    }
+
     const occupants = await getOccupantsSummaryAt(center.x, center.y, userId);
     if (occupants) {
       await say({ text: occupants });
     }
 
-    const perf: Perf | undefined = (
-      res.getLookView as unknown as {
-        perf?: Perf;
-      }
-    )?.perf;
+    const perf: Perf | undefined = res.perf as Perf | undefined;
     if (perf) {
       const summary = `Perf: total ${perf.totalMs}ms (player ${perf.playerMs}ms, world center+nearby ${perf.worldCenterNearbyMs}ms, bounds ${perf.worldBoundsTilesMs}ms, ext ${perf.worldExtendedBoundsMs}ms, tiles filter ${perf.tilesFilterMs}ms, peaks ${perf.peaksSortMs}ms, biome ${perf.biomeSummaryMs}ms, settlements ${perf.settlementsFilterMs}ms, AI[${perf.aiProvider}] ${perf.aiMs}ms)`;
       await say({ text: summary });

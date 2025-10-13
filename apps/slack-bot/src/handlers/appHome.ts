@@ -3,7 +3,12 @@ import type { KnownBlock } from '@slack/types';
 import type { WebClient } from '@slack/web-api';
 import { COMMANDS } from '../commands';
 import { buildHelpBlocks } from './help';
-import { dmSdk } from '../gql-client';
+import {
+  getPlayer,
+  rerollPlayerStats,
+  completePlayer,
+  deletePlayer,
+} from '../dm-client';
 import { toClientId } from '../utils/clientId';
 
 interface PlayerStatus {
@@ -14,12 +19,12 @@ interface PlayerStatus {
 
 const getPlayerStatus = async (userId: string): Promise<PlayerStatus> => {
   try {
-    const result = await dmSdk.GetPlayer({ slackId: toClientId(userId) });
-    if (result.getPlayer.success && result.getPlayer.data) {
+    const result = await getPlayer({ slackId: toClientId(userId) });
+    if (result.success && result.data) {
       return {
         hasCharacter: true,
-        isActive: result.getPlayer.data.isAlive,
-        playerName: result.getPlayer.data.name,
+        isActive: Boolean(result.data.isAlive),
+        playerName: result.data.name,
       };
     }
   } catch (err) {
@@ -236,10 +241,10 @@ export const registerAppHome = (app: App) => {
   app.action('app_home_reroll', async ({ ack, body, client }) => {
     await ack();
     try {
-      const result = await dmSdk.RerollPlayerStats({
+      const result = await rerollPlayerStats({
         slackId: toClientId(body.user.id),
       });
-      if (result.rerollPlayerStats.success) {
+      if (result.success) {
         await refreshAppHome(body.user.id, client);
         await client.chat.postMessage({
           channel: body.user.id,
@@ -248,7 +253,7 @@ export const registerAppHome = (app: App) => {
       } else {
         await client.chat.postMessage({
           channel: body.user.id,
-          text: `Error: ${result.rerollPlayerStats.message}`,
+          text: `Error: ${result.message}`,
         });
       }
     } catch (err) {
@@ -263,11 +268,11 @@ export const registerAppHome = (app: App) => {
   // Action: Complete character
   app.action('app_home_complete', async ({ ack, body, client }) => {
     await ack();
-    try {
-      const result = await dmSdk.CompletePlayer({
+   try {
+      const result = await completePlayer({
         slackId: toClientId(body.user.id),
       });
-      if (result.updatePlayerStats.success) {
+      if (result.success) {
         await refreshAppHome(body.user.id, client);
         await client.chat.postMessage({
           channel: body.user.id,
@@ -276,7 +281,7 @@ export const registerAppHome = (app: App) => {
       } else {
         await client.chat.postMessage({
           channel: body.user.id,
-          text: `Error: ${result.updatePlayerStats.message}`,
+          text: `Error: ${result.message}`,
         });
       }
     } catch (err) {
@@ -292,10 +297,10 @@ export const registerAppHome = (app: App) => {
   app.action('app_home_delete', async ({ ack, body, client }) => {
     await ack();
     try {
-      const result = await dmSdk.DeletePlayer({
+      const result = await deletePlayer({
         slackId: toClientId(body.user.id),
       });
-      if (result.deletePlayer.success) {
+      if (result.success) {
         await refreshAppHome(body.user.id, client);
         await client.chat.postMessage({
           channel: body.user.id,
@@ -304,7 +309,7 @@ export const registerAppHome = (app: App) => {
       } else {
         await client.chat.postMessage({
           channel: body.user.id,
-          text: `Error: ${result.deletePlayer.message}`,
+          text: `Error: ${result.message}`,
         });
       }
     } catch (err) {

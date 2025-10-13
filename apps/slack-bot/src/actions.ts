@@ -16,7 +16,7 @@ import {
   STAT_ACTIONS,
   COMBAT_ACTIONS,
 } from './commands';
-import { dmSdk } from './gql-client';
+import { dmClient } from './dm-client';
 import { PlayerAttribute, TargetType } from './dm-types';
 import { getUserFriendlyErrorMessage } from './handlers/errorUtils';
 import { SELF_ATTACK_ERROR } from './handlers/attack';
@@ -466,7 +466,7 @@ export function registerActions(app: App) {
           });
           return;
         }
-        const attackResult = await dmSdk.Attack({
+        const attackResult = await dmClient.attack({
           slackId: toClientId(userId),
           input: isMonster
             ? {
@@ -479,15 +479,15 @@ export function registerActions(app: App) {
               },
         });
 
-        if (!attackResult.attack.success) {
+        if (!attackResult.success) {
           await client.chat.postMessage({
             channel: channelId,
-            text: `Attack failed: ${attackResult.attack.message}`,
+            text: `Attack failed: ${attackResult.message}`,
           });
           return;
         }
 
-        const combat = attackResult.attack.data;
+        const combat = attackResult.data;
         if (!combat) {
           await client.chat.postMessage({
             channel: channelId,
@@ -540,14 +540,13 @@ export function registerActions(app: App) {
         }
 
         try {
-          const result = await dmSdk.SpendSkillPoint({
+          const result = await dmClient.spendSkillPoint({
             slackId: toClientId(userId),
             attribute,
           });
-          if (!result.spendSkillPoint.success || !result.spendSkillPoint.data) {
+          if (!result.success || !result.data) {
             const errorText =
-              result.spendSkillPoint.message ??
-              'Unable to spend a skill point right now.';
+              result.message ?? 'Unable to spend a skill point right now.';
             if (respond) {
               await respond({
                 text: errorText,
@@ -560,7 +559,7 @@ export function registerActions(app: App) {
 
           if (channelId && messageTs) {
             const statsMessage = buildPlayerStatsMessage(
-              result.spendSkillPoint.data,
+              result.data,
               {
                 isSelf: true,
               },

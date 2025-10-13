@@ -25,4 +25,7 @@ export interface MonsterStatsSource {
   x?: number;
   y?: number;
   isAlive?: boolean;
+  strength?: number;
+  agility?: number;
+  health?: number;
 }

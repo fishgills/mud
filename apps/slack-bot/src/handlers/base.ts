@@ -1,4 +1,4 @@
-import { dmSdk } from '../gql-client';
+import { dmClient } from '../dm-client';
 import { COMMANDS, MOVEMENT_COMMANDS } from '../commands';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { registerHandler } from './handlerRegistry';
@@ -18,8 +18,8 @@ export abstract class BaseCommandHandler {
     this.register();
   }
 
-  protected get sdk() {
-    return dmSdk;
+  protected get dm() {
+    return dmClient;
   }
 
   protected register(): void {

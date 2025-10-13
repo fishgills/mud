@@ -151,25 +151,19 @@ export class AttackHandler extends PlayerCommandHandler {
         await say({ text: SELF_ATTACK_ERROR });
         return;
       }
-      const attackResult = (await this.sdk.Attack({
+      const attackResult = await this.dm.attack({
         slackId: this.toClientId(userId),
         input: {
           targetType: TargetType.Player,
           targetSlackId,
           ignoreLocation: true,
         },
-      })) as {
-        attack: {
-          success: boolean;
-          message?: string;
-          data?: AttackCombatResult;
-        };
-      };
-      if (!attackResult.attack.success) {
-        await say({ text: `Attack failed: ${attackResult.attack.message}` });
+      });
+      if (!attackResult.success) {
+        await say({ text: `Attack failed: ${attackResult.message}` });
         return;
       }
-      const combat = attackResult.attack.data;
+      const combat = attackResult.data as AttackCombatResult | undefined;
       if (!combat) {
         await say({ text: 'Attack succeeded but no combat data returned.' });
         return;
@@ -181,26 +175,35 @@ export class AttackHandler extends PlayerCommandHandler {
       return;
     }
 
-    const playerResult = await this.sdk.GetPlayer({
+    const playerResult = await this.dm.getPlayer({
       slackId: this.toClientId(userId),
     });
-    const player = playerResult.getPlayer.data;
+    const player = playerResult.data;
     if (!player) {
       await say({ text: 'Could not find your player.' });
       return;
     }
     const { x, y } = player;
-    const entities = await this.sdk.GetLocationEntities({ x, y });
-    const monstersHere: NearbyMonster[] = (
-      entities.getMonstersAtLocation || []
-    ).map((m) => ({ id: String(m.id), name: m.name }));
-    const playersHere: NearbyPlayer[] = (entities.getPlayersAtLocation || [])
+    if (typeof x !== 'number' || typeof y !== 'number') {
+      await say({ text: 'Unable to determine your current location.' });
+      return;
+    }
+
+    const entities = await this.dm.getLocationEntities({ x, y });
+    const monstersHere: NearbyMonster[] = (entities.monsters || []).map((m) => ({
+      id: String(m.id ?? ''),
+      name: m.name ?? 'Unknown Monster',
+    }));
+    const playersHere: NearbyPlayer[] = (entities.players || [])
       .map((p) => {
         const slackId = extractSlackId(p);
         if (!slackId || slackId === userId) {
           return null;
         }
-        return { slackId, name: p.name };
+        return {
+          slackId,
+          name: p.name ?? 'Unknown Adventurer',
+        };
       })
       .filter((p): p is NearbyPlayer => p !== null);
 

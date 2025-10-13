@@ -1,4 +1,4 @@
-import { dmSdk } from '../../gql-client';
+import { getPlayer, getLocationEntities } from '../../dm-client';
 import { toClientId } from '../../utils/clientId';
 import type { PlayerStatsSource, MonsterStatsSource } from './types';
 
@@ -18,13 +18,13 @@ export async function fetchPlayerRecord(
   variables: { slackId?: string; clientId?: string; name?: string },
   defaultMessage: string,
 ): Promise<PlayerLookupResult> {
-  const result = await dmSdk.GetPlayer(variables);
-  if (result.getPlayer.success && result.getPlayer.data) {
-    return { player: result.getPlayer.data as PlayerStatsSource };
+  const result = await getPlayer(variables);
+  if (result.success && result.data) {
+    return { player: result.data as PlayerStatsSource };
   }
 
   return {
-    message: (result.getPlayer.message as string | undefined) ?? defaultMessage,
+    message: (result.message as string | undefined) ?? defaultMessage,
   };
 }
 
@@ -47,8 +47,8 @@ export async function fetchPlayerWithLocation(
 
   return {
     player: self.player,
-    playersHere: location.getPlayersAtLocation ?? [],
-    monstersHere: location.getMonstersAtLocation ?? [],
+    playersHere: (location.players as PlayerStatsSource[]) ?? [],
+    monstersHere: (location.monsters as MonsterStatsSource[]) ?? [],
   };
 }
 
@@ -56,9 +56,9 @@ export async function fetchLocationEntities(variables: {
   x: number;
   y: number;
 }) {
-  return dmSdk.GetLocationEntities(variables) as Promise<{
-    getPlayersAtLocation: PlayerStatsSource[];
-    getMonstersAtLocation: MonsterStatsSource[];
+  return getLocationEntities(variables) as Promise<{
+    players: PlayerStatsSource[];
+    monsters: MonsterStatsSource[];
   }>;
 }
 

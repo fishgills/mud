@@ -12,15 +12,20 @@ export class MapHandler extends PlayerCommandHandler {
   }
 
   protected async perform({ say, userId }: HandlerContext): Promise<void> {
-    const result = await this.sdk.GetPlayer({
+    const result = await this.dm.getPlayer({
       slackId: this.toClientId(userId),
     });
-    if (!result.getPlayer.success || !result.getPlayer.data) {
+    if (!result.success || !result.data) {
       await say({ text: 'Could not find your player.' });
       return;
     }
 
-    const { x, y } = result.getPlayer.data;
+    const { x, y } = result.data;
+    if (typeof x !== 'number' || typeof y !== 'number') {
+      await say({ text: 'Your location is unknown. Please try again later.' });
+      return;
+    }
+
     await sendPngMap(say, x, y, 8);
 
     const occupants = await getOccupantsSummaryAt(x, y, userId);

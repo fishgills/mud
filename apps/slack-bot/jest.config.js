@@ -10,7 +10,7 @@ export default {
     '!src/**/*.spec.ts',
     '!src/main.ts',
     '!src/env.ts',
-    '!src/gql-client.ts',
+    '!src/dm-client.ts',
     '!src/assets/**',
     '!src/handlers/stats/**',
   ],
