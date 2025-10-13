@@ -6,9 +6,7 @@ type PlayerLike =
   | PlayerEntity
   | Player
   | (Partial<Player> & Record<string, unknown>);
-type MonsterLike =
-  | MonsterEntity
-  | (Partial<Monster> & Record<string, unknown>);
+type MonsterLike = MonsterEntity | (Partial<Monster> & Record<string, unknown>);
 
 const toNumber = (value: unknown, fallback = 0): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -95,7 +93,7 @@ const resolveClientIdentity = (
     platformId = 'unknown';
   }
 
-  const slackId = clientType === 'slack' ? platformId : rawSlackId ?? null;
+  const slackId = clientType === 'slack' ? platformId : (rawSlackId ?? null);
 
   return {
     clientType,
