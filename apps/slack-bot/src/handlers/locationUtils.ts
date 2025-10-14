@@ -258,12 +258,12 @@ export async function sendOccupantsSummary(
 
 function toNearbyPlayer(record: NearbyPlayer | PlayerRecord): NearbyPlayer {
   const id = record.id ?? null;
-  const name = typeof record.name === 'string' && record.name.length
-    ? record.name
-    : 'Unknown Adventurer';
+  const name =
+    typeof record.name === 'string' && record.name.length
+      ? record.name
+      : 'Unknown Adventurer';
   const slackId = extractSlackId(record) ?? null;
-  const clientId =
-    typeof record.clientId === 'string' ? record.clientId : null;
+  const clientId = typeof record.clientId === 'string' ? record.clientId : null;
   const isAliveValue =
     typeof record.isAlive === 'boolean' ? record.isAlive : null;
 
@@ -276,13 +276,12 @@ function toNearbyPlayer(record: NearbyPlayer | PlayerRecord): NearbyPlayer {
   };
 }
 
-function toNearbyMonster(
-  record: NearbyMonster | MonsterRecord,
-): NearbyMonster {
+function toNearbyMonster(record: NearbyMonster | MonsterRecord): NearbyMonster {
   const id = record.id ?? null;
-  const name = typeof record.name === 'string' && record.name.length
-    ? record.name
-    : 'Unknown Monster';
+  const name =
+    typeof record.name === 'string' && record.name.length
+      ? record.name
+      : 'Unknown Monster';
   const isAliveValue =
     typeof record.isAlive === 'boolean' ? record.isAlive : null;
   const hpValue = typeof record.hp === 'number' ? record.hp : null;

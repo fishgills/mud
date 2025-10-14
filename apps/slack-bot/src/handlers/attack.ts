@@ -190,10 +190,12 @@ export class AttackHandler extends PlayerCommandHandler {
     }
 
     const entities = await this.dm.getLocationEntities({ x, y });
-    const monstersHere: NearbyMonster[] = (entities.monsters || []).map((m) => ({
-      id: String(m.id ?? ''),
-      name: m.name ?? 'Unknown Monster',
-    }));
+    const monstersHere: NearbyMonster[] = (entities.monsters || []).map(
+      (m) => ({
+        id: String(m.id ?? ''),
+        name: m.name ?? 'Unknown Monster',
+      }),
+    );
     const playersHere: NearbyPlayer[] = (entities.players || [])
       .map((p) => {
         const slackId = extractSlackId(p);

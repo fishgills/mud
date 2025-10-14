@@ -200,7 +200,9 @@ export interface SimpleIdentifierRequest {
 export async function createPlayer(
   input: CreatePlayerRequest,
 ): Promise<PlayerResponse> {
-  return dmRequest<PlayerResponse>('/players', HttpMethod.POST, { body: input });
+  return dmRequest<PlayerResponse>('/players', HttpMethod.POST, {
+    body: input,
+  });
 }
 
 export async function getPlayer(params: {
@@ -239,9 +241,13 @@ export async function attack(input: AttackRequest): Promise<CombatResponse> {
 export async function spendSkillPoint(
   input: SpendSkillPointRequest,
 ): Promise<PlayerResponse> {
-  return dmRequest<PlayerResponse>('/players/spend-skill-point', HttpMethod.POST, {
-    body: input,
-  });
+  return dmRequest<PlayerResponse>(
+    '/players/spend-skill-point',
+    HttpMethod.POST,
+    {
+      body: input,
+    },
+  );
 }
 
 export async function rerollPlayerStats(
@@ -335,9 +341,7 @@ const directionToCode: Record<Direction, DirectionCode> = {
   [Direction.West]: 'w',
 };
 
-function normalizeMoveInput(
-  input: MovePlayerInput,
-): {
+function normalizeMoveInput(input: MovePlayerInput): {
   direction?: DirectionCode;
   distance?: number;
   x?: number;

@@ -40,7 +40,11 @@ export class LookHandler extends PlayerCommandHandler {
     }
 
     const center = res.data.location;
-    if (!center || typeof center.x !== 'number' || typeof center.y !== 'number') {
+    if (
+      !center ||
+      typeof center.x !== 'number' ||
+      typeof center.y !== 'number'
+    ) {
       await say({ text: 'Unable to determine your current location.' });
       return;
     }

@@ -8,6 +8,7 @@ import type {
   NearbySettlementDto,
   CurrentSettlementDto,
 } from './dto/world.dto';
+import { env } from '../../env';
 
 export interface WorldTile
   extends Omit<WorldTileDto, 'createdAt' | 'updatedAt'> {
@@ -30,8 +31,14 @@ export class WorldService {
   private readonly logger = new Logger(WorldService.name);
   private readonly baseUrl: string;
 
-  private readonly chunkCache = new Map<string, { tiles: WorldTile[]; ts: number }>();
-  private readonly inflightChunkRequests = new Map<string, Promise<WorldTile[]>>();
+  private readonly chunkCache = new Map<
+    string,
+    { tiles: WorldTile[]; ts: number }
+  >();
+  private readonly inflightChunkRequests = new Map<
+    string,
+    Promise<WorldTile[]>
+  >();
   private readonly CHUNK_CACHE_TTL_MS = Number.parseInt(
     process.env.DM_CHUNK_CACHE_TTL_MS || '30000',
     10,
@@ -64,7 +71,7 @@ export class WorldService {
   );
 
   constructor() {
-    const configuredUrl = process.env.WORLD_SERVICE_URL || 'http://localhost:3001/world';
+    const configuredUrl = env.WORLD_SERVICE_URL;
     this.baseUrl = configuredUrl.endsWith('/')
       ? configuredUrl.slice(0, -1)
       : configuredUrl;
@@ -82,7 +89,9 @@ export class WorldService {
 
     if (!response.ok) {
       const body = await response.text().catch(() => '');
-      throw new Error(`World service ${response.status} ${response.statusText}: ${body}`);
+      throw new Error(
+        `World service ${response.status} ${response.statusText}: ${body}`,
+      );
     }
 
     return (await response.json()) as T;
@@ -91,8 +100,10 @@ export class WorldService {
   private parseTile(dto: WorldTileDto): WorldTile {
     return {
       ...dto,
-      createdAt: dto.createdAt instanceof Date ? dto.createdAt : new Date(dto.createdAt),
-      updatedAt: dto.updatedAt instanceof Date ? dto.updatedAt : new Date(dto.updatedAt),
+      createdAt:
+        dto.createdAt instanceof Date ? dto.createdAt : new Date(dto.createdAt),
+      updatedAt:
+        dto.updatedAt instanceof Date ? dto.updatedAt : new Date(dto.updatedAt),
     };
   }
 
@@ -134,7 +145,10 @@ export class WorldService {
     };
   }
 
-  private async fetchChunkTiles(chunkX: number, chunkY: number): Promise<WorldTile[]> {
+  private async fetchChunkTiles(
+    chunkX: number,
+    chunkY: number,
+  ): Promise<WorldTile[]> {
     const chunk = await this.httpGet<ChunkResponseDto>(
       `/chunks/${chunkX}/${chunkY}?includeTiles=true`,
     );
@@ -209,7 +223,9 @@ export class WorldService {
       await this.httpGet<{ status: string }>(`/health`);
       return true;
     } catch (error) {
-      this.logger.warn(`World health check failed: ${error instanceof Error ? error.message : error}`);
+      this.logger.warn(
+        `World health check failed: ${error instanceof Error ? error.message : error}`,
+      );
       return false;
     }
   }
@@ -249,7 +265,10 @@ export class WorldService {
           nearbyBiomes: [],
           nearbySettlements: [],
         };
-        this.centerNearbyCache.set(cacheKey, { data: fallback, ts: Date.now() });
+        this.centerNearbyCache.set(cacheKey, {
+          data: fallback,
+          ts: Date.now(),
+        });
         return fallback;
       }
     })().finally(() => this.inflightCenterNearby.delete(cacheKey));

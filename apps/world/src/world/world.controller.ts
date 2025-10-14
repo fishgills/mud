@@ -13,7 +13,7 @@ import type {
 } from './dto';
 import { WorldService } from './world-refactored.service';
 
-@Controller('world')
+@Controller()
 export class WorldController {
   constructor(private readonly worldService: WorldService) {}
 
@@ -38,13 +38,15 @@ export class WorldController {
     }
 
     const data = await this.worldService.getTileWithNearbyBiomes(x, y);
-    const shouldIncludeNearby = includeNearby === 'true' || includeNearby === '1';
+    const shouldIncludeNearby =
+      includeNearby === 'true' || includeNearby === '1';
 
     if (shouldIncludeNearby) {
       return data;
     }
 
-    const { nearbyBiomes, nearbySettlements, currentSettlement, ...tile } = data;
+    const { nearbyBiomes, nearbySettlements, currentSettlement, ...tile } =
+      data;
     void nearbyBiomes;
     void nearbySettlements;
     void currentSettlement;
@@ -90,7 +92,9 @@ export class WorldController {
       (limit !== undefined && (Number.isNaN(limit) || limit < 0)) ||
       (offset !== undefined && Number.isNaN(offset))
     ) {
-      throw new BadRequestException('limit and offset must be positive integers when provided');
+      throw new BadRequestException(
+        'limit and offset must be positive integers when provided',
+      );
     }
 
     const tiles = await this.worldService.getChunkTiles(
@@ -99,7 +103,10 @@ export class WorldController {
       limit,
       offset,
     );
-    const totalCount = await this.worldService.getChunkTileCount(chunkX, chunkY);
+    const totalCount = await this.worldService.getChunkTileCount(
+      chunkX,
+      chunkY,
+    );
     const safeLimit = limit ?? tiles.length;
     const safeOffset = offset ?? 0;
 
@@ -129,7 +136,9 @@ export class WorldController {
       minX > maxX ||
       minY > maxY
     ) {
-      throw new BadRequestException('minX, maxX, minY, maxY must be valid integer ranges');
+      throw new BadRequestException(
+        'minX, maxX, minY, maxY must be valid integer ranges',
+      );
     }
 
     return this.worldService.getTilesInBounds(minX, maxX, minY, maxY);
