@@ -13,11 +13,18 @@ export function toClientId(slackUserId: string): string {
  * @returns The Slack user ID (e.g., "U123456") or null if not a Slack client
  */
 export function fromClientId(clientId: string): string | null {
-  if (clientId.startsWith('slack:')) {
-    const raw = clientId.slice(6);
-    return raw.length > 0 ? raw : null;
+  if (!clientId) {
+    return null;
   }
-  return null;
+
+  let raw = clientId.trim();
+  const prefix = 'slack:';
+
+  while (raw.startsWith(prefix)) {
+    raw = raw.slice(prefix.length);
+  }
+
+  return raw.length > 0 ? raw : null;
 }
 
 export interface SlackIdentifiable {
@@ -34,9 +41,12 @@ export function resolveSlackUserId(
   if (!value) {
     return null;
   }
+
   if (value.startsWith('slack:')) {
-    return fromClientId(value);
+    const extracted = fromClientId(value);
+    return extracted && extracted.length > 0 ? extracted : null;
   }
+
   return value;
 }
 

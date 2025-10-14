@@ -25,8 +25,9 @@ export class LookHandler extends PlayerCommandHandler {
   }
 
   protected async perform({ userId, say }: HandlerContext): Promise<void> {
+    const clientId = this.toClientId(userId);
     const res = await this.dm.getLookView({
-      slackId: this.toClientId(userId),
+      slackId: clientId,
     });
     if (!res.success || !res.data) {
       await say({
@@ -49,7 +50,10 @@ export class LookHandler extends PlayerCommandHandler {
       return;
     }
 
-    const occupants = await getOccupantsSummaryAt(center.x, center.y, userId);
+    const occupants = await getOccupantsSummaryAt(center.x, center.y, {
+      currentSlackUserId: userId,
+      currentClientId: clientId,
+    });
     if (occupants) {
       await say({ text: occupants });
     }

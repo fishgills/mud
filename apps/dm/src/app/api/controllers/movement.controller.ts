@@ -52,7 +52,9 @@ export class MovementController {
     @Query('clientId') clientId?: string,
   ): Promise<SniffResponse> {
     if (!clientId && !slackId) {
-      throw new BadRequestException('Either clientId or slackId must be provided');
+      throw new BadRequestException(
+        'Either clientId or slackId must be provided',
+      );
     }
 
     try {
@@ -120,11 +122,18 @@ export class MovementController {
 
   @Post('move')
   async movePlayer(
-    @Body() input: { slackId?: string; clientId?: string; move: MovePlayerRequest },
+    @Body()
+    input: {
+      slackId?: string;
+      clientId?: string;
+      move: MovePlayerRequest;
+    },
   ): Promise<PlayerMoveResponse> {
     const playerIdentifier = input?.clientId || input?.slackId;
     if (!playerIdentifier) {
-      throw new BadRequestException('Either clientId or slackId must be provided');
+      throw new BadRequestException(
+        'Either clientId or slackId must be provided',
+      );
     }
     if (!input?.move) {
       throw new BadRequestException('move payload is required');
@@ -187,7 +196,9 @@ export class MovementController {
   ): Promise<LookViewResponse> {
     const playerIdentifier = clientId || slackId;
     if (!playerIdentifier) {
-      throw new BadRequestException('Either clientId or slackId must be provided');
+      throw new BadRequestException(
+        'Either clientId or slackId must be provided',
+      );
     }
 
     try {
@@ -337,7 +348,6 @@ export class MovementController {
         visibleSettlements,
         currentSettlement,
         timing,
-        nearbyPlayers,
       );
 
       const responseData = this.responseService.buildResponseData(
@@ -404,7 +414,8 @@ export class MovementController {
       this.logger.error('Failed to build look view', error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Failed to build view',
+        message:
+          error instanceof Error ? error.message : 'Failed to build view',
       };
     }
   }

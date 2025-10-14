@@ -12,8 +12,9 @@ export class MapHandler extends PlayerCommandHandler {
   }
 
   protected async perform({ say, userId }: HandlerContext): Promise<void> {
+    const clientId = this.toClientId(userId);
     const result = await this.dm.getPlayer({
-      slackId: this.toClientId(userId),
+      slackId: clientId,
     });
     if (!result.success || !result.data) {
       await say({ text: 'Could not find your player.' });
@@ -28,7 +29,10 @@ export class MapHandler extends PlayerCommandHandler {
 
     await sendPngMap(say, x, y, 8);
 
-    const occupants = await getOccupantsSummaryAt(x, y, userId);
+    const occupants = await getOccupantsSummaryAt(x, y, {
+      currentSlackUserId: userId,
+      currentClientId: clientId,
+    });
     if (occupants) {
       await say({ text: occupants });
     }

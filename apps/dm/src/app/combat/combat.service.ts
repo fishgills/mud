@@ -5,11 +5,7 @@ import { PlayerService } from '../player/player.service';
 import { PlayerStatsDto } from '../player/dto/player.dto';
 import { AiService } from '../../openai/ai.service';
 import { EventBridgeService } from '../../shared/event-bridge.service';
-import type {
-  CombatResult,
-  CombatRound,
-  DetailedCombatLog,
-} from '../api';
+import type { CombatResult, CombatRound, DetailedCombatLog } from '../api';
 
 interface CombatNarrative {
   summary: string;
@@ -876,9 +872,9 @@ export class CombatService {
         continue;
       }
 
-      // Extract slackId from clientId (format: "slack:U123456")
-      if (observer.clientId && observer.clientId.startsWith('slack:')) {
-        const slackId = observer.clientId.replace('slack:', '');
+      // Notify Slack observers using their normalized client identity
+      if (observer.clientType === 'slack' && observer.clientId) {
+        const slackId = observer.clientId;
         messages.push({
           slackId,
           name: observer.name,

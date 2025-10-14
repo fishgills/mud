@@ -164,7 +164,7 @@ export function sanitizeDescription(text: string): string {
 }
 
 // --- Centralized occupants rendering helpers ---
-import { extractSlackId } from '../utils/clientId';
+import { extractSlackId, resolveSlackUserId } from '../utils/clientId';
 import type { MonsterRecord, PlayerRecord } from '../dm-client';
 
 type DmClient = (typeof import('../dm-client'))['dmClient'];
@@ -218,18 +218,21 @@ export function buildOccupantsSummary(
 }
 
 // Fetch current-tile occupants and return the standard summary text
+type OccupantFilterOptions = {
+  currentSlackUserId?: string;
+  currentClientId?: string;
+};
+
 export async function getOccupantsSummaryAt(
   x: number,
   y: number,
-  currentSlackUserId?: string,
+  opts?: OccupantFilterOptions,
 ): Promise<string | null> {
   const client = await getDmClient();
   const res = await client.getLocationEntities({ x, y });
   const players: NearbyPlayer[] = (res.players || [])
     .map((p) => toNearbyPlayer(p))
-    .filter((p) =>
-      currentSlackUserId ? p.slackId !== currentSlackUserId : true,
-    );
+    .filter((p) => shouldIncludePlayer(p, opts));
   const monsters = (res.monsters || []).map((m) => toNearbyMonster(m));
   return buildOccupantsSummary(players, monsters);
 }
@@ -239,13 +242,13 @@ export async function sendOccupantsSummary(
   say: (message: { text: string }) => Promise<unknown>,
   players: Array<NearbyPlayer | PlayerRecord> | undefined,
   monsters: Array<NearbyMonster | MonsterRecord> | undefined,
-  currentSlackUserId?: string,
+  opts?: OccupantFilterOptions,
 ): Promise<void> {
   const normalizedPlayers: NearbyPlayer[] = (players || []).map((p) =>
     toNearbyPlayer(p),
   );
   const filteredPlayers = normalizedPlayers.filter((p) =>
-    currentSlackUserId ? p.slackId !== currentSlackUserId : true,
+    shouldIncludePlayer(p, opts),
   );
   const normalizedMonsters: NearbyMonster[] = (monsters || []).map((m) =>
     toNearbyMonster(m),
@@ -292,4 +295,32 @@ function toNearbyMonster(record: NearbyMonster | MonsterRecord): NearbyMonster {
     isAlive: isAliveValue,
     hp: hpValue,
   };
+}
+
+function shouldIncludePlayer(
+  player: NearbyPlayer,
+  opts?: OccupantFilterOptions,
+): boolean {
+  if (!opts) {
+    return true;
+  }
+
+  const { currentSlackUserId, currentClientId } = opts;
+
+  if (currentSlackUserId && player.slackId === currentSlackUserId) {
+    return false;
+  }
+
+  if (currentClientId) {
+    if (player.clientId === currentClientId) {
+      return false;
+    }
+
+    const normalizedSlackId = resolveSlackUserId(currentClientId);
+    if (normalizedSlackId && player.slackId === normalizedSlackId) {
+      return false;
+    }
+  }
+
+  return true;
 }

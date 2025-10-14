@@ -8,6 +8,52 @@ type PlayerLike =
   | (Partial<Player> & Record<string, unknown>);
 type MonsterLike = MonsterEntity | (Partial<Monster> & Record<string, unknown>);
 
+const KNOWN_CLIENT_TYPES = new Set(['slack', 'discord', 'web']);
+
+const isClientType = (value: unknown): value is string => {
+  return typeof value === 'string' && KNOWN_CLIENT_TYPES.has(value);
+};
+
+const parseClientIdentifier = (
+  value: string | undefined,
+): { type?: string; id?: string } => {
+  if (!value) {
+    return {};
+  }
+
+  const segments = value
+    .split(':')
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+
+  if (segments.length === 0) {
+    return {};
+  }
+
+  if (segments.length === 1) {
+    return { id: segments[0] };
+  }
+
+  return {
+    type: segments[0],
+    id: segments[segments.length - 1],
+  };
+};
+
+const normalizeSlackId = (value: string | undefined): string | undefined => {
+  if (!value) {
+    return undefined;
+  }
+
+  let raw = value.trim();
+  const prefix = 'slack:';
+  while (raw.startsWith(prefix)) {
+    raw = raw.slice(prefix.length);
+  }
+
+  return raw.length > 0 ? raw : undefined;
+};
+
 const toNumber = (value: unknown, fallback = 0): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -68,32 +114,32 @@ const resolveClientIdentity = (
   let clientType = rawClientType;
   let platformId = rawClientId;
 
-  if (rawClientId && rawClientId.includes(':')) {
-    const [maybeType, maybeId] = rawClientId.split(':', 2);
-    if (maybeId) {
-      platformId = maybeId;
-      if (!clientType) {
-        clientType = maybeType;
-      }
-    }
+  const parsedClient = parseClientIdentifier(rawClientId);
+  if (parsedClient.id) {
+    platformId = parsedClient.id;
+  }
+  if (!clientType && parsedClient.type && isClientType(parsedClient.type)) {
+    clientType = parsedClient.type;
   }
 
-  if (!platformId && rawSlackId) {
-    platformId = rawSlackId;
-    if (!clientType) {
-      clientType = 'slack';
-    }
+  const normalizedSlackId = normalizeSlackId(rawSlackId);
+
+  if (!platformId && normalizedSlackId) {
+    platformId = normalizedSlackId;
   }
 
   if (!clientType) {
-    clientType = 'web';
+    clientType = normalizedSlackId ? 'slack' : 'web';
   }
 
   if (!platformId) {
     platformId = 'unknown';
   }
 
-  const slackId = clientType === 'slack' ? platformId : (rawSlackId ?? null);
+  const slackId =
+    clientType === 'slack'
+      ? (normalizedSlackId ?? platformId)
+      : (normalizedSlackId ?? null);
 
   return {
     clientType,

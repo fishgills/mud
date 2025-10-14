@@ -8,58 +8,12 @@ import type {
   TimingMetrics,
 } from './look-view-types';
 import type { Settlement } from '../../world/world.service';
-import type { NearbyPlayerInfo } from '../dto/responses.dto';
 
 @Injectable()
 export class DescriptionService {
   private logger = new Logger(DescriptionService.name);
 
   constructor(private aiService: AiService) {}
-
-  /**
-   * Build a concise hint guiding the user toward nearby players.
-   * Examples:
-   * - "Players Nearby: north (near)."
-   * - "Players Nearby: northwest (far) and east (near)."
-   * - "Players Nearby: south (close), northeast (far)."
-   */
-  private buildNearbyPlayersHint(
-    nearbyPlayers: NearbyPlayerInfo[] | undefined,
-  ): string {
-    if (!nearbyPlayers || nearbyPlayers.length === 0) return '';
-
-    const labelFor = (d: number): 'close' | 'near' | 'far' => {
-      if (d <= 2) return 'close';
-      if (d <= 6) return 'near';
-      return 'far';
-    };
-
-    // Group by direction and use the minimum distance for that direction
-    const dirMinDist = new Map<string, number>();
-    for (const p of nearbyPlayers) {
-      const prev = dirMinDist.get(p.direction);
-      if (prev === undefined || p.distance < prev) {
-        dirMinDist.set(p.direction, p.distance);
-      }
-    }
-
-    // Sort directions by min distance and take up to 3
-    const items = Array.from(dirMinDist.entries())
-      .sort((a, b) => a[1] - b[1])
-      .slice(0, 3)
-      .map(([dir, dist]) => `${dir} (${labelFor(dist)})`);
-
-    if (items.length === 0) return '';
-
-    const list =
-      items.length === 1
-        ? items[0]
-        : items.length === 2
-          ? `${items[0]} and ${items[1]}`
-          : `${items[0]}, ${items[1]}, and ${items[2]}`;
-
-    return `Players Nearby: ${list}.`;
-  }
 
   /**
    * Generates fallback description without AI
@@ -70,7 +24,6 @@ export class DescriptionService {
     biomeSummary: BiomeSummary[],
     visiblePeaks: VisiblePeak[],
     visibleSettlements: VisibleSettlement[],
-    nearbyPlayers?: NearbyPlayerInfo[],
   ): string {
     const topBiomes = biomeSummary.slice(0, 2).map((b) => b.biomeName);
     const peakLine = visiblePeaks.length
@@ -108,7 +61,6 @@ export class DescriptionService {
       }.`,
       peakLine,
       settleLine,
-      this.buildNearbyPlayersHint(nearbyPlayers),
     ]
       .filter(Boolean)
       .join(' ');
@@ -125,7 +77,6 @@ export class DescriptionService {
     visibleSettlements: VisibleSettlement[],
     currentSettlement: Settlement | null,
     timing: TimingMetrics,
-    nearbyPlayers: NearbyPlayerInfo[],
   ): Promise<string> {
     try {
       const inSettlement = Boolean(
@@ -204,14 +155,6 @@ export class DescriptionService {
       const aiText = (ai?.output_text ?? '').trim();
 
       if (aiText) {
-        // Append a dynamic, non-cached hint for nearby players (kept out of the cache key)
-        if ((nearbyPlayers?.length ?? 0) > 0) {
-          const alreadyHas = /Players Nearby:/i.test(aiText);
-          if (!alreadyHas) {
-            const hint = this.buildNearbyPlayersHint(nearbyPlayers);
-            if (hint) return `${aiText} ${hint}`.trim();
-          }
-        }
         return aiText;
       }
     } catch {
@@ -224,7 +167,6 @@ export class DescriptionService {
       biomeSummary,
       visiblePeaks,
       visibleSettlements,
-      nearbyPlayers,
     );
   }
 }
