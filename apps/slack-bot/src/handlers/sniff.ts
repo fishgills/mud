@@ -1,4 +1,4 @@
-import { sniffNearestMonster } from '../dm-client';
+import { sniffNearestMonster, SniffProximity } from '../dm-client';
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
@@ -7,13 +7,29 @@ import { toClientId } from '../utils/clientId';
 
 export const sniffHandlerHelp = `Sniff out the nearest monster within range of your agility. Example: Send "${COMMANDS.SNIFF}".`;
 
-const formatDistance = (distance: number | null | undefined): string => {
-  if (typeof distance !== 'number' || !Number.isFinite(distance)) {
-    return 'some tiles';
+const proximityPhrases: Record<SniffProximity, string> = {
+  immediate: 'right under your nose',
+  close: 'very close',
+  near: 'nearby',
+  far: 'a ways off',
+  distant: 'far off',
+  unknown: 'somewhere nearby',
+};
+
+const resolveDistanceLabel = (
+  label?: string | null,
+  proximity?: SniffProximity,
+): string => {
+  const trimmed = label?.trim();
+  if (trimmed) {
+    return trimmed;
   }
-  const rounded = Math.round(distance * 10) / 10;
-  const trimmed = rounded.toFixed(1).replace(/\.0$/, '');
-  return `${trimmed} tiles`;
+
+  if (proximity && proximityPhrases[proximity]) {
+    return proximityPhrases[proximity];
+  }
+
+  return proximityPhrases.unknown;
 };
 
 export const sniffHandler = async ({ userId, say }: HandlerContext) => {
@@ -44,12 +60,15 @@ export const sniffHandler = async ({ userId, say }: HandlerContext) => {
       return;
     }
 
-    const direction = data.direction ?? 'nearby';
-    const distanceText = formatDistance(data.distance);
+    const direction = data.direction ? ` to the ${data.direction}` : '';
+    const distanceText = resolveDistanceLabel(
+      data.distanceLabel,
+      data.proximity,
+    );
     await say({
       text:
         response.message ??
-        `You catch the scent of ${data.monsterName} about ${distanceText} ${direction}.`,
+        `You catch the scent of ${data.monsterName} ${distanceText}${direction}.`,
     });
   } catch (err) {
     const errorMessage = getUserFriendlyErrorMessage(

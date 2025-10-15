@@ -154,10 +154,19 @@ export interface CombatResponse extends SuccessResponse {
   perf?: AttackPerformanceStats;
 }
 
+export type SniffProximity =
+  | 'immediate'
+  | 'close'
+  | 'near'
+  | 'far'
+  | 'distant'
+  | 'unknown';
+
 export interface SniffData {
   detectionRadius: number;
   monsterName?: string;
-  distance?: number;
+  distanceLabel?: string;
+  proximity?: SniffProximity;
   direction?: string;
   monsterX?: number;
   monsterY?: number;

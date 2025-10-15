@@ -46,6 +46,54 @@ export class MovementController {
     private readonly monsterService: MonsterService,
   ) {}
 
+  private describeDistance(distance: number | undefined | null): {
+    proximity: 'immediate' | 'close' | 'near' | 'far' | 'distant' | 'unknown';
+    phrase: string;
+    label: string;
+  } {
+    if (typeof distance !== 'number' || !Number.isFinite(distance)) {
+      return { proximity: 'unknown', phrase: 'nearby', label: 'nearby' };
+    }
+
+    if (distance <= 0.75) {
+      return {
+        proximity: 'immediate',
+        phrase: 'right under your nose',
+        label: 'right under your nose',
+      };
+    }
+
+    if (distance <= 1.5) {
+      return {
+        proximity: 'close',
+        phrase: 'very close',
+        label: 'very close',
+      };
+    }
+
+    if (distance <= 3.5) {
+      return {
+        proximity: 'near',
+        phrase: 'nearby',
+        label: 'nearby',
+      };
+    }
+
+    if (distance <= 6.5) {
+      return {
+        proximity: 'far',
+        phrase: 'a ways off',
+        label: 'a ways off',
+      };
+    }
+
+    return {
+      proximity: 'distant',
+      phrase: 'far off',
+      label: 'far off',
+    };
+  }
+
   @Get('sniff')
   async sniffNearestMonster(
     @Query('slackId') slackId?: string,
@@ -89,25 +137,28 @@ export class MovementController {
         };
       }
 
-      const roundedDistance = Math.round(nearest.distance * 10) / 10;
       const direction = calculateDirection(
         player.position.x,
         player.position.y,
         nearest.monster.position.x,
         nearest.monster.position.y,
       );
+      const distanceDescriptor = this.describeDistance(nearest.distance);
+      const directionFragment = direction ? ` to the ${direction}` : '';
+      const message = `You catch the scent of ${nearest.monster.name} ${distanceDescriptor.phrase}${directionFragment}.`;
 
       return {
         success: true,
         data: {
           detectionRadius,
           monsterName: nearest.monster.name,
-          distance: roundedDistance,
           direction,
           monsterX: nearest.monster.position.x,
           monsterY: nearest.monster.position.y,
+          proximity: distanceDescriptor.proximity,
+          distanceLabel: distanceDescriptor.label,
         },
-        message: `You catch the scent of ${nearest.monster.name} about ${roundedDistance} tiles ${direction}.`,
+        message,
       };
     } catch (error) {
       return {
