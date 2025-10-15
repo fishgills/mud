@@ -19,7 +19,10 @@ import {
 import { dmClient } from './dm-client';
 import { PlayerAttribute, TargetType } from './dm-types';
 import { getUserFriendlyErrorMessage } from './handlers/errorUtils';
-import { SELF_ATTACK_ERROR } from './handlers/attack';
+import {
+  MONSTER_SELECTION_BLOCK_ID,
+  SELF_ATTACK_ERROR,
+} from './handlers/attack';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { buildPlayerStatsMessage } from './handlers/stats/format';
 import type { HandlerContext, SayMessage } from './handlers/types';
@@ -113,6 +116,50 @@ function extractSelectedTarget(
   return null;
 }
 
+function buildBlocksWithDisabledAttackButton(
+  blocks: KnownBlock[] | undefined,
+): KnownBlock[] | null {
+  if (!blocks) {
+    return null;
+  }
+
+  let changed = false;
+
+  const updatedBlocks = blocks.map((block) => {
+    if (
+      block.type !== 'actions' ||
+      block.block_id !== MONSTER_SELECTION_BLOCK_ID
+    ) {
+      return block;
+    }
+
+    let blockChanged = false;
+    const updatedElements = block.elements?.map((element) => {
+      if (
+        element.type === 'button' &&
+        element.action_id === ATTACK_ACTIONS.ATTACK_MONSTER &&
+        element.disabled !== true
+      ) {
+        blockChanged = true;
+        return { ...element, disabled: true };
+      }
+      return element;
+    });
+
+    if (!blockChanged) {
+      return block;
+    }
+
+    changed = true;
+    return {
+      ...block,
+      elements: updatedElements,
+    };
+  });
+
+  return changed ? updatedBlocks : null;
+}
+
 // Helper to run an existing text command handler from a button click
 async function dispatchCommandViaDM(
   client: WebClient,
@@ -139,22 +186,24 @@ const helpDetailMessages = {
     blocks: [
       {
         type: 'header',
-        text: { type: 'plain_text', text: 'Leveling & Progression', emoji: true },
-      },
-      {
-        type: 'section',
         text: {
-          type: 'mrkdwn',
-          text:
-            '*Earn XP*\n• Defeat monsters, clear quests, and discover new rooms to gain experience.\n• Track your current XP and next level in `stats`.',
+          type: 'plain_text',
+          text: 'Leveling & Progression',
+          emoji: true,
         },
       },
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text:
-            '*Leveling Up*\n• Each level awards attribute points to spend on Strength, Agility, or Vitality from the `stats` menu.\n• Higher levels unlock new gear tiers and ability slots at key milestones.',
+          text: '*Earn XP*\n• Defeat monsters, clear quests, and discover new rooms to gain experience.\n• Track your current XP and next level in `stats`.',
+        },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*Leveling Up*\n• Each level awards attribute points to spend on Strength, Agility, or Vitality from the `stats` menu.\n• Higher levels unlock new gear tiers and ability slots at key milestones.',
         },
       },
       {
@@ -179,16 +228,14 @@ const helpDetailMessages = {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text:
-            '*Turn Order*\n• Battles are turn-based: the highest Agility acts first each round.\n• Moving before a fight sets your range and who you can reach.',
+          text: '*Turn Order*\n• Battles are turn-based: the highest Agility acts first each round.\n• Moving before a fight sets your range and who you can reach.',
         },
       },
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text:
-            '*Actions*\n• Use `attack` to strike with your weapon, or trigger abilities that appear in combat prompts.\n• Watch the combat log for status effects, cooldowns, and enemy intents.',
+          text: '*Actions*\n• Use `attack` to strike with your weapon, or trigger abilities that appear in combat prompts.\n• Watch the combat log for status effects, cooldowns, and enemy intents.',
         },
       },
       {
@@ -213,16 +260,14 @@ const helpDetailMessages = {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text:
-            '*Unlocking Abilities*\n• New abilities unlock automatically at level milestones.\n• Spend ability points from the `stats` view to slot or upgrade them.',
+          text: '*Unlocking Abilities*\n• New abilities unlock automatically at level milestones.\n• Spend ability points from the `stats` view to slot or upgrade them.',
         },
       },
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text:
-            '*Using Abilities*\n• Abilities appear as options during combat alongside `attack`.\n• Many consume stamina or have cooldowns—plan combos with your party.',
+          text: '*Using Abilities*\n• Abilities appear as options during combat alongside `attack`.\n• Many consume stamina or have cooldowns—plan combos with your party.',
         },
       },
       {
@@ -440,6 +485,18 @@ export function registerActions(app: App) {
         (typeof body.container?.channel_id === 'string'
           ? body.container.channel_id
           : undefined);
+      const messageTs =
+        typeof body.message?.ts === 'string'
+          ? body.message.ts
+          : typeof body.container?.message_ts === 'string'
+            ? body.container.message_ts
+            : undefined;
+      const messageBlocks =
+        (body.message?.blocks as KnownBlock[] | undefined) ?? undefined;
+      const fallbackMessageText =
+        typeof body.message?.text === 'string'
+          ? body.message.text
+          : 'Choose a target to attack';
 
       if (!userId || !channelId) {
         return;
@@ -455,6 +512,23 @@ export function registerActions(app: App) {
           text: 'Please select a monster to attack first!',
         });
         return;
+      }
+
+      if (channelId && messageTs) {
+        const disabledBlocks =
+          buildBlocksWithDisabledAttackButton(messageBlocks);
+        if (disabledBlocks) {
+          try {
+            await client.chat.update({
+              channel: channelId,
+              ts: messageTs,
+              text: fallbackMessageText,
+              blocks: disabledBlocks,
+            });
+          } catch (err) {
+            console.warn('Failed to disable attack button', err);
+          }
+        }
       }
 
       try {
@@ -558,12 +632,9 @@ export function registerActions(app: App) {
           }
 
           if (channelId && messageTs) {
-            const statsMessage = buildPlayerStatsMessage(
-              result.data,
-              {
-                isSelf: true,
-              },
-            );
+            const statsMessage = buildPlayerStatsMessage(result.data, {
+              isSelf: true,
+            });
             await client.chat.update({
               channel: channelId,
               ts: messageTs,

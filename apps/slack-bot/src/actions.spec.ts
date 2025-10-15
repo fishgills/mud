@@ -6,6 +6,7 @@ jest.mock('./dm-client', () => {
   return { dmClient };
 });
 
+import type { ActionsBlock, Button, KnownBlock } from '@slack/types';
 import { registerActions } from './actions';
 import {
   COMMANDS,
@@ -16,7 +17,10 @@ import {
 } from './commands';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { HandlerContext } from './handlers/types';
-import { SELF_ATTACK_ERROR } from './handlers/attack';
+import {
+  buildTargetSelectionMessage,
+  SELF_ATTACK_ERROR,
+} from './handlers/attack';
 import { dmClient } from './dm-client';
 import { PlayerAttribute, TargetType } from './dm-types';
 import { toClientId } from './utils/clientId';
@@ -58,9 +62,9 @@ type SlackActionHandler = (args: {
     user?: { id?: string };
     trigger_id?: string;
     state?: { values?: Record<string, Record<string, unknown>> };
-    container?: { channel_id?: string };
+    container?: { channel_id?: string; message_ts?: string };
     channel?: { id?: string };
-    message?: { ts?: string };
+    message?: { ts?: string; text?: string; blocks?: KnownBlock[] };
   };
   client: MockSlackClient;
   respond?: jest.Mock;
@@ -333,6 +337,11 @@ describe('registerActions', () => {
       chat: createChatMocks(),
     };
 
+    const selectionMessage = buildTargetSelectionMessage(
+      [{ id: '42', name: 'Goblin' }],
+      [],
+    );
+
     mockedDmClient.attack.mockResolvedValue({
       success: true,
       data: {
@@ -349,6 +358,11 @@ describe('registerActions', () => {
       body: {
         user: { id: 'U1' },
         container: { channel_id: 'D1' },
+        message: {
+          ts: '158456',
+          text: selectionMessage.text,
+          blocks: selectionMessage.blocks as KnownBlock[],
+        },
         state: {
           values: {
             attack_monster_selection_block: {
@@ -376,6 +390,24 @@ describe('registerActions', () => {
         text: '⚔️ Combat initiated! Check your DMs for the results.',
       }),
     );
+    expect(client.chat.update).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'D1', ts: '158456' }),
+    );
+
+    const updatePayload = client.chat.update.mock.calls[0][0] as {
+      blocks?: KnownBlock[];
+    };
+    const actionsBlock = updatePayload.blocks?.find(
+      (block) => block.type === 'actions',
+    ) as ActionsBlock | undefined;
+    expect(actionsBlock).toBeDefined();
+    const attackButton = actionsBlock?.elements?.find(
+      (element) =>
+        element.type === 'button' &&
+        'action_id' in element &&
+        element.action_id === ATTACK_ACTIONS.ATTACK_MONSTER,
+    ) as (Button & { disabled?: boolean }) | undefined;
+    expect(attackButton?.disabled).toBe(true);
   });
 
   it('handles missing userId in help actions', async () => {

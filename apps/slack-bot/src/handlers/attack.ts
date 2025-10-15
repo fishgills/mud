@@ -4,7 +4,7 @@ import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import { extractSlackId } from '../utils/clientId';
 import { PlayerCommandHandler } from './base';
 
-const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
+export const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
 export const SELF_ATTACK_ERROR = "You can't attack yourself.";
 
 type AttackCombatResult = {

@@ -1,12 +1,14 @@
 {
-    "nxConsole.generateAiAgentRules": true,
     "editor.formatOnSave": true,
-    "chat.mcp.serverSampling": {
-        "mud/.vscode/mcp.json: mud-database": {
-            "allowedModels": [
-                "github.copilot-chat/gpt-4.1",
-                "github.copilot-chat/claude-sonnet-4"
-            ]
-        }
+    "chat.promptFilesRecommendations": {
+        "speckit.constitution": true,
+        "speckit.specify": true,
+        "speckit.plan": true,
+        "speckit.tasks": true,
+        "speckit.implement": true
+    },
+    "chat.tools.terminal.autoApprove": {
+        ".specify/scripts/bash/": true,
+        ".specify/scripts/powershell/": true
     }
 }
