@@ -6,7 +6,12 @@ jest.mock('./dm-client', () => {
   return { dmClient };
 });
 
-import type { ActionsBlock, Button, KnownBlock } from '@slack/types';
+import type {
+  ActionsBlock,
+  Button,
+  KnownBlock,
+  SectionBlock,
+} from '@slack/types';
 import { registerActions } from './actions';
 import {
   COMMANDS,
@@ -19,6 +24,7 @@ import { getAllHandlers } from './handlers/handlerRegistry';
 import { HandlerContext } from './handlers/types';
 import {
   buildTargetSelectionMessage,
+  MONSTER_SELECTION_BLOCK_ID,
   SELF_ATTACK_ERROR,
 } from './handlers/attack';
 import { dmClient } from './dm-client';
@@ -396,18 +402,19 @@ describe('registerActions', () => {
 
     const updatePayload = client.chat.update.mock.calls[0][0] as {
       blocks?: KnownBlock[];
+      text?: string;
     };
     const actionsBlock = updatePayload.blocks?.find(
       (block) => block.type === 'actions',
     ) as ActionsBlock | undefined;
-    expect(actionsBlock).toBeDefined();
-    const attackButton = actionsBlock?.elements?.find(
-      (element) =>
-        element.type === 'button' &&
-        'action_id' in element &&
-        element.action_id === ATTACK_ACTIONS.ATTACK_MONSTER,
-    ) as (Button & { disabled?: boolean }) | undefined;
-    expect(attackButton?.disabled).toBe(true);
+    expect(actionsBlock).toBeUndefined();
+    const progressBlock = updatePayload.blocks?.find(
+      (block) =>
+        block.block_id === MONSTER_SELECTION_BLOCK_ID &&
+        block.type === 'section',
+    ) as SectionBlock | undefined;
+    expect(progressBlock?.text?.text).toBe('Attacking Goblin...');
+    expect(updatePayload.text).toBe('Attacking Goblin...');
   });
 
   it('handles missing userId in help actions', async () => {

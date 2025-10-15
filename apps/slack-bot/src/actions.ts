@@ -116,46 +116,36 @@ function extractSelectedTarget(
   return null;
 }
 
-function buildBlocksWithDisabledAttackButton(
+function buildBlocksWithAttackInProgress(
   blocks: KnownBlock[] | undefined,
+  progressText: string,
 ): KnownBlock[] | null {
   if (!blocks) {
     return null;
   }
 
   let changed = false;
+  const updatedBlocks: KnownBlock[] = [];
 
-  const updatedBlocks = blocks.map((block) => {
+  for (const block of blocks) {
     if (
-      block.type !== 'actions' ||
-      block.block_id !== MONSTER_SELECTION_BLOCK_ID
+      block.type === 'actions' &&
+      block.block_id === MONSTER_SELECTION_BLOCK_ID
     ) {
-      return block;
+      changed = true;
+      updatedBlocks.push({
+        type: 'section',
+        block_id: MONSTER_SELECTION_BLOCK_ID,
+        text: {
+          type: 'mrkdwn',
+          text: progressText,
+        },
+      });
+      continue;
     }
 
-    let blockChanged = false;
-    const updatedElements = block.elements?.map((element) => {
-      if (
-        element.type === 'button' &&
-        element.action_id === ATTACK_ACTIONS.ATTACK_MONSTER &&
-        element.disabled !== true
-      ) {
-        blockChanged = true;
-        return { ...element, disabled: true };
-      }
-      return element;
-    });
-
-    if (!blockChanged) {
-      return block;
-    }
-
-    changed = true;
-    return {
-      ...block,
-      elements: updatedElements,
-    };
-  });
+    updatedBlocks.push(block);
+  }
 
   return changed ? updatedBlocks : null;
 }
@@ -493,11 +483,6 @@ export function registerActions(app: App) {
             : undefined;
       const messageBlocks =
         (body.message?.blocks as KnownBlock[] | undefined) ?? undefined;
-      const fallbackMessageText =
-        typeof body.message?.text === 'string'
-          ? body.message.text
-          : 'Choose a target to attack';
-
       if (!userId || !channelId) {
         return;
       }
@@ -515,18 +500,22 @@ export function registerActions(app: App) {
       }
 
       if (channelId && messageTs) {
-        const disabledBlocks =
-          buildBlocksWithDisabledAttackButton(messageBlocks);
-        if (disabledBlocks) {
+        const targetName = selected.name || 'target';
+        const attackProgressText = `Attacking ${targetName}...`;
+        const updatedBlocks = buildBlocksWithAttackInProgress(
+          messageBlocks,
+          attackProgressText,
+        );
+        if (updatedBlocks) {
           try {
             await client.chat.update({
               channel: channelId,
               ts: messageTs,
-              text: fallbackMessageText,
-              blocks: disabledBlocks,
+              text: attackProgressText,
+              blocks: updatedBlocks,
             });
           } catch (err) {
-            console.warn('Failed to disable attack button', err);
+            console.warn('Failed to update attack button state', err);
           }
         }
       }
