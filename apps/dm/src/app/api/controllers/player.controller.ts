@@ -23,6 +23,7 @@ import type {
   CombatResponse,
   PlayerStats,
   CombatResult,
+  AttackPerformanceStats,
 } from '../dto/responses.dto';
 import type {
   AttackRequest,
@@ -384,6 +385,7 @@ export class PlayersController {
 
   @Post('attack')
   async attack(@Body() payload: AttackPayload): Promise<CombatResponse> {
+    const start = Date.now();
     const { slackId, input } = payload ?? {};
     if (!slackId) {
       throw new BadRequestException('slackId is required');
@@ -392,31 +394,50 @@ export class PlayersController {
       throw new BadRequestException('input is required');
     }
 
+    const targetType = input.targetType;
+    const ignoreLocationFlag = input.ignoreLocation === true;
+    const perf: AttackPerformanceStats = {
+      totalMs: 0,
+      preCombatMs: 0,
+      combatMs: 0,
+    };
+    let targetResolutionMs: number | undefined;
+    let targetSlackId = input.targetSlackId ?? undefined;
+    const targetId =
+      typeof input.targetId === 'number' ? input.targetId : undefined;
+    let success = false;
+    let errorMessage: string | undefined;
+
     try {
       let result: CombatResult | undefined;
 
-      if (input.targetType === TargetType.MONSTER) {
+      if (targetType === TargetType.MONSTER) {
         if (typeof input.targetId !== 'number') {
           throw new BadRequestException(
             'targetId is required for monster attacks',
           );
         }
+        const combatStart = Date.now();
+        perf.preCombatMs = combatStart - start;
         result = (await this.combatService.playerAttackMonster(
           slackId,
           input.targetId,
         )) as CombatResult;
-      } else if (input.targetType === TargetType.PLAYER) {
-        let targetSlackId = input.targetSlackId ?? undefined;
-        if (!targetSlackId) {
+        perf.combatMs = Date.now() - combatStart;
+      } else if (targetType === TargetType.PLAYER) {
+        let resolvedSlackId = targetSlackId;
+        if (!resolvedSlackId) {
           if (typeof input.targetId === 'number') {
+            const resolutionStart = Date.now();
             const allPlayers = await this.playerService.getAllPlayers();
+            targetResolutionMs = Date.now() - resolutionStart;
             const targetPlayer = allPlayers.find(
               (p) => p.id === input.targetId,
             );
             if (!targetPlayer) {
               throw new BadRequestException('Target player not found');
             }
-            targetSlackId = targetPlayer.clientId || undefined;
+            resolvedSlackId = targetPlayer.clientId || undefined;
           } else {
             throw new BadRequestException(
               'Must provide targetSlackId or targetId for player attacks',
@@ -424,31 +445,80 @@ export class PlayersController {
           }
         }
 
+        targetSlackId = resolvedSlackId;
         if (!targetSlackId) {
           throw new BadRequestException(
             'Target player has no valid identifier',
           );
         }
 
-        const ignoreLocation = input.ignoreLocation === true;
+        const combatStart = Date.now();
+        perf.preCombatMs = combatStart - start;
         result = (await this.combatService.playerAttackPlayer(
           slackId,
           targetSlackId,
-          ignoreLocation,
+          ignoreLocationFlag,
         )) as CombatResult;
+        perf.combatMs = Date.now() - combatStart;
       } else {
         throw new BadRequestException('Invalid target type');
       }
 
+      success = true;
+      perf.totalMs = Date.now() - start;
+      if (typeof targetResolutionMs === 'number') {
+        perf.targetResolutionMs = targetResolutionMs;
+      }
+      if (result?.perfBreakdown) {
+        perf.combatBreakdown = result.perfBreakdown;
+      }
       return {
         success: true,
         data: result,
+        perf,
       };
     } catch (error) {
+      errorMessage = error instanceof Error ? error.message : 'Attack failed';
+      if (perf.preCombatMs === 0) {
+        perf.preCombatMs = Date.now() - start;
+      }
+      perf.totalMs = Date.now() - start;
+      if (typeof targetResolutionMs === 'number') {
+        perf.targetResolutionMs = targetResolutionMs;
+      }
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Attack failed',
+        message: errorMessage,
+        perf,
       };
+    } finally {
+      perf.totalMs = Date.now() - start;
+      if (typeof targetResolutionMs === 'number') {
+        perf.targetResolutionMs = targetResolutionMs;
+      }
+      if (slackId) {
+        try {
+          const logPayload = {
+            event: 'players.attack.perf',
+            slackId,
+            targetType,
+            targetSlackId,
+            targetId,
+            ignoreLocation: ignoreLocationFlag,
+            success,
+            totalMs: perf.totalMs,
+            preCombatMs: perf.preCombatMs,
+            combatMs: perf.combatMs,
+            targetResolutionMs: perf.targetResolutionMs,
+            error: success ? undefined : errorMessage,
+          };
+          this.logger.log(JSON.stringify(logPayload));
+        } catch (loggingError) {
+          this.logger.debug(
+            `Failed to emit attack perf log: ${loggingError instanceof Error ? loggingError.message : String(loggingError)}`,
+          );
+        }
+      }
     }
   }
 

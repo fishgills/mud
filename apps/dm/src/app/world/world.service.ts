@@ -71,11 +71,27 @@ export class WorldService {
   );
 
   constructor() {
-    const configuredUrl = env.WORLD_SERVICE_URL;
+    const configuredUrl = this.resolveBaseUrl();
     this.baseUrl = configuredUrl.endsWith('/')
       ? configuredUrl.slice(0, -1)
       : configuredUrl;
     this.logger.log(`Using World REST endpoint at ${this.baseUrl}`);
+  }
+
+  private resolveBaseUrl(): string {
+    const override = process.env.WORLD_SERVICE_URL;
+    if (override) {
+      try {
+        // Throws when the provided override is not a valid URL.
+        new URL(override);
+        return override;
+      } catch (error) {
+        this.logger.warn(
+          `Invalid WORLD_SERVICE_URL override "${override}" ignored: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
+    return env.WORLD_SERVICE_URL;
   }
 
   private async httpGet<T>(path: string): Promise<T> {

@@ -5,7 +5,13 @@ import { PlayerService } from '../player/player.service';
 import { PlayerStatsDto } from '../player/dto/player.dto';
 import { AiService } from '../../openai/ai.service';
 import { EventBridgeService } from '../../shared/event-bridge.service';
-import type { CombatResult, CombatRound, DetailedCombatLog } from '../api';
+import type {
+  CombatResult,
+  CombatRound,
+  DetailedCombatLog,
+  CombatPerformanceBreakdown,
+  CombatMessagePerformance,
+} from '../api';
 
 interface CombatNarrative {
   summary: string;
@@ -249,48 +255,48 @@ export class CombatService {
     combatLog: DetailedCombatLog,
     options: NarrativeOptions = {},
   ): Promise<string> {
-    const context = {
-      combat: {
-        id: combatLog.combatId,
-        participant1: combatLog.participant1,
-        participant2: combatLog.participant2,
-        winner: combatLog.winner,
-        loser: combatLog.loser,
-        roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
-        xpAwarded: combatLog.xpAwarded,
-        totalDamageDealt: combatLog.rounds.reduce(
-          (sum, round) => sum + round.damage,
-          0,
-        ),
-        initiativeWinner: combatLog.firstAttacker,
-        location: combatLog.location,
-        rounds: combatLog.rounds.map((round) => ({
-          number: round.roundNumber,
-          attacker: round.attackerName,
-          defender: round.defenderName,
-          hit: round.hit,
-          damage: round.damage,
-          killed: round.killed,
-        })),
-      },
-      perspective: options.secondPersonName
-        ? {
-            treatAsYou: options.secondPersonName,
-          }
-        : undefined,
-    };
+    const totalRounds = Math.ceil(combatLog.rounds.length / 2);
+    const totalDamage = combatLog.rounds.reduce(
+      (sum, round) => sum + round.damage,
+      0,
+    );
+    const maxDetailedRounds = 10;
+    const roundSummaries = combatLog.rounds
+      .slice(0, maxDetailedRounds)
+      .map((round) => {
+        const outcome = round.hit
+          ? `hit ${round.defenderName} for ${round.damage}`
+          : `missed ${round.defenderName}`;
+        const finisher = round.killed ? ' (final blow)' : '';
+        return `R${round.roundNumber}: ${round.attackerName} ${outcome}${finisher}`;
+      })
+      .join(' | ');
+    const roundOverflow =
+      combatLog.rounds.length > maxDetailedRounds ? ' | …' : '';
+    const roundBreakdownLine = combatLog.rounds.length
+      ? `Round breakdown: ${roundSummaries}${roundOverflow || ''}`
+      : 'Round breakdown: no exchanges recorded.';
 
-    const instructions = options.secondPersonName
-      ? `Refer to "${options.secondPersonName}" as "you" when narrating and use their opponents' names normally.`
-      : 'Use third-person narration for all combatants.';
+    const locationLine = combatLog.location
+      ? `Location: (${combatLog.location.x}, ${combatLog.location.y})`
+      : 'Location: unknown';
+
+    const perspectiveInstruction = options.secondPersonName
+      ? `Refer to ${options.secondPersonName} as "you" while keeping opponents in third person.`
+      : 'Use third-person narration for everyone.';
 
     const prompt = [
-      'You are a fantasy combat narrator transforming structured battle data into an exciting Slack message.',
-      'Respond with a engaging 2 or 3 sentence summary followed by a concise round-by-round log.',
-      instructions,
-      'Use only facts from the combat data. Keep language vivid but concise and avoid dice roll jargon.',
-      'Combat data:',
-      JSON.stringify(context, null, 2),
+      'You are a fantasy combat narrator crafting Slack-ready copy.',
+      'Deliver two vivid sentences describing the flow and outcome, then provide a short round-by-round log on new lines.',
+      perspectiveInstruction,
+      'Stay energetic, avoid dice jargon, and ground everything in the facts provided.',
+      `Combat ID: ${combatLog.combatId}`,
+      `Participants: ${combatLog.participant1} vs ${combatLog.participant2}`,
+      `Winner: ${combatLog.winner}; Loser: ${combatLog.loser}; First strike: ${combatLog.firstAttacker}`,
+      `Rounds completed: ${totalRounds}; Total damage: ${totalDamage}`,
+      `Rewards (winner): +${combatLog.xpAwarded} XP, +${combatLog.goldAwarded} gold`,
+      locationLine,
+      roundBreakdownLine,
     ].join('\n');
 
     this.logger.debug(`Combat narrative AI prompt: ${prompt}`);
@@ -298,6 +304,8 @@ export class CombatService {
     try {
       const ai = await this.aiService.getText(prompt, {
         timeoutMs: 20000,
+        maxTokens: 220,
+        model: 'gpt-4o-mini',
       });
 
       const rawText = (ai?.output_text ?? '').trim();
@@ -331,31 +339,29 @@ export class CombatService {
     combatLog: DetailedCombatLog,
     options: NarrativeOptions = {},
   ): Promise<string> {
-    const instructions = options.secondPersonName
-      ? `Write in second person addressing "${options.secondPersonName}" as "you"; refer to others by name.`
-      : 'Use concise third-person narration.';
+    const roundsCompleted = Math.ceil(combatLog.rounds.length / 2);
+    const narrativeVoice = options.secondPersonName
+      ? `Speak directly to ${options.secondPersonName} as "you" and keep everyone else in third person.`
+      : 'Use third-person narration throughout.';
+
+    const locationLine = combatLog.location
+      ? `Location: (${combatLog.location.x}, ${combatLog.location.y}).`
+      : 'Location: unknown.';
 
     const prompt = [
-      'Create a punchy, fun 2–3 sentence summary of a fantasy combat.',
-      'Avoid numbers, dice jargon, or Slack markdown. Keep it vivid and readable.',
-      instructions,
-      'Combat data:',
-      JSON.stringify(
-        {
-          participants: [combatLog.participant1, combatLog.participant2],
-          winner: combatLog.winner,
-          loser: combatLog.loser,
-          roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
-          firstAttacker: combatLog.firstAttacker,
-          location: combatLog.location,
-        },
-        null,
-        2,
-      ),
+      'Create a punchy, vivid two-sentence summary of a fantasy combat for a Slack message.',
+      'Avoid dice jargon and Slack markdown; keep language bold and accessible.',
+      narrativeVoice,
+      `Result: ${combatLog.winner} defeated ${combatLog.loser} after ${roundsCompleted} rounds.`,
+      `Opening move: ${combatLog.firstAttacker}; ${locationLine}`,
     ].join('\n');
 
     try {
-      const ai = await this.aiService.getText(prompt, { timeoutMs: 2000 });
+      const ai = await this.aiService.getText(prompt, {
+        timeoutMs: 2000,
+        maxTokens: 120,
+        model: 'gpt-4o-mini',
+      });
       const text = (ai?.output_text || '').trim();
       if (text) return text;
     } catch {
@@ -824,55 +830,80 @@ export class CombatService {
     combatLog: DetailedCombatLog,
     attacker: Combatant,
     defender: Combatant,
-  ): Promise<CombatMessage[]> {
+  ): Promise<{ messages: CombatMessage[]; perf: CombatMessagePerformance }> {
+    const start = Date.now();
+    const perf: CombatMessagePerformance = { totalMs: 0 };
     const messages: CombatMessage[] = [];
     const { x, y } = combatLog.location;
 
-    // Generate personalized messages for attacker (if player)
-    const attackerMessage = await this.buildParticipantMessage(
-      combatLog,
-      attacker,
-      'attacker',
+    const measure = async <T>(
+      fn: () => Promise<T>,
+    ): Promise<{ value: T; duration: number }> => {
+      const startAt = Date.now();
+      const value = await fn();
+      return { value, duration: Date.now() - startAt };
+    };
+
+    const attackerPromise = measure(() =>
+      this.buildParticipantMessage(combatLog, attacker, 'attacker'),
     );
+
+    const defenderEligible =
+      defender.type === 'player' &&
+      !!defender.slackId &&
+      defender.slackId !== attacker.slackId;
+
+    const defenderPromise = defenderEligible
+      ? measure(() =>
+          this.buildParticipantMessage(combatLog, defender, 'defender'),
+        )
+      : undefined;
+
+    const observerLookupPromise = measure(() =>
+      this.playerService.getPlayersAtLocation(x, y, {
+        excludePlayerId: attacker.type === 'player' ? attacker.id : undefined,
+      }),
+    );
+
+    const observerNarrativePromise = measure(() =>
+      this.generateCombatNarrative(combatLog, {}),
+    );
+
+    const observerSummaryPromise = measure(() =>
+      this.generateEntertainingSummary(combatLog, {}),
+    );
+
+    const attackerResult = await attackerPromise;
+    const attackerMessage = attackerResult.value;
     if (attackerMessage) {
+      perf.attackerMessageMs = attackerResult.duration;
       messages.push(attackerMessage);
     }
 
-    // Generate personalized messages for defender (if player and different from attacker)
-    if (
-      defender.type === 'player' &&
-      defender.slackId &&
-      defender.slackId !== attacker.slackId
-    ) {
-      const defenderMessage = await this.buildParticipantMessage(
-        combatLog,
-        defender,
-        'defender',
-      );
-      if (defenderMessage) {
-        messages.push(defenderMessage);
-      }
+    const defenderResult = defenderPromise ? await defenderPromise : undefined;
+    const defenderMessage = defenderResult?.value;
+    if (defenderMessage) {
+      perf.defenderMessageMs = defenderResult.duration;
+      messages.push(defenderMessage);
     }
 
-    // Get observers at the same location
-    const observers = await this.playerService.getPlayersAtLocation(x, y, {
-      excludePlayerId: attacker.type === 'player' ? attacker.id : undefined,
-    });
+    const observersResult = await observerLookupPromise;
+    perf.observerLookupMs = observersResult.duration;
+    const observers = observersResult.value;
 
-    // Generate third-person narrative for observers
-    const observerMessage = await this.generateCombatNarrative(combatLog, {});
-    const observerSummary = await this.generateEntertainingSummary(
-      combatLog,
-      {},
-    );
+    const observerNarrativeResult = await observerNarrativePromise;
+    perf.observerNarrativeMs = observerNarrativeResult.duration;
+    const observerMessage = observerNarrativeResult.value;
+
+    const observerSummaryResult = await observerSummaryPromise;
+    perf.observerSummaryMs = observerSummaryResult.duration;
+    const observerSummary = observerSummaryResult.value;
 
     for (const observer of observers) {
-      // Skip if observer is the defender (already has personalized message)
       if (defender.type === 'player' && observer.id === defender.id) {
         continue;
       }
 
-      // Notify Slack observers using their normalized client identity
       if (observer.clientType === 'slack' && observer.clientId) {
         const slackId = observer.clientId;
         messages.push({
@@ -887,10 +918,12 @@ export class CombatService {
       }
     }
 
+    perf.totalMs = Date.now() - start;
+
     this.logger.debug(
       `Generated ${messages.length} combat messages (${messages.filter((m) => m.role === 'observer').length} observers)`,
     );
-    return messages;
+    return { messages, perf };
   }
 
   /**
@@ -906,88 +939,162 @@ export class CombatService {
     this.logger.log(
       `⚔️ Combat initiated: ${attackerType} ${attackerId} attacking ${defenderType} ${defenderId}`,
     );
-
-    // Load combatants
-    const attacker =
-      attackerType === 'player'
-        ? await this.playerToCombatant(attackerId as string)
-        : await this.monsterToCombatant(attackerId as number);
-
-    const defender =
-      defenderType === 'player'
-        ? await this.playerToCombatant(defenderId as string)
-        : await this.monsterToCombatant(defenderId as number);
-
-    this.logger.debug(
-      `Combatants loaded: ${attacker.name} (${attacker.hp} HP) vs ${defender.name} (${defender.hp} HP)`,
-    );
-
-    // Validate combatants are alive
-    if (!attacker.isAlive || !defender.isAlive) {
-      this.logger.warn(
-        `❌ Combat blocked: Attacker alive=${attacker.isAlive}, Defender alive=${defender.isAlive}`,
-      );
-      throw new Error('One or both combatants are dead');
-    }
-
-    // Check location unless overridden
-    if (!options.ignoreLocation) {
-      if (attacker.x !== defender.x || attacker.y !== defender.y) {
-        this.logger.warn(
-          `❌ Combat blocked: Location mismatch - Attacker at (${attacker.x},${attacker.y}), Defender at (${defender.x},${defender.y})`,
-        );
-        throw new Error('Target is not at your location');
-      }
-    }
-
-    this.logger.debug(`✅ Pre-combat checks passed, starting combat...`);
-    const combatLog = await this.runCombat(attacker, defender);
-    await this.applyCombatResults(combatLog, attacker, defender);
-
-    // Generate messages for all participants and observers
-    const messages = await this.generateCombatMessages(
-      combatLog,
-      attacker,
-      defender,
-    );
-
-    // Publish combat notifications to clients via Redis
-    const winner = attacker.name === combatLog.winner ? attacker : defender;
-    const loser = attacker.name === combatLog.loser ? attacker : defender;
-
-    await this.eventBridge.publishCombatNotifications(
-      {
-        eventType: 'combat:end',
-        winner: { type: winner.type, id: winner.id },
-        loser: { type: loser.type, id: loser.id },
-        xpGained: combatLog.xpAwarded,
-        goldGained: combatLog.goldAwarded,
-        timestamp: new Date(),
-      },
-      messages,
-    );
-
-    const totalDamage = combatLog.rounds
-      .filter((round) => round.attackerName === attacker.name)
-      .reduce((total, round) => total + round.damage, 0);
-
-    const result: CombatResult = {
-      success: true,
-      winnerName: combatLog.winner,
-      loserName: combatLog.loser,
-      totalDamageDealt: totalDamage,
-      roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
-      xpGained: combatLog.winner === attacker.name ? combatLog.xpAwarded : 0,
-      goldGained:
-        combatLog.winner === attacker.name ? combatLog.goldAwarded : 0,
-      message: messages[0]?.message || '',
-      playerMessages: messages,
+    const timingStart = Date.now();
+    const perf: CombatPerformanceBreakdown = {
+      totalMs: 0,
+      loadCombatantsMs: 0,
+      validationMs: 0,
+      runCombatMs: 0,
+      applyResultsMs: 0,
+      messagePrepMs: 0,
+      notificationMs: 0,
     };
 
-    this.logger.log(
-      `✅ Combat completed: ${attacker.name} vs ${defender.name} - Winner: ${result.winnerName}`,
-    );
-    return result;
+    let attacker!: Combatant;
+    let defender!: Combatant;
+    let combatLog: DetailedCombatLog | undefined;
+    let messagePerf: CombatMessagePerformance | undefined;
+    let messages: CombatMessage[] = [];
+
+    try {
+      const loadStart = Date.now();
+      attacker =
+        attackerType === 'player'
+          ? await this.playerToCombatant(attackerId as string)
+          : await this.monsterToCombatant(attackerId as number);
+      defender =
+        defenderType === 'player'
+          ? await this.playerToCombatant(defenderId as string)
+          : await this.monsterToCombatant(defenderId as number);
+      perf.loadCombatantsMs = Date.now() - loadStart;
+
+      this.logger.debug(
+        `Combatants loaded: ${attacker.name} (${attacker.hp} HP) vs ${defender.name} (${defender.hp} HP)`,
+      );
+
+      const validationStart = Date.now();
+      if (!attacker.isAlive || !defender.isAlive) {
+        this.logger.warn(
+          `❌ Combat blocked: Attacker alive=${attacker.isAlive}, Defender alive=${defender.isAlive}`,
+        );
+        throw new Error('One or both combatants are dead');
+      }
+
+      if (!options.ignoreLocation) {
+        if (attacker.x !== defender.x || attacker.y !== defender.y) {
+          this.logger.warn(
+            `❌ Combat blocked: Location mismatch - Attacker at (${attacker.x},${attacker.y}), Defender at (${defender.x},${defender.y})`,
+          );
+          throw new Error('Target is not at your location');
+        }
+      }
+      perf.validationMs = Date.now() - validationStart;
+
+      this.logger.debug(`✅ Pre-combat checks passed, starting combat...`);
+
+      const combatStart = Date.now();
+      combatLog = await this.runCombat(attacker, defender);
+      perf.runCombatMs = Date.now() - combatStart;
+
+      const applyStart = Date.now();
+      await this.applyCombatResults(combatLog, attacker, defender);
+      perf.applyResultsMs = Date.now() - applyStart;
+
+      const { messages: generatedMessages, perf: generatedPerf } =
+        await this.generateCombatMessages(combatLog, attacker, defender);
+      messages = generatedMessages;
+      messagePerf = generatedPerf;
+      perf.messagePrepMs = generatedPerf.totalMs;
+
+      const winner = attacker.name === combatLog.winner ? attacker : defender;
+      const loser = attacker.name === combatLog.loser ? attacker : defender;
+
+      const notificationStart = Date.now();
+      await this.eventBridge.publishCombatNotifications(
+        {
+          eventType: 'combat:end',
+          winner: { type: winner.type, id: winner.id },
+          loser: { type: loser.type, id: loser.id },
+          xpGained: combatLog.xpAwarded,
+          goldGained: combatLog.goldAwarded,
+          timestamp: new Date(),
+        },
+        messages,
+      );
+      perf.notificationMs = Date.now() - notificationStart;
+
+      perf.totalMs = Date.now() - timingStart;
+
+      const totalDamage = combatLog.rounds
+        .filter((round) => round.attackerName === attacker.name)
+        .reduce((total, round) => total + round.damage, 0);
+
+      const breakdown: CombatPerformanceBreakdown = {
+        ...perf,
+        ...(messagePerf ? { messageDetails: messagePerf } : {}),
+      };
+
+      const result: CombatResult = {
+        success: true,
+        winnerName: combatLog.winner,
+        loserName: combatLog.loser,
+        totalDamageDealt: totalDamage,
+        roundsCompleted: Math.ceil(combatLog.rounds.length / 2),
+        xpGained: combatLog.winner === attacker.name ? combatLog.xpAwarded : 0,
+        goldGained:
+          combatLog.winner === attacker.name ? combatLog.goldAwarded : 0,
+        message: messages[0]?.message || '',
+        playerMessages: messages,
+        perfBreakdown: breakdown,
+      };
+
+      this.logger.log(
+        `✅ Combat completed: ${attacker.name} vs ${defender.name} - Winner: ${result.winnerName}`,
+      );
+      this.logger.log(
+        JSON.stringify({
+          event: 'combat.perf',
+          success: true,
+          attackerType,
+          attackerId,
+          defenderType,
+          defenderId,
+          combatId: combatLog.combatId,
+          totalMs: breakdown.totalMs,
+          loadCombatantsMs: breakdown.loadCombatantsMs,
+          validationMs: breakdown.validationMs,
+          runCombatMs: breakdown.runCombatMs,
+          applyResultsMs: breakdown.applyResultsMs,
+          messagePrepMs: breakdown.messagePrepMs,
+          notificationMs: breakdown.notificationMs,
+          messageDetails: breakdown.messageDetails,
+        }),
+      );
+
+      return result;
+    } catch (error) {
+      perf.totalMs = Date.now() - timingStart;
+      this.logger.log(
+        JSON.stringify({
+          event: 'combat.perf',
+          success: false,
+          attackerType,
+          attackerId,
+          defenderType,
+          defenderId,
+          combatId: combatLog?.combatId,
+          totalMs: perf.totalMs,
+          loadCombatantsMs: perf.loadCombatantsMs,
+          validationMs: perf.validationMs,
+          runCombatMs: perf.runCombatMs,
+          applyResultsMs: perf.applyResultsMs,
+          messagePrepMs: perf.messagePrepMs,
+          notificationMs: perf.notificationMs,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+      throw error;
+    }
   }
 
   /**

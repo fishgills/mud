@@ -118,10 +118,40 @@ export interface CombatResult {
     message: string;
     role: string;
   }>;
+  perfBreakdown?: CombatPerformanceBreakdown;
+}
+
+export interface AttackPerformanceStats {
+  totalMs: number;
+  preCombatMs: number;
+  combatMs: number;
+  targetResolutionMs?: number;
+  combatBreakdown?: CombatPerformanceBreakdown;
+}
+
+export interface CombatMessagePerformance {
+  totalMs: number;
+  attackerMessageMs?: number;
+  defenderMessageMs?: number;
+  observerNarrativeMs?: number;
+  observerSummaryMs?: number;
+  observerLookupMs?: number;
+}
+
+export interface CombatPerformanceBreakdown {
+  totalMs: number;
+  loadCombatantsMs: number;
+  validationMs: number;
+  runCombatMs: number;
+  applyResultsMs: number;
+  messagePrepMs: number;
+  notificationMs: number;
+  messageDetails?: CombatMessagePerformance;
 }
 
 export interface CombatResponse extends SuccessResponse {
   data?: CombatResult;
+  perf?: AttackPerformanceStats;
 }
 
 export interface SniffData {

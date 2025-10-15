@@ -4,6 +4,7 @@ export interface AiTextOptions {
   timeoutMs?: number;
   cacheKey?: string;
   maxTokens?: number;
+  model?: string;
 }
 
 interface CachedEntry {

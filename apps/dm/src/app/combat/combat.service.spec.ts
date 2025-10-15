@@ -883,7 +883,7 @@ describe('CombatService', () => {
       .mockResolvedValueOnce('Defender summary')
       .mockResolvedValueOnce('Observer summary');
 
-    const messages = await internals.generateCombatMessages(
+    const { messages } = await internals.generateCombatMessages(
       combatLog,
       attackerCombatant,
       defenderCombatant,

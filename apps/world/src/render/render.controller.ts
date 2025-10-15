@@ -1,12 +1,4 @@
-import {
-  BadRequestException,
-  Controller,
-  Delete,
-  Get,
-  Logger,
-  Query,
-  Res,
-} from '@nestjs/common';
+import { Controller, Delete, Get, Logger, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { RenderService } from './render.service';
 import { CacheService } from '../shared/cache.service';
@@ -24,7 +16,7 @@ export class RenderController {
     if (param === undefined) return 0;
     const n = Number.parseInt(param, 10);
     if (Number.isNaN(n)) {
-      throw new BadRequestException('Center coordinates must be integers');
+      return 0;
     }
     return n;
   }
@@ -118,9 +110,7 @@ export class RenderController {
     for (let yVal = minY; yVal < maxY; yVal++) {
       const row: MapTileDto[] = [];
       for (let xVal = minX; xVal < maxX; xVal++) {
-        const tileInfo = tileData.find(
-          (t) => t.x === xVal && t.y === yVal,
-        );
+        const tileInfo = tileData.find((t) => t.x === xVal && t.y === yVal);
         row.push({
           x: xVal,
           y: yVal,
