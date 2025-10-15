@@ -1,0 +1,103 @@
+openapi: 3.0.3
+info:
+  title: DM Equipment API
+  version: 1.0.0
+paths:
+  /players/{playerId}/equipment:
+    get:
+      summary: View equipment and total defense
+      parameters:
+        - in: path
+          name: playerId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Equipment summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipmentView'
+  /players/{playerId}/equipment/equip:
+    post:
+      summary: Equip an item into a slot (swap if occupied)
+      parameters:
+        - in: path
+          name: playerId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipRequest'
+      responses:
+        '200':
+          description: Updated equipment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipmentView'
+        '400': { description: Invalid slot or item }
+        '404': { description: Item not found in inventory }
+  /players/{playerId}/equipment/unequip:
+    post:
+      summary: Unequip item from a slot
+      parameters:
+        - in: path
+          name: playerId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnequipRequest'
+      responses:
+        '200':
+          description: Updated equipment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipmentView'
+        '400': { description: Slot empty or invalid }
+components:
+  schemas:
+    SlotType:
+      type: string
+      enum: [helmet, torso, legs, weapon]
+    ItemRef:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        armorValue: { type: integer, minimum: 0 }
+    EquipmentView:
+      type: object
+      properties:
+        playerId: { type: string }
+        baseDefense: { type: integer, minimum: 0 }
+        equipped:
+          type: object
+          properties:
+            helmet: { $ref: '#/components/schemas/ItemRef' }
+            torso: { $ref: '#/components/schemas/ItemRef' }
+            legs: { $ref: '#/components/schemas/ItemRef' }
+            weapon: { $ref: '#/components/schemas/ItemRef' }
+        totalDefense: { type: integer, minimum: 0 }
+    EquipRequest:
+      type: object
+      required: [slot, itemId]
+      properties:
+        slot: { $ref: '#/components/schemas/SlotType' }
+        itemId: { type: string }
+    UnequipRequest:
+      type: object
+      required: [slot]
+      properties:
+        slot: { $ref: '#/components/schemas/SlotType' }
