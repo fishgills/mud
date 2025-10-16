@@ -6,12 +6,7 @@ jest.mock('./dm-client', () => {
   return { dmClient };
 });
 
-import type {
-  ActionsBlock,
-  Button,
-  KnownBlock,
-  SectionBlock,
-} from '@slack/types';
+import type { ActionsBlock, KnownBlock, SectionBlock } from '@slack/types';
 import { registerActions } from './actions';
 import {
   COMMANDS,
