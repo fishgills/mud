@@ -115,6 +115,9 @@ resource "google_cloud_run_v2_service" "services" {
           SLACK_BOT_TOKEN      = google_secret_manager_secret.slack_bot_token.name
           SLACK_SIGNING_SECRET = google_secret_manager_secret.slack_signing_secret.name
           SLACK_APP_TOKEN      = google_secret_manager_secret.slack_app_token.name
+          SLACK_CLIENT_ID      = google_secret_manager_secret.slack_client_id.name
+          SLACK_CLIENT_SECRET  = google_secret_manager_secret.slack_client_secret.name
+          SLACK_STATE_SECRET   = google_secret_manager_secret.slack_state_secret.name
         } : {}
         content {
           name = env.key

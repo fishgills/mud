@@ -65,3 +65,7 @@ services = {
     }
   }
 }
+
+slack_client_id     = null
+slack_client_secret = null
+slack_state_secret  = null
