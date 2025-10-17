@@ -55,6 +55,30 @@ resource "google_secret_manager_secret" "slack_app_token" {
   depends_on = [google_project_service.apis]
 }
 
+resource "google_secret_manager_secret" "slack_client_id" {
+  secret_id = "slack-client-id"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret" "slack_client_secret" {
+  secret_id = "slack-client-secret"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret" "slack_state_secret" {
+  secret_id = "slack-state-secret"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
 resource "google_secret_manager_secret_version" "slack_bot_token" {
   count       = var.slack_bot_token == null ? 0 : 1
   secret      = google_secret_manager_secret.slack_bot_token.id
@@ -71,6 +95,24 @@ resource "google_secret_manager_secret_version" "slack_app_token" {
   count       = var.slack_app_token == null ? 0 : 1
   secret      = google_secret_manager_secret.slack_app_token.id
   secret_data = var.slack_app_token
+}
+
+resource "google_secret_manager_secret_version" "slack_client_id" {
+  count       = var.slack_client_id == null ? 0 : 1
+  secret      = google_secret_manager_secret.slack_client_id.id
+  secret_data = var.slack_client_id
+}
+
+resource "google_secret_manager_secret_version" "slack_client_secret" {
+  count       = var.slack_client_secret == null ? 0 : 1
+  secret      = google_secret_manager_secret.slack_client_secret.id
+  secret_data = var.slack_client_secret
+}
+
+resource "google_secret_manager_secret_version" "slack_state_secret" {
+  count       = var.slack_state_secret == null ? 0 : 1
+  secret      = google_secret_manager_secret.slack_state_secret.id
+  secret_data = var.slack_state_secret
 }
 
 resource "google_secret_manager_secret_iam_binding" "slack_bot_token_accessor" {
@@ -91,6 +133,30 @@ resource "google_secret_manager_secret_iam_binding" "slack_signing_secret_access
 
 resource "google_secret_manager_secret_iam_binding" "slack_app_token_accessor" {
   secret_id = google_secret_manager_secret.slack_app_token.id
+  role      = "roles/secretmanager.secretAccessor"
+  members = [
+    "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  ]
+}
+
+resource "google_secret_manager_secret_iam_binding" "slack_client_id_accessor" {
+  secret_id = google_secret_manager_secret.slack_client_id.id
+  role      = "roles/secretmanager.secretAccessor"
+  members = [
+    "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  ]
+}
+
+resource "google_secret_manager_secret_iam_binding" "slack_client_secret_accessor" {
+  secret_id = google_secret_manager_secret.slack_client_secret.id
+  role      = "roles/secretmanager.secretAccessor"
+  members = [
+    "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  ]
+}
+
+resource "google_secret_manager_secret_iam_binding" "slack_state_secret_accessor" {
+  secret_id = google_secret_manager_secret.slack_state_secret.id
   role      = "roles/secretmanager.secretAccessor"
   members = [
     "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"

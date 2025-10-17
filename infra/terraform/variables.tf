@@ -142,6 +142,27 @@ variable "slack_app_token" {
   sensitive   = true
 }
 
+variable "slack_client_id" {
+  description = "Slack OAuth Client ID"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "slack_client_secret" {
+  description = "Slack OAuth Client Secret"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "slack_state_secret" {
+  description = "Slack OAuth state secret"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
 variable "github_repository" {
   description = "GitHub repository (OWNER/REPO) that is allowed to access Workload Identity Federation. Leave null to skip creation."
   type        = string
