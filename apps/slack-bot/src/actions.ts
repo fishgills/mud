@@ -16,10 +16,13 @@ import {
   STAT_ACTIONS,
   COMBAT_ACTIONS,
 } from './commands';
-import { dmSdk } from './gql-client';
-import { PlayerAttribute, TargetType } from './generated/dm-graphql';
+import { dmClient } from './dm-client';
+import { PlayerAttribute, TargetType } from './dm-types';
 import { getUserFriendlyErrorMessage } from './handlers/errorUtils';
-import { SELF_ATTACK_ERROR } from './handlers/attack';
+import {
+  MONSTER_SELECTION_BLOCK_ID,
+  SELF_ATTACK_ERROR,
+} from './handlers/attack';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { buildPlayerStatsMessage } from './handlers/stats/format';
 import type { HandlerContext, SayMessage } from './handlers/types';
@@ -113,6 +116,40 @@ function extractSelectedTarget(
   return null;
 }
 
+function buildBlocksWithAttackInProgress(
+  blocks: KnownBlock[] | undefined,
+  progressText: string,
+): KnownBlock[] | null {
+  if (!blocks) {
+    return null;
+  }
+
+  let changed = false;
+  const updatedBlocks: KnownBlock[] = [];
+
+  for (const block of blocks) {
+    if (
+      block.type === 'actions' &&
+      block.block_id === MONSTER_SELECTION_BLOCK_ID
+    ) {
+      changed = true;
+      updatedBlocks.push({
+        type: 'section',
+        block_id: MONSTER_SELECTION_BLOCK_ID,
+        text: {
+          type: 'mrkdwn',
+          text: progressText,
+        },
+      });
+      continue;
+    }
+
+    updatedBlocks.push(block);
+  }
+
+  return changed ? updatedBlocks : null;
+}
+
 // Helper to run an existing text command handler from a button click
 async function dispatchCommandViaDM(
   client: WebClient,
@@ -139,22 +176,24 @@ const helpDetailMessages = {
     blocks: [
       {
         type: 'header',
-        text: { type: 'plain_text', text: 'Leveling & Progression', emoji: true },
-      },
-      {
-        type: 'section',
         text: {
-          type: 'mrkdwn',
-          text:
-            '*Earn XP*\n• Defeat monsters, clear quests, and discover new rooms to gain experience.\n• Track your current XP and next level in `stats`.',
+          type: 'plain_text',
+          text: 'Leveling & Progression',
+          emoji: true,
         },
       },
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text:
-            '*Leveling Up*\n• Each level awards attribute points to spend on Strength, Agility, or Vitality from the `stats` menu.\n• Higher levels unlock new gear tiers and ability slots at key milestones.',
+          text: '*Earn XP*\n• Defeat monsters, clear quests, and discover new rooms to gain experience.\n• Track your current XP and next level in `stats`.',
+        },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*Leveling Up*\n• Each level awards attribute points to spend on Strength, Agility, or Vitality from the `stats` menu.\n• Higher levels unlock new gear tiers and ability slots at key milestones.',
         },
       },
       {
@@ -179,16 +218,14 @@ const helpDetailMessages = {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text:
-            '*Turn Order*\n• Battles are turn-based: the highest Agility acts first each round.\n• Moving before a fight sets your range and who you can reach.',
+          text: '*Turn Order*\n• Battles are turn-based: the highest Agility acts first each round.\n• Moving before a fight sets your range and who you can reach.',
         },
       },
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text:
-            '*Actions*\n• Use `attack` to strike with your weapon, or trigger abilities that appear in combat prompts.\n• Watch the combat log for status effects, cooldowns, and enemy intents.',
+          text: '*Actions*\n• Use `attack` to strike with your weapon, or trigger abilities that appear in combat prompts.\n• Watch the combat log for status effects, cooldowns, and enemy intents.',
         },
       },
       {
@@ -213,16 +250,14 @@ const helpDetailMessages = {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text:
-            '*Unlocking Abilities*\n• New abilities unlock automatically at level milestones.\n• Spend ability points from the `stats` view to slot or upgrade them.',
+          text: '*Unlocking Abilities*\n• New abilities unlock automatically at level milestones.\n• Spend ability points from the `stats` view to slot or upgrade them.',
         },
       },
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text:
-            '*Using Abilities*\n• Abilities appear as options during combat alongside `attack`.\n• Many consume stamina or have cooldowns—plan combos with your party.',
+          text: '*Using Abilities*\n• Abilities appear as options during combat alongside `attack`.\n• Many consume stamina or have cooldowns—plan combos with your party.',
         },
       },
       {
@@ -440,7 +475,14 @@ export function registerActions(app: App) {
         (typeof body.container?.channel_id === 'string'
           ? body.container.channel_id
           : undefined);
-
+      const messageTs =
+        typeof body.message?.ts === 'string'
+          ? body.message.ts
+          : typeof body.container?.message_ts === 'string'
+            ? body.container.message_ts
+            : undefined;
+      const messageBlocks =
+        (body.message?.blocks as KnownBlock[] | undefined) ?? undefined;
       if (!userId || !channelId) {
         return;
       }
@@ -457,6 +499,27 @@ export function registerActions(app: App) {
         return;
       }
 
+      if (channelId && messageTs) {
+        const targetName = selected.name || 'target';
+        const attackProgressText = `Attacking ${targetName}...`;
+        const updatedBlocks = buildBlocksWithAttackInProgress(
+          messageBlocks,
+          attackProgressText,
+        );
+        if (updatedBlocks) {
+          try {
+            await client.chat.update({
+              channel: channelId,
+              ts: messageTs,
+              text: attackProgressText,
+              blocks: updatedBlocks,
+            });
+          } catch (err) {
+            console.warn('Failed to update attack button state', err);
+          }
+        }
+      }
+
       try {
         const isMonster = selected.kind === 'monster';
         if (!isMonster && selected.slackId === userId) {
@@ -466,7 +529,7 @@ export function registerActions(app: App) {
           });
           return;
         }
-        const attackResult = await dmSdk.Attack({
+        const attackResult = await dmClient.attack({
           slackId: toClientId(userId),
           input: isMonster
             ? {
@@ -479,15 +542,15 @@ export function registerActions(app: App) {
               },
         });
 
-        if (!attackResult.attack.success) {
+        if (!attackResult.success) {
           await client.chat.postMessage({
             channel: channelId,
-            text: `Attack failed: ${attackResult.attack.message}`,
+            text: `Attack failed: ${attackResult.message}`,
           });
           return;
         }
 
-        const combat = attackResult.attack.data;
+        const combat = attackResult.data;
         if (!combat) {
           await client.chat.postMessage({
             channel: channelId,
@@ -540,14 +603,13 @@ export function registerActions(app: App) {
         }
 
         try {
-          const result = await dmSdk.SpendSkillPoint({
+          const result = await dmClient.spendSkillPoint({
             slackId: toClientId(userId),
             attribute,
           });
-          if (!result.spendSkillPoint.success || !result.spendSkillPoint.data) {
+          if (!result.success || !result.data) {
             const errorText =
-              result.spendSkillPoint.message ??
-              'Unable to spend a skill point right now.';
+              result.message ?? 'Unable to spend a skill point right now.';
             if (respond) {
               await respond({
                 text: errorText,
@@ -559,12 +621,9 @@ export function registerActions(app: App) {
           }
 
           if (channelId && messageTs) {
-            const statsMessage = buildPlayerStatsMessage(
-              result.spendSkillPoint.data,
-              {
-                isSelf: true,
-              },
-            );
+            const statsMessage = buildPlayerStatsMessage(result.data, {
+              isSelf: true,
+            });
             await client.chat.update({
               channel: channelId,
               ts: messageTs,

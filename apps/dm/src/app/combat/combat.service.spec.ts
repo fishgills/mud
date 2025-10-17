@@ -3,7 +3,7 @@ import type { PlayerEntity } from '@mud/engine';
 import type { EventBridgeService } from '../../shared/event-bridge.service';
 import type { PlayerService } from '../player/player.service';
 import type { AiService } from '../../openai/ai.service';
-import type { CombatRound, DetailedCombatLog } from '../graphql';
+import type { CombatRound, DetailedCombatLog } from '../api';
 
 type MockPrismaClient = {
   combatLog: {
@@ -883,7 +883,7 @@ describe('CombatService', () => {
       .mockResolvedValueOnce('Defender summary')
       .mockResolvedValueOnce('Observer summary');
 
-    const messages = await internals.generateCombatMessages(
+    const { messages } = await internals.generateCombatMessages(
       combatLog,
       attackerCombatant,
       defenderCombatant,

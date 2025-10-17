@@ -1,30 +1,27 @@
-import { registerHandler } from './handlerRegistry';
 import { COMMANDS } from '../commands';
-import { dmSdk } from '../gql-client';
 import { HandlerContext } from './types';
-import { getUserFriendlyErrorMessage } from './errorUtils';
-import { toClientId } from '../utils/clientId';
+import { PlayerCommandHandler } from './base';
 
 export const completeHandlerHelp = `Complete your character creation with "complete". Example: Send "complete" when you are done creating your character.`;
 
-export const completeHandler = async ({ userId, say }: HandlerContext) => {
-  try {
-    const result = await dmSdk.CompletePlayer({ slackId: toClientId(userId) });
-    if (result.updatePlayerStats.success) {
+export class CompleteHandler extends PlayerCommandHandler {
+  constructor() {
+    super(COMMANDS.COMPLETE, 'Failed to complete character');
+  }
+
+  protected async perform({ userId, say }: HandlerContext): Promise<void> {
+    const result = await this.dm.completePlayer({
+      slackId: this.toClientId(userId),
+    });
+    if (result.success) {
       await say({
         text: `✅ Character creation complete! You can now move and attack.`,
       });
-    } else {
-      await say({ text: `Error: ${result.updatePlayerStats.message}` });
+      return;
     }
-  } catch (err: unknown) {
-    const errorMessage = getUserFriendlyErrorMessage(
-      err,
-      'Failed to complete character',
-    );
-    await say({ text: errorMessage });
-  }
-};
 
-// Register handler for text command only
-registerHandler(COMMANDS.COMPLETE, completeHandler);
+    await say({ text: `Error: ${result.message}` });
+  }
+}
+
+export const completeHandler = new CompleteHandler();

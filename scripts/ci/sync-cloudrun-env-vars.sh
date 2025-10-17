@@ -191,38 +191,7 @@ ensure_service_env() {
   add_update "$service_name" "${key}=${desired}"
 }
 
-select_world_base_value() {
-  local service_name="$1"
-  local world_url="$2"
-  local world_alias="$3"
 
-  mapfile -t values < <(env_values "$service_name" "WORLD_BASE_URL")
-
-  local val
-  for val in "${values[@]}"; do
-    if [ -n "$val" ] && [[ "$val" != https://mud-world-* ]]; then
-      printf '%s' "$val"
-      return
-    fi
-  done
-
-  if [ ${#values[@]} -gt 0 ]; then
-    printf '%s' "${values[0]}"
-    return
-  fi
-
-  if [ -n "$world_url" ]; then
-    printf '%s' "$(join_path "$world_url" 'world')"
-    return
-  fi
-
-  if [ -n "$world_alias" ]; then
-    printf '%s' "$(join_path "$world_alias" 'world')"
-    return
-  fi
-
-  printf ''
-}
 
 apply_updates() {
   local service_name
@@ -286,35 +255,12 @@ if [ -n "$world_url" ]; then
 fi
 
 if [ -n "$dm_url" ]; then
-  ensure_service_env "$SERVICE_TICK" "DM_GRAPHQL_URL" "$(join_path "$dm_url" 'graphql')" "$(join_path "$dm_alias" 'graphql')"
-  ensure_service_env "$SERVICE_SLACK" "DM_GQL_ENDPOINT" "$(join_path "$dm_url" 'graphql')" "$(join_path "$dm_alias" 'graphql')"
+  ensure_service_env "$SERVICE_TICK" "DM_API_BASE_URL" "${dm_url%/}" "${dm_alias%/}"
+  ensure_service_env "$SERVICE_SLACK" "DM_API_BASE_URL" "${dm_url%/}" "${dm_alias%/}"
 fi
 
 if [ -n "$world_url" ]; then
-  ensure_service_env "$SERVICE_SLACK" "WORLD_GQL_ENDPOINT" "$(join_path "$world_url" 'graphql')" "$(join_path "$world_alias" 'graphql')"
-fi
-
-desired_world_base="$(select_world_base_value "$SERVICE_SLACK" "$world_url" "$world_alias")"
-
-if [ -n "$desired_world_base" ]; then
-  local_world_base_url=""
-  local_world_alias_url=""
-  if [ -n "$world_url" ]; then
-    local_world_base_url="$(join_path "$world_url" 'world')"
-  fi
-  if [ -n "$world_alias" ]; then
-    local_world_alias_url="$(join_path "$world_alias" 'world')"
-  fi
-
-  world_base_acceptables=()
-  if [ -n "$local_world_base_url" ] && [ "$local_world_base_url" != "$desired_world_base" ]; then
-    world_base_acceptables+=("$local_world_base_url")
-  fi
-  if [ -n "$local_world_alias_url" ] && [ "$local_world_alias_url" != "$desired_world_base" ]; then
-    world_base_acceptables+=("$local_world_alias_url")
-  fi
-
-  ensure_service_env "$SERVICE_SLACK" "WORLD_BASE_URL" "$desired_world_base" "${world_base_acceptables[@]}"
+  ensure_service_env "$SERVICE_SLACK" "WORLD_API_BASE_URL" "${world_url%/}" "${world_alias%/}"
 fi
 
 apply_updates "$SERVICE_DM" "$SERVICE_TICK" "$SERVICE_SLACK"

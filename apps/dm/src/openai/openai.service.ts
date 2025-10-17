@@ -32,7 +32,7 @@ export class OpenaiService extends BaseAiService {
     options?: AiTextOptions,
   ): Promise<string> {
     const response = await this.openai.responses.create({
-      model: 'gpt-4o',
+      model: options?.model ?? 'gpt-4o',
       instructions: systemMessage,
       input: prompt,
       max_output_tokens: options?.maxTokens || 150,

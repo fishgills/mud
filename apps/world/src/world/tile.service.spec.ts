@@ -11,7 +11,10 @@ type WorldDatabaseMock = Pick<
 >;
 type WorldUtilsMock = Pick<
   WorldUtilsService,
-  'calculateDistance' | 'calculateDirection' | 'roundToDecimalPlaces'
+  | 'calculateDistance'
+  | 'calculateDirection'
+  | 'roundToDecimalPlaces'
+  | 'getChunkCoordinates'
 >;
 type ChunkGeneratorMock = {
   generateTileAt: (
@@ -88,6 +91,13 @@ describe('TileService', () => {
         ReturnType<WorldUtilsService['roundToDecimalPlaces']>,
         Parameters<WorldUtilsService['roundToDecimalPlaces']>
       >((val) => Math.round(val * 10) / 10),
+      getChunkCoordinates: jest.fn<
+        ReturnType<WorldUtilsService['getChunkCoordinates']>,
+        Parameters<WorldUtilsService['getChunkCoordinates']>
+      >((x, y) => ({
+        chunkX: Math.floor(x / WorldUtilsService.CHUNK_SIZE),
+        chunkY: Math.floor(y / WorldUtilsService.CHUNK_SIZE),
+      })),
     };
 
     chunkGenerator = {
@@ -231,10 +241,13 @@ describe('TileService', () => {
       ];
       let callCount = 0;
 
-      chunkGenerator.generateTileAt.mockImplementation(() => ({
-        ...mockTile,
-        biomeName: biomes[callCount++ % biomes.length],
-      } as unknown as WorldTile));
+      chunkGenerator.generateTileAt.mockImplementation(
+        () =>
+          ({
+            ...mockTile,
+            biomeName: biomes[callCount++ % biomes.length],
+          }) as unknown as WorldTile,
+      );
 
       const result = await service.findNearbyBiomes(10, 20, 'Forest');
 

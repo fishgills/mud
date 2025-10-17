@@ -6,7 +6,7 @@ loadDotenv();
 export const env = cleanEnv(process.env, {
   OPENAI_API_KEY: str({ devDefault: 'test-openai-key' }),
   DATABASE_URL: str({ devDefault: 'postgresql://localhost:5432/mud' }),
-  WORLD_SERVICE_URL: url({ default: 'http://localhost:3000/api' }),
+  WORLD_SERVICE_URL: url({ default: 'http://localhost:3000/world' }),
   REDIS_URL: url({ devDefault: 'redis://localhost:6379' }),
   COORDINATION_PREFIX: str({ default: 'dm:coord:' }),
   TILE_DESC_LOCK_TTL_MS: num({ default: 15_000 }),

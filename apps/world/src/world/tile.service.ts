@@ -4,33 +4,8 @@ import { WorldUtilsService } from './world-utils.service';
 import { ChunkData } from './types';
 import { ChunkGeneratorService } from './chunk-generator.service';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
-import { WorldTile } from './models';
+import type { WorldTile, TileWithNearbyBiomes } from './dto';
 import { WORLD_CHUNK_SIZE } from '@mud/constants';
-
-export interface TileWithNearbyBiomes extends WorldTile {
-  nearbyBiomes: Array<{
-    biomeName: string;
-    distance: number;
-    direction: string;
-  }>;
-  nearbySettlements: Array<{
-    name: string;
-    type: string;
-    size: string;
-    population: number;
-    x: number;
-    y: number;
-    description: string;
-    distance: number;
-  }>;
-  currentSettlement?: {
-    name: string;
-    type: string;
-    size: string;
-    intensity: number;
-    isCenter: boolean;
-  };
-}
 
 @Injectable()
 export class TileService {
@@ -76,6 +51,21 @@ export class TileService {
   }
 
   reconstructChunkFromTiles(tiles: WorldTile[]): ChunkData {
+    if (tiles.length === 0) {
+      return {
+        chunkX: 0,
+        chunkY: 0,
+        tiles: [],
+        settlements: [],
+        stats: {
+          biomes: {},
+          averageHeight: 0,
+          averageTemperature: 0,
+          averageMoisture: 0,
+        },
+      };
+    }
+
     const biomeCount: Record<string, number> = {};
     let totalHeight = 0;
     let totalTemperature = 0;
@@ -88,7 +78,14 @@ export class TileService {
       totalMoisture += tile.moisture;
     });
 
+    const { chunkX, chunkY } = this.worldUtils.getChunkCoordinates(
+      tiles[0].x,
+      tiles[0].y,
+    );
+
     return {
+      chunkX,
+      chunkY,
       tiles: tiles,
       settlements: [], // Would need to fetch from Settlement table
       stats: {

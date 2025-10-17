@@ -5,14 +5,8 @@ import {
 } from './errorUtils';
 
 describe('handlePlayerNotFoundError', () => {
-  it('detects GraphQL not found errors', () => {
-    const error = {
-      response: {
-        errors: [
-          { message: 'Player not found', extensions: { code: 'NOT_FOUND' } },
-        ],
-      },
-    };
+  it('detects not found errors in message', () => {
+    const error = new Error('Player not found');
 
     expect(handlePlayerNotFoundError(error)).toBe(
       `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`,
@@ -35,23 +29,7 @@ describe('getUserFriendlyErrorMessage', () => {
     );
   });
 
-  it('scrubs sensitive slackId info from GraphQL errors', () => {
-    const error = {
-      response: {
-        errors: [
-          {
-            message: 'Player with slackId U123 not found',
-          },
-        ],
-      },
-    };
-
-    expect(getUserFriendlyErrorMessage(error, defaultMessage)).toBe(
-      `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`,
-    );
-  });
-
-  it('sanitises regular error messages', () => {
+  it('sanitises messages containing slackIds', () => {
     const error = new Error('Player with slackId U123 already exists');
 
     expect(getUserFriendlyErrorMessage(error, defaultMessage)).toBe(
@@ -59,9 +37,9 @@ describe('getUserFriendlyErrorMessage', () => {
     );
   });
 
-  it('returns default message when no better alternative exists', () => {
+  it('falls back to original error message when no better alternative exists', () => {
     expect(
-      getUserFriendlyErrorMessage('unexpected input', defaultMessage),
-    ).toBe(defaultMessage);
+      getUserFriendlyErrorMessage(new Error('unexpected input'), defaultMessage),
+    ).toBe('unexpected input');
   });
 });

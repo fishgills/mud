@@ -12,7 +12,7 @@ export async function sendPngMap(
   pixelsPerTile = 8,
 ): Promise<boolean> {
   try {
-    const url = new URL(env.WORLD_BASE_URL);
+    const url = new URL(env.WORLD_API_BASE_URL);
     url.pathname = `${url.pathname.replace(/\/$/, '')}/render/map.png`;
     url.searchParams.set('x', String(x));
     url.searchParams.set('y', String(y));

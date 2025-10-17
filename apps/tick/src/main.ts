@@ -3,9 +3,8 @@ import '@mud/tracer/register';
 import http from 'http';
 import { authorizedFetch, setAuthLogger } from '@mud/gcp-auth';
 
-// DM GraphQL endpoint for processTick mutation
-const DM_GRAPHQL_URL =
-  process.env.DM_GRAPHQL_URL || 'http://localhost:3000/graphql';
+const DM_API_BASE_URL =
+  process.env.DM_API_BASE_URL || 'http://localhost:3000';
 
 // Tick interval in milliseconds (default: 30 minutes)
 const TICK_INTERVAL_MS = parseInt(process.env.TICK_INTERVAL_MS || '60000', 10);
@@ -22,26 +21,18 @@ setAuthLogger({
   error: (...args: unknown[]) => console.error(String(args[0] ?? '')),
 });
 
-// GraphQL mutation for processing a tick
-const PROCESS_TICK_MUTATION = `mutation {  processTick {    success    message    result {      tick      gameHour      gameDay      monstersSpawned      monstersMoved      combatEvents      weatherUpdated    }   } }`;
-
-// GraphQL query to check for active players
-const HAS_ACTIVE_PLAYERS_QUERY = `query HasActivePlayers($minutesThreshold: Float!) {
-  hasActivePlayers(minutesThreshold: $minutesThreshold)
-}`;
-
 async function hasActivePlayers(): Promise<boolean> {
   try {
-    const res = await authorizedFetch(DM_GRAPHQL_URL, {
-      method: 'POST',
+    const url = new URL(`${DM_API_BASE_URL}/system/active-players`);
+    url.searchParams.set(
+      'minutesThreshold',
+      String(ACTIVITY_THRESHOLD_MINUTES),
+    );
+    const res = await authorizedFetch(url.toString(), {
+      method: 'GET',
       headers: {
-        'content-type': 'application/json',
         accept: 'application/json',
       },
-      body: JSON.stringify({
-        query: HAS_ACTIVE_PLAYERS_QUERY,
-        variables: { minutesThreshold: ACTIVITY_THRESHOLD_MINUTES },
-      }),
     });
     const text = await res.text();
     if (!res.ok) {
@@ -51,9 +42,11 @@ async function hasActivePlayers(): Promise<boolean> {
       return false;
     }
     const payload = JSON.parse(text) as {
-      data?: { hasActivePlayers?: boolean };
+      success?: boolean;
+      active?: boolean;
+      minutesThreshold?: number;
     };
-    return payload.data?.hasActivePlayers ?? false;
+    return payload.active ?? false;
   } catch (err) {
     console.error(
       '[tick] Error checking active players:',
@@ -75,18 +68,19 @@ async function sendProcessTick() {
 
   console.log('[tick] Active players detected, processing tick...');
   try {
-    const res = await authorizedFetch(DM_GRAPHQL_URL, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/json',
+    const res = await authorizedFetch(
+      `${DM_API_BASE_URL}/system/process-tick`,
+      {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+        },
       },
-      body: JSON.stringify({ query: PROCESS_TICK_MUTATION, variables: {} }),
-    });
+    );
     const text = await res.text();
     if (!res.ok) {
       console.error(
-        `[tick] DM GraphQL HTTP ${res.status} ${res.statusText}: ${text.slice(0, 1000)}`,
+        `[tick] DM API HTTP ${res.status} ${res.statusText}: ${text.slice(0, 1000)}`,
       );
       return;
     }
@@ -97,17 +91,12 @@ async function sendProcessTick() {
       console.error('[tick] Failed to parse DM response as JSON:', e);
       return;
     }
-    type ProcessTickPayload = {
-      data?: {
-        processTick?: {
-          success: boolean;
-          message?: string;
-          result?: Record<string, unknown>;
-        };
-      };
+    const result = payload as {
+      success?: boolean;
+      message?: string;
+      result?: Record<string, unknown>;
     };
-    const result = (payload as ProcessTickPayload).data?.processTick;
-    if (result?.success) {
+    if (result.success) {
       console.log(`[tick] DM processTick OK: ${result.message ?? 'success'}`);
       console.log(`[tick] Result: ${JSON.stringify(result.result, null, 2)}`);
     } else {
@@ -117,15 +106,15 @@ async function sendProcessTick() {
     }
   } catch (err) {
     if (err instanceof Error) {
-      console.error('[tick] Error calling DM GraphQL:', err.message);
+      console.error('[tick] Error calling DM processTick:', err.message);
     } else {
-      console.error('[tick] Error calling DM GraphQL:', err);
+      console.error('[tick] Error calling DM processTick:', err);
     }
   }
 }
 
 // Start loop and lightweight HTTP server for Cloud Run health/readiness
-console.log('[tick] service starting — targeting DM at', DM_GRAPHQL_URL);
+console.log('[tick] service starting — targeting DM at', DM_API_BASE_URL);
 console.log(
   `[tick] Tick interval: ${TICK_INTERVAL_MS}ms (${TICK_INTERVAL_MS / 60000} minutes)`,
 );

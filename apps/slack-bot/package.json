@@ -7,7 +7,6 @@
     "serve": "ts-node-dev --respawn src/main.ts",
     "check-types": "tsc --noEmit",
     "test": "jest",
-    "codegen": "graphql-codegen --config codegen.ts",
     "lint": "eslint"
   },
   "devDependencies": {
@@ -18,11 +17,9 @@
     "@mud/gcp-auth": "*",
     "@mud/redis-client": "*",
     "@mud/tracer": "*",
+    "@seratch_/bolt-prisma": "^1.0.5",
     "@slack/bolt": "^4.4.0",
     "dotenv": "^17.2.2",
-    "envalid": "^8.1.0",
-    "graphql": "^16.11.0",
-    "graphql-request": "^7.2.0",
-    "graphql-tag": "^2.12.6"
+    "envalid": "^8.1.0"
   }
 }

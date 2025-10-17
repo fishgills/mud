@@ -1,100 +1,46 @@
 import { lastValueFrom, of } from 'rxjs';
+import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { LoggingInterceptor } from './logging.interceptor';
-import type { ExecutionContext, CallHandler } from '@nestjs/common';
-
-jest.mock('@nestjs/graphql', () => ({
-  GqlExecutionContext: {
-    create: jest.fn(),
-  },
-}));
-
-const { GqlExecutionContext } = jest.requireMock('@nestjs/graphql');
-const createMock = GqlExecutionContext.create as jest.Mock;
 
 describe('LoggingInterceptor', () => {
-  it('logs request and response metadata', async () => {
-    const interceptor = new LoggingInterceptor();
-    const context: Record<string, unknown> = {
-      getContext: () => ({
-        req: { headers: { authorization: 'token', 'user-agent': 'jest' } },
+  const createContext = (headers: Record<string, string | undefined>) =>
+    ({
+      switchToHttp: () => ({
+        getRequest: () => ({
+          method: 'GET',
+          originalUrl: '/test',
+          headers,
+        }),
       }),
-      getInfo: () => ({
-        fieldName: 'testField',
-        operation: { operation: 'query' },
-      }),
-      getArgs: () => ({ foo: 'bar' }),
-    };
-    createMock.mockReturnValue(context);
+      getHandler: () => ({ name: 'handler' }),
+    }) as unknown as ExecutionContext;
 
+  it('logs metadata for successful responses', async () => {
+    const interceptor = new LoggingInterceptor();
+    const ctx = createContext({ authorization: 'token', 'user-agent': 'jest' });
     const callHandler = { handle: jest.fn(() => of({ success: true })) };
 
-    await lastValueFrom(
-      interceptor.intercept({} as ExecutionContext, callHandler as CallHandler),
-    );
-
-    expect(createMock).toHaveBeenCalled();
-    expect(callHandler.handle).toHaveBeenCalled();
-  });
-
-  it('handles missing user-agent header', async () => {
-    const interceptor = new LoggingInterceptor();
-    const context: Record<string, unknown> = {
-      getContext: () => ({ req: { headers: { authorization: 'token' } } }),
-      getInfo: () => ({
-        fieldName: 'testField',
-        operation: { operation: 'mutation' },
-      }),
-      getArgs: () => ({}),
-    };
-    createMock.mockReturnValue(context);
-
-    const callHandler = { handle: jest.fn(() => of({ data: 'result' })) };
-
-    await lastValueFrom(
-      interceptor.intercept({} as ExecutionContext, callHandler as CallHandler),
-    );
+    await lastValueFrom(interceptor.intercept(ctx, callHandler as CallHandler));
 
     expect(callHandler.handle).toHaveBeenCalled();
   });
 
-  it('handles missing authorization header', async () => {
+  it('handles missing headers gracefully', async () => {
     const interceptor = new LoggingInterceptor();
-    const context: Record<string, unknown> = {
-      getContext: () => ({ req: { headers: { 'user-agent': 'test-agent' } } }),
-      getInfo: () => ({
-        fieldName: 'query',
-        operation: { operation: 'query' },
-      }),
-      getArgs: () => ({ id: 123 }),
-    };
-    createMock.mockReturnValue(context);
+    const ctx = createContext({});
+    const callHandler = { handle: jest.fn(() => of({})) };
 
-    const callHandler = { handle: jest.fn(() => of(null)) };
-
-    await lastValueFrom(
-      interceptor.intercept({} as ExecutionContext, callHandler as CallHandler),
-    );
+    await lastValueFrom(interceptor.intercept(ctx, callHandler as CallHandler));
 
     expect(callHandler.handle).toHaveBeenCalled();
   });
 
-  it('handles response without success field', async () => {
+  it('logs when success flag is absent', async () => {
     const interceptor = new LoggingInterceptor();
-    const context: Record<string, unknown> = {
-      getContext: () => ({ req: { headers: {} } }),
-      getInfo: () => ({
-        fieldName: 'getData',
-        operation: { operation: 'query' },
-      }),
-      getArgs: () => ({}),
-    };
-    createMock.mockReturnValue(context);
-
+    const ctx = createContext({ authorization: 'token' });
     const callHandler = { handle: jest.fn(() => of({ result: 'value' })) };
 
-    await lastValueFrom(
-      interceptor.intercept({} as ExecutionContext, callHandler as CallHandler),
-    );
+    await lastValueFrom(interceptor.intercept(ctx, callHandler as CallHandler));
 
     expect(callHandler.handle).toHaveBeenCalled();
   });

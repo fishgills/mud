@@ -1,52 +1,24 @@
 import { COMMANDS } from '../commands';
-/**
- * Utility functions for handling errors in a user-friendly way
- */
 
-export interface GraphQLErrorResponse {
-  response?: {
-    errors?: Array<{
-      message: string;
-      extensions?: { code?: string };
-    }>;
-  };
+function extractMessage(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (typeof err === 'string') {
+    return err;
+  }
+  return '';
 }
 
 /**
  * Checks if an error is a "player not found" error and returns a user-friendly message
  */
 export function handlePlayerNotFoundError(err: unknown): string | null {
-  // Check for GraphQL errors
-  if (
-    err &&
-    typeof err === 'object' &&
-    'response' in err &&
-    err.response &&
-    typeof err.response === 'object' &&
-    'errors' in err.response
-  ) {
-    const graphqlErr = err as GraphQLErrorResponse;
-    const errors = graphqlErr.response?.errors;
-
-    if (errors) {
-      const notFoundError = errors.find(
-        (e) =>
-          e.message.toLowerCase().includes('not found') ||
-          e.message.toLowerCase().includes('player not found'),
-      );
-
-      if (notFoundError) {
-        return `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`;
-      }
-    }
-  }
-
-  // Check for simple error messages
-  if (err instanceof Error && err.message.toLowerCase().includes('not found')) {
+  const message = extractMessage(err).toLowerCase();
+  if (message.includes('player not found') || message.includes('not found')) {
     return `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`;
   }
-
-  return null; // Not a player not found error
+  return null;
 }
 
 /**
@@ -56,50 +28,19 @@ export function getUserFriendlyErrorMessage(
   err: unknown,
   defaultMessage: string,
 ): string {
-  // First check if it's a player not found error
-  const playerNotFoundMsg = handlePlayerNotFoundError(err);
-  if (playerNotFoundMsg) {
-    return playerNotFoundMsg;
+  const notFound = handlePlayerNotFoundError(err);
+  if (notFound) {
+    return notFound;
   }
 
-  // Handle GraphQL errors
-  if (
-    err &&
-    typeof err === 'object' &&
-    'response' in err &&
-    err.response &&
-    typeof err.response === 'object' &&
-    'errors' in err.response
-  ) {
-    const graphqlErr = err as GraphQLErrorResponse;
-    const errors = graphqlErr.response?.errors;
+  const safeMessage = extractMessage(err)
+    .replace(
+      /Player with slackId.*?already exists/gi,
+      'Player already exists',
+    )
+    .replace(/with slackId.*?not found/gi, 'not found')
+    .replace(/slackId\s+\w+/gi, 'player')
+    .trim();
 
-    if (errors && errors.length > 0) {
-      // Filter out any messages that might contain sensitive info like slackId
-      const safeMessage = errors[0].message
-        .replace(
-          /Player with slackId.*?already exists/gi,
-          'Player already exists',
-        )
-        .replace(/with slackId.*?not found/gi, 'not found')
-        .replace(/slackId\s+\w+/gi, 'player'); // Remove remaining slackId references
-
-      return safeMessage || defaultMessage;
-    }
-  }
-
-  // Handle regular errors
-  if (err instanceof Error) {
-    const safeMessage = err.message
-      .replace(
-        /Player with slackId.*?already exists/gi,
-        'Player already exists',
-      )
-      .replace(/with slackId.*?not found/gi, 'not found')
-      .replace(/slackId\s+\w+/gi, 'player');
-
-    return safeMessage || defaultMessage;
-  }
-
-  return defaultMessage;
+  return safeMessage || defaultMessage;
 }

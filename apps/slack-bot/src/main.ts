@@ -4,13 +4,33 @@ import { App } from '@slack/bolt';
 import { setAuthLogger } from '@mud/gcp-auth';
 import { env } from './env';
 import { NotificationService } from './notification.service';
+import { getPrismaClient } from '@mud/database';
+import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
 
+const installationStore = new PrismaInstallationStore({
+  clientId: env.SLACK_CLIENT_ID,
+  prismaTable: getPrismaClient().slackAppInstallation,
+});
 const app = new App({
-  token: env.SLACK_BOT_TOKEN,
+  // token: env.SLACK_BOT_TOKEN,
   signingSecret: env.SLACK_SIGNING_SECRET,
-  // logLevel: LogLevel.,
   socketMode: false,
-  // appToken: env.SLACK_APP_TOKEN,
+  // OAuth (optional): if clientId/clientSecret/stateSecret are provided, installer is enabled
+  clientId: env.SLACK_CLIENT_ID || undefined,
+  clientSecret: env.SLACK_CLIENT_SECRET || undefined,
+  stateSecret: env.SLACK_STATE_SECRET || undefined,
+  scopes: [
+    'app_mentions:read',
+    'chat:write',
+    'im:history',
+    'im:read',
+    'im:write',
+    'users:read',
+  ],
+  installerOptions: {
+    directInstall: true,
+  },
+  installationStore: installationStore,
 });
 
 setAuthLogger({

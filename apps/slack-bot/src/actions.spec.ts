@@ -1,11 +1,12 @@
-jest.mock('./gql-client', () => {
-  const dmSdk = {
-    Attack: jest.fn(),
-    SpendSkillPoint: jest.fn(),
+jest.mock('./dm-client', () => {
+  const dmClient = {
+    attack: jest.fn(),
+    spendSkillPoint: jest.fn(),
   };
-  return { dmSdk };
+  return { dmClient };
 });
 
+import type { ActionsBlock, KnownBlock, SectionBlock } from '@slack/types';
 import { registerActions } from './actions';
 import {
   COMMANDS,
@@ -16,14 +17,18 @@ import {
 } from './commands';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { HandlerContext } from './handlers/types';
-import { SELF_ATTACK_ERROR } from './handlers/attack';
-import { dmSdk } from './gql-client';
-import { PlayerAttribute, TargetType } from './generated/dm-graphql';
+import {
+  buildTargetSelectionMessage,
+  MONSTER_SELECTION_BLOCK_ID,
+  SELF_ATTACK_ERROR,
+} from './handlers/attack';
+import { dmClient } from './dm-client';
+import { PlayerAttribute, TargetType } from './dm-types';
 import { toClientId } from './utils/clientId';
 
-const mockedDmSdk = dmSdk as unknown as {
-  Attack: jest.Mock;
-  SpendSkillPoint: jest.Mock;
+const mockedDmClient = dmClient as unknown as {
+  attack: jest.Mock;
+  spendSkillPoint: jest.Mock;
 };
 
 type AckMock = jest.Mock<Promise<void>, unknown[]>;
@@ -58,9 +63,9 @@ type SlackActionHandler = (args: {
     user?: { id?: string };
     trigger_id?: string;
     state?: { values?: Record<string, Record<string, unknown>> };
-    container?: { channel_id?: string };
+    container?: { channel_id?: string; message_ts?: string };
     channel?: { id?: string };
-    message?: { ts?: string };
+    message?: { ts?: string; text?: string; blocks?: KnownBlock[] };
   };
   client: MockSlackClient;
   respond?: jest.Mock;
@@ -94,8 +99,8 @@ describe('registerActions', () => {
     resetHandlers();
     actionHandlers = {};
     viewHandlers = {};
-    mockedDmSdk.Attack.mockReset();
-    mockedDmSdk.SpendSkillPoint.mockReset();
+    mockedDmClient.attack.mockReset();
+    mockedDmClient.spendSkillPoint.mockReset();
     const app = {
       action: jest.fn((actionId: string, handler: SlackActionHandler) => {
         actionHandlers[actionId] = handler;
@@ -333,16 +338,19 @@ describe('registerActions', () => {
       chat: createChatMocks(),
     };
 
-    mockedDmSdk.Attack.mockResolvedValue({
-      attack: {
-        success: true,
-        data: {
-          winnerName: 'Hero',
-          roundsCompleted: 3,
-          xpGained: 50,
-          goldGained: 1,
-          message: 'Hero strikes down the goblin.',
-        },
+    const selectionMessage = buildTargetSelectionMessage(
+      [{ id: '42', name: 'Goblin' }],
+      [],
+    );
+
+    mockedDmClient.attack.mockResolvedValue({
+      success: true,
+      data: {
+        winnerName: 'Hero',
+        roundsCompleted: 3,
+        xpGained: 50,
+        goldGained: 1,
+        message: 'Hero strikes down the goblin.',
       },
     });
 
@@ -351,6 +359,11 @@ describe('registerActions', () => {
       body: {
         user: { id: 'U1' },
         container: { channel_id: 'D1' },
+        message: {
+          ts: '158456',
+          text: selectionMessage.text,
+          blocks: selectionMessage.blocks as KnownBlock[],
+        },
         state: {
           values: {
             attack_monster_selection_block: {
@@ -368,7 +381,7 @@ describe('registerActions', () => {
     });
 
     expect(ack).toHaveBeenCalled();
-    expect(mockedDmSdk.Attack).toHaveBeenCalledWith({
+    expect(mockedDmClient.attack).toHaveBeenCalledWith({
       slackId: toClientId('U1'),
       input: { targetType: TargetType.Monster, targetId: 42 },
     });
@@ -378,6 +391,25 @@ describe('registerActions', () => {
         text: '⚔️ Combat initiated! Check your DMs for the results.',
       }),
     );
+    expect(client.chat.update).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'D1', ts: '158456' }),
+    );
+
+    const updatePayload = client.chat.update.mock.calls[0][0] as {
+      blocks?: KnownBlock[];
+      text?: string;
+    };
+    const actionsBlock = updatePayload.blocks?.find(
+      (block) => block.type === 'actions',
+    ) as ActionsBlock | undefined;
+    expect(actionsBlock).toBeUndefined();
+    const progressBlock = updatePayload.blocks?.find(
+      (block) =>
+        block.block_id === MONSTER_SELECTION_BLOCK_ID &&
+        block.type === 'section',
+    ) as SectionBlock | undefined;
+    expect(progressBlock?.text?.text).toBe('Attacking Goblin...');
+    expect(updatePayload.text).toBe('Attacking Goblin...');
   });
 
   it('handles missing userId in help actions', async () => {
@@ -653,7 +685,7 @@ describe('registerActions', () => {
       client,
     });
 
-    expect(mockedDmSdk.Attack).not.toHaveBeenCalled();
+    expect(mockedDmClient.attack).not.toHaveBeenCalled();
   });
 
   it('handles missing monster selection in attack', async () => {
@@ -682,7 +714,7 @@ describe('registerActions', () => {
       client,
     });
 
-    expect(mockedDmSdk.Attack).not.toHaveBeenCalled();
+    expect(mockedDmClient.attack).not.toHaveBeenCalled();
     expect(client.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         text: 'Please select a monster to attack first!',
@@ -727,7 +759,7 @@ describe('registerActions', () => {
       client,
     });
 
-    expect(mockedDmSdk.Attack).not.toHaveBeenCalled();
+    expect(mockedDmClient.attack).not.toHaveBeenCalled();
     expect(client.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         text: SELF_ATTACK_ERROR,
@@ -751,12 +783,10 @@ describe('registerActions', () => {
       },
     };
 
-    mockedDmSdk.Attack.mockResolvedValueOnce({
-      attack: {
-        success: false,
-        message: 'You are too far away',
-        data: null,
-      },
+    mockedDmClient.attack.mockResolvedValueOnce({
+      success: false,
+      message: 'You are too far away',
+      data: null,
     });
 
     await actionHandlers[ATTACK_ACTIONS.ATTACK_MONSTER]({
@@ -803,12 +833,10 @@ describe('registerActions', () => {
       },
     };
 
-    mockedDmSdk.Attack.mockResolvedValueOnce({
-      attack: {
-        success: true,
-        message: 'ok',
-        data: null,
-      },
+    mockedDmClient.attack.mockResolvedValueOnce({
+      success: true,
+      message: 'ok',
+      data: null,
     });
 
     await actionHandlers[ATTACK_ACTIONS.ATTACK_MONSTER]({
@@ -839,7 +867,7 @@ describe('registerActions', () => {
     );
   });
 
-  it('handles attack error with GraphQL error message', async () => {
+  it('handles attack error with network failure', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     const client: MockSlackClient = {
       conversations: {
@@ -855,7 +883,7 @@ describe('registerActions', () => {
       },
     };
 
-    mockedDmSdk.Attack.mockRejectedValueOnce(new Error('Network error'));
+    mockedDmClient.attack.mockRejectedValueOnce(new Error('Network error'));
 
     await actionHandlers[ATTACK_ACTIONS.ATTACK_MONSTER]({
       ack,
@@ -995,24 +1023,22 @@ describe('registerActions', () => {
   it('spends skill points and updates the stats message', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     const respond = jest.fn();
-    mockedDmSdk.SpendSkillPoint.mockResolvedValue({
-      spendSkillPoint: {
-        success: true,
-        message: null,
-        data: {
-          id: '1',
-          slackId: toClientId('U1'),
-          name: 'Hero',
-          hp: 18,
-          maxHp: 18,
-          strength: 12,
-          agility: 10,
-          health: 11,
-          gold: 5,
-          xp: 150,
-          level: 2,
-          skillPoints: 1,
-        },
+    mockedDmClient.spendSkillPoint.mockResolvedValue({
+      success: true,
+      message: null,
+      data: {
+        id: '1',
+        slackId: toClientId('U1'),
+        name: 'Hero',
+        hp: 18,
+        maxHp: 18,
+        strength: 12,
+        agility: 10,
+        health: 11,
+        gold: 5,
+        xp: 150,
+        level: 2,
+        skillPoints: 1,
       },
     });
 
@@ -1039,7 +1065,7 @@ describe('registerActions', () => {
       respond,
     });
 
-    expect(mockedDmSdk.SpendSkillPoint).toHaveBeenCalledWith({
+    expect(mockedDmClient.spendSkillPoint).toHaveBeenCalledWith({
       slackId: toClientId('U1'),
       attribute: PlayerAttribute.Strength,
     });
@@ -1052,8 +1078,10 @@ describe('registerActions', () => {
   it('reports errors when spending skill points fails', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     const respond = jest.fn();
-    mockedDmSdk.SpendSkillPoint.mockResolvedValue({
-      spendSkillPoint: { success: false, message: 'no points', data: null },
+    mockedDmClient.spendSkillPoint.mockResolvedValue({
+      success: false,
+      message: 'no points',
+      data: null,
     });
 
     const client: MockSlackClient = {
@@ -1079,7 +1107,7 @@ describe('registerActions', () => {
       respond,
     });
 
-    expect(mockedDmSdk.SpendSkillPoint).toHaveBeenCalledWith({
+    expect(mockedDmClient.spendSkillPoint).toHaveBeenCalledWith({
       slackId: toClientId('U1'),
       attribute: PlayerAttribute.Agility,
     });

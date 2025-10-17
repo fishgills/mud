@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { getPrismaClient } from '@mud/database';
 import { PlayerFactory, ClientType, PlayerEntity, EventBus } from '@mud/engine';
 import {
@@ -6,10 +12,10 @@ import {
   MovePlayerDto,
   PlayerStatsDto,
 } from './dto/player.dto';
-import { GraphQLError } from 'graphql';
 import { WorldService } from '../world/world.service';
 import { isWaterBiome } from '../shared/biome.util';
 import { WORLD_CHUNK_SIZE } from '@mud/constants';
+import { DiceRoll } from '@dice-roller/rpg-dice-roller';
 
 @Injectable()
 export class PlayerService {
@@ -19,7 +25,6 @@ export class PlayerService {
   private readonly SKILL_POINT_INTERVAL = 4;
   private readonly SKILL_POINTS_PER_INTERVAL = 2;
   private readonly HIT_DIE_AVERAGE = 6; // Average roll for a d10
-  private readonly BASE_HP_PER_HEALTH_POINT = 2; // HP gained per health attribute point
 
   constructor(private readonly worldService: WorldService) {}
 
@@ -32,13 +37,14 @@ export class PlayerService {
     return Math.floor((BASE * (level * (level + 1))) / 2);
   }
 
-  private getConstitutionModifier(health: number): number {
-    return Math.floor((health - 10) / 2);
+  private getStatModifier(stat: number): number {
+    return Math.floor((stat - 10) / 2);
   }
 
   private calculateLevelUpHpGain(health: number): number {
-    const modifier = this.getConstitutionModifier(health);
-    return Math.max(1, this.HIT_DIE_AVERAGE + modifier);
+    const roll = new DiceRoll('1d10');
+    const modifier = this.getStatModifier(health);
+    return Math.max(1, roll.total + modifier);
   }
 
   async createPlayer(createPlayerDto: CreatePlayerDto): Promise<PlayerEntity> {
@@ -46,11 +52,9 @@ export class PlayerService {
 
     // Validate that we have either clientId or slackId
     if (!clientId && !slackId) {
-      throw new GraphQLError('Either clientId or slackId must be provided', {
-        extensions: {
-          code: 'CLIENT_ID_REQUIRED',
-        },
-      });
+      throw new BadRequestException(
+        'Either clientId or slackId must be provided',
+      );
     }
 
     // Determine final clientId and clientType
@@ -65,22 +69,15 @@ export class PlayerService {
       finalClientId = slackId;
       finalClientType = 'slack';
     } else {
-      throw new GraphQLError('Either clientId or slackId must be provided', {
-        extensions: {
-          code: 'CLIENT_ID_REQUIRED',
-        },
-      });
+      throw new BadRequestException(
+        'Either clientId or slackId must be provided',
+      );
     }
 
     // Check if player already exists - PlayerFactory.load handles both formats
     const existing = await PlayerFactory.load(finalClientId, finalClientType);
     if (existing) {
-      throw new GraphQLError(`Player already exists`, {
-        extensions: {
-          code: 'PLAYER_EXISTS',
-          clientId: finalClientId,
-        },
-      });
+      throw new ConflictException('Player already exists');
     }
 
     // Find a spawn position
@@ -145,11 +142,7 @@ export class PlayerService {
   async getPlayerByName(name: string): Promise<PlayerEntity> {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      throw new GraphQLError('Player name is required', {
-        extensions: {
-          code: 'PLAYER_NAME_REQUIRED',
-        },
-      });
+      throw new BadRequestException('Player name is required');
     }
 
     this.logger.log(`[DM-DB] Looking up player with name: ${trimmedName}`);
@@ -175,14 +168,8 @@ export class PlayerService {
         this.logger.warn(
           `[DM-DB] Multiple players found for name: ${trimmedName}`,
         );
-        throw new GraphQLError(
+        throw new BadRequestException(
           `Multiple players found with the name "${trimmedName}". Please specify the player's Slack handle instead.`,
-          {
-            extensions: {
-              code: 'PLAYER_NAME_AMBIGUOUS',
-              name: trimmedName,
-            },
-          },
         );
       }
       throw error;
@@ -208,13 +195,8 @@ export class PlayerService {
       return this.getPlayerByName(name);
     }
 
-    throw new GraphQLError(
+    throw new BadRequestException(
       'A client ID, Slack ID, or player name must be provided',
-      {
-        extensions: {
-          code: 'PLAYER_IDENTIFIER_REQUIRED',
-        },
-      },
     );
   }
 
@@ -715,24 +697,12 @@ export class PlayerService {
     health: number;
     maxHp: number;
   } {
-    // D&D-style generation: Roll 4d6, drop the lowest, sum the rest
-    const roll4d6DropLowest = (): number => {
-      const rolls = [
-        Math.floor(Math.random() * 6) + 1,
-        Math.floor(Math.random() * 6) + 1,
-        Math.floor(Math.random() * 6) + 1,
-        Math.floor(Math.random() * 6) + 1,
-      ];
-      rolls.sort((a, b) => a - b); // ascending
-      return rolls[1] + rolls[2] + rolls[3];
-    };
-
-    const strength = roll4d6DropLowest();
-    const agility = roll4d6DropLowest();
-    const health = roll4d6DropLowest();
+    const strength = new DiceRoll('4d6k3').total;
+    const agility = new DiceRoll('4d6k3').total;
+    const health = new DiceRoll('4d6k3').total;
 
     // Calculate max HP based on health attribute (existing formula)
-    const maxHp = 80 + health * this.BASE_HP_PER_HEALTH_POINT;
+    const maxHp = 10 + this.getStatModifier(health);
 
     return { strength, agility, health, maxHp };
   }
