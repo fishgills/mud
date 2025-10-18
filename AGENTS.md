@@ -10,3 +10,5 @@
 - Quote any git paths containing brackets or parentheses (e.g., `src/app/[candidate]/**`) when staging or committing so the shell does not treat them as globs or subshells.
 - When running `git rebase`, avoid opening editors—export `GIT_EDITOR=:` and `GIT_SEQUENCE_EDITOR=:` (or pass `--no-edit`) so the default messages are used automatically.
 - Never amend commits unless you have explicit written approval in the task thread.
+- Terminal has an authenticed session so gcloud cli is available.
+- Never use gcloud cli to make modifications. Treat it as read only and use it for gathering information or debugging.

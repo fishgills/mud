@@ -149,6 +149,15 @@ const buildActionButtons = (status: PlayerStatus): KnownBlock[] => {
           },
           action_id: 'app_home_map',
         },
+        {
+          type: 'button',
+          text: {
+            type: 'plain_text',
+            text: '🎒 View Inventory',
+            emoji: true,
+          },
+          action_id: 'app_home_inventory',
+        },
       ],
     },
   ];
@@ -268,7 +277,7 @@ export const registerAppHome = (app: App) => {
   // Action: Complete character
   app.action('app_home_complete', async ({ ack, body, client }) => {
     await ack();
-   try {
+    try {
       const result = await completePlayer({
         slackId: toClientId(body.user.id),
       });
@@ -345,6 +354,14 @@ export const registerAppHome = (app: App) => {
     await client.chat.postMessage({
       channel: body.user.id,
       text: `To view the map, send me: \`${COMMANDS.MAP}\``,
+    });
+  });
+
+  app.action('app_home_inventory', async ({ ack, body, client }) => {
+    await ack();
+    await client.chat.postMessage({
+      channel: body.user.id,
+      text: `To view your inventory, send me: \`${COMMANDS.INVENTORY}\``,
     });
   });
 };

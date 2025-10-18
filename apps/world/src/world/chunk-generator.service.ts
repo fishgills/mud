@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ChunkData, TileData, BiomeInfo } from './types';
+import { ChunkData, TileData } from './types';
 import { SettlementGenerator } from '../settlement-generator/settlement-generator';
 import { WorldUtilsService } from './world-utils.service';
 import { Settlement } from '@mud/database';
@@ -80,7 +80,7 @@ export class ChunkGeneratorService {
         this.tryGenerateSettlement(
           worldX,
           worldY,
-          tileData.biome,
+          tileData,
           settlementGenerator,
           settlements,
         );
@@ -175,11 +175,11 @@ export class ChunkGeneratorService {
   private tryGenerateSettlement(
     x: number,
     y: number,
-    biome: BiomeInfo,
+    tile: TileData,
     settlementGenerator: SettlementGenerator,
     settlements: Settlement[],
   ): void {
-    if (!settlementGenerator.shouldGenerateSettlement(x, y, biome)) {
+    if (!settlementGenerator.shouldGenerateSettlement(x, y, tile)) {
       return;
     }
 
@@ -192,7 +192,11 @@ export class ChunkGeneratorService {
     );
 
     if (!hasOverlap) {
-      const settlement = settlementGenerator.generateSettlement(x, y, biome);
+      const settlement = settlementGenerator.generateSettlement(
+        x,
+        y,
+        tile.biome,
+      );
       settlements.push(settlement);
     }
   }

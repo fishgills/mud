@@ -140,6 +140,13 @@ describe('MonsterFactory', () => {
     await MonsterFactory.delete(first.id);
     const remaining = await prisma.monster.findMany();
     expect(remaining).toHaveLength(1);
+    expect(emitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'monster:death',
+        x: expect.any(Number),
+        y: expect.any(Number),
+      }),
+    );
 
     const count = await MonsterFactory.deleteMany({ isAlive: false });
     expect(count).toBe(1);

@@ -208,10 +208,28 @@ export class MonsterFactory {
   /**
    * Delete a monster from the database
    */
-  static async delete(id: number): Promise<void> {
+  static async delete(
+    id: number,
+    options?: { killedBy?: { type: 'player' | 'monster'; id?: number } },
+  ): Promise<void> {
+    const monster = await this.prisma.monster.findUnique({
+      where: { id },
+    });
+
     await this.prisma.monster.delete({
       where: { id },
     });
+
+    if (monster) {
+      await EventBus.emit({
+        eventType: 'monster:death',
+        monster,
+        killedBy: options?.killedBy,
+        x: monster.x,
+        y: monster.y,
+        timestamp: new Date(),
+      });
+    }
   }
 
   /**

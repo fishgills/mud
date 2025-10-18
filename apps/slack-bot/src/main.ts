@@ -68,6 +68,7 @@ import './handlers/complete';
 import './handlers/delete';
 import './handlers/map';
 import './handlers/stats';
+import './handlers/inventory';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { COMMANDS } from './commands';
 import { registerActions } from './actions';
@@ -90,6 +91,7 @@ app.event('app_mention', async ({ event, say }) => {
 • Sniff out nearby monsters with "${COMMANDS.SNIFF}"
 • Check stats with "${COMMANDS.STATS}"
 • View map with "${COMMANDS.MAP}"
+• Check inventory with "${COMMANDS.INVENTORY}"
 
 💡 **Send me "${COMMANDS.HELP}" for the full command list!**`,
   );
@@ -179,6 +181,7 @@ app.message(async ({ message, say, client }) => {
 📋 **Other:**
 • "${COMMANDS.HELP}" - Show full command list
 • "${COMMANDS.MAP}" - View the world map
+• "${COMMANDS.INVENTORY}" - See your equipped gear
 
 💡 **New here?** Start with "${COMMANDS.NEW} YourName" to create your character!`,
   );

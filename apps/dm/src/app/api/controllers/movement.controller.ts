@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { PlayerService } from '../../player/player.service';
 import { WorldService } from '../../world/world.service';
-import type { Settlement } from '../../world/world.service';
+import type { NearbySettlement, Settlement } from '../../world/world.service';
 import { MonsterService } from '../../monster/monster.service';
 import type {
   PlayerMoveResponse,
@@ -94,6 +94,107 @@ export class MovementController {
     };
   }
 
+  private resolveNearestSettlement(
+    playerX: number,
+    playerY: number,
+    nearbySettlements: NearbySettlement[],
+    currentSettlement?: Settlement,
+  ): {
+    name?: string;
+    direction?: string;
+    distance?: number;
+    isCurrent: boolean;
+  } | null {
+    let nearest: {
+      name?: string;
+      direction?: string;
+      distance?: number;
+      isCurrent: boolean;
+    } | null = null;
+
+    const consider = (candidate: {
+      name?: string;
+      direction?: string;
+      distance?: number;
+      isCurrent: boolean;
+    }) => {
+      const candidateDistance =
+        typeof candidate.distance === 'number' &&
+        Number.isFinite(candidate.distance)
+          ? candidate.distance
+          : Number.POSITIVE_INFINITY;
+      const currentDistance =
+        nearest &&
+        typeof nearest.distance === 'number' &&
+        Number.isFinite(nearest.distance)
+          ? nearest.distance
+          : Number.POSITIVE_INFINITY;
+
+      if (!nearest || candidateDistance < currentDistance) {
+        nearest = {
+          ...candidate,
+          distance: candidateDistance,
+        };
+      }
+    };
+
+    if (currentSettlement?.name) {
+      consider({
+        name: currentSettlement.name,
+        direction: 'here',
+        distance: 0,
+        isCurrent: true,
+      });
+    }
+
+    for (const settlement of nearbySettlements ?? []) {
+      const dx = settlement.x - playerX;
+      const dy = settlement.y - playerY;
+      const rawDistance =
+        typeof settlement.distance === 'number' &&
+        Number.isFinite(settlement.distance)
+          ? settlement.distance
+          : Math.sqrt(dx * dx + dy * dy);
+      const direction =
+        dx === 0 && dy === 0
+          ? 'here'
+          : calculateDirection(playerX, playerY, settlement.x, settlement.y);
+
+      consider({
+        name: settlement.name,
+        direction,
+        distance: rawDistance,
+        isCurrent: dx === 0 && dy === 0,
+      });
+    }
+
+    return nearest;
+  }
+
+  private describeNearestSettlement(
+    settlement: {
+      name?: string;
+      direction?: string;
+      distance?: number;
+      isCurrent: boolean;
+    } | null,
+  ): string {
+    if (!settlement || !settlement.direction) {
+      return '';
+    }
+
+    const trimmedName = settlement.name?.trim();
+    if (settlement.direction === 'here') {
+      if (trimmedName) {
+        return `You're right in ${trimmedName}.`;
+      }
+      return `You're standing in a settlement.`;
+    }
+
+    const nameSegment = trimmedName ? `${trimmedName} ` : '';
+    return `The nearest settlement is ${nameSegment}to the ${settlement.direction}.`;
+  }
+
   @Get('sniff')
   async sniffNearestMonster(
     @Query('slackId') slackId?: string,
@@ -119,20 +220,49 @@ export class MovementController {
 
       const agility = player.attributes.agility ?? 0;
       const detectionRadius = Math.max(1, agility);
-      const nearest = await this.monsterService.findNearestMonsterWithinRadius(
+
+      const [center, nearest] = await Promise.all([
+        this.worldService.getTileInfoWithNearby(
+          player.position.x,
+          player.position.y,
+        ),
+        this.monsterService.findNearestMonsterWithinRadius(
+          player.position.x,
+          player.position.y,
+          detectionRadius,
+        ),
+      ]);
+
+      const settlementInfo = this.resolveNearestSettlement(
         player.position.x,
         player.position.y,
-        detectionRadius,
+        center.nearbySettlements,
+        center.currentSettlement,
       );
+      const settlementSentence = this.describeNearestSettlement(settlementInfo);
+      const settlementData = settlementInfo
+        ? {
+            nearestSettlementName: settlementInfo.name,
+            nearestSettlementDirection: settlementInfo.direction,
+            nearestSettlementDistance: settlementInfo.distance,
+          }
+        : {};
 
       if (!nearest) {
         const radiusLabel =
           detectionRadius === 1 ? '1 tile' : `${detectionRadius} tiles`;
+        const messageParts = [
+          `You sniff the air but can't catch any monster scent within ${radiusLabel}.`,
+        ];
+        if (settlementSentence) {
+          messageParts.push(settlementSentence);
+        }
         return {
           success: true,
-          message: `You sniff the air but can't catch any monster scent within ${radiusLabel}.`,
+          message: messageParts.join(' '),
           data: {
             detectionRadius,
+            ...settlementData,
           },
         };
       }
@@ -145,7 +275,12 @@ export class MovementController {
       );
       const distanceDescriptor = this.describeDistance(nearest.distance);
       const directionFragment = direction ? ` to the ${direction}` : '';
-      const message = `You catch the scent of ${nearest.monster.name} ${distanceDescriptor.phrase}${directionFragment}.`;
+      const messageParts = [
+        `You catch the scent of ${nearest.monster.name} ${distanceDescriptor.phrase}${directionFragment}.`,
+      ];
+      if (settlementSentence) {
+        messageParts.push(settlementSentence);
+      }
 
       return {
         success: true,
@@ -157,8 +292,9 @@ export class MovementController {
           monsterY: nearest.monster.position.y,
           proximity: distanceDescriptor.proximity,
           distanceLabel: distanceDescriptor.label,
+          ...settlementData,
         },
-        message,
+        message: messageParts.join(' '),
       };
     } catch (error) {
       return {

@@ -31,6 +31,8 @@ export interface PlayerDeathEvent extends BaseGameEvent {
   eventType: 'player:death';
   player: Player;
   killedBy?: { type: 'player' | 'monster' | 'environment'; id?: number };
+  x: number;
+  y: number;
 }
 
 export interface PlayerRespawnEvent extends BaseGameEvent {
@@ -62,8 +64,8 @@ export interface PlayerLeavePartyEvent extends BaseGameEvent {
 // Combat Events
 export interface CombatStartEvent extends BaseGameEvent {
   eventType: 'combat:start';
-  attacker: { type: 'player' | 'monster'; id: number };
-  defender: { type: 'player' | 'monster'; id: number };
+  attacker: { type: 'player' | 'monster'; id: number; name: string };
+  defender: { type: 'player' | 'monster'; id: number; name: string };
   x: number;
   y: number;
 }
@@ -81,14 +83,18 @@ export interface CombatMissEvent extends BaseGameEvent {
   eventType: 'combat:miss';
   attacker: { type: 'player' | 'monster'; id: number; name: string };
   defender: { type: 'player' | 'monster'; id: number; name: string };
+  x: number;
+  y: number;
 }
 
 export interface CombatEndEvent extends BaseGameEvent {
   eventType: 'combat:end';
-  winner: { type: 'player' | 'monster'; id: number };
-  loser: { type: 'player' | 'monster'; id: number };
+  winner: { type: 'player' | 'monster'; id: number; name: string };
+  loser: { type: 'player' | 'monster'; id: number; name: string };
   xpGained?: number;
   goldGained?: number;
+  x: number;
+  y: number;
 }
 
 // Monster Events
@@ -119,7 +125,9 @@ export interface MonsterEncounterEvent extends BaseGameEvent {
 export interface MonsterDeathEvent extends BaseGameEvent {
   eventType: 'monster:death';
   monster: Monster;
-  killedBy?: { type: 'player' | 'monster'; id: number };
+  killedBy?: { type: 'player' | 'monster'; id?: number };
+  x: number;
+  y: number;
 }
 
 // NPC Events

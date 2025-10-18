@@ -82,16 +82,27 @@ export class WorldService {
     const override = process.env.WORLD_SERVICE_URL;
     if (override) {
       try {
-        // Throws when the provided override is not a valid URL.
-        new URL(override);
-        return override;
+        return this.normalizeBaseUrl(override);
       } catch (error) {
         this.logger.warn(
           `Invalid WORLD_SERVICE_URL override "${override}" ignored: ${error instanceof Error ? error.message : error}`,
         );
       }
     }
-    return env.WORLD_SERVICE_URL;
+    return this.normalizeBaseUrl(env.WORLD_SERVICE_URL);
+  }
+
+  private normalizeBaseUrl(rawUrl: string): string {
+    const parsed = new URL(rawUrl);
+    const originalPath = parsed.pathname;
+
+    if (!originalPath || originalPath === '/' || originalPath === '') {
+      parsed.pathname = '/world';
+    } else if (originalPath.length > 1 && originalPath.endsWith('/')) {
+      parsed.pathname = originalPath.slice(0, -1);
+    }
+
+    return parsed.toString();
   }
 
   private async httpGet<T>(path: string): Promise<T> {

@@ -345,6 +345,16 @@ export function registerActions(app: App) {
     await dispatchCommandViaDM(client, userId, COMMANDS.MAP);
   });
 
+  app.action<BlockAction>(
+    HELP_ACTIONS.INVENTORY,
+    async ({ ack, body, client }) => {
+      await ack();
+      const userId = body.user?.id;
+      if (!userId) return;
+      await dispatchCommandViaDM(client, userId, COMMANDS.INVENTORY);
+    },
+  );
+
   for (const [actionId, message] of Object.entries(helpDetailMessages)) {
     app.action<BlockAction>(actionId, async ({ ack, body, client }) => {
       await ack();

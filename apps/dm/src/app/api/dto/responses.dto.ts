@@ -55,6 +55,9 @@ export interface SniffData {
   direction?: string;
   monsterX?: number;
   monsterY?: number;
+  nearestSettlementName?: string;
+  nearestSettlementDirection?: string;
+  nearestSettlementDistance?: number;
 }
 
 export interface SniffResponse extends SuccessResponse {

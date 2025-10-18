@@ -26,7 +26,9 @@ const buttonTextsFromBlock = (block: ActionsBlock): string[] =>
       if (element.type !== 'button') {
         return undefined;
       }
-      return element.text?.type === 'plain_text' ? element.text.text : undefined;
+      return element.text?.type === 'plain_text'
+        ? element.text.text
+        : undefined;
     })
     .filter((text): text is string => Boolean(text));
 
@@ -93,6 +95,7 @@ describe('buildAppHomeBlocks', () => {
       expect(buttonTexts).toContain('👀 Look Around');
       expect(buttonTexts).toContain('📊 View Stats');
       expect(buttonTexts).toContain('🗺️ View Map');
+      expect(buttonTexts).toContain('🎒 View Inventory');
     }
   });
 });

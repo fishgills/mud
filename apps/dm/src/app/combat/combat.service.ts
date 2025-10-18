@@ -515,8 +515,16 @@ export class CombatService {
     // Emit combat start event
     await EventBus.emit({
       eventType: 'combat:start',
-      attacker: { type: combatant1.type, id: combatant1.id },
-      defender: { type: combatant2.type, id: combatant2.id },
+      attacker: {
+        type: combatant1.type,
+        id: combatant1.id,
+        name: combatant1.name,
+      },
+      defender: {
+        type: combatant2.type,
+        id: combatant2.id,
+        name: combatant2.name,
+      },
       x: combatant1.x,
       y: combatant1.y,
       timestamp: new Date(),
@@ -629,6 +637,8 @@ export class CombatService {
             id: defender.id,
             name: defender.name,
           },
+          x: attacker.x,
+          y: attacker.y,
           timestamp: new Date(),
         });
       }
@@ -685,10 +695,12 @@ export class CombatService {
     // Emit combat end event
     await EventBus.emit({
       eventType: 'combat:end',
-      winner: { type: winner.type, id: winner.id },
-      loser: { type: loser.type, id: loser.id },
+      winner: { type: winner.type, id: winner.id, name: winner.name },
+      loser: { type: loser.type, id: loser.id, name: loser.name },
       xpGained: xpAwarded,
       goldGained: goldAwarded,
+      x: combatLog.location.x,
+      y: combatLog.location.y,
       timestamp: new Date(),
     });
 
@@ -730,7 +742,9 @@ export class CombatService {
       }
     } else {
       if (!loser.isAlive) {
-        await MonsterFactory.delete(loser.id);
+        await MonsterFactory.delete(loser.id, {
+          killedBy: { type: winner.type, id: winner.id },
+        });
         this.logger.log(
           `🗑️ Removed defeated monster ${loser.name} from the world`,
         );
@@ -1013,10 +1027,12 @@ export class CombatService {
       await this.eventBridge.publishCombatNotifications(
         {
           eventType: 'combat:end',
-          winner: { type: winner.type, id: winner.id },
-          loser: { type: loser.type, id: loser.id },
+          winner: { type: winner.type, id: winner.id, name: winner.name },
+          loser: { type: loser.type, id: loser.id, name: loser.name },
           xpGained: combatLog.xpAwarded,
           goldGained: combatLog.goldAwarded,
+          x: combatLog.location.x,
+          y: combatLog.location.y,
           timestamp: new Date(),
         },
         messages,

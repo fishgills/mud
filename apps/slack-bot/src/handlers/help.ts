@@ -41,6 +41,11 @@ export const buildHelpBlocks = (): KnownBlock[] => [
         text: { type: 'plain_text', text: 'Map', emoji: true },
         action_id: HELP_ACTIONS.MAP,
       },
+      {
+        type: 'button',
+        text: { type: 'plain_text', text: 'Inventory', emoji: true },
+        action_id: HELP_ACTIONS.INVENTORY,
+      },
     ],
   },
   { type: 'divider' },
@@ -62,7 +67,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     fields: [
       {
         type: 'mrkdwn',
-        text: `*Other*\n• \`${COMMANDS.MAP}\`\n• \`${COMMANDS.HELP}\``,
+        text: `*Other*\n• \`${COMMANDS.MAP}\`\n• \`${COMMANDS.INVENTORY}\`\n• \`${COMMANDS.HELP}\``,
       },
       {
         type: 'mrkdwn',

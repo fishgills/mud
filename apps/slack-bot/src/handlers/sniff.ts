@@ -32,6 +32,30 @@ const resolveDistanceLabel = (
   return proximityPhrases.unknown;
 };
 
+const buildSettlementFragment = (data?: {
+  nearestSettlementName?: string;
+  nearestSettlementDirection?: string;
+}): string => {
+  if (!data) {
+    return '';
+  }
+  const direction = data.nearestSettlementDirection?.trim();
+  if (!direction) {
+    return '';
+  }
+
+  const name = data.nearestSettlementName?.trim();
+  if (direction === 'here') {
+    if (name) {
+      return ` You're right in ${name}.`;
+    }
+    return ' You are standing in a settlement.';
+  }
+
+  const nameSegment = name ? `${name} ` : '';
+  return ` The nearest settlement is ${nameSegment}to the ${direction}.`;
+};
+
 export const sniffHandler = async ({ userId, say }: HandlerContext) => {
   try {
     const response = await sniffNearestMonster({
@@ -52,10 +76,10 @@ export const sniffHandler = async ({ userId, say }: HandlerContext) => {
         typeof radius === 'number'
           ? `${radius} tile${radius === 1 ? '' : 's'}`
           : 'your range';
+      const settlementFragment = buildSettlementFragment(data);
+      const fallbackMessage = `You sniff the air but can't catch any monster scent within ${radiusLabel}.`;
       await say({
-        text:
-          response.message ??
-          `You sniff the air but can't catch any monster scent within ${radiusLabel}.`,
+        text: response.message ?? `${fallbackMessage}${settlementFragment}`,
       });
       return;
     }
@@ -65,10 +89,10 @@ export const sniffHandler = async ({ userId, say }: HandlerContext) => {
       data.distanceLabel,
       data.proximity,
     );
+    const settlementFragment = buildSettlementFragment(data);
+    const fallbackMessage = `You catch the scent of ${data.monsterName} ${distanceText}${direction}.`;
     await say({
-      text:
-        response.message ??
-        `You catch the scent of ${data.monsterName} ${distanceText}${direction}.`,
+      text: response.message ?? `${fallbackMessage}${settlementFragment}`,
     });
   } catch (err) {
     const errorMessage = getUserFriendlyErrorMessage(

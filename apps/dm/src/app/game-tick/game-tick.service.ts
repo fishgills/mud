@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { getPrismaClient } from '@mud/database';
+import { EventBus } from '@mud/engine';
 import { CombatService } from '../combat/combat.service';
 import { PlayerService } from '../player/player.service';
 import { PopulationService } from '../monster/population.service';
@@ -48,6 +49,15 @@ export class GameTickService {
         gameHour: newHour,
         gameDay: newDay,
       },
+    });
+
+    const tickTimestamp = new Date();
+    await EventBus.emit({
+      eventType: 'world:time:tick',
+      tick: newTick,
+      gameHour: newHour,
+      gameDay: newDay,
+      timestamp: tickTimestamp,
     });
 
     let monstersSpawned = 0;
@@ -135,8 +145,16 @@ export class GameTickService {
 
     // Update weather every hour (4 ticks)
     if (newTick % 4 === 0) {
-      await this.updateWeather();
-      weatherUpdated = true;
+      const weatherChange = await this.updateWeather();
+      weatherUpdated = Boolean(weatherChange);
+      if (weatherChange) {
+        await EventBus.emit({
+          eventType: 'world:weather:change',
+          oldWeather: weatherChange.oldState,
+          newWeather: weatherChange.newState,
+          timestamp: new Date(),
+        });
+      }
     }
 
     return {
@@ -150,7 +168,10 @@ export class GameTickService {
     };
   }
 
-  private async updateWeather(): Promise<void> {
+  private async updateWeather(): Promise<{
+    oldState: string;
+    newState: string;
+  } | null> {
     let weather = await this.prisma.weatherState.findFirst();
 
     if (!weather) {
@@ -160,7 +181,10 @@ export class GameTickService {
           pressure: 1013, // Standard atmospheric pressure
         },
       });
+      return null;
     }
+
+    const oldState = weather.state;
 
     // Simple weather system based on pressure changes
     const pressureChange = Math.floor(Math.random() * 20) - 10; // -10 to +10
@@ -188,6 +212,8 @@ export class GameTickService {
         pressure: newPressure,
       },
     });
+
+    return newState !== oldState ? { oldState, newState } : null;
   }
 
   async getGameState() {
