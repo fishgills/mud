@@ -27,11 +27,17 @@ import {
 import { PopulationService } from './monster/population.service';
 import { PrefetchService } from './prefetch/prefetch.service';
 import { PlayerNotificationService } from './player/player-notification.service';
+import { LocationNotificationService } from './notifications/location-notification.service';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
 
 @Module({
   imports: [AiModule],
-  controllers: [AppController, PlayersController, MovementController, SystemController],
+  controllers: [
+    AppController,
+    PlayersController,
+    MovementController,
+    SystemController,
+  ],
   providers: [
     AppService,
     PlayerService,
@@ -51,6 +57,7 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
     PopulationService,
     PrefetchService,
     PlayerNotificationService,
+    LocationNotificationService,
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,

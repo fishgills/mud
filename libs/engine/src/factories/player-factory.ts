@@ -163,6 +163,12 @@ export class PlayerFactory {
         gold: 0,
         xp: 0,
         isAlive: true,
+        headItemId: null,
+        chestItemId: null,
+        legsItemId: null,
+        armsItemId: null,
+        leftHandItemId: null,
+        rightHandItemId: null,
       },
     });
 
@@ -420,6 +426,12 @@ export class PlayerFactory {
         level: entity.level,
         skillPoints: entity.skillPoints,
         isAlive: entity.combat.isAlive,
+        headItemId: entity.equipment.head,
+        chestItemId: entity.equipment.chest,
+        legsItemId: entity.equipment.legs,
+        armsItemId: entity.equipment.arms,
+        leftHandItemId: entity.equipment.leftHand,
+        rightHandItemId: entity.equipment.rightHand,
       },
     });
   }
@@ -479,6 +491,14 @@ export class PlayerFactory {
       level: player.level,
       skillPoints: player.skillPoints,
       partyId: undefined, // TODO: Add when party system is implemented
+      equipment: {
+        head: player.headItemId ?? null,
+        chest: player.chestItemId ?? null,
+        legs: player.legsItemId ?? null,
+        arms: player.armsItemId ?? null,
+        leftHand: player.leftHandItemId ?? null,
+        rightHand: player.rightHandItemId ?? null,
+      },
     });
   }
 

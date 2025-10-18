@@ -917,8 +917,10 @@ describe('registerActions', () => {
   it('tests all other HELP_ACTIONS', async () => {
     const statsHandler = jest.fn<Promise<void>, [HandlerContext]>();
     const mapHandler = jest.fn<Promise<void>, [HandlerContext]>();
+    const inventoryHandler = jest.fn<Promise<void>, [HandlerContext]>();
     handlers[COMMANDS.STATS] = statsHandler;
     handlers[COMMANDS.MAP] = mapHandler;
+    handlers[COMMANDS.INVENTORY] = inventoryHandler;
 
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     const client: MockSlackClient = {
@@ -948,6 +950,13 @@ describe('registerActions', () => {
       client,
     });
     expect(mapHandler).toHaveBeenCalled();
+
+    await actionHandlers[HELP_ACTIONS.INVENTORY]({
+      ack,
+      body: { user: { id: 'U1' } },
+      client,
+    });
+    expect(inventoryHandler).toHaveBeenCalled();
   });
 
   it('tests all other MOVE_ACTIONS', async () => {

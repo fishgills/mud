@@ -1,11 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { MonsterFactory, MonsterEntity } from '@mud/engine';
+import { getPrismaClient, type Monster } from '@mud/database';
+import { MonsterFactory, MonsterEntity, EventBus } from '@mud/engine';
 import { WorldService } from '../world/world.service';
 import { getMonsterTemplate, pickTypeForBiome } from './monster.types';
 import { isWaterBiome } from '../shared/biome.util';
 
 @Injectable()
 export class MonsterService {
+  private prisma = getPrismaClient();
+
   constructor(private worldService: WorldService) {}
 
   async spawnMonster(
@@ -86,6 +89,8 @@ export class MonsterService {
       throw new Error('Monster not found or not alive');
     }
 
+    const fromX = entity.position.x;
+    const fromY = entity.position.y;
     // Random movement (50% chance to move)
     const directions = [
       { dx: 0, dy: -1 }, // North
@@ -108,6 +113,22 @@ export class MonsterService {
       entity.moveTo(newX, newY);
       entity.lastMove = new Date();
       await MonsterFactory.save(entity);
+
+      const dbMonster = await this.prisma.monster.findUnique({
+        where: { id: entity.id },
+      });
+
+      if (dbMonster && (fromX !== dbMonster.x || fromY !== dbMonster.y)) {
+        await EventBus.emit({
+          eventType: 'monster:move',
+          monster: dbMonster,
+          fromX,
+          fromY,
+          toX: dbMonster.x,
+          toY: dbMonster.y,
+          timestamp: new Date(),
+        });
+      }
     }
 
     return entity;
@@ -124,8 +145,42 @@ export class MonsterService {
     }
 
     // Use entity's takeDamage method
+    const wasAlive = entity.combat.isAlive;
     entity.takeDamage(damage);
     await MonsterFactory.save(entity);
+
+    if (wasAlive && !entity.combat.isAlive) {
+      const dbMonster = await this.prisma.monster.findUnique({
+        where: { id: entity.id },
+      });
+
+      const monsterForEvent: Monster = dbMonster ?? {
+        id: entity.id,
+        name: entity.name,
+        type: entity.type,
+        hp: entity.combat.hp,
+        maxHp: entity.combat.maxHp,
+        strength: entity.attributes.strength,
+        agility: entity.attributes.agility,
+        health: entity.attributes.health,
+        x: entity.position.x,
+        y: entity.position.y,
+        isAlive: entity.combat.isAlive,
+        lastMove: entity.lastMove,
+        spawnedAt: entity.spawnedAt,
+        biomeId: entity.biomeId,
+        createdAt: entity.spawnedAt,
+        updatedAt: new Date(),
+      };
+
+      await EventBus.emit({
+        eventType: 'monster:death',
+        monster: monsterForEvent,
+        x: monsterForEvent.x,
+        y: monsterForEvent.y,
+        timestamp: new Date(),
+      });
+    }
 
     return entity;
   }

@@ -32,6 +32,12 @@ const basePlayerData = {
   gold: 100,
   xp: 450,
   isAlive: true,
+  headItemId: null,
+  chestItemId: null,
+  legsItemId: null,
+  armsItemId: null,
+  leftHandItemId: null,
+  rightHandItemId: null,
   lastAction: new Date('2024-01-01T00:00:00Z'),
 };
 
@@ -64,6 +70,14 @@ describe('PlayerFactory', () => {
 
     expect(entity).toBeInstanceOf(PlayerEntity);
     expect(entity.combat.maxHp).toBe(16);
+    expect(entity.equipment).toEqual({
+      head: null,
+      chest: null,
+      legs: null,
+      arms: null,
+      leftHand: null,
+      rightHand: null,
+    });
     expect(stored).toMatchObject({
       clientId: 'slack:U123',
       hp: 16,
@@ -81,12 +95,22 @@ describe('PlayerFactory', () => {
   });
 
   it('loads players by client id and handles legacy formats', async () => {
-    const created = await prisma.player.create({ data: basePlayerData });
+    const created = await prisma.player.create({
+      data: { ...basePlayerData, headItemId: 42, rightHandItemId: 7 },
+    });
 
     const loaded = await PlayerFactory.load('U123', 'slack');
 
     expect(loaded?.id).toBe(created.id);
     expect(loaded?.clientId).toBe('U123');
+    expect(loaded?.equipment).toEqual({
+      head: 42,
+      chest: null,
+      legs: null,
+      arms: null,
+      leftHand: null,
+      rightHand: 7,
+    });
   });
 
   it('loads by name and enforces uniqueness', async () => {
@@ -215,6 +239,8 @@ describe('PlayerFactory', () => {
     entity.position.y = 6;
     entity.combat.hp = 10;
     entity.gold = 250;
+    entity.equipment.leftHand = 99;
+    entity.equipment.arms = 33;
 
     await PlayerFactory.save(entity);
 
@@ -227,6 +253,8 @@ describe('PlayerFactory', () => {
       y: 6,
       hp: 10,
       gold: 250,
+      leftHandItemId: 99,
+      armsItemId: 33,
     });
 
     const previousLastAction = created.lastAction!;

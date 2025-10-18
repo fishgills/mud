@@ -4,6 +4,24 @@
 
 import { Character, Attributes, CombatStats, Position } from './character.js';
 
+export interface EquipmentSlots {
+  head: number | null;
+  chest: number | null;
+  legs: number | null;
+  arms: number | null;
+  leftHand: number | null;
+  rightHand: number | null;
+}
+
+const createEmptyEquipment = (): EquipmentSlots => ({
+  head: null,
+  chest: null,
+  legs: null,
+  arms: null,
+  leftHand: null,
+  rightHand: null,
+});
+
 export type ClientType = 'slack' | 'discord' | 'web';
 
 export interface PlayerData {
@@ -19,6 +37,7 @@ export interface PlayerData {
   level: number;
   skillPoints: number;
   partyId?: number;
+  equipment?: Partial<EquipmentSlots>;
 }
 
 export class PlayerEntity extends Character {
@@ -29,6 +48,7 @@ export class PlayerEntity extends Character {
   public level: number;
   public skillPoints: number;
   public partyId?: number;
+  public equipment: EquipmentSlots;
 
   constructor(data: PlayerData) {
     super(data.id, data.name, data.attributes, data.combat, data.position);
@@ -39,6 +59,7 @@ export class PlayerEntity extends Character {
     this.level = data.level;
     this.skillPoints = data.skillPoints;
     this.partyId = data.partyId;
+    this.equipment = { ...createEmptyEquipment(), ...data.equipment };
   }
 
   /**
@@ -140,6 +161,7 @@ export class PlayerEntity extends Character {
       level: this.level,
       skillPoints: this.skillPoints,
       partyId: this.partyId,
+      equipment: this.equipment,
     };
   }
 }

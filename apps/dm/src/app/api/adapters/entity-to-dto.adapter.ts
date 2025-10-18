@@ -1,5 +1,5 @@
 import { PlayerEntity, MonsterEntity } from '@mud/engine';
-import type { Player } from '../dto/player.dto';
+import type { Player, PlayerEquipment } from '../dto/player.dto';
 import type { Monster } from '../dto/monster.dto';
 
 type PlayerLike =
@@ -75,6 +75,14 @@ const toBoolean = (value: unknown, fallback: boolean): boolean => {
   }
 
   return fallback;
+};
+
+const toNumberOrNull = (value: unknown): number | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const result = toNumber(value, Number.NaN);
+  return Number.isNaN(result) ? null : result;
 };
 
 const toDateOrUndefined = (value: unknown): Date | undefined => {
@@ -178,6 +186,19 @@ export class EntityToDtoAdapter {
         ? null
         : toNumber(worldTileRaw);
 
+    const equipmentSource =
+      (raw.equipment as Record<string, unknown> | undefined) ?? {};
+    const equipment: PlayerEquipment = {
+      head: toNumberOrNull(equipmentSource.head ?? raw.headItemId),
+      chest: toNumberOrNull(equipmentSource.chest ?? raw.chestItemId),
+      legs: toNumberOrNull(equipmentSource.legs ?? raw.legsItemId),
+      arms: toNumberOrNull(equipmentSource.arms ?? raw.armsItemId),
+      leftHand: toNumberOrNull(equipmentSource.leftHand ?? raw.leftHandItemId),
+      rightHand: toNumberOrNull(
+        equipmentSource.rightHand ?? raw.rightHandItemId,
+      ),
+    };
+
     return {
       id: toNumber(raw.id, 0),
       clientId: `${clientType}:${clientId}`,
@@ -203,6 +224,7 @@ export class EntityToDtoAdapter {
       createdAt,
       updatedAt,
       worldTileId,
+      equipment,
     };
   }
 

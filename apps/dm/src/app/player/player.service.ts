@@ -319,6 +319,7 @@ export class PlayerService {
     statsDto: PlayerStatsDto,
   ): Promise<PlayerEntity> {
     const player = await this.getPlayer(slackId);
+    const previousSkillPoints = player.skillPoints;
 
     if (typeof statsDto.hp === 'number') {
       player.combat.hp = statsDto.hp;
@@ -363,6 +364,24 @@ export class PlayerService {
       this.logger.log(
         `🎉 ${player.name} advanced ${levelsGained} level(s) to ${player.level}! Max HP is now ${player.combat.maxHp}.`,
       );
+
+      const dbPlayer = await this.prisma.player.findUnique({
+        where: { id: player.id },
+      });
+
+      if (dbPlayer) {
+        const skillPointsAwarded = Math.max(
+          0,
+          player.skillPoints - previousSkillPoints,
+        );
+        await EventBus.emit({
+          eventType: 'player:levelup',
+          player: dbPlayer,
+          newLevel: player.level,
+          skillPointsGained: skillPointsAwarded,
+          timestamp: new Date(),
+        });
+      }
     }
 
     return player;
@@ -442,6 +461,8 @@ export class PlayerService {
         await EventBus.emit({
           eventType: 'player:death',
           player: dbPlayer,
+          x: dbPlayer.x,
+          y: dbPlayer.y,
           timestamp: new Date(),
         });
       }

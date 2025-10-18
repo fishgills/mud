@@ -37,6 +37,12 @@ model Player {
   level        Int           @default(1)
   skillPoints  Int           @default(0)
   isAlive      Boolean       @default(true)
+  headItemId        Int?
+  chestItemId       Int?
+  legsItemId        Int?
+  armsItemId        Int?
+  leftHandItemId    Int?
+  rightHandItemId   Int?
   lastAction   DateTime      @default(now())
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -119,6 +125,9 @@ model Monster {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   // Add more fields as needed (type, loot, etc.)
+
+  @@index([isAlive, x, y])
+  @@index([x, y])
 }
 
 model WeatherState {

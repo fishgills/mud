@@ -12,4 +12,10 @@ export const env = cleanEnv(process.env, {
   TILE_DESC_LOCK_TTL_MS: num({ default: 15_000 }),
   TILE_DESC_COOLDOWN_MS: num({ default: 300_000 }),
   TILE_DESC_MIN_RETRY_MS: num({ default: 30_000 }),
+  // Movement / tick scaling controls
+  MOVEMENT_ACTIVE_RADIUS: num({ default: 50 }),
+  MOVEMENT_PARTITIONS: num({ default: 4 }),
+  MOVEMENT_CONCURRENCY: num({ default: 25 }),
+  MOVEMENT_CHANCE: num({ default: 0.4 }),
+  MOVEMENT_BUDGET: num({ default: 1000 }),
 });

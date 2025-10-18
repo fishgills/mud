@@ -26,6 +26,22 @@ interface ChunkResponseDto {
   tiles?: WorldTileDto[];
 }
 
+interface NearestSettlementDto {
+  settlement: {
+    id: number;
+    name: string;
+    type: string;
+    size: string;
+    population: number;
+    description: string | null;
+    x: number;
+    y: number;
+    distance: number;
+    direction: string;
+    isCurrent: boolean;
+  } | null;
+}
+
 @Injectable()
 export class WorldService {
   private readonly logger = new Logger(WorldService.name);
@@ -82,16 +98,27 @@ export class WorldService {
     const override = process.env.WORLD_SERVICE_URL;
     if (override) {
       try {
-        // Throws when the provided override is not a valid URL.
-        new URL(override);
-        return override;
+        return this.normalizeBaseUrl(override);
       } catch (error) {
         this.logger.warn(
           `Invalid WORLD_SERVICE_URL override "${override}" ignored: ${error instanceof Error ? error.message : error}`,
         );
       }
     }
-    return env.WORLD_SERVICE_URL;
+    return this.normalizeBaseUrl(env.WORLD_SERVICE_URL);
+  }
+
+  private normalizeBaseUrl(rawUrl: string): string {
+    const parsed = new URL(rawUrl);
+    const originalPath = parsed.pathname;
+
+    if (!originalPath || originalPath === '/' || originalPath === '') {
+      parsed.pathname = '/world';
+    } else if (originalPath.length > 1 && originalPath.endsWith('/')) {
+      parsed.pathname = originalPath.slice(0, -1);
+    }
+
+    return parsed.toString();
   }
 
   private async httpGet<T>(path: string): Promise<T> {
@@ -291,5 +318,28 @@ export class WorldService {
 
     this.inflightCenterNearby.set(cacheKey, promise);
     return promise;
+  }
+
+  async findNearestSettlement(
+    x: number,
+    y: number,
+    options?: { maxRadius?: number },
+  ): Promise<NearestSettlementDto['settlement']> {
+    const params = new URLSearchParams({ x: String(x), y: String(y) });
+    if (options?.maxRadius !== undefined) {
+      params.set('maxRadius', String(options.maxRadius));
+    }
+
+    try {
+      const response = await this.httpGet<NearestSettlementDto>(
+        `/settlements/nearest?${params.toString()}`,
+      );
+      return response.settlement ?? null;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to resolve nearest settlement for (${x},${y}): ${error instanceof Error ? error.message : error}`,
+      );
+      return null;
+    }
   }
 }

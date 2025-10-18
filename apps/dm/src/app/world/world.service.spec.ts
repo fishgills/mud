@@ -5,7 +5,9 @@ jest.mock('@mud/gcp-auth', () => ({
   authorizedFetch: jest.fn(),
 }));
 
-const mockFetch = authorizedFetch as jest.MockedFunction<typeof authorizedFetch>;
+const mockFetch = authorizedFetch as jest.MockedFunction<
+  typeof authorizedFetch
+>;
 
 const createResponse = <T>(data: T, init?: Partial<Response>): Response => {
   return {
@@ -91,10 +93,46 @@ describe('WorldService (REST)', () => {
     expect(tile.biomeName).toBe('forest');
     expect(tile.createdAt).toBeInstanceOf(Date);
     expect(tile.updatedAt).toBeInstanceOf(Date);
-    expect(mockFetch).toHaveBeenCalledWith('http://world.test/world/tiles/5/-3', {
-      method: 'GET',
-      headers: { accept: 'application/json' },
-    });
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://world.test/world/tiles/5/-3',
+      {
+        method: 'GET',
+        headers: { accept: 'application/json' },
+      },
+    );
+  });
+
+  it('normalizes base URL missing the /world prefix', async () => {
+    process.env.WORLD_SERVICE_URL = 'http://world.test';
+    mockFetch.mockResolvedValueOnce(
+      createResponse({
+        id: 10,
+        x: 1,
+        y: 2,
+        biomeId: 4,
+        biomeName: 'forest',
+        description: 'lush',
+        height: 0.7,
+        temperature: 0.4,
+        moisture: 0.6,
+        seed: 99,
+        chunkX: 0,
+        chunkY: 0,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      }),
+    );
+
+    const service = serviceFactory();
+    await service.getTileInfo(1, 2);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://world.test/world/tiles/1/2',
+      {
+        method: 'GET',
+        headers: { accept: 'application/json' },
+      },
+    );
   });
 
   it('falls back to default tile when request fails', async () => {
@@ -125,7 +163,9 @@ describe('WorldService (REST)', () => {
         updatedAt: nowIso,
       },
     ];
-    mockFetch.mockResolvedValueOnce(createResponse({ chunkX: 0, chunkY: 0, tiles }));
+    mockFetch.mockResolvedValueOnce(
+      createResponse({ chunkX: 0, chunkY: 0, tiles }),
+    );
 
     const service = serviceFactory();
     const first = await service.getChunk(0, 0);
@@ -155,7 +195,9 @@ describe('WorldService (REST)', () => {
         updatedAt: nowIso,
       },
     ];
-    mockFetch.mockResolvedValueOnce(createResponse({ chunkX: 0, chunkY: 0, tiles }));
+    mockFetch.mockResolvedValueOnce(
+      createResponse({ chunkX: 0, chunkY: 0, tiles }),
+    );
 
     const service = serviceFactory();
     const [a, b] = await Promise.all([
@@ -185,7 +227,9 @@ describe('WorldService (REST)', () => {
         chunkY: 0,
         createdAt: nowIso,
         updatedAt: nowIso,
-        nearbyBiomes: [{ biomeName: 'forest', distance: 1, direction: 'north' }],
+        nearbyBiomes: [
+          { biomeName: 'forest', distance: 1, direction: 'north' },
+        ],
         nearbySettlements: [],
         currentSettlement: null,
       }),
@@ -204,5 +248,46 @@ describe('WorldService (REST)', () => {
     mockFetch.mockResolvedValueOnce(createErrorResponse(503, 'unavailable'));
     const service = serviceFactory();
     await expect(service.healthCheck()).resolves.toBe(false);
+  });
+
+  it('fetches nearest settlement summary', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createResponse({
+        settlement: {
+          id: 10,
+          name: 'Fooville',
+          type: 'town',
+          size: 'medium',
+          population: 550,
+          description: 'A friendly town',
+          x: 5,
+          y: 6,
+          distance: 12.5,
+          direction: 'north',
+          isCurrent: false,
+        },
+      }),
+    );
+
+    const service = serviceFactory();
+    const settlement = await service.findNearestSettlement(5, 6);
+
+    expect(settlement?.name).toBe('Fooville');
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://world.test/world/settlements/nearest?x=5&y=6',
+      {
+        method: 'GET',
+        headers: { accept: 'application/json' },
+      },
+    );
+  });
+
+  it('returns null when nearest settlement fetch fails', async () => {
+    mockFetch.mockResolvedValueOnce(createErrorResponse(500, 'oops'));
+
+    const service = serviceFactory();
+    const settlement = await service.findNearestSettlement(1, 2);
+
+    expect(settlement).toBeNull();
   });
 });

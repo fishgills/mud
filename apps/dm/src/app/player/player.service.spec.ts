@@ -5,6 +5,7 @@ import {
   MovePlayerRequest,
   PlayerStatsRequest,
 } from '../api/dto/player-requests.dto';
+import { EventBus } from '@mud/engine';
 
 const players: Record<string, unknown>[] = [];
 
@@ -179,6 +180,7 @@ describe('PlayerService', () => {
       biomeId: 1,
     })),
   } as unknown as Parameters<typeof PlayerService.prototype.constructor>[0];
+  let emitSpy: jest.SpyInstance;
 
   beforeEach(() => {
     players.length = 0;
@@ -200,6 +202,7 @@ describe('PlayerService', () => {
       isAlive: true,
     });
     jest.spyOn(global.Math, 'random').mockImplementation(() => 0.25);
+    emitSpy = jest.spyOn(EventBus, 'emit').mockResolvedValue();
   });
 
   afterEach(() => {
@@ -299,12 +302,21 @@ describe('PlayerService', () => {
     const healed = await service.healPlayer('EXIST', 5);
     expect(healed.combat.hp).toBeLessThanOrEqual(healed.combat.maxHp);
 
+    emitSpy.mockClear();
     const damaged = await service.damagePlayer('EXIST', 200);
     expect(damaged.combat.isAlive).toBe(false);
+    expect(emitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'player:death',
+        x: expect.any(Number),
+        y: expect.any(Number),
+      }),
+    );
   });
 
   it('levels up and awards skill points based on XP thresholds', async () => {
     const service = new PlayerService(worldService);
+    emitSpy.mockClear();
     const leveled = await service.updatePlayerStats('EXIST', {
       // Triangular thresholds (base=100): 100, 300, 600, 1000 => level 5 at 1000
       xp: 1000,
@@ -314,6 +326,13 @@ describe('PlayerService', () => {
     // expect(leveled.combat.maxHp).toBe(34);
     // expect(leveled.combat.hp).toBe(34);
     expect(leveled.skillPoints).toBe(2);
+    expect(emitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'player:levelup',
+        newLevel: 5,
+        skillPointsGained: 2,
+      }),
+    );
   });
 
   it('spends skill points to increase attributes', async () => {

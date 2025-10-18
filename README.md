@@ -4,19 +4,30 @@ Mud is an AI-assisted multiplayer text adventure game built as a Turborepo monor
 
 ## Monorepo structure
 
-| Path              | Description                                                                                                                           |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/world`      | World generation and rendering service providing REST endpoints backed by Redis caching and Prisma.                                  |
-| `apps/dm`         | \"Dungeon master\" API that drives game ticks, combat, and AI generated descriptions. Exposes REST endpoints consumed by clients.   |
-| `apps/slack-bot`  | Slack Bolt app that handles player commands, maps, and onboarding through Slack conversations.                                        |
-| `apps/tick`       | Lightweight worker that regularly calls the DM service to advance the world state.                                                    |
-| `libs/database`   | Shared Prisma client and schema for PostgreSQL.                                                                                       |
-| `libs/gcp-auth`   | Helpers for authenticating service-to-service calls on Google Cloud Run.                                                              |
-| `infra/terraform` | Infrastructure-as-code definitions for deploying the services.                                                                        |
-| `scripts/`        | Deployment and operational scripts (database migrations, certificate automation, etc.).                                               |
+| Path              | Description                                                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/world`      | World generation and rendering service providing REST endpoints backed by Redis caching and Prisma.                               |
+| `apps/dm`         | \"Dungeon master\" API that drives game ticks, combat, and AI generated descriptions. Exposes REST endpoints consumed by clients. |
+| `apps/slack-bot`  | Slack Bolt app that handles player commands, maps, and onboarding through Slack conversations.                                    |
+| `apps/tick`       | Lightweight worker that regularly calls the DM service to advance the world state.                                                |
+| `libs/database`   | Shared Prisma client and schema for PostgreSQL.                                                                                   |
+| `libs/engine`     | Shared engine primitives and the global EventBus used to coordinate gameplay across services.                                     |
+| `libs/gcp-auth`   | Helpers for authenticating service-to-service calls on Google Cloud Run.                                                          |
+| `infra/terraform` | Infrastructure-as-code definitions for deploying the services.                                                                    |
+| `scripts/`        | Deployment and operational scripts (database migrations, certificate automation, etc.).                                           |
 
 Additional service-specific docs live alongside each app (for example
 `apps/dm/SETUP.md`, `apps/dm/GAME_FLOW.md`, and `apps/world/TILE_OPERATIONS.md`).
+
+## Engine event bus
+
+The `@mud/engine` package in `libs/engine` exposes a process-wide `EventBus` that all DM logic must use for communication. Modules within `apps/dm` emit game events (player movement, combat, notifications, etc.) through the bus instead of calling one another directly. This keeps features decoupled and lets services such as the Slack bot subscribe to the same events.
+
+- Emit events with `EventBus.emit({ eventType, ...payload })` anywhere inside the DM service. Existing systems like `PlayerService`, `CombatService`, and encounter handling already follow this pattern.
+- Subscribe to events with `EventBus.on('player:move', handler)` or `EventBus.onAny(handler)` when building reactive components (for example, tile prefetch or AI behaviors).
+- Cross-service delivery is handled by `EventBridgeService` in `apps/dm`, which forwards every emitted event to Redis through the `@mud/redis-client` bridge. Other apps subscribe on Redis channels and get the same payloads.
+
+When adding new DM features, always publish significant state changes through the EventBus so downstream listeners and external clients stay in sync.
 
 ## Prerequisites
 
@@ -39,14 +50,14 @@ All services rely on the following shared configuration:
 
 ### DM service (`apps/dm`)
 
-| Variable                 | Description                                                                                                                   |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| `OPENAI_API_KEY`         | API key used for AI descriptions and responses.                                                                               |
-| `WORLD_SERVICE_URL`      | Base URL for the world service (e.g. `http://localhost:3001/world`).                                                          |
-| `COORDINATION_PREFIX`    | Redis key namespace for coordination locks (defaults to `dm:coord:`).                                                         |
-| `TILE_DESC_LOCK_TTL_MS`  | TTL for tile description locks in Redis.                                                                                      |
-| `TILE_DESC_COOLDOWN_MS`  | Cooldown before retrying tile descriptions.                                                                                   |
-| `TILE_DESC_MIN_RETRY_MS` | Minimum retry delay when description generation fails.                                                                        |
+| Variable                 | Description                                                           |
+| ------------------------ | --------------------------------------------------------------------- |
+| `OPENAI_API_KEY`         | API key used for AI descriptions and responses.                       |
+| `WORLD_SERVICE_URL`      | Base URL for the world service (e.g. `http://localhost:3001/world`).  |
+| `COORDINATION_PREFIX`    | Redis key namespace for coordination locks (defaults to `dm:coord:`). |
+| `TILE_DESC_LOCK_TTL_MS`  | TTL for tile description locks in Redis.                              |
+| `TILE_DESC_COOLDOWN_MS`  | Cooldown before retrying tile descriptions.                           |
+| `TILE_DESC_MIN_RETRY_MS` | Minimum retry delay when description generation fails.                |
 
 ### World service (`apps/world`)
 
@@ -58,21 +69,21 @@ All services rely on the following shared configuration:
 
 ### Slack bot (`apps/slack-bot`)
 
-| Variable               | Description                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------------------- |
-| `SLACK_BOT_TOKEN`      | Bot token for your Slack app.                                                            |
-| `SLACK_SIGNING_SECRET` | Signing secret for request verification.                                                 |
-| `SLACK_APP_TOKEN`      | App-level token for the Bolt SDK.                                                        |
-| `DM_API_BASE_URL`      | Base URL of the DM REST API (local default `http://localhost:3000`).                     |
-| `WORLD_API_BASE_URL`   | Base URL of the world REST API (local default `http://localhost:3001/world`).            |
-| `PORT`                 | Port the Slack bot listens on (default `3002`).                                          |
+| Variable               | Description                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| `SLACK_BOT_TOKEN`      | Bot token for your Slack app.                                                 |
+| `SLACK_SIGNING_SECRET` | Signing secret for request verification.                                      |
+| `SLACK_APP_TOKEN`      | App-level token for the Bolt SDK.                                             |
+| `DM_API_BASE_URL`      | Base URL of the DM REST API (local default `http://localhost:3000`).          |
+| `WORLD_API_BASE_URL`   | Base URL of the world REST API (local default `http://localhost:3001/world`). |
+| `PORT`                 | Port the Slack bot listens on (default `3002`).                               |
 
 ### Tick worker (`apps/tick`)
 
-| Variable         | Description                                                                                               |
-| ---------------- | --------------------------------------------------------------------------------------------------------- |
+| Variable          | Description                                                          |
+| ----------------- | -------------------------------------------------------------------- |
 | `DM_API_BASE_URL` | Base URL of the DM REST API (local default `http://localhost:3000`). |
-| `PORT`           | HTTP port for the lightweight health server (default `3003`).                                             |
+| `PORT`            | HTTP port for the lightweight health server (default `3003`).        |
 
 The shared `@mud/gcp-auth` utilities also look for the `GCP_CLOUD_RUN` or
 `K_SERVICE` environment variables to determine when to mint Cloud Run identity
@@ -187,17 +198,17 @@ provided `docker-compose.yml` + Nginx setup.
 
 ### Available Scripts
 
-| Script                   | Description                                    |
-| ------------------------ | ---------------------------------------------- |
-| `yarn build`             | Build all apps                                 |
-| `yarn test`              | Run all tests                                  |
-| `yarn serve`             | Start all development servers                  |
-| `yarn lint`              | Lint all code                                  |
-| `yarn format`            | Format code with Prettier                      |
-| `yarn db:migrate:dev`    | Run Prisma migrations (development)            |
-| `yarn db:migrate:deploy` | Run Prisma migrations (production)             |
-| `yarn db:push`           | Push schema changes without migrations         |
-| `yarn db:seed`           | Seed database with initial data                |
+| Script                   | Description                            |
+| ------------------------ | -------------------------------------- |
+| `yarn build`             | Build all apps                         |
+| `yarn test`              | Run all tests                          |
+| `yarn serve`             | Start all development servers          |
+| `yarn lint`              | Lint all code                          |
+| `yarn format`            | Format code with Prettier              |
+| `yarn db:migrate:dev`    | Run Prisma migrations (development)    |
+| `yarn db:migrate:deploy` | Run Prisma migrations (production)     |
+| `yarn db:push`           | Push schema changes without migrations |
+| `yarn db:seed`           | Seed database with initial data        |
 
 ### Turborepo Features
 

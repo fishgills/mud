@@ -13,6 +13,7 @@ export const COMMANDS = {
   DELETE: 'delete',
   COMPLETE: 'complete',
   REROLL: 'reroll',
+  INVENTORY: 'inventory',
   // Movement (text aliases)
   NORTH: 'north',
   SOUTH: 'south',
@@ -42,6 +43,7 @@ export const HELP_ACTIONS = {
   LOOK: 'help_action_look',
   STATS: 'help_action_stats',
   MAP: 'help_action_map',
+  INVENTORY: 'help_action_inventory',
   LEVELING: 'help_action_leveling',
   COMBAT: 'help_action_combat',
   ABILITIES: 'help_action_abilities',

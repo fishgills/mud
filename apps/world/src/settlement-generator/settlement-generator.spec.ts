@@ -1,4 +1,7 @@
-import { SettlementGenerator } from './settlement-generator';
+import {
+  SettlementGenerator,
+  type SettlementSiteContext,
+} from './settlement-generator';
 import { BIOMES } from '../constants';
 
 describe('SettlementGenerator', () => {
@@ -11,20 +14,22 @@ describe('SettlementGenerator', () => {
   describe('shouldGenerateSettlement', () => {
     it('should return deterministic results for same coordinates', () => {
       const biome = BIOMES.GRASSLAND;
+      const site = makeSite(biome);
 
-      const result1 = generator.shouldGenerateSettlement(100, 100, biome);
-      const result2 = generator.shouldGenerateSettlement(100, 100, biome);
+      const result1 = generator.shouldGenerateSettlement(100, 100, site);
+      const result2 = generator.shouldGenerateSettlement(100, 100, site);
 
       expect(result1).toBe(result2);
     });
 
     it('should return false for most coordinates (settlements should be rare)', () => {
       const biome = BIOMES.GRASSLAND;
+      const site = makeSite(biome);
       let settlementCount = 0;
       const totalChecks = 10000;
 
       for (let i = 0; i < totalChecks; i++) {
-        if (generator.shouldGenerateSettlement(i * 10, i * 10, biome)) {
+        if (generator.shouldGenerateSettlement(i * 10, i * 10, site)) {
           settlementCount++;
         }
       }
@@ -37,8 +42,16 @@ describe('SettlementGenerator', () => {
       const grassland = BIOMES.GRASSLAND;
       const mountains = BIOMES.MOUNTAIN;
 
-      const result1 = generator.shouldGenerateSettlement(100, 100, grassland);
-      const result2 = generator.shouldGenerateSettlement(100, 100, mountains);
+      const result1 = generator.shouldGenerateSettlement(
+        100,
+        100,
+        makeSite(grassland),
+      );
+      const result2 = generator.shouldGenerateSettlement(
+        100,
+        100,
+        makeSite(mountains),
+      );
 
       // Results may differ based on biome (though both should be boolean)
       expect(typeof result1).toBe('boolean');
@@ -47,15 +60,41 @@ describe('SettlementGenerator', () => {
 
     it('should never generate settlements in oceans', () => {
       const ocean = BIOMES.OCEAN;
+      const site = makeSite(ocean);
       let settlementCount = 0;
 
       for (let i = 0; i < 1000; i++) {
-        if (generator.shouldGenerateSettlement(i * 10, i * 10, ocean)) {
+        if (generator.shouldGenerateSettlement(i * 10, i * 10, site)) {
           settlementCount++;
         }
       }
 
       expect(settlementCount).toBe(0);
+    });
+
+    it('should prefer hospitable conditions over harsh climates', () => {
+      const favorableSite = makeSite(BIOMES.GRASSLAND);
+      const harshSite: SettlementSiteContext = makeSite(BIOMES.DESERT, {
+        height: 0.9,
+        moisture: 0.05,
+        temperature: 0.25,
+      });
+
+      let favorableCount = 0;
+      let harshCount = 0;
+
+      for (let i = 0; i < 3000; i++) {
+        const x = i * 7;
+        const y = i * 13;
+        if (generator.shouldGenerateSettlement(x, y, favorableSite)) {
+          favorableCount++;
+        }
+        if (generator.shouldGenerateSettlement(x, y, harshSite)) {
+          harshCount++;
+        }
+      }
+
+      expect(favorableCount).toBeGreaterThan(harshCount);
     });
   });
 
@@ -158,3 +197,16 @@ describe('SettlementGenerator', () => {
     });
   });
 });
+
+function makeSite(
+  biome: (typeof BIOMES)[keyof typeof BIOMES],
+  overrides: Partial<SettlementSiteContext> = {},
+): SettlementSiteContext {
+  return {
+    biome,
+    height: 0.45,
+    moisture: 0.55,
+    temperature: 0.6,
+    ...overrides,
+  };
+}

@@ -12,6 +12,40 @@ import {
   SETTLEMENT_SUFFIXES,
 } from './settlement-naming';
 import { Settlement } from '@mud/database';
+
+export type SettlementSiteContext = {
+  biome: BiomeInfo;
+  height: number;
+  moisture: number;
+  temperature: number;
+};
+
+const WATERLOCKED_BIOMES = new Set([
+  BIOMES.OCEAN.name,
+  BIOMES.SHALLOW_OCEAN.name,
+  BIOMES.LAKE.name,
+  BIOMES.RIVER.name,
+  BIOMES.BEACH.name,
+  BIOMES.SWAMP.name,
+]);
+
+const BIOME_FAVORABILITY: Record<string, number> = {
+  [BIOMES.GRASSLAND.name]: 1.0,
+  [BIOMES.FOREST.name]: 0.85,
+  [BIOMES.HILLS.name]: 0.8,
+  [BIOMES.SAVANNA.name]: 0.7,
+  [BIOMES.JUNGLE.name]: 0.65,
+  [BIOMES.TAIGA.name]: 0.55,
+  [BIOMES.DESERT.name]: 0.45,
+  [BIOMES.ALPINE.name]: 0.35,
+  [BIOMES.MOUNTAIN.name]: 0.2,
+  [BIOMES.SNOWY_MOUNTAIN.name]: 0.15,
+  [BIOMES.TUNDRA.name]: 0.15,
+  [BIOMES.VOLCANIC.name]: 0.05,
+};
+
+const MAX_HASH = 0xffffffff;
+
 export class SettlementGenerator {
   private seed: number;
 
@@ -33,33 +67,33 @@ export class SettlementGenerator {
    * @param biome - The biome information at the location.
    * @returns True if a settlement should be generated, false otherwise.
    */
-  shouldGenerateSettlement(x: number, y: number, biome: BiomeInfo): boolean {
-    // Create a deterministic random value based on coordinates and seed
-    const coordSeed = x * 1000 + y + this.seed;
-    const coordRng = seedrandom(coordSeed.toString());
-    const baseChance = coordRng();
+  shouldGenerateSettlement(
+    x: number,
+    y: number,
+    context: SettlementSiteContext,
+  ): boolean {
+    if (WATERLOCKED_BIOMES.has(context.biome.name)) {
+      return false;
+    }
 
-    // Different biomes have different settlement probabilities
-    // Greatly reduced settlement spawn rates
-    const biomeModifiers: Record<string, number> = {
-      [BIOMES.GRASSLAND.name]: 0.0001,
-      [BIOMES.FOREST.name]: 0.00005,
-      [BIOMES.HILLS.name]: 0.00005,
-      [BIOMES.RIVER.name]: 0,
-      [BIOMES.LAKE.name]: 0,
-      [BIOMES.BEACH.name]: 0,
-      [BIOMES.SAVANNA.name]: 0,
-      [BIOMES.TAIGA.name]: 0,
-      [BIOMES.DESERT.name]: 0.0001,
-      [BIOMES.SWAMP.name]: 0,
-      [BIOMES.MOUNTAIN.name]: 0,
-      [BIOMES.TUNDRA.name]: 0,
-      [BIOMES.OCEAN.name]: 0,
-      [BIOMES.SHALLOW_OCEAN.name]: 0,
-    };
+    const environmentScore = this.computeEnvironmentScore(context);
+    if (environmentScore <= 0) {
+      return false;
+    }
 
-    const modifier = biomeModifiers[biome.name] || 0.0005;
-    return baseChance < modifier;
+    const rng = seedrandom(`${this.seed}:${x}:${y}`);
+    const regionalAffinity = this.computeRegionalAffinity(x, y);
+    const scarcityBias = this.computeScarcityBias(x, y);
+
+    const baseProbability = 0.0006;
+    const environmentFactor = 0.35 + environmentScore * 0.65;
+    const regionalFactor = 0.45 + regionalAffinity * 0.75;
+    const scarcityFactor = 0.4 + scarcityBias * 0.6;
+
+    const finalProbability =
+      baseProbability * environmentFactor * regionalFactor * scarcityFactor;
+
+    return rng() < finalProbability;
   }
 
   /**
@@ -540,5 +574,98 @@ export class SettlementGenerator {
       s ^ (x * 374761393) ^ (y * 1103515245) ^ (salt * 1013904223),
     );
     return (s & 0xffffffff) / 0x100000000; // [0,1)
+  }
+
+  private computeEnvironmentScore(context: SettlementSiteContext): number {
+    const baseFavorability = BIOME_FAVORABILITY[context.biome.name] ?? 0.25;
+    if (baseFavorability <= 0) {
+      return 0;
+    }
+
+    const heightPref = this.computePreference(context.height, 0.35, 0.65, 0.2);
+    const moisturePref = this.computePreference(
+      context.moisture,
+      0.3,
+      0.75,
+      0.25,
+    );
+    const temperaturePref = this.computePreference(
+      context.temperature,
+      0.35,
+      0.8,
+      0.25,
+    );
+
+    const climateBlend =
+      heightPref * 0.35 + moisturePref * 0.35 + temperaturePref * 0.3;
+
+    return Math.max(
+      0,
+      Math.min(1, baseFavorability * (0.5 + climateBlend * 0.5)),
+    );
+  }
+
+  private computePreference(
+    value: number,
+    idealMin: number,
+    idealMax: number,
+    softness: number,
+  ): number {
+    if (value >= idealMin && value <= idealMax) {
+      return 1;
+    }
+    if (value < idealMin) {
+      const distance = idealMin - value;
+      return Math.max(0, 1 - distance / softness);
+    }
+    const distance = value - idealMax;
+    return Math.max(0, 1 - distance / softness);
+  }
+
+  private computeRegionalAffinity(x: number, y: number): number {
+    const low = this.valueNoise(x * 0.0006, y * 0.0006, 1013);
+    const mid = this.valueNoise(x * 0.0025, y * 0.0025, 1723);
+    const high = this.valueNoise(x * 0.01, y * 0.01, 2339);
+
+    const totalWeight = 0.5 + 0.35 + 0.15;
+    return (low * 0.5 + mid * 0.35 + high * 0.15) / totalWeight;
+  }
+
+  private computeScarcityBias(x: number, y: number): number {
+    const macro = this.valueNoise(x * 0.0003, y * 0.0003, 3203);
+    // Encourage slightly denser clusters around the world origin without forcing symmetry
+    const radial = 1 - Math.min(1, Math.sqrt(x * x + y * y) / 5000);
+    return Math.max(0, Math.min(1, macro * 0.7 + radial * 0.3));
+  }
+
+  private valueNoise(x: number, y: number, salt: number): number {
+    const xi = Math.floor(x);
+    const yi = Math.floor(y);
+    const xf = x - xi;
+    const yf = y - yi;
+
+    const v00 = this.hashCoord(xi, yi, salt);
+    const v10 = this.hashCoord(xi + 1, yi, salt);
+    const v01 = this.hashCoord(xi, yi + 1, salt);
+    const v11 = this.hashCoord(xi + 1, yi + 1, salt);
+
+    const i1 = this.lerp(v00, v10, this.fade(xf));
+    const i2 = this.lerp(v01, v11, this.fade(xf));
+    return this.lerp(i1, i2, this.fade(yf));
+  }
+
+  private hashCoord(x: number, y: number, salt: number): number {
+    const hashed = this._hash32(
+      (this.seed | 0) ^ (x * 374761393) ^ (y * 668265263) ^ salt,
+    );
+    return (hashed & 0xffffffff) / MAX_HASH;
+  }
+
+  private fade(t: number): number {
+    return t * t * (3 - 2 * t);
+  }
+
+  private lerp(a: number, b: number, t: number): number {
+    return a + (b - a) * t;
   }
 }

@@ -3,8 +3,7 @@ import '@mud/tracer/register';
 import http from 'http';
 import { authorizedFetch, setAuthLogger } from '@mud/gcp-auth';
 
-const DM_API_BASE_URL =
-  process.env.DM_API_BASE_URL || 'http://localhost:3000';
+const DM_API_BASE_URL = process.env.DM_API_BASE_URL || 'http://localhost:3000';
 
 // Tick interval in milliseconds (default: 30 minutes)
 const TICK_INTERVAL_MS = parseInt(process.env.TICK_INTERVAL_MS || '60000', 10);

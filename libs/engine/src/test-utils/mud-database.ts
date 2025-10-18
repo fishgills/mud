@@ -16,6 +16,12 @@ export interface Player {
   gold: number;
   xp: number;
   isAlive: boolean;
+  headItemId: number | null;
+  chestItemId: number | null;
+  legsItemId: number | null;
+  armsItemId: number | null;
+  leftHandItemId: number | null;
+  rightHandItemId: number | null;
   lastAction?: Date;
   createdAt?: Date;
   updatedAt?: Date;
@@ -198,6 +204,14 @@ const playerModel = {
       gold: data.gold ?? 0,
       xp: data.xp ?? 0,
       isAlive: data.isAlive ?? true,
+      headItemId: data.headItemId !== undefined ? data.headItemId : null,
+      chestItemId: data.chestItemId !== undefined ? data.chestItemId : null,
+      legsItemId: data.legsItemId !== undefined ? data.legsItemId : null,
+      armsItemId: data.armsItemId !== undefined ? data.armsItemId : null,
+      leftHandItemId:
+        data.leftHandItemId !== undefined ? data.leftHandItemId : null,
+      rightHandItemId:
+        data.rightHandItemId !== undefined ? data.rightHandItemId : null,
       lastAction: data.lastAction ?? now,
       createdAt: data.createdAt ?? now,
       updatedAt: data.updatedAt ?? now,
