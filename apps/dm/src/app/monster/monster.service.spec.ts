@@ -1,4 +1,5 @@
 import { MonsterService } from './monster.service';
+import { EventBus } from '@mud/engine';
 
 const monsters: Record<string, unknown>[] = [];
 
@@ -81,10 +82,12 @@ describe('MonsterService', () => {
       nearbySettlements: [],
     }),
   } as unknown as Parameters<typeof MonsterService.prototype.constructor>[0];
+  let emitSpy: jest.SpyInstance;
 
   beforeEach(() => {
     monsters.length = 0;
     jest.spyOn(global.Math, 'random').mockImplementation(() => 0.2);
+    emitSpy = jest.spyOn(EventBus, 'emit').mockResolvedValue();
   });
 
   afterEach(() => {
@@ -115,8 +118,12 @@ describe('MonsterService', () => {
       updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
     });
 
+    emitSpy.mockClear();
     await service.moveMonster(1);
     expect(monsters[0].lastMove).toBeDefined();
+    expect(emitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: 'monster:move' }),
+    );
 
     worldService.getTileInfo.mockResolvedValueOnce({
       x: 1,
@@ -148,8 +155,16 @@ describe('MonsterService', () => {
       updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
     });
 
+    emitSpy.mockClear();
     const damaged = await service.damageMonster(2, 10);
     expect(damaged.combat.isAlive).toBe(false);
+    expect(emitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'monster:death',
+        x: expect.any(Number),
+        y: expect.any(Number),
+      }),
+    );
 
     await service.cleanupDeadMonsters();
     expect(monsters.find((m) => m.id === 2)).toBeUndefined();

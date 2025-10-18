@@ -1,9 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EncounterService } from './encounter.service';
 import { MonsterService } from '../monster/monster.service';
-import { CombatService } from '../combat/combat.service';
 import { EventBus } from '@mud/engine';
-import type { PlayerMoveEvent } from '@mud/engine';
+import type { PlayerMoveEvent, MonsterEntity } from '@mud/engine';
 
 // Mock database package
 jest.mock('@mud/database', () => ({
@@ -21,7 +20,6 @@ jest.mock('@mud/engine', () => ({
 describe('EncounterService', () => {
   let service: EncounterService;
   let monsterService: jest.Mocked<MonsterService>;
-  let combatService: jest.Mocked<CombatService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -33,18 +31,11 @@ describe('EncounterService', () => {
             getMonstersAtLocation: jest.fn(),
           },
         },
-        {
-          provide: CombatService,
-          useValue: {
-            monsterAttackPlayer: jest.fn(),
-          },
-        },
       ],
     }).compile();
 
     service = module.get<EncounterService>(EncounterService);
     monsterService = module.get(MonsterService);
-    combatService = module.get(CombatService);
 
     // Clear mock calls from onModuleInit
     jest.clearAllMocks();
@@ -133,7 +124,6 @@ describe('EncounterService', () => {
 
       expect(monsterService.getMonstersAtLocation).toHaveBeenCalledWith(10, 20);
       expect(EventBus.emit).not.toHaveBeenCalled();
-      expect(combatService.monsterAttackPlayer).not.toHaveBeenCalled();
     });
 
     it('should emit monster:encounter event when monsters are present', async () => {
@@ -201,10 +191,21 @@ describe('EncounterService', () => {
 
       await service['handlePlayerMove'](event);
 
-      expect(combatService.monsterAttackPlayer).toHaveBeenCalledWith(
-        1,
-        'U123456',
+      const emitCalls = (EventBus.emit as jest.Mock).mock.calls;
+      const combatCall = emitCalls.find(
+        ([payload]) => payload.eventType === 'combat:initiate',
       );
+
+      expect(combatCall).toBeDefined();
+      expect(combatCall?.[0]).toMatchObject({
+        eventType: 'combat:initiate',
+        attacker: expect.objectContaining({ id: 1, type: 'monster' }),
+        defender: expect.objectContaining({ id: 'U123456', type: 'player' }),
+        metadata: expect.objectContaining({
+          source: 'encounter.service',
+          reason: 'monster-ambush',
+        }),
+      });
 
       jest.spyOn(Math, 'random').mockRestore();
     });
@@ -231,7 +232,10 @@ describe('EncounterService', () => {
 
       await service['handlePlayerMove'](event);
 
-      expect(combatService.monsterAttackPlayer).not.toHaveBeenCalled();
+      const combatCalls = (EventBus.emit as jest.Mock).mock.calls.filter(
+        ([payload]) => payload.eventType === 'combat:initiate',
+      );
+      expect(combatCalls).toHaveLength(0);
 
       jest.spyOn(Math, 'random').mockRestore();
     });
@@ -259,21 +263,28 @@ describe('EncounterService', () => {
 
       await service['handlePlayerMove'](event);
 
-      expect(combatService.monsterAttackPlayer).toHaveBeenCalledTimes(2);
-      expect(combatService.monsterAttackPlayer).toHaveBeenCalledWith(
-        1,
-        'U123456',
+      const combatCalls = (EventBus.emit as jest.Mock).mock.calls.filter(
+        ([payload]) => payload.eventType === 'combat:initiate',
       );
-      expect(combatService.monsterAttackPlayer).toHaveBeenCalledWith(
-        2,
-        'U123456',
-      );
+      expect(combatCalls).toHaveLength(2);
+      expect(combatCalls[0][0]).toMatchObject({
+        attacker: expect.objectContaining({ id: 1 }),
+        defender: expect.objectContaining({ id: 'U123456' }),
+      });
+      expect(combatCalls[1][0]).toMatchObject({
+        attacker: expect.objectContaining({ id: 2 }),
+        defender: expect.objectContaining({ id: 'U123456' }),
+      });
 
       jest.spyOn(Math, 'random').mockRestore();
     });
 
     it('should skip combat if player has no slackId', async () => {
-      const playerWithoutSlack = { ...mockPlayer, slackId: null };
+      const playerWithoutSlack = {
+        ...mockPlayer,
+        slackId: null,
+        clientId: null,
+      };
       const monster = createMockMonster(1, 20);
       monsterService.getMonstersAtLocation.mockResolvedValue([
         monster as unknown as MonsterEntity,
@@ -294,9 +305,12 @@ describe('EncounterService', () => {
 
       await service['handlePlayerMove'](event);
 
-      expect(combatService.monsterAttackPlayer).not.toHaveBeenCalled();
+      const combatCalls = (EventBus.emit as jest.Mock).mock.calls.filter(
+        ([payload]) => payload.eventType === 'combat:initiate',
+      );
+      expect(combatCalls).toHaveLength(0);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('no slackId'),
+        expect.stringContaining('no combat identifier'),
       );
 
       consoleErrorSpy.mockRestore();

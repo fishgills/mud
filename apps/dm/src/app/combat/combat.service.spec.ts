@@ -1,9 +1,10 @@
 import { CombatService, Combatant } from './combat.service';
-import type { PlayerEntity } from '@mud/engine';
+import { EventBus } from '@mud/engine';
+import type { PlayerEntity, CombatInitiateEvent } from '@mud/engine';
 import type { EventBridgeService } from '../../shared/event-bridge.service';
 import type { PlayerService } from '../player/player.service';
 import type { AiService } from '../../openai/ai.service';
-import type { CombatRound, DetailedCombatLog } from '../api';
+import type { CombatRound, DetailedCombatLog, CombatResult } from '../api';
 
 type MockPrismaClient = {
   combatLog: {
@@ -217,8 +218,7 @@ const createPlayer = (
   const player = {
     id: overrides.id ?? 1,
     clientId:
-      overrides.clientId ??
-      (overrides.slackId ? `slack:${overrides.slackId}` : 'slack:player'),
+      overrides.clientId ?? (overrides.slackId ? overrides.slackId : 'player'),
     clientType: overrides.clientType ?? 'slack',
     name: overrides.name ?? 'Player',
     gold: overrides.gold ?? 0,
@@ -276,7 +276,11 @@ type CombatServiceInternals = {
 
 type MockPlayerService = Pick<
   PlayerService,
-  'getPlayer' | 'updatePlayerStats' | 'respawnPlayer' | 'getPlayersAtLocation'
+  | 'getPlayer'
+  | 'getPlayerByClientId'
+  | 'updatePlayerStats'
+  | 'respawnPlayer'
+  | 'getPlayersAtLocation'
 >;
 
 type MockAiService = Pick<AiService, 'getText'>;
@@ -292,6 +296,7 @@ describe('CombatService', () => {
   beforeEach(() => {
     playerService = {
       getPlayer: jest.fn(),
+      getPlayerByClientId: jest.fn().mockRejectedValue(new Error('not found')),
       updatePlayerStats: jest.fn(),
       respawnPlayer: jest.fn(),
       getPlayersAtLocation: jest.fn().mockResolvedValue([]),
@@ -1083,5 +1088,46 @@ describe('CombatService', () => {
     await expect(service.playerAttackMonster('hero', 99)).rejects.toThrow(
       'Target is not at your location',
     );
+  });
+
+  it('processes combat:initiate events emitted on the EventBus', async () => {
+    EventBus.clear();
+
+    const initiateSpy = jest
+      .spyOn(service, 'initiateCombat')
+      .mockResolvedValue({
+        success: true,
+        winnerName: 'Attacker',
+        loserName: 'Defender',
+        totalDamageDealt: 0,
+        roundsCompleted: 0,
+        xpGained: 0,
+        goldGained: 0,
+        message: '',
+        playerMessages: [],
+      } as CombatResult);
+
+    service.onModuleInit();
+
+    const combatEvent: CombatInitiateEvent = {
+      eventType: 'combat:initiate',
+      attacker: { type: 'monster', id: 42, name: 'Goblin' },
+      defender: { type: 'player', id: 'player-1', name: 'Hero' },
+      metadata: { ignoreLocation: true, source: 'spec', reason: 'unit-test' },
+      timestamp: new Date(),
+    };
+
+    await EventBus.emit(combatEvent);
+
+    expect(initiateSpy).toHaveBeenCalledWith(
+      42,
+      'monster',
+      'player-1',
+      'player',
+      { ignoreLocation: true },
+    );
+
+    service.onModuleDestroy();
+    EventBus.clear();
   });
 });

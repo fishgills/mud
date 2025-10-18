@@ -2,14 +2,10 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { EventBus, type PlayerMoveEvent } from '@mud/engine';
 import type { Monster } from '@mud/database';
 import { MonsterService } from '../monster/monster.service';
-import { CombatService } from '../combat/combat.service';
 
 @Injectable()
 export class EncounterService implements OnModuleInit {
-  constructor(
-    private monsterService: MonsterService,
-    private combatService: CombatService,
-  ) {}
+  constructor(private monsterService: MonsterService) {}
 
   onModuleInit() {
     // Subscribe to player:move events when the module initializes
@@ -85,21 +81,53 @@ export class EncounterService implements OnModuleInit {
           console.debug('Monster attack condition met', {
             monsterId: monster.id,
           });
-          if (!player.slackId) {
+          const playerIdentifier = this.resolvePlayerIdentifier(
+            player.clientId,
+            player.slackId,
+          );
+          if (!playerIdentifier) {
             console.error(
-              `Cannot trigger monster attack: Player ${player.name} has no slackId`,
+              `Cannot trigger monster attack: Player ${player.name} (${player.id}) has no combat identifier`,
             );
             continue;
           }
-          await this.combatService.monsterAttackPlayer(
-            monster.id,
-            player.slackId,
-          );
+
+          await EventBus.emit({
+            eventType: 'combat:initiate',
+            attacker: {
+              type: 'monster',
+              id: monster.id,
+              name: monster.name,
+            },
+            defender: {
+              type: 'player',
+              id: playerIdentifier,
+              name: player.name,
+            },
+            metadata: {
+              source: 'encounter.service',
+              reason: 'monster-ambush',
+            },
+            timestamp: new Date(),
+          });
         }
       }
     } catch (error) {
       console.error('Error handling monster encounter:', error);
     }
+  }
+
+  private resolvePlayerIdentifier(
+    clientId?: string | null,
+    slackId?: string | null,
+  ): string | null {
+    if (slackId && slackId.trim().length > 0) {
+      return slackId.trim();
+    }
+    if (clientId && clientId.trim().length > 0) {
+      return clientId.trim();
+    }
+    return null;
   }
 
   /**

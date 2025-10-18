@@ -81,6 +81,14 @@ export interface PlayerRecord extends Record<string, unknown> {
   };
   nearbyMonsters?: MonsterRecord[];
   nearbyPlayers?: PlayerRecord[];
+  equipment?: {
+    head?: number | null;
+    chest?: number | null;
+    legs?: number | null;
+    arms?: number | null;
+    leftHand?: number | null;
+    rightHand?: number | null;
+  };
 }
 
 export interface MonsterRecord extends Record<string, unknown> {
@@ -170,6 +178,16 @@ export interface SniffData {
   direction?: string;
   monsterX?: number;
   monsterY?: number;
+  nearestSettlementName?: string;
+  nearestSettlementDirection?: string;
+  nearestSettlementDistance?: number;
+  nearestSettlementType?: string;
+  nearestSettlementPopulation?: number;
+  nearestSettlementDescription?: string | null;
+  nearestSettlementIsCurrent?: boolean;
+  nearestSettlementSize?: string;
+  nearestSettlementDistanceLabel?: string;
+  nearestSettlementProximity?: SniffProximity;
 }
 
 export interface SniffResponse extends SuccessResponse {

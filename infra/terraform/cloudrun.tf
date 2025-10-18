@@ -151,7 +151,9 @@ resource "google_cloud_run_v2_service" "services" {
       }
 
       dynamic "env" {
-        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_API_BASE_URL") && contains(keys(local.service_runapp_alias), "world") ? { WORLD_API_BASE_URL = local.service_runapp_alias["world"] } : {}
+        for_each = contains(["slack-bot"], each.key) && !contains(keys(try(each.value.env_vars, {})), "WORLD_API_BASE_URL") && contains(keys(local.service_runapp_alias), "world") ? {
+          WORLD_API_BASE_URL = format("%s/world", trimsuffix(local.service_runapp_alias["world"], "/"))
+        } : {}
         content {
           name  = env.key
           value = env.value

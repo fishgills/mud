@@ -11,7 +11,10 @@ import type {
   ChunkData,
   PaginatedTiles,
 } from './dto';
-import { WorldService } from './world-refactored.service';
+import {
+  WorldService,
+  NearestSettlementSummary,
+} from './world-refactored.service';
 
 @Controller()
 export class WorldController {
@@ -23,6 +26,33 @@ export class WorldController {
       status: 'healthy',
       timestamp: new Date().toISOString(),
     };
+  }
+
+  @Get('settlements/nearest')
+  async getNearestSettlement(
+    @Query('x') xParam: string,
+    @Query('y') yParam: string,
+    @Query('maxRadius') maxRadiusParam?: string,
+  ): Promise<{ settlement: NearestSettlementSummary | null }> {
+    const x = Number.parseInt(xParam, 10);
+    const y = Number.parseInt(yParam, 10);
+    if (Number.isNaN(x) || Number.isNaN(y)) {
+      throw new BadRequestException('x and y must be integers');
+    }
+
+    let maxRadius: number | undefined;
+    if (maxRadiusParam !== undefined) {
+      maxRadius = Number.parseInt(maxRadiusParam, 10);
+      if (Number.isNaN(maxRadius) || maxRadius < 0) {
+        throw new BadRequestException('maxRadius must be a positive integer');
+      }
+    }
+
+    const settlement = await this.worldService.findNearestSettlement(x, y, {
+      maxRadius,
+    });
+
+    return { settlement };
   }
 
   @Get('tiles/:x/:y')
