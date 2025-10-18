@@ -45,9 +45,15 @@ describe('sniff handler', () => {
     expect(mockedSniffNearestMonster).toHaveBeenCalledWith({
       slackId: 'slack:U123',
     });
-    expect(say).toHaveBeenCalledWith({
-      text: 'You catch the scent of Goblin nearby to the north. The nearest settlement is Fooville nearby to the west.',
-    });
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'You catch the scent of Goblin nearby to the north. The nearest settlement is Fooville nearby to the west.',
+        blocks: expect.arrayContaining([
+          expect.objectContaining({ type: 'header' }),
+          expect.objectContaining({ type: 'section' }),
+        ]),
+      }),
+    );
   });
 
   it('does not duplicate settlement details already present in the message', async () => {
@@ -79,7 +85,12 @@ describe('sniff handler', () => {
       say,
     } as unknown as HandlerContext);
 
-    expect(say).toHaveBeenCalledWith({ text: messageWithSettlement });
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: messageWithSettlement,
+        blocks: expect.any(Array),
+      }),
+    );
   });
 
   it('includes settlement guidance when falling back to the default copy', async () => {
@@ -101,9 +112,15 @@ describe('sniff handler', () => {
       say,
     } as unknown as HandlerContext);
 
-    expect(say).toHaveBeenCalledWith({
-      text: "You sniff the air but can't catch any monster scent within 1 tile. You're right in Fooville.",
-    });
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "You sniff the air but can't catch any monster scent within 1 tile. You're right in Fooville.",
+        blocks: expect.arrayContaining([
+          expect.objectContaining({ type: 'header' }),
+          expect.objectContaining({ type: 'section' }),
+        ]),
+      }),
+    );
   });
 });
 
