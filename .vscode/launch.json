@@ -5,6 +5,50 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Attach DM Service",
+      "type": "node",
+      "request": "attach",
+      "address": "localhost",
+      "port": 9229,
+      "skipFiles": ["<node_internals>/**"],
+      "restart": false,
+      "outFiles": ["${workspaceFolder}/apps/dm/dist/**/*.js"],
+      "sourceMaps": true
+    },
+    {
+      "name": "Attach World Service",
+      "type": "node",
+      "request": "attach",
+      "address": "localhost",
+      "port": 9230,
+      "skipFiles": ["<node_internals>/**"],
+      "restart": false,
+      "outFiles": ["${workspaceFolder}/apps/world/dist/**/*.js"],
+      "sourceMaps": true
+    },
+    {
+      "name": "Attach Tick Worker",
+      "type": "node",
+      "request": "attach",
+      "address": "localhost",
+      "port": 9232,
+      "skipFiles": ["<node_internals>/**"],
+      "restart": false,
+      "outFiles": ["${workspaceFolder}/apps/tick/dist/**/*.js"],
+      "sourceMaps": true
+    },
+    {
+      "name": "Attach Slack Bot",
+      "type": "node",
+      "request": "attach",
+      "address": "localhost",
+      "port": 9233,
+      "skipFiles": ["<node_internals>/**"],
+      "restart": false,
+      "outFiles": ["${workspaceFolder}/apps/slack-bot/dist/**/*.js"],
+      "sourceMaps": true
+    },
+    {
       "name": "Attach",
       "port": 9229,
       "request": "attach",

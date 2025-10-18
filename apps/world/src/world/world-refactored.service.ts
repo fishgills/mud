@@ -10,6 +10,20 @@ import { Settlement } from '@mud/database';
 import type { WorldTile, TileWithNearbyBiomes } from './dto';
 import { WORLD_CHUNK_SIZE } from '@mud/constants';
 
+export interface NearestSettlementSummary {
+  id: number;
+  name: string;
+  type: string;
+  size: string;
+  population: number;
+  description: string | null;
+  x: number;
+  y: number;
+  distance: number;
+  direction: string;
+  isCurrent: boolean;
+}
+
 @Injectable()
 export class WorldService {
   private readonly logger = new Logger(WorldService.name);
@@ -48,6 +62,13 @@ export class WorldService {
   /** Returns the active world seed used for terrain generation. */
   getCurrentSeed(): number {
     return this.currentSeed;
+  }
+
+  private async ensureSeedLoaded(): Promise<void> {
+    if (this.currentSeed) {
+      return;
+    }
+    this.currentSeed = await this.worldDatabase.loadWorldSeed();
   }
 
   async getChunk(chunkX: number, chunkY: number): Promise<ChunkData> {
@@ -96,6 +117,34 @@ export class WorldService {
     return promise;
   }
 
+  private async ensureChunksCoveringRadius(
+    centerX: number,
+    centerY: number,
+    radius: number,
+  ): Promise<void> {
+    const chunkSize = WORLD_CHUNK_SIZE;
+    const minChunkX = Math.floor((centerX - radius) / chunkSize);
+    const maxChunkX = Math.floor((centerX + radius) / chunkSize);
+    const minChunkY = Math.floor((centerY - radius) / chunkSize);
+    const maxChunkY = Math.floor((centerY + radius) / chunkSize);
+
+    const tasks: Array<Promise<ChunkData>> = [];
+
+    for (let chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+      for (let chunkY = minChunkY; chunkY <= maxChunkY; chunkY++) {
+        tasks.push(this.getChunk(chunkX, chunkY));
+      }
+    }
+
+    if (tasks.length) {
+      await Promise.all(tasks);
+    } else {
+      const chunkX = Math.floor(centerX / chunkSize);
+      const chunkY = Math.floor(centerY / chunkSize);
+      await this.getChunk(chunkX, chunkY);
+    }
+  }
+
   async getTileWithNearbyBiomes(
     x: number,
     y: number,
@@ -127,6 +176,81 @@ export class WorldService {
 
   getMinDistanceBetweenSettlements(size: string): number {
     return this.worldUtils.getMinDistanceBetweenSettlements(size);
+  }
+
+  async findNearestSettlement(
+    x: number,
+    y: number,
+    options?: { maxRadius?: number; step?: number },
+  ): Promise<NearestSettlementSummary | null> {
+    await this.ensureSeedLoaded();
+
+    const step = Math.max(1, options?.step ?? WORLD_CHUNK_SIZE);
+    const maxRadius = Math.max(
+      step,
+      options?.maxRadius ?? WORLD_CHUNK_SIZE * 4,
+    );
+
+    const searchRadii: number[] = [0];
+    for (let radius = step; radius <= maxRadius; radius += step) {
+      searchRadii.push(radius);
+    }
+
+    for (const radius of searchRadii) {
+      await this.ensureChunksCoveringRadius(x, y, radius);
+      const settlements = await this.worldDatabase.getSettlementsInRadius(
+        x,
+        y,
+        radius,
+      );
+
+      if (!settlements.length) {
+        continue;
+      }
+
+      const ranked = settlements
+        .map((settlement) => {
+          const distance = this.worldUtils.calculateDistance(
+            x,
+            y,
+            settlement.x,
+            settlement.y,
+          );
+          return { settlement, distance };
+        })
+        .sort((a, b) => a.distance - b.distance);
+
+      const best = ranked[0];
+      if (!best) {
+        continue;
+      }
+
+      const isCurrent = best.distance === 0;
+      const direction = isCurrent
+        ? 'here'
+        : this.worldUtils.calculateDirection(
+            x,
+            y,
+            best.settlement.x,
+            best.settlement.y,
+          );
+
+      return {
+        id: best.settlement.id,
+        name: best.settlement.name,
+        type: best.settlement.type,
+        size: best.settlement.size,
+        population: best.settlement.population,
+        description: best.settlement.description,
+        x: best.settlement.x,
+        y: best.settlement.y,
+        distance: this.worldUtils.roundToDecimalPlaces(best.distance, 1),
+        direction,
+        isCurrent,
+      };
+    }
+
+    return null;
   }
 
   isCoordinateInSettlement(

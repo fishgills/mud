@@ -7,6 +7,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { WORLD_CHUNK_SIZE } from '@mud/constants';
 import { PlayerService } from '../../player/player.service';
 import { WorldService } from '../../world/world.service';
 import type { NearbySettlement, Settlement } from '../../world/world.service';
@@ -16,6 +17,7 @@ import type {
   LookViewResponse,
   PerformanceStats,
   SniffResponse,
+  SniffProximity,
 } from '../dto/responses.dto';
 import type { MovePlayerRequest } from '../dto/player-requests.dto';
 import {
@@ -103,19 +105,35 @@ export class MovementController {
     name?: string;
     direction?: string;
     distance?: number;
+    type?: string;
+    size?: string;
+    population?: number;
+    description?: string | null;
     isCurrent: boolean;
+    proximity?: SniffProximity;
+    distanceLabel?: string;
   } | null {
     let nearest: {
       name?: string;
       direction?: string;
       distance?: number;
+      type?: string;
+      size?: string;
+      population?: number;
+      description?: string | null;
       isCurrent: boolean;
+      proximity?: SniffProximity;
+      distanceLabel?: string;
     } | null = null;
 
     const consider = (candidate: {
       name?: string;
       direction?: string;
       distance?: number;
+      type?: string;
+      size?: string;
+      population?: number;
+      description?: string | null;
       isCurrent: boolean;
     }) => {
       const candidateDistance =
@@ -131,9 +149,14 @@ export class MovementController {
           : Number.POSITIVE_INFINITY;
 
       if (!nearest || candidateDistance < currentDistance) {
+        const descriptor = Number.isFinite(candidateDistance)
+          ? this.describeDistance(candidateDistance)
+          : null;
         nearest = {
           ...candidate,
           distance: candidateDistance,
+          proximity: descriptor?.proximity,
+          distanceLabel: descriptor?.label,
         };
       }
     };
@@ -144,6 +167,9 @@ export class MovementController {
         direction: 'here',
         distance: 0,
         isCurrent: true,
+        type: currentSettlement.type,
+        size: currentSettlement.size,
+        description: null,
       });
     }
 
@@ -165,6 +191,10 @@ export class MovementController {
         direction,
         distance: rawDistance,
         isCurrent: dx === 0 && dy === 0,
+        type: settlement.type,
+        size: settlement.size,
+        population: settlement.population,
+        description: settlement.description,
       });
     }
 
@@ -192,7 +222,13 @@ export class MovementController {
     }
 
     const nameSegment = trimmedName ? `${trimmedName} ` : '';
-    return `The nearest settlement is ${nameSegment}to the ${settlement.direction}.`;
+    const descriptor =
+      typeof settlement.distance === 'number' &&
+      Number.isFinite(settlement.distance)
+        ? this.describeDistance(settlement.distance)
+        : null;
+    const distancePhrase = descriptor?.phrase ?? 'nearby';
+    return `The nearest settlement is ${nameSegment}${distancePhrase} to the ${settlement.direction}.`;
   }
 
   @Get('sniff')
@@ -239,12 +275,52 @@ export class MovementController {
         center.nearbySettlements,
         center.currentSettlement,
       );
-      const settlementSentence = this.describeNearestSettlement(settlementInfo);
-      const settlementData = settlementInfo
+      let resolvedSettlement = settlementInfo;
+
+      if (!resolvedSettlement) {
+        const deterministic = await this.worldService
+          .findNearestSettlement(player.position.x, player.position.y, {
+            maxRadius: Math.max(detectionRadius * 2, WORLD_CHUNK_SIZE * 2),
+          })
+          .catch(() => null);
+
+        if (deterministic) {
+          const descriptor =
+            typeof deterministic.distance === 'number' &&
+            Number.isFinite(deterministic.distance)
+              ? this.describeDistance(deterministic.distance)
+              : null;
+
+          resolvedSettlement = {
+            name: deterministic.name,
+            direction: deterministic.direction,
+            distance: deterministic.distance,
+            type: deterministic.type,
+            size: deterministic.size,
+            population: deterministic.population,
+            description: deterministic.description,
+            isCurrent: deterministic.isCurrent,
+            proximity: descriptor?.proximity,
+            distanceLabel: descriptor?.label,
+          };
+        }
+      }
+
+      const settlementSentence =
+        this.describeNearestSettlement(resolvedSettlement);
+      const settlementData = resolvedSettlement
         ? {
-            nearestSettlementName: settlementInfo.name,
-            nearestSettlementDirection: settlementInfo.direction,
-            nearestSettlementDistance: settlementInfo.distance,
+            nearestSettlementName: resolvedSettlement.name,
+            nearestSettlementDirection: resolvedSettlement.direction,
+            nearestSettlementDistance: resolvedSettlement.distance,
+            nearestSettlementType: resolvedSettlement.type,
+            nearestSettlementPopulation: resolvedSettlement.population,
+            nearestSettlementDescription:
+              resolvedSettlement.description ?? null,
+            nearestSettlementIsCurrent: resolvedSettlement.isCurrent,
+            nearestSettlementSize: resolvedSettlement.size,
+            nearestSettlementDistanceLabel: resolvedSettlement.distanceLabel,
+            nearestSettlementProximity: resolvedSettlement.proximity,
           }
         : {};
 

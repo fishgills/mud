@@ -58,6 +58,13 @@ export interface SniffData {
   nearestSettlementName?: string;
   nearestSettlementDirection?: string;
   nearestSettlementDistance?: number;
+  nearestSettlementType?: string;
+  nearestSettlementPopulation?: number;
+  nearestSettlementDescription?: string | null;
+  nearestSettlementIsCurrent?: boolean;
+  nearestSettlementSize?: string;
+  nearestSettlementDistanceLabel?: string;
+  nearestSettlementProximity?: SniffProximity;
 }
 
 export interface SniffResponse extends SuccessResponse {

@@ -249,4 +249,45 @@ describe('WorldService (REST)', () => {
     const service = serviceFactory();
     await expect(service.healthCheck()).resolves.toBe(false);
   });
+
+  it('fetches nearest settlement summary', async () => {
+    mockFetch.mockResolvedValueOnce(
+      createResponse({
+        settlement: {
+          id: 10,
+          name: 'Fooville',
+          type: 'town',
+          size: 'medium',
+          population: 550,
+          description: 'A friendly town',
+          x: 5,
+          y: 6,
+          distance: 12.5,
+          direction: 'north',
+          isCurrent: false,
+        },
+      }),
+    );
+
+    const service = serviceFactory();
+    const settlement = await service.findNearestSettlement(5, 6);
+
+    expect(settlement?.name).toBe('Fooville');
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://world.test/world/settlements/nearest?x=5&y=6',
+      {
+        method: 'GET',
+        headers: { accept: 'application/json' },
+      },
+    );
+  });
+
+  it('returns null when nearest settlement fetch fails', async () => {
+    mockFetch.mockResolvedValueOnce(createErrorResponse(500, 'oops'));
+
+    const service = serviceFactory();
+    const settlement = await service.findNearestSettlement(1, 2);
+
+    expect(settlement).toBeNull();
+  });
 });

@@ -35,6 +35,14 @@ const resolveDistanceLabel = (
 const buildSettlementFragment = (data?: {
   nearestSettlementName?: string;
   nearestSettlementDirection?: string;
+  nearestSettlementDistance?: number;
+  nearestSettlementSize?: string;
+  nearestSettlementType?: string;
+  nearestSettlementPopulation?: number;
+  nearestSettlementDescription?: string | null;
+  nearestSettlementIsCurrent?: boolean;
+  nearestSettlementDistanceLabel?: string;
+  nearestSettlementProximity?: SniffProximity;
 }): string => {
   if (!data) {
     return '';
@@ -53,7 +61,38 @@ const buildSettlementFragment = (data?: {
   }
 
   const nameSegment = name ? `${name} ` : '';
-  return ` The nearest settlement is ${nameSegment}to the ${direction}.`;
+  const distanceText = resolveDistanceLabel(
+    data.nearestSettlementDistanceLabel,
+    data.nearestSettlementProximity,
+  );
+  const directionSegment = direction ? ` to the ${direction}` : '';
+
+  return ` The nearest settlement is ${nameSegment}${distanceText}${directionSegment}.`;
+};
+
+const settlementIndicators: RegExp[] = [
+  /nearest settlement/i,
+  /standing in a settlement/i,
+  /you'?re right in/i,
+];
+
+const messageIncludesSettlementInfo = (message?: string | null): boolean => {
+  if (!message) {
+    return false;
+  }
+
+  return settlementIndicators.some((pattern) => pattern.test(message));
+};
+
+const appendSettlementInfo = (
+  message: string,
+  settlementFragment: string,
+): string => {
+  if (!settlementFragment || messageIncludesSettlementInfo(message)) {
+    return message;
+  }
+
+  return `${message}${settlementFragment}`;
 };
 
 export const sniffHandler = async ({ userId, say }: HandlerContext) => {
@@ -70,16 +109,18 @@ export const sniffHandler = async ({ userId, say }: HandlerContext) => {
     }
 
     const data = response.data;
+    const settlementFragment = buildSettlementFragment(data);
+
     if (!data || !data.monsterName) {
       const radius = data?.detectionRadius;
       const radiusLabel =
         typeof radius === 'number'
           ? `${radius} tile${radius === 1 ? '' : 's'}`
           : 'your range';
-      const settlementFragment = buildSettlementFragment(data);
       const fallbackMessage = `You sniff the air but can't catch any monster scent within ${radiusLabel}.`;
+      const baseMessage = response.message ?? fallbackMessage;
       await say({
-        text: response.message ?? `${fallbackMessage}${settlementFragment}`,
+        text: appendSettlementInfo(baseMessage, settlementFragment),
       });
       return;
     }
@@ -89,10 +130,10 @@ export const sniffHandler = async ({ userId, say }: HandlerContext) => {
       data.distanceLabel,
       data.proximity,
     );
-    const settlementFragment = buildSettlementFragment(data);
     const fallbackMessage = `You catch the scent of ${data.monsterName} ${distanceText}${direction}.`;
+    const baseMessage = response.message ?? fallbackMessage;
     await say({
-      text: response.message ?? `${fallbackMessage}${settlementFragment}`,
+      text: appendSettlementInfo(baseMessage, settlementFragment),
     });
   } catch (err) {
     const errorMessage = getUserFriendlyErrorMessage(
@@ -101,6 +142,13 @@ export const sniffHandler = async ({ userId, say }: HandlerContext) => {
     );
     await say({ text: errorMessage });
   }
+};
+
+export const __private__ = {
+  resolveDistanceLabel,
+  buildSettlementFragment,
+  messageIncludesSettlementInfo,
+  appendSettlementInfo,
 };
 
 registerHandler(COMMANDS.SNIFF, sniffHandler);

@@ -9,16 +9,26 @@ import type { WorldTile } from './models';
 
 type WorldDatabaseMock = Pick<
   WorldDatabaseService,
-  'initializeBiomes' | 'loadWorldSeed' | 'saveChunkSettlements' | 'getSettlementsInBounds'
+  | 'initializeBiomes'
+  | 'loadWorldSeed'
+  | 'saveChunkSettlements'
+  | 'getSettlementsInBounds'
+  | 'getSettlementsInRadius'
 >;
 type ChunkGeneratorMock = Pick<
   ChunkGeneratorService,
   'generateChunk' | 'generateTileAt'
 >;
-type TileServiceMock = Pick<TileService, 'findNearbyBiomes' | 'analyzeSettlements'>;
+type TileServiceMock = Pick<
+  TileService,
+  'findNearbyBiomes' | 'analyzeSettlements'
+>;
 type WorldUtilsMock = Pick<
   WorldUtilsService,
-  'getMinDistanceBetweenSettlements'
+  | 'getMinDistanceBetweenSettlements'
+  | 'calculateDistance'
+  | 'calculateDirection'
+  | 'roundToDecimalPlaces'
 >;
 
 const createWorldTile = (overrides: Partial<WorldTile> = {}): WorldTile => ({
@@ -91,6 +101,10 @@ describe('WorldService', () => {
         ReturnType<WorldDatabaseService['getSettlementsInBounds']>,
         Parameters<WorldDatabaseService['getSettlementsInBounds']>
       >(() => Promise.resolve([])),
+      getSettlementsInRadius: jest.fn<
+        ReturnType<WorldDatabaseService['getSettlementsInRadius']>,
+        Parameters<WorldDatabaseService['getSettlementsInRadius']>
+      >(() => Promise.resolve([])),
     };
 
     mockChunkGenerator = {
@@ -125,6 +139,18 @@ describe('WorldService', () => {
         ReturnType<WorldUtilsService['getMinDistanceBetweenSettlements']>,
         Parameters<WorldUtilsService['getMinDistanceBetweenSettlements']>
       >(() => 100),
+      calculateDistance: jest.fn<
+        ReturnType<WorldUtilsService['calculateDistance']>,
+        Parameters<WorldUtilsService['calculateDistance']>
+      >(() => 0),
+      calculateDirection: jest.fn<
+        ReturnType<WorldUtilsService['calculateDirection']>,
+        Parameters<WorldUtilsService['calculateDirection']>
+      >(() => 'north'),
+      roundToDecimalPlaces: jest.fn<
+        ReturnType<WorldUtilsService['roundToDecimalPlaces']>,
+        Parameters<WorldUtilsService['roundToDecimalPlaces']>
+      >((value) => value),
     };
 
     service = new WorldService(
@@ -235,6 +261,78 @@ describe('WorldService', () => {
         mockWorldUtils.getMinDistanceBetweenSettlements,
       ).toHaveBeenCalledWith('large');
       expect(result).toBe(100);
+    });
+  });
+
+  describe('findNearestSettlement', () => {
+    beforeEach(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      mockWorldDatabase.getSettlementsInRadius.mockClear();
+      mockWorldUtils.calculateDistance.mockClear();
+      mockWorldUtils.calculateDirection.mockClear();
+      mockWorldUtils.roundToDecimalPlaces.mockClear();
+    });
+
+    it('returns null when no settlements exist within the search radius', async () => {
+      mockWorldDatabase.getSettlementsInRadius.mockResolvedValue([]);
+
+      const result = await service.findNearestSettlement(0, 0, {
+        maxRadius: 50,
+        step: 50,
+      });
+
+      expect(result).toBeNull();
+      expect(mockWorldDatabase.getSettlementsInRadius).toHaveBeenCalled();
+    });
+
+    it('returns the closest settlement with direction metadata', async () => {
+      const settlement = createSettlement({
+        id: 42,
+        name: 'Fooville',
+        x: 10,
+        y: 0,
+        type: 'town',
+        size: 'medium',
+        population: 750,
+        description: 'Test settlement',
+      });
+      mockWorldDatabase.getSettlementsInRadius.mockResolvedValueOnce([
+        settlement,
+      ]);
+      mockWorldUtils.calculateDistance.mockReturnValueOnce(10);
+      mockWorldUtils.roundToDecimalPlaces.mockReturnValueOnce(10);
+      mockWorldUtils.calculateDirection.mockReturnValueOnce('east');
+
+      const result = await service.findNearestSettlement(0, 0, {
+        maxRadius: 100,
+        step: 50,
+      });
+
+      expect(result).toEqual({
+        id: 42,
+        name: 'Fooville',
+        type: 'town',
+        size: 'medium',
+        population: 750,
+        description: 'Test settlement',
+        x: 10,
+        y: 0,
+        distance: 10,
+        direction: 'east',
+        isCurrent: false,
+      });
+      expect(mockWorldUtils.calculateDistance).toHaveBeenCalledWith(
+        0,
+        0,
+        10,
+        0,
+      );
+      expect(mockWorldUtils.calculateDirection).toHaveBeenCalledWith(
+        0,
+        0,
+        10,
+        0,
+      );
     });
   });
 
