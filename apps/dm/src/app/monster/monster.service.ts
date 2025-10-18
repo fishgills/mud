@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { getPrismaClient } from '@mud/database';
+import { getPrismaClient, type Monster } from '@mud/database';
 import { MonsterFactory, MonsterEntity, EventBus } from '@mud/engine';
 import { WorldService } from '../world/world.service';
 import { getMonsterTemplate, pickTypeForBiome } from './monster.types';
@@ -153,15 +153,33 @@ export class MonsterService {
       const dbMonster = await this.prisma.monster.findUnique({
         where: { id: entity.id },
       });
-      if (dbMonster) {
-        await EventBus.emit({
-          eventType: 'monster:death',
-          monster: dbMonster,
-          x: dbMonster.x,
-          y: dbMonster.y,
-          timestamp: new Date(),
-        });
-      }
+
+      const monsterForEvent: Monster = dbMonster ?? {
+        id: entity.id,
+        name: entity.name,
+        type: entity.type,
+        hp: entity.combat.hp,
+        maxHp: entity.combat.maxHp,
+        strength: entity.attributes.strength,
+        agility: entity.attributes.agility,
+        health: entity.attributes.health,
+        x: entity.position.x,
+        y: entity.position.y,
+        isAlive: entity.combat.isAlive,
+        lastMove: entity.lastMove,
+        spawnedAt: entity.spawnedAt,
+        biomeId: entity.biomeId,
+        createdAt: entity.spawnedAt,
+        updatedAt: new Date(),
+      };
+
+      await EventBus.emit({
+        eventType: 'monster:death',
+        monster: monsterForEvent,
+        x: monsterForEvent.x,
+        y: monsterForEvent.y,
+        timestamp: new Date(),
+      });
     }
 
     return entity;

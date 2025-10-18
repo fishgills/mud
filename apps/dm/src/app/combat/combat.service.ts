@@ -1,6 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { getPrismaClient, CombatLog as PrismaCombatLog } from '@mud/database';
-import { MonsterFactory, EventBus } from '@mud/engine';
+import {
+  MonsterFactory,
+  EventBus,
+  type CombatInitiateEvent,
+} from '@mud/engine';
 import { PlayerService } from '../player/player.service';
 import { PlayerStatsDto } from '../player/dto/player.dto';
 import { AiService } from '../../openai/ai.service';
@@ -52,15 +61,61 @@ export interface Combatant {
 }
 
 @Injectable()
-export class CombatService {
+export class CombatService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CombatService.name);
   private prisma = getPrismaClient();
+  private readonly subscriptions: Array<() => void> = [];
 
   constructor(
     private playerService: PlayerService,
     private aiService: AiService,
     private eventBridge: EventBridgeService,
   ) {}
+
+  onModuleInit(): void {
+    const unsubscribe = EventBus.on<CombatInitiateEvent>(
+      'combat:initiate',
+      (event) => this.handleCombatInitiate(event),
+    );
+    this.subscriptions.push(unsubscribe);
+  }
+
+  onModuleDestroy(): void {
+    while (this.subscriptions.length > 0) {
+      const unsubscribe = this.subscriptions.pop();
+      try {
+        unsubscribe?.();
+      } catch (error) {
+        this.logger.error('Failed to remove combat:initiate listener', error);
+      }
+    }
+  }
+
+  private async handleCombatInitiate(
+    event: CombatInitiateEvent,
+  ): Promise<void> {
+    try {
+      const options = event.metadata?.ignoreLocation
+        ? { ignoreLocation: true }
+        : {};
+      await this.initiateCombat(
+        event.attacker.id,
+        event.attacker.type,
+        event.defender.id,
+        event.defender.type,
+        options,
+      );
+    } catch (error) {
+      const source = event.metadata?.source ?? 'unknown-source';
+      const reason = event.metadata?.reason
+        ? ` reason=${event.metadata.reason}`
+        : '';
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to process combat:initiate from ${source}${reason}: ${message}`,
+      );
+    }
+  }
 
   // Roll 1d20
   private rollD20(): number {
@@ -456,8 +511,26 @@ export class CombatService {
   }
 
   // Convert Player/Monster to Combatant interface
-  private async playerToCombatant(slackId: string): Promise<Combatant> {
-    const player = await this.playerService.getPlayer(slackId);
+  private async playerToCombatant(identifier: string): Promise<Combatant> {
+    let firstError: unknown;
+    let player = await this.playerService.getPlayer(identifier).catch((err) => {
+      firstError = err;
+      return null;
+    });
+
+    if (!player) {
+      player = await this.playerService
+        .getPlayerByClientId(identifier)
+        .catch(() => null);
+    }
+
+    if (!player) {
+      if (firstError instanceof Error) {
+        throw firstError;
+      }
+      throw new Error('Player not found or not alive');
+    }
+
     const combatant = {
       id: player.id,
       name: player.name,
@@ -470,7 +543,7 @@ export class CombatService {
       isAlive: player.combat.isAlive,
       x: player.position.x,
       y: player.position.y,
-      slackId: slackId, // Store the Slack ID for later use
+      slackId: player.clientType === 'slack' ? player.clientId : undefined,
     };
     this.logger.debug(
       `Player combatant: ${combatant.name} (Str:${combatant.strength}, Agi:${combatant.agility}, HP:${combatant.hp}/${combatant.maxHp}, Lvl:${combatant.level})`,

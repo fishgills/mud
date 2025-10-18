@@ -97,6 +97,25 @@ export interface CombatEndEvent extends BaseGameEvent {
   y: number;
 }
 
+export interface CombatInitiateEvent extends BaseGameEvent {
+  eventType: 'combat:initiate';
+  attacker: {
+    type: 'player' | 'monster';
+    id: number | string;
+    name?: string;
+  };
+  defender: {
+    type: 'player' | 'monster';
+    id: number | string;
+    name?: string;
+  };
+  metadata?: {
+    ignoreLocation?: boolean;
+    source?: string;
+    reason?: string;
+  };
+}
+
 // Monster Events
 export interface MonsterSpawnEvent extends BaseGameEvent {
   eventType: 'monster:spawn';
@@ -185,6 +204,7 @@ export type GameEvent =
   | CombatHitEvent
   | CombatMissEvent
   | CombatEndEvent
+  | CombatInitiateEvent
   | MonsterSpawnEvent
   | MonsterMoveEvent
   | MonsterEncounterEvent

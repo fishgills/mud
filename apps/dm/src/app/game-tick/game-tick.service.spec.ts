@@ -1,4 +1,11 @@
 import { GameTickService } from './game-tick.service';
+import { EventBus } from '@mud/engine';
+
+jest.mock('@mud/engine', () => ({
+  EventBus: {
+    emit: jest.fn(),
+  },
+}));
 
 type PrismaMock = ReturnType<typeof createPrismaMock>;
 
@@ -36,6 +43,8 @@ function createPrismaMock() {
     setGameState: (state: Record<string, unknown> | null) =>
       (currentGameState = state),
     getGameState: () => currentGameState,
+    setWeatherState: (state: Record<string, unknown> | null) =>
+      (weatherState = state),
   };
 }
 
@@ -71,9 +80,6 @@ const gameTickPrismaHolder = ensureGameTickPrismaHolder();
 
 describe('GameTickService', () => {
   const createService = () => {
-    const combatService = {
-      monsterAttackPlayer: jest.fn(),
-    } as unknown as { monsterAttackPlayer: jest.Mock };
     const playerService = {
       getAllPlayers: jest.fn().mockResolvedValue([
         {
@@ -125,7 +131,6 @@ describe('GameTickService', () => {
     };
 
     const service = new GameTickService(
-      combatService,
       playerService,
       populationService,
       monsterService,
@@ -133,7 +138,6 @@ describe('GameTickService', () => {
 
     return {
       service,
-      combatService,
       playerService,
       populationService,
       monsterService,
@@ -168,20 +172,27 @@ describe('GameTickService', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    (EventBus.emit as jest.Mock).mockReset();
   });
 
   it('processes ticks and updates weather', async () => {
-    const { service, populationService, monsterService, combatService } =
-      createService();
+    const { service, populationService, monsterService } = createService();
     // First tick with no existing game state
     const result1 = await service.processTick();
     expect(result1.tick).toBe(1);
     expect(populationService.enforceDensityAround).toHaveBeenCalled();
     expect(monsterService.moveMonster).toHaveBeenCalledWith(1);
-    expect(combatService.monsterAttackPlayer).toHaveBeenCalledWith(
-      1,
-      'client-U1',
+    const combatCalls = (EventBus.emit as jest.Mock).mock.calls.filter(
+      ([event]) => event.eventType === 'combat:initiate',
     );
+    expect(combatCalls).toHaveLength(1);
+    expect(combatCalls[0][0]).toMatchObject({
+      attacker: expect.objectContaining({ id: 1, type: 'monster' }),
+      defender: expect.objectContaining({ id: 'client-U1', type: 'player' }),
+      metadata: expect.objectContaining({ source: 'game-tick.service' }),
+    });
+
+    (EventBus.emit as jest.Mock).mockClear();
 
     // Prepare for weather update at tick 4
     gameTickPrismaHolder.controller?.setGameState({
@@ -190,8 +201,20 @@ describe('GameTickService', () => {
       gameHour: 0,
       gameDay: 1,
     });
+    gameTickPrismaHolder.controller?.setWeatherState({
+      id: 1,
+      state: 'clear',
+      pressure: 1015,
+    });
+
     const result2 = await service.processTick();
     expect(result2.weatherUpdated).toBe(true);
+    const weatherCalls = (EventBus.emit as jest.Mock).mock.calls.filter(
+      ([event]) => event.eventType === 'world:weather:change',
+    );
+    expect(weatherCalls.length).toBeGreaterThanOrEqual(1);
+
+    (EventBus.emit as jest.Mock).mockClear();
 
     // Prepare for cleanup branch at tick 10
     gameTickPrismaHolder.controller?.setGameState({

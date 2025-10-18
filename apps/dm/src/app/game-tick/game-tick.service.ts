@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { getPrismaClient } from '@mud/database';
 import { EventBus } from '@mud/engine';
-import { CombatService } from '../combat/combat.service';
 import { PlayerService } from '../player/player.service';
 import { PopulationService } from '../monster/population.service';
 import type { TickResult } from '../api';
@@ -13,14 +12,12 @@ export class GameTickService {
   private logger = new Logger(GameTickService.name);
 
   constructor(
-    private combatService: CombatService,
     private playerService: PlayerService,
     private populationService: PopulationService,
     private monsterService: MonsterService,
   ) {}
 
   async processTick(): Promise<TickResult> {
-    // Get or create game state
     let gameState = await this.prisma.gameState.findFirst();
     if (!gameState) {
       gameState = await this.prisma.gameState.create({
@@ -32,7 +29,6 @@ export class GameTickService {
     let newHour = gameState.gameHour;
     let newDay = gameState.gameDay;
 
-    // Advance time (each tick is 15 minutes of game time)
     if (newTick % 4 === 0) {
       newHour += 1;
       if (newHour >= 24) {
@@ -41,7 +37,6 @@ export class GameTickService {
       }
     }
 
-    // Update game state
     await this.prisma.gameState.update({
       where: { id: gameState.id },
       data: {
@@ -65,18 +60,16 @@ export class GameTickService {
     let combatEvents = 0;
     let weatherUpdated = false;
 
-    // Enforce biome density around active players (deterministic cap per tick)
     {
       const players = await this.playerService.getAllPlayers();
       for (const player of players) {
         if (!player.combat.isAlive) continue;
-        // Try to spawn up to N monsters to approach target densities in the area
         const { spawned, report } =
           await this.populationService.enforceDensityAround(
             player.position.x,
             player.position.y,
-            12, // radius to consider
-            6, // max spawns per player per tick
+            12,
+            6,
           );
         monstersSpawned += spawned;
         if (report.length) {
@@ -96,17 +89,14 @@ export class GameTickService {
       }
     }
 
-    // Move monsters
     const monsters = await this.monsterService.getAllMonsters();
     for (const monster of monsters) {
       if (Math.random() < 0.4) {
-        // 40% chance for each monster to move
         await this.monsterService.moveMonster(monster.id);
         monstersMoved++;
       }
     }
 
-    // Process monster attacks on players
     for (const monster of monsters) {
       const playersAtLocation = await this.playerService.getPlayersAtLocation(
         monster.position.x,
@@ -114,21 +104,33 @@ export class GameTickService {
       );
       for (const player of playersAtLocation) {
         if (player.combat.isAlive && Math.random() < 0.2) {
-          // 20% chance per encounter
           try {
-            // Use clientId or fallback to slackId for backwards compatibility
-            const playerIdentifier = player.clientId;
+            const playerIdentifier = this.resolvePlayerIdentifier(player);
             if (!playerIdentifier) {
               console.log('Player has no clientId or slackId, skipping combat');
               continue;
             }
-            await this.combatService.monsterAttackPlayer(
-              monster.id,
-              playerIdentifier,
-            );
+
+            await EventBus.emit({
+              eventType: 'combat:initiate',
+              attacker: {
+                type: 'monster',
+                id: monster.id,
+                name: monster.name,
+              },
+              defender: {
+                type: 'player',
+                id: playerIdentifier,
+                name: player.name,
+              },
+              metadata: {
+                source: 'game-tick.service',
+                reason: 'proximity-aggro',
+              },
+              timestamp: new Date(),
+            });
             combatEvents++;
           } catch (error) {
-            // Monster or player might have died or moved
             console.log(
               'Combat failed:',
               error instanceof Error ? error.message : 'Unknown error',
@@ -138,12 +140,10 @@ export class GameTickService {
       }
     }
 
-    // Clean up dead monsters every 10 ticks
     if (newTick % 10 === 0) {
       await this.monsterService.cleanupDeadMonsters();
     }
 
-    // Update weather every hour (4 ticks)
     if (newTick % 4 === 0) {
       const weatherChange = await this.updateWeather();
       weatherUpdated = Boolean(weatherChange);
@@ -178,16 +178,14 @@ export class GameTickService {
       weather = await this.prisma.weatherState.create({
         data: {
           state: 'clear',
-          pressure: 1013, // Standard atmospheric pressure
+          pressure: 1013,
         },
       });
       return null;
     }
 
     const oldState = weather.state;
-
-    // Simple weather system based on pressure changes
-    const pressureChange = Math.floor(Math.random() * 20) - 10; // -10 to +10
+    const pressureChange = Math.floor(Math.random() * 20) - 10;
     const newPressure = Math.max(
       980,
       Math.min(1040, weather.pressure + pressureChange),
@@ -224,5 +222,14 @@ export class GameTickService {
       gameState,
       weather,
     };
+  }
+
+  private resolvePlayerIdentifier(player: {
+    clientId?: string;
+    clientType?: string;
+  }): string | undefined {
+    const { clientId } = player ?? {};
+    const normalized = clientId?.trim();
+    return normalized && normalized.length > 0 ? normalized : undefined;
   }
 }
