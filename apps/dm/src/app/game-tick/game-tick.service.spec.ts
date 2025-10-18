@@ -1,4 +1,26 @@
+// Ensure env is mocked before importing the service under test
+jest.mock('../../env', () => ({
+  env: {
+    OPENAI_API_KEY: 'test-openai-key',
+    DATABASE_URL: 'postgresql://test',
+    WORLD_SERVICE_URL: 'http://world.test/world',
+    REDIS_URL: 'redis://localhost:6379',
+    COORDINATION_PREFIX: 'dm:coord:',
+    TILE_DESC_LOCK_TTL_MS: 15000,
+    TILE_DESC_COOLDOWN_MS: 300000,
+    TILE_DESC_MIN_RETRY_MS: 30000,
+    MOVEMENT_ACTIVE_RADIUS: 1000,
+    MOVEMENT_PARTITIONS: 1,
+    MOVEMENT_CONCURRENCY: 10,
+    MOVEMENT_CHANCE: 1,
+    MOVEMENT_BUDGET: 100,
+  },
+}));
+
 import { GameTickService } from './game-tick.service';
+import type { PlayerService } from '../player/player.service';
+import type { PopulationService } from '../monster/population.service';
+import type { MonsterService } from '../monster/monster.service';
 import { EventBus } from '@mud/engine';
 
 jest.mock('@mud/engine', () => ({
@@ -118,22 +140,28 @@ describe('GameTickService', () => {
       }),
     } as unknown as { enforceDensityAround: jest.Mock };
     const monsterService = {
-      getAllMonsters: jest.fn().mockResolvedValue([
+      getMonstersInBounds: jest.fn().mockResolvedValue([
         { id: 1, position: { x: 1, y: 1 } },
         { id: 2, position: { x: 2, y: 2 } },
       ]),
+      getMonstersAtLocation: jest
+        .fn()
+        .mockResolvedValue([
+          { id: 1, position: { x: 1, y: 1 }, name: 'Goblin' },
+        ]),
       moveMonster: jest.fn().mockResolvedValue(undefined),
       cleanupDeadMonsters: jest.fn().mockResolvedValue(undefined),
     } as unknown as {
-      getAllMonsters: jest.Mock;
+      getMonstersInBounds: jest.Mock;
+      getMonstersAtLocation: jest.Mock;
       moveMonster: jest.Mock;
       cleanupDeadMonsters: jest.Mock;
     };
 
     const service = new GameTickService(
-      playerService,
-      populationService,
-      monsterService,
+      playerService as unknown as PlayerService,
+      populationService as unknown as PopulationService,
+      monsterService as unknown as MonsterService,
     );
 
     return {
@@ -147,18 +175,22 @@ describe('GameTickService', () => {
   beforeEach(() => {
     gameTickPrismaHolder.controller = undefined;
     gameTickPrismaHolder.prisma = undefined;
+    // Random usage order now:
+    // 1) candidate shuffle
+    // 2) movement chance (candidate 1)
+    // 3) movement chance (candidate 2)
+    // 4) combat chance (must be < 0.2 to trigger)
     const randomValues = [
-      0.3,
-      0.6, // monster move checks
-      0.1,
-      0.9, // combat chances
-      0.2,
-      0.4, // weather change and branch
+      0.6, // shuffle
+      0.5, // movement (candidate 1) => move
+      0.5, // movement (candidate 2) => move
+      0.1, // combat chance (trigger)
+      0.4, // weather / subsequent randomness
       0.3,
       0.6,
       0.1,
+      0.2, // ensure weather pressureChange < 0.5 so state changes from clear
       0.9,
-      0.2,
       0.4,
       0.5,
       0.5,
@@ -181,7 +213,12 @@ describe('GameTickService', () => {
     const result1 = await service.processTick();
     expect(result1.tick).toBe(1);
     expect(populationService.enforceDensityAround).toHaveBeenCalled();
-    expect(monsterService.moveMonster).toHaveBeenCalledWith(1);
+    // Movement is gated by partition/budget/chance; ensure we attempted movement on some candidate
+    expect(
+      (monsterService.moveMonster as jest.Mock).mock.calls.some(
+        ([id]: [number]) => [1, 2].includes(id),
+      ),
+    ).toBe(true);
     const combatCalls = (EventBus.emit as jest.Mock).mock.calls.filter(
       ([event]) => event.eventType === 'combat:initiate',
     );
