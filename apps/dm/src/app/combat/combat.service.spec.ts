@@ -4,7 +4,7 @@ import type { PlayerEntity, CombatInitiateEvent } from '@mud/engine';
 import type { EventBridgeService } from '../../shared/event-bridge.service';
 import type { PlayerService } from '../player/player.service';
 import type { AiService } from '../../openai/ai.service';
-import type { CombatRound, DetailedCombatLog } from '../api';
+import type { CombatRound, DetailedCombatLog, CombatResult } from '../api';
 
 type MockPrismaClient = {
   combatLog: {
@@ -1095,7 +1095,17 @@ describe('CombatService', () => {
 
     const initiateSpy = jest
       .spyOn(service, 'initiateCombat')
-      .mockResolvedValue({} as any);
+      .mockResolvedValue({
+        success: true,
+        winnerName: 'Attacker',
+        loserName: 'Defender',
+        totalDamageDealt: 0,
+        roundsCompleted: 0,
+        xpGained: 0,
+        goldGained: 0,
+        message: '',
+        playerMessages: [],
+      } as CombatResult);
 
     service.onModuleInit();
 
