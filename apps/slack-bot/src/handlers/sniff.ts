@@ -36,13 +36,13 @@ const resolveDistanceLabel = (
 const arrowForDirection = (direction?: string): string => {
   switch ((direction || '').toLowerCase()) {
     case 'north':
-      return ':arrow_up_small:';
+      return ':arrow_up:';
     case 'south':
-      return ':arrow_down_small:';
+      return ':arrow_down:';
     case 'east':
-      return ':arrow_right_small:';
+      return ':arrow_right:';
     case 'west':
-      return ':arrow_left_small:';
+      return ':arrow_left:';
     case 'here':
       return ':round_pushpin:';
     default:

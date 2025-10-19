@@ -196,6 +196,39 @@ GCP deployments. The `scripts/` directory contains helper scripts such as
 and `init-letsencrypt.sh` for provisioning HTTPS certificates when using the
 provided `docker-compose.yml` + Nginx setup.
 
+### CI/CD (local Terraform, Actions for images)
+
+- `.github/workflows/ci.yml` – Lint and tests on PRs and main.
+- `.github/workflows/deploy.yml` – On push to `main` (or manual dispatch), builds and pushes Docker images tagged with the short commit SHA. No Terraform runs from CI.
+
+Local infra apply:
+
+- Run Terraform locally to converge infrastructure and update Cloud Run services to the desired image tag and env vars:
+  - Optional helper: `./scripts/ci/local-tf-apply.sh <project_id> <region> [image_tag]`
+  - If `image_tag` is omitted, the script uses the short git SHA.
+  - Terraform is the source of truth for Cloud Run env vars; no separate sync step is required.
+
+Required GitHub repository secrets (for image pushes):
+
+- `GCP_PROJECT_ID` – GCP project (e.g., battleforge-444008)
+- `GCP_REGION` – Region (e.g., us-central1)
+- `GCP_DEPLOY_SA` – Email of the deploy Service Account with permissions for Artifact Registry, Cloud Run, and Terraform-managed resources
+- `GCP_WORKLOAD_IDENTITY_PROVIDER` – Full resource name of the Workload Identity Provider used for OIDC (e.g., projects/…/locations/global/workloadIdentityPools/…/providers/…)
+
+How it works:
+
+1. GitHub Actions authenticates to GCP via Workload Identity Federation and builds/pushes images.
+2. You run `terraform apply` locally (or via the helper script) to update infra and point Cloud Run to the desired image tag.
+
+Notes:
+
+- Terraform is the source of truth for Cloud Run service env vars. Extraneous env vars will be removed on apply, so no separate sync step is needed.
+- If you need per-environment overrides, prefer passing `service_image_overrides` or additional `TF_VAR_…` from the workflow dispatch inputs.
+
+Deprecated (previous flow):
+
+- Ad-hoc bash scripts in `scripts/ci/` (build-and-push, deploy-to-cloudrun, sync-cloudrun-env-vars) are no longer required when using the Deploy workflow and Terraform. Keep them around temporarily if you still need manual deployments; otherwise, plan to remove them.
+
 ### Available Scripts
 
 | Script                   | Description                            |
