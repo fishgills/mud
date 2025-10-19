@@ -53,10 +53,10 @@ jobs:
         run: |
           set -euo pipefail
           export TAG=${{ steps.tag.outputs.tag }}
-          docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REPO/dm:$TAG apps/dm
-          docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REPO/world:$TAG apps/world
-          docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REPO/slack-bot:$TAG apps/slack-bot
-          docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REPO/tick:$TAG apps/tick
+          docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REPO/dm:$TAG -f apps/dm/Dockerfile .
+          docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REPO/world:$TAG -f apps/world/Dockerfile .
+          docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REPO/slack-bot:$TAG -f apps/slack-bot/Dockerfile .
+          docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$ARTIFACT_REPO/tick:$TAG -f apps/tick/Dockerfile .
 
       - name: Push images
         run: |
