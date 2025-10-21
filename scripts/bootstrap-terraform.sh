@@ -131,6 +131,21 @@ run gcloud projects add-iam-policy-binding "$PROJECT" \
   --member="serviceAccount:${TF_SA}" \
   --role="roles/iam.workloadIdentityPoolAdmin"
 
+echo "Granting roles/compute.instanceAdmin.v1 on $PROJECT to $TF_SA"
+run gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:${TF_SA}" \
+  --role="roles/compute.instanceAdmin.v1"
+
+echo "Granting roles/compute.osLogin on $PROJECT to $TF_SA"
+run gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:${TF_SA}" \
+  --role="roles/compute.osLogin"
+
+echo "Granting roles/dns.admin on $PROJECT to $TF_SA"
+run gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:${TF_SA}" \
+  --role="roles/dns.admin"
+
 for runtime_sa in "${RUNTIME_SAS[@]}"; do
   echo "Granting roles/iam.serviceAccountUser on $runtime_sa to $TF_SA"
   run gcloud iam service-accounts add-iam-policy-binding "$runtime_sa" \

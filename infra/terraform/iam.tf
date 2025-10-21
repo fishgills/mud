@@ -1,17 +1,10 @@
 locals {
   github_actions_enabled = var.github_repository != null
   github_actions_roles = var.github_repository == null ? [] : [
-    "roles/artifactregistry.writer",
-    "roles/run.admin",
-    "roles/compute.admin",
-    "roles/serviceusage.serviceUsageAdmin",
-    "roles/cloudsql.admin",
-    "roles/redis.admin",
+    "roles/compute.instanceAdmin.v1",
+    "roles/compute.osLogin",
+    "roles/iam.serviceAccountUser",
     "roles/dns.admin",
-    "roles/secretmanager.admin",
-    "roles/servicenetworking.networksAdmin",
-    "roles/vpcaccess.admin",
-    "roles/resourcemanager.projectIamAdmin",
   ]
 }
 

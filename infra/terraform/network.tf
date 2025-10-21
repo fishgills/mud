@@ -1,4 +1,4 @@
-# VPC Network for private services
+# Dedicated VPC for the VPS host
 resource "google_compute_network" "vpc" {
   name                    = "mud-vpc"
   auto_create_subnetworks = false
@@ -14,27 +14,36 @@ resource "google_compute_subnetwork" "subnet" {
   private_ip_google_access = true
 }
 
-# VPC Connector for Cloud Run to access private services
-resource "google_vpc_access_connector" "connector" {
-  name          = "mud-connector"
-  region        = var.region
-  network       = google_compute_network.vpc.name
-  ip_cidr_range = "10.8.0.0/28"
+# Allow SSH from anywhere (lock down further in production)
+resource "google_compute_firewall" "allow_ssh" {
+  name    = "mud-allow-ssh"
+  network = google_compute_network.vpc.name
 
-  depends_on = [google_project_service.apis]
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  direction = "INGRESS"
+  priority  = 1000
+  source_ranges = [
+    "0.0.0.0/0"
+  ]
 }
 
-# Private service networking for Cloud SQL
-resource "google_compute_global_address" "private_ip_address" {
-  name          = "private-ip-address"
-  purpose       = "VPC_PEERING"
-  address_type  = "INTERNAL"
-  prefix_length = 16
-  network       = google_compute_network.vpc.id
-}
+# Allow HTTP/HTTPS traffic to the VPS
+resource "google_compute_firewall" "allow_http" {
+  name    = "mud-allow-http"
+  network = google_compute_network.vpc.name
 
-resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = google_compute_network.vpc.id
-  service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
+  allow {
+    protocol = "tcp"
+    ports    = ["80", "443"]
+  }
+
+  direction = "INGRESS"
+  priority  = 1000
+  source_ranges = [
+    "0.0.0.0/0"
+  ]
 }

@@ -1,80 +1,86 @@
-# SSL Certificate for Load Balancer (optional)
-resource "google_compute_managed_ssl_certificate" "ssl_cert" {
-  count = var.enable_load_balancer ? 1 : 0
-  name  = "mud-ssl-cert"
+// Create a Google HTTPS Load Balancer that fronts the single VPS.
+// This uses a Google-managed certificate (not exportable) and an Internet NEG
+// that points to the VPS external IP so traffic is proxied to the VM.
+
+resource "google_compute_global_address" "lb_ip" {
+  name = "mud-lb-ip"
+}
+
+resource "google_compute_managed_ssl_certificate" "managed_cert" {
+  name = "mud-managed-cert"
 
   managed {
-    domains = [
-      for service_key, service in local.external_services : "${service.name}.${var.domain}"
-    ]
-  }
-
-  depends_on = [google_project_service.apis]
-}
-
-# Global Load Balancer (optional)
-resource "google_compute_global_address" "default" {
-  count = var.enable_load_balancer ? 1 : 0
-  name  = "mud-lb-ip"
-}
-
-resource "google_compute_url_map" "default" {
-  count           = var.enable_load_balancer ? 1 : 0
-  name            = "mud-url-map"
-  default_service = var.enable_load_balancer ? values(google_compute_backend_service.services)[0].id : null
-
-  dynamic "host_rule" {
-    for_each = var.enable_load_balancer ? local.external_services : {}
-    content {
-      hosts        = ["${host_rule.value.name}.${var.domain}"]
-      path_matcher = "path-matcher-${host_rule.value.name}"
-    }
-  }
-
-  dynamic "path_matcher" {
-    for_each = var.enable_load_balancer ? local.external_services : {}
-    content {
-      name            = "path-matcher-${path_matcher.value.name}"
-      default_service = google_compute_backend_service.services[path_matcher.key].id
-    }
+    # Use the primary domain plus any additional hostnames defined in variables.tf
+    domains = concat([var.domain], var.additional_hostnames)
   }
 }
 
-resource "google_compute_backend_service" "services" {
-  for_each = var.enable_load_balancer ? local.external_services : {}
+resource "google_compute_health_check" "http" {
+  name = "mud-health-check"
 
-  name        = "mud-${each.value.name}-backend"
-  protocol    = "HTTP"
-  port_name   = "http"
-  timeout_sec = 30
+  http_health_check {
+    port         = 80
+    request_path = "/healthz"
+    proxy_header = "NONE"
+  }
+}
+
+// slack-specific health check removed - the LB will check the HTTP port on the
+// instance and let Nginx perform internal routing to containers.
+
+# Network endpoint group pointing to a single external IP (the VPS)
+resource "google_compute_instance_group" "vps_ig" {
+  name = "vps-instance-group"
+  zone = var.zone
+
+  instances = [google_compute_instance.vps.self_link]
+
+  named_port {
+    name = "http"
+    port = 80
+  }
+
+  # slack named port removed - Nginx handles routing from port 80 to containers
+}
+
+resource "google_compute_backend_service" "vps_backend" {
+  name          = "vps-backend"
+  protocol      = "HTTP"
+  port_name     = "http"
+  timeout_sec   = 30
+  health_checks = [google_compute_health_check.http.self_link]
 
   backend {
-    group = google_compute_region_network_endpoint_group.services[each.key].id
+    group = google_compute_instance_group.vps_ig.self_link
   }
 }
 
-resource "google_compute_region_network_endpoint_group" "services" {
-  for_each = var.enable_load_balancer ? local.enabled_services : {}
+// slack backend removed; Nginx on the VPS will route /slack requests to the
+// slack-bot container internally.
 
-  name                  = "mud-${each.value.name}-neg"
-  network_endpoint_type = "SERVERLESS"
-  region                = var.region
+# URL map that forwards HTTPS requests to the backend service
+resource "google_compute_url_map" "https_map" {
+  name = "mud-https-map"
+  host_rule {
+    hosts        = concat([var.domain], var.additional_hostnames)
+    path_matcher = "path-matcher-1"
+  }
 
-  cloud_run {
-    service = google_cloud_run_v2_service.services[each.key].name
+  # Default service for requests that don't match any host/path rules
+  default_service = google_compute_backend_service.vps_backend.self_link
+
+  path_matcher {
+    name            = "path-matcher-1"
+    default_service = google_compute_backend_service.vps_backend.self_link
+
+    # Let the VPS's Nginx handle /slack routing internally; LB will forward
+    # all requests to the VPS HTTP backend.
   }
 }
 
-resource "google_compute_target_https_proxy" "default" {
-  count            = var.enable_load_balancer ? 1 : 0
-  name             = "mud-https-proxy"
-  url_map          = google_compute_url_map.default[0].id
-  ssl_certificates = [google_compute_managed_ssl_certificate.ssl_cert[0].id]
-}
-
-resource "google_compute_url_map" "https_redirect" {
-  count = var.enable_load_balancer ? 1 : 0
-  name  = "mud-https-redirect"
+# URL map for HTTP that redirects to HTTPS
+resource "google_compute_url_map" "http_redirect_map" {
+  name = "mud-http-redirect"
 
   default_url_redirect {
     https_redirect         = true
@@ -83,36 +89,32 @@ resource "google_compute_url_map" "https_redirect" {
   }
 }
 
-resource "google_compute_target_http_proxy" "https_redirect" {
-  count   = var.enable_load_balancer ? 1 : 0
+resource "google_compute_target_https_proxy" "https_proxy" {
+  name             = "mud-https-proxy"
+  url_map          = google_compute_url_map.https_map.self_link
+  ssl_certificates = [google_compute_managed_ssl_certificate.managed_cert.id]
+}
+
+resource "google_compute_target_http_proxy" "http_proxy" {
   name    = "mud-http-proxy"
-  url_map = google_compute_url_map.https_redirect[0].id
+  url_map = google_compute_url_map.http_redirect_map.self_link
 }
 
-resource "google_compute_global_forwarding_rule" "https" {
-  count      = var.enable_load_balancer ? 1 : 0
-  name       = "mud-https-forwarding-rule"
-  target     = google_compute_target_https_proxy.default[0].id
+resource "google_compute_global_forwarding_rule" "https_forward" {
+  name       = "mud-https-forward"
+  ip_address = google_compute_global_address.lb_ip.address
   port_range = "443"
-  ip_address = google_compute_global_address.default[0].address
+  target     = google_compute_target_https_proxy.https_proxy.self_link
 }
 
-resource "google_compute_global_forwarding_rule" "http" {
-  count      = var.enable_load_balancer ? 1 : 0
-  name       = "mud-http-forwarding-rule"
-  target     = google_compute_target_http_proxy.https_redirect[0].id
+resource "google_compute_global_forwarding_rule" "http_forward" {
+  name       = "mud-http-forward"
+  ip_address = google_compute_global_address.lb_ip.address
   port_range = "80"
-  ip_address = google_compute_global_address.default[0].address
+  target     = google_compute_target_http_proxy.http_proxy.self_link
 }
 
-resource "google_dns_record_set" "services" {
-  for_each = var.enable_load_balancer ? local.external_services : {}
-
-  name = "${each.value.name}.${data.google_dns_managed_zone.zone.dns_name}"
-  type = "A"
-  ttl  = 300
-
-  managed_zone = data.google_dns_managed_zone.zone.name
-
-  rrdatas = [google_compute_global_address.default[0].address]
+output "lb_ip_address" {
+  value = google_compute_global_address.lb_ip.address
 }
+

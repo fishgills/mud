@@ -1,71 +1,15 @@
-project_id    = "battleforge-444008"
+project_id    = "your-project-id"
 region        = "us-central1"
 zone          = "us-central1-a"
-domain        = "battleforge.app"
-dns_zone_name = "battleforge-app"
+domain        = "example.com"
+dns_zone_name = "example-com"
 
-# Set this to a secure password for the database
-db_password = "change-me"
+machine_type      = "e2-standard-2"
+boot_disk_size_gb = 50
 
-# Adjust resource sizes as needed
-redis_memory_size_gb = 1
-db_tier              = "db-f1-micro"
+additional_hostnames = [
+  "app.example.com"
+]
 
-github_repository = "fishgills/mud"
-
-# Service configurations - adjust CPU, memory, and scaling as needed
-services = {
-  dm = {
-    name      = "dm"
-    port      = 3000
-    cpu       = "1000m"
-    memory    = "512Mi"
-    min_scale = 0
-    max_scale = 2
-    internal  = true
-    env_vars = {
-      NODE_ENV         = "production"
-      DM_USE_VERTEX_AI = "true"
-    }
-  }
-  world = {
-    name      = "world"
-    port      = 3001
-    cpu       = "1000m"
-    memory    = "512Mi"
-    min_scale = 0
-    max_scale = 2
-    internal  = false
-    env_vars = {
-      NODE_ENV = "production"
-    }
-  }
-  slack-bot = {
-    name      = "slack-bot"
-    port      = 3002
-    cpu       = "500m"
-    memory    = "256Mi"
-    min_scale = 0
-    max_scale = 2
-    env_vars = {
-      NODE_ENV       = "production"
-      WORLD_BASE_URL = "https://world.battleforge.app/world"
-    }
-  }
-  tick = {
-    name      = "tick"
-    port      = 3003
-    cpu       = "500m"
-    memory    = "256Mi"
-    min_scale = 1
-    max_scale = 1
-    internal  = true
-    env_vars = {
-      NODE_ENV = "production"
-    }
-  }
-}
-
-slack_client_id     = null
-slack_client_secret = null
-slack_state_secret  = null
+# Optional: configure Workload Identity Federation for GitHub Actions
+github_repository = "your-org/your-repo"

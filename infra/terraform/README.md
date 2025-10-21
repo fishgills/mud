@@ -1,6 +1,9 @@
 # Terraform Infrastructure
 
 This directory contains the Terraform configuration for the production infrastructure.
+Terraform now provisions a single Compute Engine VM that hosts the Docker Compose
+stack, along with the supporting firewall rules, static IP address, and Cloud
+DNS A records for the public hostnames.
 
 ## Remote State Backend
 
@@ -46,13 +49,11 @@ GitHub Actions share the same view of resources. The backend is configured via
 
 ### GitHub Actions
 
-The deployment workflow expects the following repository secrets:
+If you run Terraform from GitHub Actions, provide the remote-state settings via
+secrets so the workflow can generate `backend.hcl` at runtime:
 
-- `TF_BACKEND_BUCKET` – the name of the GCS bucket that stores Terraform state.
-- `TF_BACKEND_PREFIX` – the path prefix inside the bucket (for example `prod`).
-
-During the workflow, these secrets are used to generate `infra/terraform/backend.hcl`
-so `terraform init` uses the same remote state.
+- `TF_BACKEND_BUCKET` – the name of the GCS bucket that stores Terraform state
+- `TF_BACKEND_PREFIX` – the path prefix inside the bucket (for example `prod`)
 
 Grant read/write permissions on the bucket to every identity that will run
 Terraform (for example, your GitHub Actions service account and your personal
@@ -83,10 +84,12 @@ The script performs the following:
 - Grants `roles/iam.serviceAccountAdmin` and `roles/iam.workloadIdentityPoolAdmin`
   on the project so Terraform can create/update the deployer service account and
   Workload Identity pool.
-- Grants `roles/iam.serviceAccountUser` on the Cloud Run runtime service account
-  (default Compute Engine service account) so Terraform can deploy Cloud Run
-  services. Pass `--runtime-service-account` to grant the same role on any
-  additional runtime service accounts that your services use.
+- Grants Compute Engine and DNS roles (`roles/compute.instanceAdmin.v1`,
+  `roles/compute.osLogin`, and `roles/dns.admin`) so Terraform can manage the
+  VPS, firewall rules, and DNS records.
+- Optionally grants `roles/iam.serviceAccountUser` on the listed runtime service
+  accounts. This is only required if additional service accounts will be used
+  during provisioning.
 
 You can re-run the script any time to add new users or after recreating the
 service account/bucket.
