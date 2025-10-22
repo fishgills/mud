@@ -5,6 +5,7 @@ locals {
     "roles/compute.osLogin",
     "roles/iam.serviceAccountUser",
     "roles/dns.admin",
+    "roles/artifactregistry.writer",
   ]
 }
 
