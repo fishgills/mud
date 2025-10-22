@@ -1,18 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Builds Docker images for every app under ./apps and tags them for Artifact Registry.
-# Usage: ./scripts/build-app-images.sh
-# Environment overrides:
-#   REGION (default: us-central1)
-#   APP_TAG (default: current git short hash)
-#   PUSH_IMAGES=1 to push after build (optional)
-
 APPS_DIR="apps"
 
 REGION=${REGION:-us-central1}
-PROJECT_ID="battleforge-444008"
-ARTIFACT_REPO="mud-registry"
+PROJECT_ID=${PROJECT_ID:-battleforge-444008}
+ARTIFACT_REPO=${ARTIFACT_REPO:-mud-registry}
 REGISTRY_HOST="${REGION}-docker.pkg.dev"
 
 if [[ -n "${APP_TAG:-}" ]]; then
