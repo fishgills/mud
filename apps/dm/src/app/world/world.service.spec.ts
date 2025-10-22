@@ -1,5 +1,6 @@
 import { authorizedFetch } from '@mud/gcp-auth';
 import { WorldService } from './world.service';
+import { refreshEnv } from '../../env';
 
 jest.mock('@mud/gcp-auth', () => ({
   authorizedFetch: jest.fn(),
@@ -57,12 +58,20 @@ const createErrorResponse = (status: number, message: string): Response => {
 
 describe('WorldService (REST)', () => {
   const nowIso = new Date().toISOString();
+  const ORIGINAL_ENV = process.env;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env = { ...ORIGINAL_ENV };
     process.env.DM_CHUNK_CACHE_TTL_MS = '60000';
     process.env.DM_CENTER_NEARBY_CACHE_TTL_MS = '60000';
     process.env.WORLD_SERVICE_URL = 'http://world.test/world';
+    refreshEnv();
+  });
+
+  afterAll(() => {
+    process.env = ORIGINAL_ENV;
+    refreshEnv();
   });
 
   const serviceFactory = () => new WorldService();
@@ -104,6 +113,7 @@ describe('WorldService (REST)', () => {
 
   it('normalizes base URL missing the /world prefix', async () => {
     process.env.WORLD_SERVICE_URL = 'http://world.test';
+    refreshEnv();
     mockFetch.mockResolvedValueOnce(
       createResponse({
         id: 10,

@@ -18,7 +18,7 @@ export class NotificationService {
     this.bridge = new RedisEventBridge({
       redisUrl: env.REDIS_URL,
       channelPrefix: 'game',
-      enableLogging: process.env.NODE_ENV === 'development',
+      enableLogging: env.isProduction === false,
     });
   }
 

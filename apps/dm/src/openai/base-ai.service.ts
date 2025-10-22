@@ -1,5 +1,7 @@
 import { Logger } from '@nestjs/common';
 
+import { env } from '../env';
+
 export interface AiTextOptions {
   timeoutMs?: number;
   cacheKey?: string;
@@ -16,18 +18,9 @@ export abstract class BaseAiService {
   protected readonly logger: Logger;
 
   private cache = new Map<string, CachedEntry>();
-  private readonly CACHE_TTL_MS = Number.parseInt(
-    process.env.DM_OPENAI_CACHE_TTL_MS || '300000',
-    10,
-  );
-  private readonly MAX_CACHE_ENTRIES = Number.parseInt(
-    process.env.DM_OPENAI_CACHE_MAX || '200',
-    10,
-  );
-  private readonly DEFAULT_TIMEOUT_MS = Number.parseInt(
-    process.env.DM_OPENAI_TIMEOUT_MS || '800',
-    10,
-  );
+  private readonly CACHE_TTL_MS = env.DM_OPENAI_CACHE_TTL_MS;
+  private readonly MAX_CACHE_ENTRIES = env.DM_OPENAI_CACHE_MAX;
+  private readonly DEFAULT_TIMEOUT_MS = env.DM_OPENAI_TIMEOUT_MS;
 
   protected constructor(loggerContext: string) {
     this.logger = new Logger(loggerContext);

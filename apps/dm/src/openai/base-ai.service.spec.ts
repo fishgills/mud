@@ -1,4 +1,5 @@
 import { BaseAiService, AiTextOptions } from './base-ai.service';
+import { refreshEnv } from '../env';
 
 class TestAiService extends BaseAiService {
   public configured = true;
@@ -46,10 +47,12 @@ describe('BaseAiService', () => {
     jest.clearAllMocks();
     jest.useRealTimers();
     process.env = { ...ORIGINAL_ENV };
+    refreshEnv();
   });
 
   afterAll(() => {
     process.env = ORIGINAL_ENV;
+    refreshEnv();
   });
 
   it('invokes the model and caches subsequent calls', async () => {
@@ -94,6 +97,7 @@ describe('BaseAiService', () => {
   it('expires cached entries after TTL and evicts oldest entries', async () => {
     process.env.DM_OPENAI_CACHE_TTL_MS = '50';
     process.env.DM_OPENAI_CACHE_MAX = '1';
+    refreshEnv();
     const service = new TestAiService();
 
     const nowSpy = jest.spyOn(Date, 'now');

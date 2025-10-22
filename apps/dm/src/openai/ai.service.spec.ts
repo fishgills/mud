@@ -2,6 +2,7 @@ import { AiService } from './ai.service';
 import type { AiTextOptions } from './base-ai.service';
 import type { OpenaiService } from './openai.service';
 import type { VertexAiService } from './vertex.service';
+import { refreshEnv } from '../env';
 
 describe('AiService', () => {
   const createMocks = () => {
@@ -16,6 +17,7 @@ describe('AiService', () => {
 
   const resetFlag = () => {
     delete process.env.DM_USE_VERTEX_AI;
+    refreshEnv();
   };
 
   beforeEach(() => {
@@ -44,6 +46,7 @@ describe('AiService', () => {
 
   it('uses Vertex AI when DM_USE_VERTEX_AI is true (case-insensitive)', async () => {
     process.env.DM_USE_VERTEX_AI = 'TrUe';
+    refreshEnv();
     const { service, openai, vertex } = createMocks();
     const prompt = 'Generate story';
 

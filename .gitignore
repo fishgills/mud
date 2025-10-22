@@ -49,6 +49,7 @@ docker/*
 dump
 .env
 .env.serve
+.env.prod
 session.txt
 
 vite.config.*.timestamp*

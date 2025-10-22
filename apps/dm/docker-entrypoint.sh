@@ -10,12 +10,6 @@ npx prisma migrate deploy || {
   echo "⚠️  Migration failed, but continuing (may be first run)"
 }
 
-# Run backfill for clientId/clientType
-echo "🔄 Backfilling client IDs..."
-npx tsx scripts/backfill-client-ids.ts || {
-  echo "⚠️  Backfill failed, but continuing"
-}
-
 cd /app
 
 # Start the application

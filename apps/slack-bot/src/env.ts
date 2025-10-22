@@ -13,4 +13,5 @@ export const env = cleanEnv(process.env, {
   WORLD_API_BASE_URL: url({ default: 'http://closet.battleforge.app/world' }),
   REDIS_URL: url({ default: 'redis://localhost:6379' }),
   PORT: str({ default: '3002' }),
+  DATABASE_URL: str({ devDefault: 'postgresql://localhost:5432/mud' }),
 });

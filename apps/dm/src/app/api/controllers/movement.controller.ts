@@ -31,6 +31,7 @@ import {
 } from '../services';
 import { EntityToDtoAdapter } from '../adapters/entity-to-dto.adapter';
 import { calculateDirection } from '../../shared/direction.util';
+import { env } from '../../../env';
 
 @Controller('movement')
 export class MovementController {
@@ -465,8 +466,7 @@ export class MovementController {
     }
 
     try {
-      const aiProviderEnv = (process.env.DM_USE_VERTEX_AI || '').toLowerCase();
-      const aiProvider = aiProviderEnv === 'true' ? 'vertex' : 'openai';
+      const aiProvider = env.DM_USE_VERTEX_AI ? 'vertex' : 'openai';
       this.logger.debug(
         `getLookView start identifier=${playerIdentifier} provider=${aiProvider}`,
       );

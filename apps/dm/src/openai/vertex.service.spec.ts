@@ -1,4 +1,5 @@
 import { VertexAiService } from './vertex.service';
+import { refreshEnv } from '../env';
 
 jest.mock('@google-cloud/vertexai', () => {
   const generateContent = jest.fn();
@@ -39,6 +40,7 @@ const ORIGINAL_ENV = process.env;
 describe('VertexAiService', () => {
   beforeEach(() => {
     process.env = { ...ORIGINAL_ENV };
+    refreshEnv();
     jest.clearAllMocks();
     mockGenerateContent.mockReset();
     mockGetGenerativeModel.mockReset().mockImplementation(() => ({
@@ -51,6 +53,7 @@ describe('VertexAiService', () => {
 
   afterAll(() => {
     process.env = ORIGINAL_ENV;
+    refreshEnv();
   });
 
   it('is not configured when no project ID is provided', () => {
@@ -73,6 +76,7 @@ describe('VertexAiService', () => {
 
   it('initializes Vertex AI client when configured and aggregates text parts', async () => {
     process.env.GCP_PROJECT_ID = 'project';
+    refreshEnv();
     mockGenerateContent.mockResolvedValueOnce({
       response: {
         candidates: [
@@ -109,6 +113,7 @@ describe('VertexAiService', () => {
 
   it('omits generation config when no max tokens provided', async () => {
     process.env.GOOGLE_CLOUD_PROJECT = 'project';
+    refreshEnv();
     mockGenerateContent.mockResolvedValueOnce({ response: { candidates: [] } });
 
     const service = new VertexAiService();
@@ -132,6 +137,7 @@ describe('VertexAiService', () => {
 
   it('throws when the Vertex AI model is unavailable', async () => {
     process.env.GCP_PROJECT_ID = 'project';
+    refreshEnv();
     mockGetGenerativeModel.mockReturnValueOnce(null);
 
     const service = new VertexAiService();
@@ -150,6 +156,7 @@ describe('VertexAiService', () => {
 
   it('logs initialization errors and prevents reuse after failure', async () => {
     process.env.GCP_PROJECT_ID = 'project';
+    refreshEnv();
     const error = new Error('init failed');
     error.stack = 'stack';
     mockVertexConstructor.mockImplementationOnce(() => {
@@ -191,6 +198,7 @@ describe('VertexAiService', () => {
 
   it('handles non-error initialization failures gracefully', async () => {
     process.env.GCP_PROJECT_ID = 'project';
+    refreshEnv();
     mockVertexConstructor.mockImplementationOnce(() => {
       throw 'boom';
     });

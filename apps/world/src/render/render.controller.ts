@@ -48,7 +48,7 @@ export class RenderController {
     );
 
     const cacheKey = `${minX},${minY},${maxX},${maxY},p=${p}`;
-    const ttlMs = Number(process.env.WORLD_RENDER_CACHE_TTL_MS ?? 30000);
+    const ttlMs = 30000;
 
     const cached = await this.cache.get(cacheKey);
     if (cached) {
