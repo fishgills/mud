@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -lt 3 ]]; then
-  echo "Usage: $0 <host> <user> <remote_path> [env_file=.env.prod] [nginx_dir=data/nginx] [ssh_key=${HOME}/.ssh/mud-vps] [gcloud_instance=mud-vps] [gcp_project=battleforge-444008] [compose_file=docker-compose.prod.yml]" >&2
+  echo "Usage: $0 <host> <user> <remote_path> [env_file=.env.prod] [nginx_dir=data/nginx] [ssh_key=${HOME}/.ssh/mud-vps] [gcloud_instance=mud-vps] [gcp_project=battleforge-444008] [local_compose_file=docker-compose.prod.yml]" >&2
   exit 1
 fi
 
@@ -17,7 +17,7 @@ DEFAULT_PROJECT="battleforge-444008"
 SSH_KEY=${6:-${DEFAULT_SSH_KEY}}
 GCLOUD_INSTANCE=${7:-${DEPLOY_INSTANCE:-$DEFAULT_INSTANCE}}
 GCP_PROJECT=${8:-${GCP_PROJECT:-$DEFAULT_PROJECT}}
-COMPOSE_FILE_NAME=${9:-docker-compose.prod.yml}
+LOCAL_COMPOSE_FILE=${9:-docker-compose.prod.yml}
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "Missing env file: $ENV_FILE" >&2
@@ -29,8 +29,8 @@ if [[ ! -d "$NGINX_DIR" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$COMPOSE_FILE_NAME" ]]; then
-  echo "Missing compose file: $COMPOSE_FILE_NAME" >&2
+if [[ ! -f "$LOCAL_COMPOSE_FILE" ]]; then
+  echo "Missing compose file: $LOCAL_COMPOSE_FILE" >&2
   exit 1
 fi
 
@@ -116,14 +116,17 @@ while IFS= read -r file_path; do
 done < <(find "$NGINX_DIR" -type f)
 transfer_directory "$NGINX_DIR" "$REMOTE_PATH/data/nginx"
 
-echo "Uploading compose file $COMPOSE_FILE_NAME to $REMOTE_PATH/$COMPOSE_FILE_NAME..."
-ensure_remote_path_not_directory "$COMPOSE_FILE_NAME"
-transfer_file "$COMPOSE_FILE_NAME" "$REMOTE_PATH/$COMPOSE_FILE_NAME"
+echo "Uploading compose file $LOCAL_COMPOSE_FILE to $REMOTE_PATH/docker-compose.yml..."
+ensure_remote_path_not_directory "docker-compose.yml"
+transfer_file "$LOCAL_COMPOSE_FILE" "$REMOTE_PATH/docker-compose.yml"
 
 echo "Pulling Docker images..."
-ssh_command "cd '$REMOTE_PATH' && COMPOSE_FILE='$COMPOSE_FILE_NAME' docker compose pull"
+ssh_command "cd '$REMOTE_PATH' && docker compose pull"
+
+echo "Stopping existing services..."
+ssh_command "cd '$REMOTE_PATH' && docker compose down"
 
 echo "Starting Docker services..."
-ssh_command "cd '$REMOTE_PATH' && COMPOSE_FILE='$COMPOSE_FILE_NAME' docker compose up -d"
+ssh_command "cd '$REMOTE_PATH' && docker compose up -d --remove-orphans"
 
 echo "Deployment complete."

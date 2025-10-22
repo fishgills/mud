@@ -17,6 +17,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - mud_internal
 
   redis:
     image: redis:7-alpine
@@ -29,6 +31,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - mud_internal
 
   dm:
     image: ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/dm:${APP_TAG:-latest}
@@ -47,6 +51,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY must be set}
     expose:
       - '3000'
+    networks:
+      - mud_internal
 
   world:
     image: ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/world:${APP_TAG:-latest}
@@ -63,6 +69,8 @@ services:
       REDIS_URL: redis://redis:6379/0
     expose:
       - '3001'
+    networks:
+      - mud_internal
 
   slack-bot:
     image: ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/slack-bot:${APP_TAG:-latest}
@@ -70,6 +78,8 @@ services:
     depends_on:
       dm:
         condition: service_started
+      postgres:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 3002
@@ -84,6 +94,8 @@ services:
       SLACK_STATE_SECRET: ${SLACK_STATE_SECRET:?SLACK_STATE_SECRET must be set}
     expose:
       - '3002'
+    networks:
+      - mud_internal
 
   tick:
     image: ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/tick:${APP_TAG:-latest}
@@ -99,6 +111,8 @@ services:
       ACTIVITY_THRESHOLD_MINUTES: ${ACTIVITY_THRESHOLD_MINUTES:-30}
     expose:
       - '3003'
+    networks:
+      - mud_internal
 
   nginx:
     image: nginx:1.25
@@ -114,6 +128,8 @@ services:
       - '80:80'
     volumes:
       - ./data/nginx:/etc/nginx/conf.d:ro
+    networks:
+      - mud_internal
 
   # certbot removed - TLS is handled by the Google HTTPS Load Balancer
 
@@ -122,3 +138,7 @@ volumes:
     driver: local
   redis_data:
     driver: local
+
+networks:
+  mud_internal:
+    driver: bridge
