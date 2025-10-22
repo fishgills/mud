@@ -64,11 +64,6 @@ jobs:
     environment: production
     permissions:
       contents: read
-    env:
-      VPS_HOST: ${{ secrets.VPS_HOST }}
-      VPS_USER: ${{ secrets.VPS_USER }}
-      VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
-      APP_TAG: ${{ needs.build.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -84,5 +79,4 @@ jobs:
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
 
       - name: Deploy to VPS
-        run: |
-          SSH_HOST=$VPS_HOST DEPLOY_USER=$VPS_USER APP_TAG=$APP_TAG ./scripts/deploy-vps.sh "$VPS_DEPLOY_PATH"
+        run: ./scripts/deploy-vps.sh
