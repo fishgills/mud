@@ -205,21 +205,6 @@ describe('RenderController', () => {
       expect(cacheService.get).toHaveBeenCalledWith(expectedKey);
     });
 
-    it('should use WORLD_RENDER_CACHE_TTL_MS from env', async () => {
-      process.env.WORLD_RENDER_CACHE_TTL_MS = '60000';
-      cacheService.get.mockResolvedValue(null);
-
-      await callController(controller, mockResponse as Response);
-
-      expect(cacheService.set).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(String),
-        60000,
-      );
-
-      delete process.env.WORLD_RENDER_CACHE_TTL_MS;
-    });
-
     it('should use default TTL when env var not set', async () => {
       delete process.env.WORLD_RENDER_CACHE_TTL_MS;
       cacheService.get.mockResolvedValue(null);

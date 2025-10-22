@@ -1,6 +1,7 @@
 import OpenAIApi from 'openai';
 
 import { OpenaiService } from './openai.service';
+import { refreshEnv } from '../env';
 
 jest.mock('openai', () => {
   const responses = { create: jest.fn() };
@@ -22,15 +23,18 @@ const ORIGINAL_ENV = process.env;
 describe('OpenaiService', () => {
   beforeEach(() => {
     process.env = { ...ORIGINAL_ENV };
+    refreshEnv();
     jest.clearAllMocks();
   });
 
   afterAll(() => {
     process.env = ORIGINAL_ENV;
+    refreshEnv();
   });
 
   it('initializes the OpenAI client with the provided API key', () => {
     process.env.OPENAI_API_KEY = 'secret';
+    refreshEnv();
     const service = new OpenaiService();
 
     expect(OpenAIApiMock).toHaveBeenCalledWith({ apiKey: 'secret' });
@@ -41,6 +45,7 @@ describe('OpenaiService', () => {
 
   it('reports when the API key is missing', () => {
     delete process.env.OPENAI_API_KEY;
+    refreshEnv();
     const service = new OpenaiService();
 
     expect(
@@ -55,6 +60,7 @@ describe('OpenaiService', () => {
 
   it('invokes the responses endpoint with provided options', async () => {
     process.env.OPENAI_API_KEY = 'secret';
+    refreshEnv();
     responsesMock.create.mockResolvedValueOnce({ output_text: 'story' });
     const service = new OpenaiService();
 
@@ -80,6 +86,7 @@ describe('OpenaiService', () => {
 
   it('falls back to default output when provider response is empty', async () => {
     process.env.OPENAI_API_KEY = 'secret';
+    refreshEnv();
     responsesMock.create.mockResolvedValueOnce({ output_text: '' });
     const service = new OpenaiService();
 

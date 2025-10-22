@@ -2,15 +2,19 @@ import { Injectable } from '@nestjs/common';
 import OpenAIApi from 'openai';
 
 import { AiTextOptions, BaseAiService } from './base-ai.service';
+import { env } from '../env';
 
 @Injectable()
 export class OpenaiService extends BaseAiService {
   private readonly openai: OpenAIApi;
+  private readonly hasValidKey: boolean;
 
   constructor() {
     super(OpenaiService.name);
+    const apiKey = env.OPENAI_API_KEY;
+    this.hasValidKey = Boolean(apiKey && apiKey !== 'test-openai-key');
     this.openai = new OpenAIApi({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey,
     });
   }
 
@@ -19,11 +23,13 @@ export class OpenaiService extends BaseAiService {
   }
 
   protected isConfigured(): boolean {
-    return Boolean(process.env.OPENAI_API_KEY);
+    return this.hasValidKey;
   }
 
   protected configurationWarning(): string | undefined {
-    return 'OpenAI API key not configured, returning mock response';
+    return this.hasValidKey
+      ? undefined
+      : 'OpenAI API key not configured, returning mock response';
   }
 
   protected async invokeModel(

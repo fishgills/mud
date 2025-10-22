@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { OpenaiService } from './openai.service';
 import { VertexAiService } from './vertex.service';
 import { AiTextOptions } from './base-ai.service';
+import { env } from '../env';
 
 @Injectable()
 export class AiService {
@@ -11,8 +12,7 @@ export class AiService {
   ) {}
 
   async getText(prompt: string, options?: AiTextOptions) {
-    const useVertex =
-      (process.env.DM_USE_VERTEX_AI || '').toLowerCase() === 'true';
+    const useVertex = env.DM_USE_VERTEX_AI;
     if (useVertex) {
       return this.vertex.getText(prompt, options);
     }

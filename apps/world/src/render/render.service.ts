@@ -222,7 +222,7 @@ export class RenderService {
     const base64 = canvas.toBuffer('image/png').toString('base64');
     const encodeMs = Date.now() - tEncodeStart;
     // Cache with same TTL as region cache
-    const ttlMs = Number(process.env.WORLD_RENDER_CACHE_TTL_MS ?? 30000);
+    const ttlMs = Number(30000);
     await this.cache.set(key, base64, ttlMs);
     const sizeKB = Math.round(((base64.length / 4) * 3) / 1024);
     this.logger.debug(

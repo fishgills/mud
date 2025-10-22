@@ -2,13 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { VertexAI } from '@google-cloud/vertexai';
 
 import { AiTextOptions, BaseAiService } from './base-ai.service';
+import { env } from '../env';
 
 @Injectable()
 export class VertexAiService extends BaseAiService {
-  private readonly projectId =
-    process.env.GCP_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
-  private readonly location =
-    process.env.GCP_REGION || process.env.VERTEX_LOCATION || 'us-central1';
+  private readonly projectId = env.GCP_PROJECT_ID;
+  private readonly location = env.GCP_REGION || 'us-central1';
   private readonly modelName = 'gemini-2.5-flash-lite';
   private modelInstance:
     | ReturnType<VertexAI['getGenerativeModel']>
@@ -32,7 +31,7 @@ export class VertexAiService extends BaseAiService {
   }
 
   protected configurationWarning(): string | undefined {
-    return 'GCP_PROJECT_ID/GOOGLE_CLOUD_PROJECT not set; returning mock response';
+    return 'GCP_PROJECT_ID not set; returning mock response';
   }
 
   protected async invokeModel(

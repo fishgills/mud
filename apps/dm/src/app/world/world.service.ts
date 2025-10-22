@@ -55,10 +55,7 @@ export class WorldService {
     string,
     Promise<WorldTile[]>
   >();
-  private readonly CHUNK_CACHE_TTL_MS = Number.parseInt(
-    process.env.DM_CHUNK_CACHE_TTL_MS || '30000',
-    10,
-  );
+  private readonly CHUNK_CACHE_TTL_MS = Number.parseInt('30000', 10);
 
   private readonly centerNearbyCache = new Map<
     string,
@@ -81,10 +78,7 @@ export class WorldService {
       currentSettlement?: Settlement;
     }>
   >();
-  private readonly CENTER_NEARBY_CACHE_TTL_MS = Number.parseInt(
-    process.env.DM_CENTER_NEARBY_CACHE_TTL_MS || '30000',
-    10,
-  );
+  private readonly CENTER_NEARBY_CACHE_TTL_MS = Number.parseInt('30000', 10);
 
   constructor() {
     const configuredUrl = this.resolveBaseUrl();
@@ -95,7 +89,7 @@ export class WorldService {
   }
 
   private resolveBaseUrl(): string {
-    const override = process.env.WORLD_SERVICE_URL;
+    const override = env.WORLD_SERVICE_URL;
     if (override) {
       try {
         return this.normalizeBaseUrl(override);

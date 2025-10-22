@@ -7,6 +7,7 @@ import { setAuthLogger } from '@mud/gcp-auth';
 import { NestFactory } from '@nestjs/core';
 import { Request, Response, NextFunction } from 'express';
 import { AppModule } from './app/app.module';
+import { env } from './env';
 
 async function bootstrap() {
   setAuthLogger(new Logger('GCP-AUTH'));
@@ -28,7 +29,7 @@ async function bootstrap() {
   });
 
   // Use PORT from environment when provided by Cloud Run, default to 3000 locally
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const port = env.PORT;
   await app.listen(port, '0.0.0.0');
   Logger.log(`🚀 Application is running on: http://0.0.0.0:${port}/`);
 }

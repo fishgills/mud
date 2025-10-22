@@ -94,7 +94,7 @@ describe('WorldService (REST)', () => {
     expect(tile.createdAt).toBeInstanceOf(Date);
     expect(tile.updatedAt).toBeInstanceOf(Date);
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://world.test/world/tiles/5/-3',
+      'http://localhost:3001/world/tiles/5/-3',
       {
         method: 'GET',
         headers: { accept: 'application/json' },
@@ -127,7 +127,7 @@ describe('WorldService (REST)', () => {
     await service.getTileInfo(1, 2);
 
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://world.test/world/tiles/1/2',
+      'http://localhost:3001/world/tiles/1/2',
       {
         method: 'GET',
         headers: { accept: 'application/json' },
@@ -274,7 +274,7 @@ describe('WorldService (REST)', () => {
 
     expect(settlement?.name).toBe('Fooville');
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://world.test/world/settlements/nearest?x=5&y=6',
+      'http://localhost:3001/world/settlements/nearest?x=5&y=6',
       {
         method: 'GET',
         headers: { accept: 'application/json' },

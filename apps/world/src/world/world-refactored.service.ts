@@ -35,10 +35,7 @@ export class WorldService {
     { ts: number; chunk: ChunkData }
   >();
   private readonly inflightChunks = new Map<string, Promise<ChunkData>>();
-  private readonly CHUNK_CACHE_TTL_MS = Number.parseInt(
-    process.env.WORLD_CHUNK_CACHE_TTL_MS || '60000',
-    10,
-  );
+  private readonly CHUNK_CACHE_TTL_MS = Number.parseInt('60000', 10);
 
   constructor(
     private worldDatabase: WorldDatabaseService,

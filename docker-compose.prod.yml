@@ -92,6 +92,8 @@ services:
       SLACK_CLIENT_ID: ${SLACK_CLIENT_ID:?SLACK_CLIENT_ID must be set}
       SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET:?SLACK_CLIENT_SECRET must be set}
       SLACK_STATE_SECRET: ${SLACK_STATE_SECRET:?SLACK_STATE_SECRET must be set}
+      DM_USE_VERTEX_AI: true
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mud}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-mud}
     expose:
       - '3002'
     networks:
