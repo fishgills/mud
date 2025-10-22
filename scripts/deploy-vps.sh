@@ -26,9 +26,10 @@ if [[ ! -d "$NGINX_DIR" ]]; then
   exit 1
 fi
 
+UPLOAD_ENV_FILE=1
 if [[ ! -f "$ENV_FILE" ]]; then
-  echo "Missing env file: $ENV_FILE" >&2
-  exit 1
+  echo "Warning: env file $ENV_FILE not found locally; skipping upload." >&2
+  UPLOAD_ENV_FILE=0
 fi
 
 if [[ ! -f "$LOCAL_COMPOSE_FILE" ]]; then
@@ -114,9 +115,13 @@ echo "Ensuring remote path $REMOTE_PATH exists..."
 ssh_command "mkdir -p '$REMOTE_PATH'"
 ssh_command "mkdir -p '$REMOTE_PATH/data/nginx'"
 
-echo "Uploading $ENV_FILE to $REMOTE_PATH/.env..."
-ensure_remote_path_not_directory ".env"
-transfer_file "$ENV_FILE" "$REMOTE_PATH/.env"
+if [[ "$UPLOAD_ENV_FILE" -eq 1 ]]; then
+  echo "Uploading $ENV_FILE to $REMOTE_PATH/.env..."
+  ensure_remote_path_not_directory ".env"
+  transfer_file "$ENV_FILE" "$REMOTE_PATH/.env"
+else
+  echo "Skipping env file upload; existing remote .env will be used."
+fi
 
 echo "Uploading nginx config from $NGINX_DIR to $REMOTE_PATH/data/nginx/..."
 while IFS= read -r file_path; do
