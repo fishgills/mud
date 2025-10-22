@@ -77,21 +77,5 @@ resource "google_dns_record_set" "apex" {
   type         = "A"
   ttl          = 300
 
-  rrdatas = [google_compute_address.vps_ip.address]
-
-  # Point DNS at the Load Balancer IP instead of the VPS once the LB is created
-  lifecycle {
-    ignore_changes = [rrdatas]
-  }
-}
-
-resource "google_dns_record_set" "lb_apex" {
-  for_each = toset(local.hostnames)
-
-  managed_zone = data.google_dns_managed_zone.zone.name
-  name         = "${each.value}."
-  type         = "A"
-  ttl          = 300
-
   rrdatas = [google_compute_global_address.lb_ip.address]
 }

@@ -1,31 +1,33 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 3 ]]; then
-  echo "Usage: $0 <host> <user> <remote_path> [env_file=.env.prod] [nginx_dir=data/nginx] [ssh_key=${HOME}/.ssh/mud-vps] [gcloud_instance=mud-vps] [gcp_project=battleforge-444008] [local_compose_file=docker-compose.prod.yml]" >&2
-  exit 1
-fi
+DEFAULT_REMOTE_PATH="/opt/mud"
+DEFAULT_ENV_FILE=".env.prod"
+DEFAULT_NGINX_DIR="data/nginx"
 
-HOST=$1
-USER=$2
-REMOTE_PATH=$3
-ENV_FILE=${4:-.env.prod}
-NGINX_DIR=${5:-data/nginx}
 DEFAULT_SSH_KEY="${HOME}/.ssh/mud-vps"
 DEFAULT_INSTANCE="mud-vps"
 DEFAULT_PROJECT="battleforge-444008"
-SSH_KEY=${6:-${DEFAULT_SSH_KEY}}
-GCLOUD_INSTANCE=${7:-${DEPLOY_INSTANCE:-$DEFAULT_INSTANCE}}
-GCP_PROJECT=${8:-${GCP_PROJECT:-$DEFAULT_PROJECT}}
-LOCAL_COMPOSE_FILE=${9:-docker-compose.prod.yml}
+DEFAULT_COMPOSE_FILE="docker-compose.prod.yml"
+DEFAULT_USER="fishgills_fishgills_net"
 
-if [[ ! -f "$ENV_FILE" ]]; then
-  echo "Missing env file: $ENV_FILE" >&2
-  exit 1
-fi
+REMOTE_PATH=${1:-$DEFAULT_REMOTE_PATH}
+ENV_FILE=${2:-$DEFAULT_ENV_FILE}
+NGINX_DIR=${3:-$DEFAULT_NGINX_DIR}
+SSH_KEY=${4:-$DEFAULT_SSH_KEY}
+GCLOUD_INSTANCE=${5:-${DEPLOY_INSTANCE:-$DEFAULT_INSTANCE}}
+GCP_PROJECT=${6:-${GCP_PROJECT:-$DEFAULT_PROJECT}}
+LOCAL_COMPOSE_FILE=${7:-$DEFAULT_COMPOSE_FILE}
+REMOTE_USER=${8:-${DEPLOY_USER:-$DEFAULT_USER}}
+SSH_HOST_OVERRIDE=${9:-${SSH_HOST:-}}
 
 if [[ ! -d "$NGINX_DIR" ]]; then
   echo "Missing nginx config directory: $NGINX_DIR" >&2
+  exit 1
+fi
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "Missing env file: $ENV_FILE" >&2
   exit 1
 fi
 
@@ -34,8 +36,8 @@ if [[ ! -f "$LOCAL_COMPOSE_FILE" ]]; then
   exit 1
 fi
 
-SSH_HOST="$HOST"
-SSH_TARGET="${USER}@${SSH_HOST}"
+SSH_HOST="$SSH_HOST_OVERRIDE"
+SSH_TARGET=""
 SSH_OPTIONS=(-o StrictHostKeyChecking=accept-new -o ConnectTimeout=10)
 if [[ -n "$SSH_KEY" ]]; then
   SSH_OPTIONS+=(-i "$SSH_KEY")
@@ -46,7 +48,7 @@ if [[ ! -f "$SSH_KEY" ]]; then
   exit 1
 fi
 
-if [[ -n "$GCLOUD_INSTANCE" ]]; then
+if [[ -z "$SSH_HOST" && -n "$GCLOUD_INSTANCE" ]]; then
   if command -v gcloud >/dev/null 2>&1; then
     echo "Looking up external IP for instance ${GCLOUD_INSTANCE} via gcloud..."
     project_arg=()
@@ -57,15 +59,22 @@ if [[ -n "$GCLOUD_INSTANCE" ]]; then
     ip=$(echo "$ip" | tr -d '\r')
     if [[ -n "$ip" ]]; then
       SSH_HOST="$ip"
-      SSH_TARGET="${USER}@${SSH_HOST}"
       echo "Using IP ${SSH_HOST} for SSH connections."
     else
-      echo "WARNING: gcloud did not return an external IP for instance ${GCLOUD_INSTANCE}; falling back to host ${HOST}." >&2
+      echo "WARNING: gcloud did not return an external IP for instance ${GCLOUD_INSTANCE}." >&2
     fi
   else
-    echo "WARNING: gcloud CLI not found; cannot resolve instance ${GCLOUD_INSTANCE}, using host ${HOST}." >&2
+    echo "WARNING: gcloud CLI not found; cannot resolve instance ${GCLOUD_INSTANCE}." >&2
   fi
 fi
+
+if [[ -z "$SSH_HOST" ]]; then
+  echo "Unable to determine SSH host. Provide the IP or hostname as the 9th argument or via SSH_HOST env var." >&2
+  exit 1
+fi
+
+SSH_TARGET="${REMOTE_USER}@${SSH_HOST}"
+echo "Connecting as ${SSH_TARGET}"
 
 RSYNC_SSH="ssh"
 for opt in "${SSH_OPTIONS[@]}"; do

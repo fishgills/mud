@@ -2,16 +2,25 @@
 // This uses a Google-managed certificate (not exportable) and an Internet NEG
 // that points to the VPS external IP so traffic is proxied to the VM.
 
+locals {
+  lb_domains      = concat([var.domain], var.additional_hostnames)
+  lb_domains_hash = substr(md5(join(",", sort(local.lb_domains))), 0, 16)
+}
+
 resource "google_compute_global_address" "lb_ip" {
   name = "mud-lb-ip"
 }
 
 resource "google_compute_managed_ssl_certificate" "managed_cert" {
-  name = "mud-managed-cert"
+  name = "mud-managed-cert-${local.lb_domains_hash}"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 
   managed {
     # Use the primary domain plus any additional hostnames defined in variables.tf
-    domains = concat([var.domain], var.additional_hostnames)
+    domains = local.lb_domains
   }
 }
 
@@ -62,7 +71,7 @@ resource "google_compute_backend_service" "vps_backend" {
 resource "google_compute_url_map" "https_map" {
   name = "mud-https-map"
   host_rule {
-    hosts        = concat([var.domain], var.additional_hostnames)
+    hosts        = local.lb_domains
     path_matcher = "path-matcher-1"
   }
 
@@ -117,4 +126,3 @@ resource "google_compute_global_forwarding_rule" "http_forward" {
 output "lb_ip_address" {
   value = google_compute_global_address.lb_ip.address
 }
-
