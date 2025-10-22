@@ -69,6 +69,12 @@ resource "google_project_iam_member" "vps_sa_artifact_reader" {
   member  = "serviceAccount:${google_service_account.vps_sa.email}"
 }
 
+resource "google_project_iam_member" "vps_sa_vertex_user" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.vps_sa.email}"
+}
+
 resource "google_dns_record_set" "apex" {
   for_each = toset(local.hostnames)
 
