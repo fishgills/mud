@@ -51,7 +51,7 @@ jobs:
 
       - name: Build and push world image
         run: |
-          set -euo pipefailexport REGION
+          set -euo pipefail
           REPO="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}"
           docker build -f apps/world/Dockerfile -t "$REPO/world:${IMAGE_TAG}" .
           docker push "$REPO/world:${IMAGE_TAG}"
