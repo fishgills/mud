@@ -12,7 +12,7 @@ const installationStore = new PrismaInstallationStore({
   prismaTable: getPrismaClient().slackAppInstallation,
 });
 const app = new App({
-  // token: env.SLACK_BOT_TOKEN,
+  token: env.SLACK_BOT_TOKEN,
   signingSecret: env.SLACK_SIGNING_SECRET,
   socketMode: false,
   // OAuth (optional): if clientId/clientSecret/stateSecret are provided, installer is enabled
