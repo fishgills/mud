@@ -1,11 +1,17 @@
 locals {
   github_actions_enabled = var.github_repository != null
   github_actions_roles = var.github_repository == null ? [] : [
-    "roles/compute.instanceAdmin.v1",
-    "roles/compute.osLogin",
+    "roles/run.admin",
+    "roles/iam.serviceAccountAdmin",
     "roles/iam.serviceAccountUser",
+    "roles/compute.networkAdmin",
     "roles/dns.admin",
-    "roles/artifactregistry.writer",
+    "roles/artifactregistry.admin",
+    "roles/cloudsql.admin",
+    "roles/redis.admin",
+    "roles/secretmanager.admin",
+    "roles/serviceusage.serviceUsageAdmin",
+    "roles/servicenetworking.networksAdmin"
   ]
 }
 
@@ -63,4 +69,77 @@ resource "google_service_account_iam_binding" "github_actions_workload_identity"
   members = [
     "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_actions[0].name}/attribute.repository/${var.github_repository}"
   ]
+}
+
+resource "google_service_account" "runtime" {
+  for_each = local.service_account_ids
+
+  account_id   = each.value
+  display_name = "Cloud Run ${each.key} (${var.environment})"
+  description  = "Runtime identity for the ${each.key} Cloud Run service"
+}
+
+resource "google_project_iam_member" "runtime_artifact_registry_reader" {
+  for_each = google_service_account.runtime
+
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${each.value.email}"
+}
+
+locals {
+  services_using_database = {
+    for key, sa in google_service_account.runtime :
+    key => sa
+    if key != "tick"
+  }
+}
+
+resource "google_project_iam_member" "runtime_cloudsql" {
+  for_each = local.services_using_database
+
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${each.value.email}"
+}
+
+resource "google_project_iam_member" "runtime_secret_accessor" {
+  for_each = {
+    for key, sa in google_service_account.runtime :
+    key => sa if key != "tick"
+  }
+
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${each.value.email}"
+}
+
+resource "google_project_iam_member" "runtime_vpcaccess" {
+  for_each = {
+    for key, sa in google_service_account.runtime :
+    key => sa if key != "tick"
+  }
+
+  project = var.project_id
+  role    = "roles/vpcaccess.user"
+  member  = "serviceAccount:${each.value.email}"
+}
+
+resource "google_project_iam_member" "runtime_vertex_ai" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.runtime["dm"].email}"
+}
+
+resource "google_cloud_run_service_iam_member" "dm_internal_invokers" {
+  for_each = {
+    slack_bot = google_service_account.runtime["slack_bot"].email
+    tick      = google_service_account.runtime["tick"].email
+  }
+
+  location = var.region
+  project  = var.project_id
+  service  = google_cloud_run_service.dm.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${each.value}"
 }

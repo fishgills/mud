@@ -1,59 +1,117 @@
 variable "project_id" {
-  description = "The GCP project ID"
+  description = "The Google Cloud project ID."
   type        = string
-  default     = "battleforge-444008"
 }
 
 variable "region" {
-  description = "The GCP region for resources"
+  description = "Region to deploy shared resources (Cloud Run, Redis, VPC connector)."
   type        = string
-  default     = "us-central1"
-}
-
-variable "zone" {
-  description = "The GCP zone for zonal resources"
-  type        = string
-  default     = "us-central1-a"
 }
 
 variable "domain" {
-  description = "Primary domain name served by the VPS"
+  description = "Primary domain used for public endpoints."
   type        = string
   default     = "battleforge.app"
 }
 
 variable "dns_zone_name" {
-  description = "The name of the existing Cloud DNS zone"
+  description = "Existing Cloud DNS managed zone name for the primary domain."
   type        = string
   default     = "battleforge-app"
 }
 
-variable "machine_type" {
-  description = "Compute Engine machine type for the VPS"
+variable "environment" {
+  description = "Label appended to resource names (for example prod, staging)."
   type        = string
-  default     = "e2-standard-2"
+  default     = "prod"
 }
 
-variable "boot_disk_image" {
-  description = "Source image for the VPS boot disk"
+variable "artifact_repo_id" {
+  description = "Artifact Registry repository ID used for service images."
   type        = string
-  default     = "projects/debian-cloud/global/images/family/debian-12"
+  default     = "mud-services"
 }
 
-variable "boot_disk_size_gb" {
-  description = "Boot disk size for the VPS"
+variable "artifact_repo_location" {
+  description = "Location for the Artifact Registry repository."
+  type        = string
+  default     = "us-central1"
+}
+
+variable "database_instance_name" {
+  description = "Cloud SQL instance name."
+  type        = string
+  default     = "mud-postgres"
+}
+
+variable "database_version" {
+  description = "PostgreSQL version for Cloud SQL."
+  type        = string
+  default     = "POSTGRES_15"
+}
+
+variable "database_tier" {
+  description = "Machine tier for Cloud SQL."
+  type        = string
+  default     = "db-f1-micro"
+}
+
+variable "database_name" {
+  description = "Default database name for application services."
+  type        = string
+  default     = "mud"
+}
+
+variable "database_user" {
+  description = "Primary database user used by application services."
+  type        = string
+  default     = "mud_app"
+}
+
+variable "redis_instance_name" {
+  description = "Memorystore (Redis) instance name."
+  type        = string
+  default     = "mud-cache"
+}
+
+variable "redis_tier" {
+  description = "Memorystore tier."
+  type        = string
+  default     = "BASIC"
+}
+
+variable "redis_memory_size_gb" {
+  description = "Memorystore cache size in GB."
   type        = number
-  default     = 50
+  default     = 1
 }
 
-variable "additional_hostnames" {
-  description = "Additional DNS hostnames (subdomains) that should point at the VPS"
-  type        = list(string)
-  default     = []
+variable "dm_image" {
+  description = "Container image for the Dungeon Master (dm) service."
+  type        = string
+  default     = null
+}
+
+variable "world_image" {
+  description = "Container image for the world renderer service."
+  type        = string
+  default     = null
+}
+
+variable "slack_bot_image" {
+  description = "Container image for the Slack bot service."
+  type        = string
+  default     = null
+}
+
+variable "tick_image" {
+  description = "Container image for the tick scheduler service."
+  type        = string
+  default     = null
 }
 
 variable "github_repository" {
-  description = "GitHub repository (OWNER/REPO) that is allowed to access Workload Identity Federation. Leave null to skip creation."
+  description = "GitHub repository (OWNER/REPO) allowed to assume the deployer Workload Identity."
   type        = string
   default     = null
 }
@@ -71,7 +129,49 @@ variable "workload_identity_provider_id" {
 }
 
 variable "openai_api_key" {
-  description = "OpenAI API key secret value (optional). If unset, create the secret without a version and set it manually)."
+  description = "OpenAI API key."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "slack_bot_token" {
+  description = "Slack bot token."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "slack_signing_secret" {
+  description = "Slack signing secret."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "slack_app_token" {
+  description = "Slack app-level token."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "slack_client_id" {
+  description = "Slack OAuth client ID."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "slack_client_secret" {
+  description = "Slack OAuth client secret."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "slack_state_secret" {
+  description = "Slack OAuth state secret."
   type        = string
   default     = null
   sensitive   = true
