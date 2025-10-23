@@ -70,6 +70,9 @@ jobs:
           docker build -f apps/tick/Dockerfile -t "$REPO/tick:${IMAGE_TAG}" .
           docker push "$REPO/tick:${IMAGE_TAG}"
 
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
       - name: Write Terraform backend config
         working-directory: ${{ env.TF_WORKDIR }}
         run: |
