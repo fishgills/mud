@@ -1,22 +1,22 @@
 locals {
   provided_secret_ids = {
-    openai              = "openai-api-key"
-    slack_bot_token     = "slack-bot-token"
+    openai               = "openai-api-key"
+    slack_bot_token      = "slack-bot-token"
     slack_signing_secret = "slack-signing-secret"
-    slack_app_token     = "slack-app-token"
-    slack_client_id     = "slack-client-id"
-    slack_client_secret = "slack-client-secret"
-    slack_state_secret  = "slack-state-secret"
+    slack_app_token      = "slack-app-token"
+    slack_client_id      = "slack-client-id"
+    slack_client_secret  = "slack-client-secret"
+    slack_state_secret   = "slack-state-secret"
   }
 
   provided_secret_values = {
-    openai              = var.openai_api_key
-    slack_bot_token     = var.slack_bot_token
+    openai               = var.openai_api_key
+    slack_bot_token      = var.slack_bot_token
     slack_signing_secret = var.slack_signing_secret
-    slack_app_token     = var.slack_app_token
-    slack_client_id     = var.slack_client_id
-    slack_client_secret = var.slack_client_secret
-    slack_state_secret  = var.slack_state_secret
+    slack_app_token      = var.slack_app_token
+    slack_client_id      = var.slack_client_id
+    slack_client_secret  = var.slack_client_secret
+    slack_state_secret   = var.slack_state_secret
   }
 
   provided_secrets_with_values = nonsensitive({
@@ -26,7 +26,7 @@ locals {
   })
 
   db_password_urlencoded = urlencode(random_password.db_password.result)
-  database_url           = "postgresql://${var.database_user}:${local.db_password_urlencoded}@/${var.database_name}?host=/cloudsql/${google_sql_database_instance.postgres.connection_name}"
+  database_url           = "postgresql://${var.database_user}:${local.db_password_urlencoded}@localhost/${var.database_name}?host=/cloudsql/${google_sql_database_instance.postgres.connection_name}&schema=public"
 }
 
 resource "google_secret_manager_secret" "provided" {

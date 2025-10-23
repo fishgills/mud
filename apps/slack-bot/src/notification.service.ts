@@ -59,8 +59,7 @@ export class NotificationService {
     // Send message to each recipient
     for (const recipient of notification.recipients) {
       try {
-        // Extract Slack user ID from clientId format "slack:U123456"
-        const slackUserId = recipient.clientId.split(':')[1];
+        const slackUserId = this.extractSlackUserId(recipient.clientId);
 
         if (!slackUserId) {
           console.error(`Invalid clientId format: ${recipient.clientId}`);
@@ -119,5 +118,21 @@ export class NotificationService {
         );
       }
     }
+  }
+
+  private extractSlackUserId(
+    clientId: string | null | undefined,
+  ): string | null {
+    if (!clientId) return null;
+    const trimmed = clientId.trim();
+    if (!trimmed) return null;
+
+    if (trimmed.includes(':')) {
+      const [, id] = trimmed.split(':', 2);
+      return id && id.trim().length > 0 ? id.trim() : null;
+    }
+
+    // Accept raw Slack IDs (e.g., U123456) for backward compatibility
+    return trimmed;
   }
 }

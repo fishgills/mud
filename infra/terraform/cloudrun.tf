@@ -12,7 +12,7 @@ resource "google_cloud_run_service" "world" {
     metadata {
       annotations = {
         "run.googleapis.com/vpc-access-connector" = google_vpc_access_connector.serverless.id
-        "run.googleapis.com/vpc-access-egress"    = "all-traffic"
+        "run.googleapis.com/vpc-access-egress"    = "private-ranges-only"
         "run.googleapis.com/cloudsql-instances"   = google_sql_database_instance.postgres.connection_name
       }
       labels = {
@@ -90,7 +90,7 @@ resource "google_cloud_run_service" "dm" {
     metadata {
       annotations = {
         "run.googleapis.com/vpc-access-connector" = google_vpc_access_connector.serverless.id
-        "run.googleapis.com/vpc-access-egress"    = "all-traffic"
+        "run.googleapis.com/vpc-access-egress"    = "private-ranges-only"
         "run.googleapis.com/cloudsql-instances"   = google_sql_database_instance.postgres.connection_name
       }
       labels = {
@@ -204,7 +204,7 @@ resource "google_cloud_run_service" "slack_bot" {
     metadata {
       annotations = {
         "run.googleapis.com/vpc-access-connector" = google_vpc_access_connector.serverless.id
-        "run.googleapis.com/vpc-access-egress"    = "all-traffic"
+        "run.googleapis.com/vpc-access-egress"    = "private-ranges-only"
         "run.googleapis.com/cloudsql-instances"   = google_sql_database_instance.postgres.connection_name
       }
       labels = {
