@@ -7,19 +7,24 @@ output "region" {
   value = var.region
 }
 
-output "vps_instance_name" {
-  description = "Name of the Compute Engine instance running the stack"
-  value       = google_compute_instance.vps.name
+output "cloud_run_urls" {
+  description = "Base URLs for deployed Cloud Run services."
+  value = {
+    dm        = google_cloud_run_service.dm.status[0].url
+    world     = google_cloud_run_service.world.status[0].url
+    slack_bot = google_cloud_run_service.slack_bot.status[0].url
+    tick      = google_cloud_run_service.tick.status[0].url
+  }
 }
 
-output "vps_ip_address" {
-  description = "Static external IP assigned to the VPS"
-  value       = google_compute_address.vps_ip.address
+output "cloud_sql_instance_connection_name" {
+  description = "Connection name used by Cloud SQL Auth proxy / Cloud Run integrations."
+  value       = google_sql_database_instance.postgres.connection_name
 }
 
-output "managed_hostnames" {
-  description = "DNS hostnames that resolve to the VPS"
-  value       = local.hostnames
+output "redis_host" {
+  description = "Private IP address of the Memorystore Redis instance."
+  value       = google_redis_instance.cache.host
 }
 
 output "github_actions_service_account_email" {

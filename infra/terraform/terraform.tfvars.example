@@ -1,15 +1,10 @@
-project_id    = "your-project-id"
-region        = "us-central1"
-zone          = "us-central1-a"
-domain        = "example.com"
-dns_zone_name = "example-com"
-
-machine_type      = "e2-standard-2"
-boot_disk_size_gb = 50
-
-additional_hostnames = [
-  "app.example.com"
-]
+project_id            = "your-project-id"
+region                = "us-central1"
+environment           = "prod"
+domain                = "example.com"
+dns_zone_name         = "example-com"
+artifact_repo_id      = "mud-services"
+artifact_repo_location = "us-central1"
 
 # Optional: configure Workload Identity Federation for GitHub Actions
-github_repository = "your-org/your-repo"
+github_repository     = "your-org/your-repo"

@@ -190,55 +190,46 @@ world.
 
 ## Deployment
 
-### Single VPS (Docker Compose)
+Production runs on Google Cloud Run. Terraform (in `infra/terraform`) manages
+all infrastructure: Cloud Run services, Cloud SQL (PostgreSQL), Memorystore
+(Redis), Artifact Registry, VPC access, Secret Manager, and custom domains. The
+legacy single-VPS deployment has been removed.
 
-Production now runs on a single VPS using Docker Compose. The
-`docker-compose.prod.yml` file orchestrates all services (PostgreSQL, Redis, DM,
-World, Slack bot, Tick worker, and Nginx + Certbot) and pulls pre-built Docker
-images from Google Artifact Registry.
+### Pipeline
 
-- DNS: create an `A` record pointing `server.battleforge.app` at the VPS public
-  IP. The old `closet.battleforge.app` name refers to the on-prem closet server
-  we use for local development and should stay LAN-only.
-- Copy `.env.prod.example` to `.env` on the server and fill in secrets (database
-  password, Slack credentials, OpenAI key, etc.). Docker Compose automatically
-  reads `.env` files placed next to the compose file.
-- TLS is terminated by a Google HTTPS Load Balancer. Do not run local Certbot
-  on the VPS; instead provision the LB and ensure DNS (or Terraform) points
-  `server.battleforge.app` at the Load Balancer IP. The load balancer manages
-  certificates automatically.
-- Bootstrapping the stack the first time:
-  `COMPOSE_FILE=docker-compose.prod.yml docker compose pull` and then
-  `COMPOSE_FILE=docker-compose.prod.yml docker compose up -d`.
-- Local helper: `./scripts/deploy-vps.sh <host> <user> <path> <tag> [ssh_key]`
-  mirrors the GitHub workflow by syncing the repo over SSH, setting `APP_TAG`
-  to the provided image tag, and running `docker compose pull && docker compose up -d` remotely.
+`.github/workflows/deploy.yml` builds Docker images for all four services on
+every push to `main`, pushes them to Artifact Registry, and then runs
+`terraform apply` with commit-specific image tags. The workflow authenticates to
+Google Cloud via Workload Identity Federation and uses the `Production`
+environment so secrets stay scoped.
 
-GitHub Actions automates deploys by building images, pushing them to Artifact
-Registry, and then syncing the repository to the VPS over SSH where it runs a
-pull + restart. Add these repository secrets before enabling the workflow:
+Populate the following GitHub environment secrets before enabling the workflow:
 
-- `VPS_HOST` – Public hostname or IP of the server
-- `VPS_USER` – SSH user (for example `mud`)
-- `VPS_DEPLOY_PATH` – Absolute path where the repo should live (for example `/opt/mud`)
-- `VPS_SSH_KEY` – Private key with access to the server
-- `GCP_PROJECT_ID` – GCP project that hosts the Artifact Registry
-- `GCP_REGION` – Region where the Artifact Registry repository lives
-- `GCP_DEPLOY_SA` – Service account email with Artifact Registry push perms
-- `GCP_WORKLOAD_IDENTITY_PROVIDER` – Workload Identity Provider resource name for GitHub Actions
+- `GCP_DEPLOY_SA`, `GCP_WORKLOAD_IDENTITY_PROVIDER`
+- `GCP_PROJECT_ID`, `GCP_REGION`
+- `TF_BACKEND_BUCKET`, `TF_BACKEND_PREFIX`
+- `OPENAI_API_KEY`
+- `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `SLACK_APP_TOKEN`
+- `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_STATE_SECRET`
 
-### Legacy GCP deployment (Terraform + Cloud Run)
+DNS for `slack-bot.battleforge.app` and `world.battleforge.app` is created by
+Terraform as CNAME records to Cloud Run. Certificate provisioning is handled by
+the Cloud Run domain mappings.
 
-The repository still contains Terraform modules and helper scripts for the
-original Google Cloud Run setup. They remain available at
-`infra/terraform/` while the migration finalizes.
+### Manual Terraform runs
 
-- `.github/workflows/ci.yml` – Lint and tests on PRs and main.
-- `.github/workflows/deploy.yml` – Builds and pushes Docker images tagged with
-  the short commit SHA when targeting the legacy Cloud Run flow.
+To run Terraform locally, create `backend.hcl` with your state bucket and
+prefix, then execute:
 
-Use the helper script `./scripts/ci/local-tf-apply.sh` if you need to update the
-remaining GCP resources during the transition.
+```bash
+cd infra/terraform
+terraform init -backend-config=backend.hcl
+terraform plan
+terraform apply
+```
+
+Supply the same `TF_VAR_*` variables as the deploy workflow (for example,
+`dm_image`, Slack/OpenAI secrets) when applying changes.
 
 ### Available Scripts
 

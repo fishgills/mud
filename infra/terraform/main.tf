@@ -1,6 +1,10 @@
-// Terraform config split into modular files:
-// - apis.tf
-// - network.tf
-// - data.tf
-// - vps.tf
-// - iam.tf
+// Terraform configuration is split into logical files:
+// - apis.tf               → required service enablement
+// - network.tf            → shared VPC, serverless connector, and private service access
+// - sql.tf                → Cloud SQL (PostgreSQL)
+// - redis.tf              → Memorystore for Redis
+// - secrets.tf            → Secret Manager definitions
+// - artifact_registry.tf  → Artifact Registry repository
+// - iam.tf                → service accounts and IAM bindings
+// - cloudrun.tf           → Cloud Run services, domain mappings, DNS
+// - outputs.tf            → exported values for scripts and workflows
