@@ -46,29 +46,33 @@ jobs:
         run: |
           set -euo pipefail
           REPO="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}"
-          docker build -f apps/dm/Dockerfile -t "$REPO/dm:${IMAGE_TAG}" .
+          docker build -f apps/dm/Dockerfile -t "$REPO/dm:${IMAGE_TAG}" -t "$REPO/dm:latest" .
           docker push "$REPO/dm:${IMAGE_TAG}"
+          docker push "$REPO/dm:latest"
 
       - name: Build and push world image
         run: |
           set -euo pipefail
           REPO="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}"
-          docker build -f apps/world/Dockerfile -t "$REPO/world:${IMAGE_TAG}" .
+          docker build -f apps/world/Dockerfile -t "$REPO/world:${IMAGE_TAG}" -t "$REPO/world:latest" .
           docker push "$REPO/world:${IMAGE_TAG}"
+          docker push "$REPO/world:latest"
 
       - name: Build and push slack-bot image
         run: |
           set -euo pipefail
           REPO="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}"
-          docker build -f apps/slack-bot/Dockerfile -t "$REPO/slack-bot:${IMAGE_TAG}" .
+          docker build -f apps/slack-bot/Dockerfile -t "$REPO/slack-bot:${IMAGE_TAG}" -t "$REPO/slack-bot:latest" .
           docker push "$REPO/slack-bot:${IMAGE_TAG}"
+          docker push "$REPO/slack-bot:latest"
 
       - name: Build and push tick image
         run: |
           set -euo pipefail
           REPO="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}"
-          docker build -f apps/tick/Dockerfile -t "$REPO/tick:${IMAGE_TAG}" .
+          docker build -f apps/tick/Dockerfile -t "$REPO/tick:${IMAGE_TAG}" -t "$REPO/tick:latest" .
           docker push "$REPO/tick:${IMAGE_TAG}"
+          docker push "$REPO/tick:latest"
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
