@@ -14,6 +14,13 @@ resource "google_compute_subnetwork" "shared" {
   private_ip_google_access = true
 }
 
+resource "google_compute_subnetwork" "serverless_connector" {
+  name          = "mud-serverless-${var.environment}"
+  ip_cidr_range = "10.16.16.0/28"
+  region        = var.region
+  network       = google_compute_network.shared.id
+}
+
 # Reserve an internal range for private service access (Cloud SQL)
 resource "google_compute_global_address" "private_service_range" {
   name          = "mud-sql-range-${var.environment}"
@@ -33,18 +40,19 @@ resource "google_service_networking_connection" "private_service_connection" {
 
 # Serverless VPC Access connector so Cloud Run services can reach Redis/Cloud SQL private IPs
 resource "google_vpc_access_connector" "serverless" {
-  name   = "mud-serverless-${var.environment}"
+  # Use a distinct name so Terraform can replace the connector without colliding
+  name   = "mud-${var.environment}-connector"
   region = var.region
 
   subnet {
-    name = google_compute_subnetwork.shared.name
+    name = google_compute_subnetwork.serverless_connector.name
   }
 
   min_throughput = 200
   max_throughput = 300
 
   depends_on = [
-    google_compute_subnetwork.shared,
+    google_compute_subnetwork.serverless_connector,
     google_project_service.apis
   ]
 }

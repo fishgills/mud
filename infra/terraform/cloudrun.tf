@@ -2,10 +2,15 @@ resource "google_cloud_run_service" "world" {
   name     = local.service_names.world
   location = var.region
 
+  metadata {
+    annotations = {
+      "run.googleapis.com/ingress" = "all"
+    }
+  }
+
   template {
     metadata {
       annotations = {
-        "run.googleapis.com/ingress"              = "all"
         "run.googleapis.com/vpc-access-connector" = google_vpc_access_connector.serverless.id
         "run.googleapis.com/vpc-access-egress"    = "all-traffic"
         "run.googleapis.com/cloudsql-instances"   = google_sql_database_instance.postgres.connection_name
@@ -34,11 +39,6 @@ resource "google_cloud_run_service" "world" {
             cpu    = "1"
             memory = "512Mi"
           }
-        }
-
-        env {
-          name  = "PORT"
-          value = "8080"
         }
 
         env {
@@ -80,10 +80,15 @@ resource "google_cloud_run_service" "dm" {
   name     = local.service_names.dm
   location = var.region
 
+  metadata {
+    annotations = {
+      "run.googleapis.com/ingress" = "all"
+    }
+  }
+
   template {
     metadata {
       annotations = {
-        "run.googleapis.com/ingress"              = "all"
         "run.googleapis.com/vpc-access-connector" = google_vpc_access_connector.serverless.id
         "run.googleapis.com/vpc-access-egress"    = "all-traffic"
         "run.googleapis.com/cloudsql-instances"   = google_sql_database_instance.postgres.connection_name
@@ -112,11 +117,6 @@ resource "google_cloud_run_service" "dm" {
             cpu    = "1"
             memory = "1Gi"
           }
-        }
-
-        env {
-          name  = "PORT"
-          value = "8080"
         }
 
         env {
@@ -194,10 +194,15 @@ resource "google_cloud_run_service" "slack_bot" {
   name     = local.service_names.slack_bot
   location = var.region
 
+  metadata {
+    annotations = {
+      "run.googleapis.com/ingress" = "all"
+    }
+  }
+
   template {
     metadata {
       annotations = {
-        "run.googleapis.com/ingress"              = "all"
         "run.googleapis.com/vpc-access-connector" = google_vpc_access_connector.serverless.id
         "run.googleapis.com/vpc-access-egress"    = "all-traffic"
         "run.googleapis.com/cloudsql-instances"   = google_sql_database_instance.postgres.connection_name
@@ -226,11 +231,6 @@ resource "google_cloud_run_service" "slack_bot" {
             cpu    = "1"
             memory = "512Mi"
           }
-        }
-
-        env {
-          name  = "PORT"
-          value = "8080"
         }
 
         env {
@@ -348,10 +348,15 @@ resource "google_cloud_run_service" "tick" {
   name     = local.service_names.tick
   location = var.region
 
+  metadata {
+    annotations = {
+      "run.googleapis.com/ingress" = "internal"
+    }
+  }
+
   template {
     metadata {
       annotations = {
-        "run.googleapis.com/ingress"           = "internal"
         "autoscaling.knative.dev/minScale"     = "1"
         "autoscaling.knative.dev/maxScale"     = "1"
         "run.googleapis.com/cpu-throttling"    = "false"
@@ -381,11 +386,6 @@ resource "google_cloud_run_service" "tick" {
             cpu    = "1"
             memory = "512Mi"
           }
-        }
-
-        env {
-          name  = "PORT"
-          value = "8080"
         }
 
         env {
