@@ -51,7 +51,7 @@ jobs:
 
       - name: Build and push world image
         run: |
-          set -euo pipefail
+          set -euo pipefailexport REGION
           REPO="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}"
           docker build -f apps/world/Dockerfile -t "$REPO/world:${IMAGE_TAG}" .
           docker push "$REPO/world:${IMAGE_TAG}"
@@ -69,6 +69,9 @@ jobs:
           REPO="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}"
           docker build -f apps/tick/Dockerfile -t "$REPO/tick:${IMAGE_TAG}" .
           docker push "$REPO/tick:${IMAGE_TAG}"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
 
       - name: Write Terraform backend config
         working-directory: ${{ env.TF_WORKDIR }}
