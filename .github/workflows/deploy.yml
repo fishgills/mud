@@ -119,5 +119,6 @@ jobs:
           TF_VAR_slack_client_id: ${{ secrets.SLACK_CLIENT_ID }}
           TF_VAR_slack_client_secret: ${{ secrets.SLACK_CLIENT_SECRET }}
           TF_VAR_slack_state_secret: ${{ secrets.SLACK_STATE_SECRET }}
+          TF_VAR_github_repository: fishgills/mud
           TF_INPUT: 'false'
         run: terraform apply -auto-approve
