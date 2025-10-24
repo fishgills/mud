@@ -52,7 +52,7 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
 
       - name: Configure Docker authentication
-        run: gcloud auth configure-docker "${{ env.REGION }}-docker.pkg.dev" --quiet
+        run: gcloud auth configure-docker "${{ env.REGION }}-docker.pkg.dev"
 
       - name: Build and push image
         env:
