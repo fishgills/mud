@@ -12,13 +12,13 @@ const installationStore = new PrismaInstallationStore({
   prismaTable: getPrismaClient().slackAppInstallation,
 });
 const app = new App({
-  token: env.SLACK_BOT_TOKEN,
+  // token: env.SLACK_BOT_TOKEN,
   signingSecret: env.SLACK_SIGNING_SECRET,
   socketMode: false,
   // OAuth (optional): if clientId/clientSecret/stateSecret are provided, installer is enabled
-  clientId: env.SLACK_CLIENT_ID || undefined,
-  clientSecret: env.SLACK_CLIENT_SECRET || undefined,
-  stateSecret: env.SLACK_STATE_SECRET || undefined,
+  clientId: env.SLACK_CLIENT_ID,
+  clientSecret: env.SLACK_CLIENT_SECRET,
+  stateSecret: env.SLACK_STATE_SECRET,
   scopes: [
     'app_mentions:read',
     'chat:write',
