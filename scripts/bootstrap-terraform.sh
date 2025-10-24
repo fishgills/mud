@@ -136,6 +136,11 @@ run gcloud projects add-iam-policy-binding "$PROJECT" \
   --member="serviceAccount:${TF_SA}" \
   --role="roles/compute.instanceAdmin.v1"
 
+echo "Granting roles/compute.networkAdmin on $PROJECT to $TF_SA"
+run gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:${TF_SA}" \
+  --role="roles/compute.networkAdmin"
+
 echo "Granting roles/compute.osLogin on $PROJECT to $TF_SA"
 run gcloud projects add-iam-policy-binding "$PROJECT" \
   --member="serviceAccount:${TF_SA}" \
