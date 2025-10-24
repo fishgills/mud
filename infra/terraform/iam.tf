@@ -35,7 +35,7 @@ resource "google_iam_workload_identity_pool" "github_actions" {
   count = local.github_actions_enabled ? 1 : 0
 
   workload_identity_pool_id = var.workload_identity_pool_id
-  display_name              = "GitHub Actions"
+  display_name              = "GitHub Actions Pool"
   description               = "OIDC pool for GitHub Actions deploying MUD"
 }
 
@@ -45,7 +45,7 @@ resource "google_iam_workload_identity_pool_provider" "github_actions" {
   workload_identity_pool_id          = google_iam_workload_identity_pool.github_actions[0].workload_identity_pool_id
   workload_identity_pool_provider_id = var.workload_identity_provider_id
 
-  display_name = "GitHub Actions"
+  display_name = "GitHub Actions Pool Provider"
   description  = "GitHub OIDC provider for the MUD repository"
 
   attribute_condition = "attribute.repository == \"${var.github_repository}\""
