@@ -21,9 +21,20 @@ env:
   TF_WORKDIR: infra/terraform
 
 jobs:
-  deploy:
+  build:
+    name: Build and Push ${{ matrix.service }}
     runs-on: ubuntu-latest
-    environment: Production
+    strategy:
+      matrix:
+        include:
+          - service: dm
+            dockerfile: apps/dm/Dockerfile
+          - service: world
+            dockerfile: apps/world/Dockerfile
+          - service: slack-bot
+            dockerfile: apps/slack-bot/Dockerfile
+          - service: tick
+            dockerfile: apps/tick/Dockerfile
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,37 +53,33 @@ jobs:
       - name: Configure Docker authentication
         run: gcloud auth configure-docker "${{ env.REGION }}-docker.pkg.dev" --quiet
 
-      - name: Build and push dm image
+      - name: Build and push image
+        env:
+          IMAGE_REPO: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ matrix.service }}
         run: |
           set -euo pipefail
-          REPO="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}"
-          docker build -f apps/dm/Dockerfile -t "$REPO/dm:${IMAGE_TAG}" -t "$REPO/dm:latest" .
-          docker push "$REPO/dm:${IMAGE_TAG}"
-          docker push "$REPO/dm:latest"
+          docker build -f "${{ matrix.dockerfile }}" -t "${IMAGE_REPO}:${IMAGE_TAG}" -t "${IMAGE_REPO}:latest" .
+          docker push "${IMAGE_REPO}:${IMAGE_TAG}"
+          docker push "${IMAGE_REPO}:latest"
 
-      - name: Build and push world image
-        run: |
-          set -euo pipefail
-          REPO="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}"
-          docker build -f apps/world/Dockerfile -t "$REPO/world:${IMAGE_TAG}" -t "$REPO/world:latest" .
-          docker push "$REPO/world:${IMAGE_TAG}"
-          docker push "$REPO/world:latest"
+  terraform:
+    runs-on: ubuntu-latest
+    environment: Production
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Build and push slack-bot image
-        run: |
-          set -euo pipefail
-          REPO="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}"
-          docker build -f apps/slack-bot/Dockerfile -t "$REPO/slack-bot:${IMAGE_TAG}" -t "$REPO/slack-bot:latest" .
-          docker push "$REPO/slack-bot:${IMAGE_TAG}"
-          docker push "$REPO/slack-bot:latest"
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
 
-      - name: Build and push tick image
-        run: |
-          set -euo pipefail
-          REPO="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}"
-          docker build -f apps/tick/Dockerfile -t "$REPO/tick:${IMAGE_TAG}" -t "$REPO/tick:latest" .
-          docker push "$REPO/tick:${IMAGE_TAG}"
-          docker push "$REPO/tick:latest"
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
