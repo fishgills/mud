@@ -399,6 +399,11 @@ resource "google_cloud_run_service" "tick" {
         }
 
         env {
+          name  = "TICK_INTERVAL_MS"
+          value = "600000" # 10 minutes
+        }
+
+        env {
           name  = "DM_API_BASE_URL"
           value = google_cloud_run_service.dm.status[0].url
         }

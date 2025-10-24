@@ -5,7 +5,7 @@ import { authorizedFetch, setAuthLogger } from '@mud/gcp-auth';
 
 const DM_API_BASE_URL = process.env.DM_API_BASE_URL || 'http://localhost:3000';
 
-// Tick interval in milliseconds (default: 30 minutes)
+// Tick interval in milliseconds (default: 60000 ms = 1 minute)
 const TICK_INTERVAL_MS = parseInt(process.env.TICK_INTERVAL_MS || '60000', 10);
 
 // How many minutes to check for player activity (default: 30 minutes)
