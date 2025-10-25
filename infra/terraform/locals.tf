@@ -6,22 +6,22 @@ locals {
   kubernetes_namespace = "mud"
 
   service_names = {
-    dm        = "dm-${var.environment}"
-    world     = "world-${var.environment}"
-    slack_bot = "slack-${var.environment}"
-    tick      = "tick-${var.environment}"
+    dm    = "dm-${var.environment}"
+    world = "world-${var.environment}"
+    slack = "slack-${var.environment}"
+    tick  = "tick-${var.environment}"
   }
 
   service_account_ids = {
-    dm        = "dm-run-${var.environment}"
-    world     = "world-run-${var.environment}"
-    slack_bot = "slack-run-${var.environment}"
-    tick      = "tick-run-${var.environment}"
+    dm    = "dm-run-${var.environment}"
+    world = "world-run-${var.environment}"
+    slack = "slack-run-${var.environment}"
+    tick  = "tick-run-${var.environment}"
   }
 
   domain_mappings = {
-    slack_bot = "slack.${var.domain}"
-    world     = "world.${var.domain}"
+    slack = "slack.${var.domain}"
+    world = "world.${var.domain}"
   }
 
   images = {
@@ -33,7 +33,7 @@ locals {
       var.world_image,
       "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/world:latest"
     )
-    slack_bot = coalesce(
+    slack = coalesce(
       var.slack_bot_image,
       "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/slack:latest"
     )

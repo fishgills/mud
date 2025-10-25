@@ -1,7 +1,7 @@
 resource "google_dns_record_set" "public_ingress" {
   for_each = {
-    slack_bot = local.domain_mappings.slack_bot
-    world     = local.domain_mappings.world
+    slack = local.domain_mappings.slack
+    world = local.domain_mappings.world
   }
 
   name         = "${each.value}."

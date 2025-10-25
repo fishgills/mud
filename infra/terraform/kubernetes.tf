@@ -1,7 +1,7 @@
 locals {
   dm_service_name                = "dm"
   world_service_name             = "world"
-  slack_bot_service_name         = "slack"
+  slack_service_name             = "slack"
   tick_service_name              = "tick"
   github_actions_kubernetes_user = local.github_actions_enabled ? "system:serviceaccount:${var.project_id}.svc.id.goog[${google_service_account.github_actions[0].account_id}]" : null
   database_secret_payload = {
@@ -286,12 +286,12 @@ resource "kubernetes_deployment" "dm" {
   }
 }
 
-resource "kubernetes_deployment" "slack_bot" {
+resource "kubernetes_deployment" "slack" {
   metadata {
-    name      = local.slack_bot_service_name
+    name      = local.slack_service_name
     namespace = kubernetes_namespace.mud.metadata[0].name
     labels = {
-      app         = local.slack_bot_service_name
+      app         = local.slack_service_name
       environment = var.environment
     }
   }
@@ -301,24 +301,24 @@ resource "kubernetes_deployment" "slack_bot" {
 
     selector {
       match_labels = {
-        app = local.slack_bot_service_name
+        app = local.slack_service_name
       }
     }
 
     template {
       metadata {
         labels = {
-          app         = local.slack_bot_service_name
+          app         = local.slack_service_name
           environment = var.environment
         }
       }
 
       spec {
-        service_account_name = kubernetes_service_account.runtime[local.slack_bot_service_name].metadata[0].name
+        service_account_name = kubernetes_service_account.runtime[local.slack_service_name].metadata[0].name
 
         container {
-          name  = local.slack_bot_service_name
-          image = local.images.slack_bot
+          name  = local.slack_service_name
+          image = local.images.slack
 
           port {
             container_port = 8080
@@ -375,7 +375,7 @@ resource "kubernetes_deployment" "slack_bot" {
             name = "SLACK_BOT_TOKEN"
             value_from {
               secret_key_ref {
-                name = kubernetes_secret.provided["slack_bot_token"].metadata[0].name
+                name = kubernetes_secret.provided["slack_token"].metadata[0].name
                 key  = "latest"
               }
             }
@@ -557,12 +557,12 @@ resource "kubernetes_service" "dm" {
   }
 }
 
-resource "kubernetes_service" "slack_bot" {
+resource "kubernetes_service" "slack" {
   metadata {
-    name      = local.slack_bot_service_name
+    name      = local.slack_service_name
     namespace = kubernetes_namespace.mud.metadata[0].name
     labels = {
-      app = local.slack_bot_service_name
+      app = local.slack_service_name
     }
   }
 
@@ -570,7 +570,7 @@ resource "kubernetes_service" "slack_bot" {
     type = "NodePort"
 
     selector = {
-      app = local.slack_bot_service_name
+      app = local.slack_service_name
     }
 
     port {
@@ -614,7 +614,7 @@ resource "kubernetes_manifest" "managed_certificate" {
     spec = {
       domains = [
         local.domain_mappings.world,
-        local.domain_mappings.slack_bot,
+        local.domain_mappings.slack,
       ]
     }
   }
@@ -662,7 +662,7 @@ resource "kubernetes_ingress_v1" "public" {
     }
 
     rule {
-      host = local.domain_mappings.slack_bot
+      host = local.domain_mappings.slack
 
       http {
         path {
@@ -671,7 +671,7 @@ resource "kubernetes_ingress_v1" "public" {
 
           backend {
             service {
-              name = kubernetes_service.slack_bot.metadata[0].name
+              name = kubernetes_service.slack.metadata[0].name
               port {
                 number = 80
               }
