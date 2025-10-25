@@ -7,5 +7,7 @@
 // - artifact_registry.tf  → Artifact Registry repository
 // - iam.tf                → service accounts and IAM bindings
 // - gke.tf                → GKE cluster and supporting infrastructure
-// - kubernetes.tf         → Kubernetes namespace, workloads, services, and ingress
 // - outputs.tf            → exported values for scripts and workflows
+//
+// Kubernetes manifests (namespaces, workloads, ingress, managed certificates) live in
+// ./kubernetes for the second apply stage.
