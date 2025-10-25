@@ -28,7 +28,7 @@ async function bootstrap() {
     next();
   });
 
-  // Use PORT from environment when provided by Cloud Run, default to 3000 locally
+  // Use PORT from environment when provided by the hosting platform, default to 3000 locally
   const port = env.PORT;
   await app.listen(port, '0.0.0.0');
   Logger.log(`🚀 Application is running on: http://0.0.0.0:${port}/`);

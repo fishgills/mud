@@ -2,6 +2,8 @@ locals {
   project_id  = var.project_id
   region      = var.region
   environment = var.environment
+  gke_location = coalesce(var.gke_zone, "${var.region}-a")
+  kubernetes_namespace = "mud"
 
   service_names = {
     dm        = "dm-${var.environment}"

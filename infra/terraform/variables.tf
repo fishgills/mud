@@ -4,8 +4,38 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "Region to deploy shared resources (Cloud Run, Redis, VPC connector)."
+  description = "Region to deploy shared resources (GKE, Redis, Cloud SQL)."
   type        = string
+}
+
+variable "gke_zone" {
+  description = "Optional zone override for the GKE cluster. Defaults to <region>-a when unset."
+  type        = string
+  default     = null
+}
+
+variable "gke_machine_type" {
+  description = "Machine type for the primary GKE node pool."
+  type        = string
+  default     = "e2-small"
+}
+
+variable "gke_min_node_count" {
+  description = "Minimum number of nodes for the primary GKE node pool."
+  type        = number
+  default     = 1
+}
+
+variable "gke_max_node_count" {
+  description = "Maximum number of nodes for the primary GKE node pool."
+  type        = number
+  default     = 3
+}
+
+variable "gke_node_disk_size_gb" {
+  description = "Disk size in GB for each node in the primary GKE node pool."
+  type        = number
+  default     = 50
 }
 
 variable "domain" {
@@ -133,6 +163,11 @@ variable "openai_api_key" {
   type        = string
   default     = null
   sensitive   = true
+
+  validation {
+    condition     = var.openai_api_key != null && length(trim(var.openai_api_key)) > 0
+    error_message = "An OpenAI API key must be provided for the DM service."
+  }
 }
 
 variable "slack_bot_token" {
@@ -140,6 +175,11 @@ variable "slack_bot_token" {
   type        = string
   default     = null
   sensitive   = true
+
+  validation {
+    condition     = var.slack_bot_token != null && length(trim(var.slack_bot_token)) > 0
+    error_message = "Provide the Slack bot token so the Slack adapter can authenticate."
+  }
 }
 
 variable "slack_signing_secret" {
@@ -147,6 +187,11 @@ variable "slack_signing_secret" {
   type        = string
   default     = null
   sensitive   = true
+
+  validation {
+    condition     = var.slack_signing_secret != null && length(trim(var.slack_signing_secret)) > 0
+    error_message = "Provide the Slack signing secret for request verification."
+  }
 }
 
 variable "slack_app_token" {
@@ -154,6 +199,11 @@ variable "slack_app_token" {
   type        = string
   default     = null
   sensitive   = true
+
+  validation {
+    condition     = var.slack_app_token != null && length(trim(var.slack_app_token)) > 0
+    error_message = "Provide the Slack app-level token for Socket Mode."
+  }
 }
 
 variable "slack_client_id" {
@@ -161,6 +211,11 @@ variable "slack_client_id" {
   type        = string
   default     = null
   sensitive   = true
+
+  validation {
+    condition     = var.slack_client_id != null && length(trim(var.slack_client_id)) > 0
+    error_message = "Provide the Slack OAuth client ID."
+  }
 }
 
 variable "slack_client_secret" {
@@ -168,6 +223,11 @@ variable "slack_client_secret" {
   type        = string
   default     = null
   sensitive   = true
+
+  validation {
+    condition     = var.slack_client_secret != null && length(trim(var.slack_client_secret)) > 0
+    error_message = "Provide the Slack OAuth client secret."
+  }
 }
 
 variable "slack_state_secret" {
@@ -175,4 +235,9 @@ variable "slack_state_secret" {
   type        = string
   default     = null
   sensitive   = true
+
+  validation {
+    condition     = var.slack_state_secret != null && length(trim(var.slack_state_secret)) > 0
+    error_message = "Provide the Slack OAuth state secret."
+  }
 }

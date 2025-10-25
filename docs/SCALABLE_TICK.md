@@ -2,6 +2,10 @@
 
 This document outlines a scalable approach for the DM tick pipeline to support very large worlds and monster populations.
 
+> **Note:** This document predates the migration from Cloud Run to Google
+> Kubernetes Engine (GKE). Wherever Cloud Run services are referenced, substitute
+> the equivalent GKE Deployments/Services after the migration.
+
 ## Goals
 
 - Eliminate O(N) scans over all monsters

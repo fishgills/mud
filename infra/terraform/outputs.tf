@@ -7,24 +7,37 @@ output "region" {
   value = var.region
 }
 
-output "cloud_run_urls" {
-  description = "Base URLs for deployed Cloud Run services."
-  value = {
-    dm        = google_cloud_run_service.dm.status[0].url
-    world     = google_cloud_run_service.world.status[0].url
-    slack_bot = google_cloud_run_service.slack_bot.status[0].url
-    tick      = google_cloud_run_service.tick.status[0].url
-  }
-}
-
 output "cloud_sql_instance_connection_name" {
-  description = "Connection name used by Cloud SQL Auth proxy / Cloud Run integrations."
+  description = "Connection name for the Cloud SQL instance."
   value       = google_sql_database_instance.postgres.connection_name
 }
 
 output "redis_host" {
   description = "Private IP address of the Memorystore Redis instance."
   value       = google_redis_instance.cache.host
+}
+
+output "gke_cluster_name" {
+  description = "Name of the primary GKE cluster."
+  value       = google_container_cluster.primary.name
+}
+
+output "gke_cluster_location" {
+  description = "Zone where the primary GKE cluster is provisioned."
+  value       = local.gke_location
+}
+
+output "public_ingress_ip" {
+  description = "External IP address for the public HTTP(S) ingress."
+  value       = google_compute_global_address.gke_ingress.address
+}
+
+output "public_service_domains" {
+  description = "Domains routed through the shared GKE ingress."
+  value = {
+    world     = local.domain_mappings.world
+    slack_bot = local.domain_mappings.slack_bot
+  }
 }
 
 output "github_actions_service_account_email" {

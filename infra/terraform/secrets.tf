@@ -26,7 +26,7 @@ locals {
   })
 
   db_password_urlencoded = urlencode(random_password.db_password.result)
-  database_url           = "postgresql://${var.database_user}:${local.db_password_urlencoded}@localhost/${var.database_name}?host=/cloudsql/${google_sql_database_instance.postgres.connection_name}&schema=public"
+  database_url           = "postgresql://${var.database_user}:${local.db_password_urlencoded}@${google_sql_database_instance.postgres.private_ip_address}:5432/${var.database_name}?schema=public"
 }
 
 resource "google_secret_manager_secret" "provided" {

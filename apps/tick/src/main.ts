@@ -112,7 +112,7 @@ async function sendProcessTick() {
   }
 }
 
-// Start loop and lightweight HTTP server for Cloud Run health/readiness
+// Start loop and lightweight HTTP server for platform health/readiness checks
 console.log('[tick] service starting — targeting DM at', DM_API_BASE_URL);
 console.log(
   `[tick] Tick interval: ${TICK_INTERVAL_MS}ms (${TICK_INTERVAL_MS / 60000} minutes)`,
@@ -123,7 +123,7 @@ sendProcessTick().catch(() => void 0);
 // Then every configured interval
 const interval: NodeJS.Timeout = setInterval(sendProcessTick, TICK_INTERVAL_MS);
 
-// Minimal HTTP server to satisfy Cloud Run's requirement to listen on $PORT
+// Minimal HTTP server to satisfy hosting platform requirements to listen on $PORT
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3003;
 const server = http.createServer((req, res) => {
   if (!req.url) {
