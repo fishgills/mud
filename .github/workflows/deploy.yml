@@ -32,8 +32,8 @@ jobs:
             dockerfile: apps/dm/Dockerfile
           - service: world
             dockerfile: apps/world/Dockerfile
-          - service: slack-bot
-            dockerfile: apps/slack-bot/Dockerfile
+          - service: slack
+            dockerfile: apps/slack/Dockerfile
           - service: tick
             dockerfile: apps/tick/Dockerfile
     steps:
@@ -112,7 +112,7 @@ jobs:
           TF_VAR_artifact_repo_location: ${{ env.REGION }}
           TF_VAR_dm_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/dm:${{ env.IMAGE_TAG }}
           TF_VAR_world_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/world:${{ env.IMAGE_TAG }}
-          TF_VAR_slack_bot_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/slack-bot:${{ env.IMAGE_TAG }}
+          TF_VAR_slack_bot_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/slack:${{ env.IMAGE_TAG }}
           TF_VAR_tick_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/tick:${{ env.IMAGE_TAG }}
           TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           TF_VAR_slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}

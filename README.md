@@ -8,7 +8,7 @@ Mud is an AI-assisted multiplayer text adventure game built as a Turborepo monor
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/world`      | World generation and rendering service providing REST endpoints backed by Redis caching and Prisma.                               |
 | `apps/dm`         | \"Dungeon master\" API that drives game ticks, combat, and AI generated descriptions. Exposes REST endpoints consumed by clients. |
-| `apps/slack-bot`  | Slack Bolt app that handles player commands, maps, and onboarding through Slack conversations.                                    |
+| `apps/slack`      | Slack Bolt app that handles player commands, maps, and onboarding through Slack conversations.                                    |
 | `apps/tick`       | Lightweight worker that regularly calls the DM service to advance the world state.                                                |
 | `libs/database`   | Shared Prisma client and schema for PostgreSQL.                                                                                   |
 | `libs/engine`     | Shared engine primitives and the global EventBus used to coordinate gameplay across services.                                     |
@@ -67,7 +67,7 @@ All services rely on the following shared configuration:
 | `WORLD_RENDER_CACHE_TTL_MS`       | Cache lifetime for rendered map tiles (milliseconds).                              |
 | `WORLD_RENDER_COMPUTE_ON_THE_FLY` | When `true`, render missing tiles synchronously instead of requiring a warm cache. |
 
-### Slack bot (`apps/slack-bot`)
+### Slack bot (`apps/slack`)
 
 | Variable               | Description                                                                   |
 | ---------------------- | ----------------------------------------------------------------------------- |
@@ -128,7 +128,7 @@ yarn turbo run serve --filter=@mud/world
 yarn turbo run serve --filter=@mud/dm
 
 # Slack bot (requires Slack credentials)
-yarn turbo run serve --filter=@mud/slack-bot
+yarn turbo run serve --filter=@mud/slack
 
 # Tick worker (advances the simulation every 30 seconds)
 yarn turbo run serve --filter=@mud/tick
@@ -150,7 +150,7 @@ world.
   # Run tests for specific app
   yarn turbo run test --filter=@mud/dm
   yarn turbo run test --filter=@mud/world
-  yarn turbo run test --filter=@mud/slack-bot
+  yarn turbo run test --filter=@mud/slack
   yarn turbo run test --filter=@mud/tick
   ```
 
@@ -212,7 +212,7 @@ Populate the following GitHub environment secrets before enabling the workflow:
 - `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `SLACK_APP_TOKEN`
 - `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_STATE_SECRET`
 
-DNS for `slack-bot.battleforge.app` and `world.battleforge.app` is created by
+DNS for `slack.battleforge.app` and `world.battleforge.app` is created by
 Terraform as A records that point at the shared GKE HTTP(S) load balancer. Certificates
 are provisioned automatically via the GKE ManagedCertificate resource.
 

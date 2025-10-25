@@ -224,7 +224,7 @@ model DiscordUser {
    - Generates world tiles and renders map imagery
    - Communicates with Redis for caching and responds over HTTP
 
-3. **slack-bot** (Slack Adapter)
+3. **slack** (Slack Adapter)
    - Receives Slack events via Bolt
    - Calls the `dm` and `world` services over in-cluster HTTP
 

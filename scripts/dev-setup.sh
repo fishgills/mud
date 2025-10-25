@@ -101,7 +101,7 @@ build_services() {
     
     nx build dm
     nx build world
-    nx build slack-bot
+    nx build slack
     nx build tick
     
     print_status "All services built successfully"
@@ -114,7 +114,7 @@ show_dev_commands() {
     print_status "Available development commands:"
     echo "  Start DM service:    nx serve dm"
     echo "  Start World service: nx serve world"
-    echo "  Start Slack Bot service: nx serve slack-bot"
+    echo "  Start Slack Bot service: nx serve slack"
     echo "  Start Tick service:  nx serve tick"
     echo ""
     echo "  Run tests:           nx test <service-name>"

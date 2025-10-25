@@ -1,7 +1,7 @@
 locals {
   dm_service_name                = "dm"
   world_service_name             = "world"
-  slack_bot_service_name         = "slack-bot"
+  slack_bot_service_name         = "slack"
   tick_service_name              = "tick"
   github_actions_kubernetes_user = local.github_actions_enabled ? "system:serviceaccount:${var.project_id}.svc.id.goog[${google_service_account.github_actions[0].account_id}]" : null
   database_secret_payload = {

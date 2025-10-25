@@ -3,7 +3,7 @@
 This directory provisions the production stack for the MUD services on Google Cloud.
 Terraform manages the following resources:
 
-- A Google Kubernetes Engine (GKE) cluster hosting four Kubernetes Deployments/Services/Ingress resources (`dm`, `world`, `slack-bot`, `tick`)
+- A Google Kubernetes Engine (GKE) cluster hosting four Kubernetes Deployments/Services/Ingress resources (`dm`, `world`, `slack`, `tick`)
 - Cloud SQL (PostgreSQL 15) with private VPC connectivity
 - Memorystore (Redis) for caching and coordination
 - Artifact Registry (Docker) for the service images

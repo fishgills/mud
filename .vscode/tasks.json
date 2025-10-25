@@ -3,8 +3,8 @@
   "tasks": [
     {
       "type": "shell",
-      "label": "nx build slack-bot",
-      "command": "nx build slack-bot"
+      "label": "nx build slack",
+      "command": "nx build slack"
     }
   ]
 }

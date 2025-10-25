@@ -2,7 +2,7 @@ import baseConfig from '../../jest.base.config.cjs';
 
 export default {
   ...baseConfig,
-  displayName: 'slack-bot',
+  displayName: 'slack',
   setupFiles: [...(baseConfig.setupFiles ?? []), '<rootDir>/jest.setup.ts'],
   collectCoverageFrom: [
     'src/**/*.ts',

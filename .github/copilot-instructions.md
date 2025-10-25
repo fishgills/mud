@@ -41,7 +41,7 @@ mud/
 ├── apps/
 │   ├── dm/              # Dungeon Master service (game logic, AI descriptions)
 │   ├── world/           # World generation and rendering service
-│   ├── slack-bot/       # Slack bot for player commands
+│   ├── slack/       # Slack bot for player commands
 │   └── tick/            # Worker for advancing game state
 ├── libs/
 │   ├── database/        # Shared Prisma schema and client
@@ -120,7 +120,7 @@ yarn test
 
 # Run tests for specific app
 yarn turbo run test --filter=@mud/dm
-yarn turbo run test --filter=@mud/slack-bot
+yarn turbo run test --filter=@mud/slack
 yarn turbo run test --filter=@mud/world
 
 # Run with coverage
@@ -152,7 +152,7 @@ yarn serve
 # Start specific service
 yarn turbo run serve --filter=@mud/dm
 yarn turbo run serve --filter=@mud/world
-yarn turbo run serve --filter=@mud/slack-bot
+yarn turbo run serve --filter=@mud/slack
 ```
 
 ### Building

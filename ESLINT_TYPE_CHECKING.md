@@ -13,6 +13,7 @@ The base ESLint configuration was using `parserOptions.projectService` which doe
 ### 1. Updated Base Configuration
 
 Changed `/eslint.config.mjs` from:
+
 ```javascript
 parserOptions: {
   projectService: {
@@ -23,6 +24,7 @@ parserOptions: {
 ```
 
 To:
+
 ```javascript
 parserOptions: {
   project: true,
@@ -57,16 +59,19 @@ export default tseslint.config(
 ## Key Changes
 
 ### `/eslint.config.mjs` (Base Configuration)
+
 - Changed from `projectService` to `project: true`
 - Keeps `recommendedTypeChecked` rules enabled
 - Test files still have type checking disabled for flexibility
 
 ### `/libs/redis-client/eslint.config.mjs`
+
 - Added explicit `project: './tsconfig.json'` for `src/**/*.ts` files
 - Uses `tseslint.config()` wrapper for proper type checking setup
 - Excludes `**/*.spec.ts` from strict type checking
 
 ### `/libs/database/eslint.config.mjs`
+
 - Added explicit `project: './tsconfig.json'` for `src/**/*.ts` files
 - Uses `tseslint.config()` wrapper
 - Keeps Prisma-specific rule exceptions
@@ -85,23 +90,27 @@ These `@typescript-eslint` rules now work consistently between local and CI:
 ## Error Patterns Caught
 
 ### Before (Not Caught Locally)
+
 ```typescript
 try {
   // ...
-} catch (error) {  // ❌ error is typed as 'any'
-  console.log(error.message);  // ❌ Unsafe member access
+} catch (error) {
+  // ❌ error is typed as 'any'
+  console.log(error.message); // ❌ Unsafe member access
 }
 ```
 
 ### After (Caught Locally)
+
 ```typescript
 try {
   // ...
-} catch (error: unknown) {  // ✅ Explicitly typed
+} catch (error: unknown) {
+  // ✅ Explicitly typed
   if (error instanceof Error) {
-    console.log(error.message);  // ✅ Type-safe
+    console.log(error.message); // ✅ Type-safe
   } else {
-    console.log(error);  // ✅ Safe fallback
+    console.log(error); // ✅ Safe fallback
   }
 }
 ```
@@ -129,6 +138,7 @@ yarn turbo lint
 ## Excluded Files
 
 Files excluded from strict type checking:
+
 - `**/*.spec.ts` - Test files (base config disables type checking)
 - `**/*.test.ts` - Test files
 - `**/*.js` - JavaScript files
@@ -138,40 +148,40 @@ Files excluded from strict type checking:
 
 ## NestJS Applications
 
-NestJS apps (`dm`, `world`, `slack-bot`, `tick`) should also adopt this pattern if they need stricter type checking:
+NestJS apps (`dm`, `world`, `slack`, `tick`) should also adopt this pattern if they need stricter type checking:
 
 ```javascript
 // apps/dm/eslint.config.mjs
 import baseConfig from '../../eslint.config.mjs';
 import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
-  ...baseConfig,
-  {
-    files: ['src/**/*.ts'],
-    languageOptions: {
-      parserOptions: {
-        project: './tsconfig.json',
-        tsconfigRootDir: import.meta.dirname,
-      },
+export default tseslint.config(...baseConfig, {
+  files: ['src/**/*.ts'],
+  languageOptions: {
+    parserOptions: {
+      project: './tsconfig.json',
+      tsconfigRootDir: import.meta.dirname,
     },
   },
-);
+});
 ```
 
 ## Troubleshooting
 
 ### "File not found in project"
+
 - Ensure the file is included in `tsconfig.json` → `"include"` array
 - Check that file pattern in ESLint config matches actual file locations
 - Use `ignores` to exclude files not in TypeScript project
 
 ### Slow Linting
+
 - Type-checked linting is slower than non-type-checked
 - Use `--filter` to lint specific packages during development
 - CI parallelizes across packages automatically
 
 ### False Positives with Prisma
+
 - Add rule exceptions in package-specific ESLint config
 - See `libs/database/eslint.config.mjs` for example
 

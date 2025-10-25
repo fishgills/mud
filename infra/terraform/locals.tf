@@ -1,26 +1,26 @@
 locals {
-  project_id  = var.project_id
-  region      = var.region
-  environment = var.environment
-  gke_location = coalesce(var.gke_zone, "${var.region}-a")
+  project_id           = var.project_id
+  region               = var.region
+  environment          = var.environment
+  gke_location         = coalesce(var.gke_zone, "${var.region}-a")
   kubernetes_namespace = "mud"
 
   service_names = {
     dm        = "dm-${var.environment}"
     world     = "world-${var.environment}"
-    slack_bot = "slack-bot-${var.environment}"
+    slack_bot = "slack-${var.environment}"
     tick      = "tick-${var.environment}"
   }
 
   service_account_ids = {
     dm        = "dm-run-${var.environment}"
     world     = "world-run-${var.environment}"
-    slack_bot = "slack-bot-run-${var.environment}"
+    slack_bot = "slack-run-${var.environment}"
     tick      = "tick-run-${var.environment}"
   }
 
   domain_mappings = {
-    slack_bot = "slack-bot.${var.domain}"
+    slack_bot = "slack.${var.domain}"
     world     = "world.${var.domain}"
   }
 
@@ -35,7 +35,7 @@ locals {
     )
     slack_bot = coalesce(
       var.slack_bot_image,
-      "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/slack-bot:latest"
+      "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/slack:latest"
     )
     tick = coalesce(
       var.tick_image,

@@ -74,8 +74,8 @@ services:
     networks:
       - mud_internal
 
-  slack-bot:
-    image: ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/slack-bot:${APP_TAG:-latest}
+  slack:
+    image: ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/slack:${APP_TAG:-latest}
     restart: unless-stopped
     depends_on:
       dm:
@@ -125,7 +125,7 @@ services:
         condition: service_started
       world:
         condition: service_started
-      slack-bot:
+      slack:
         condition: service_started
     ports:
       - '80:80'
