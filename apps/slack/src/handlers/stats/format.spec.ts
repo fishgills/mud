@@ -1,4 +1,9 @@
-import type { ActionsBlock, Block, KnownBlock, SectionBlock } from '@slack/types';
+import type {
+  ActionsBlock,
+  Block,
+  KnownBlock,
+  SectionBlock,
+} from '@slack/types';
 import { buildPlayerStatsMessage } from './format';
 import type { PlayerStatsSource } from './types';
 

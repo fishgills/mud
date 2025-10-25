@@ -34,10 +34,7 @@ export function getUserFriendlyErrorMessage(
   }
 
   const safeMessage = extractMessage(err)
-    .replace(
-      /Player with slackId.*?already exists/gi,
-      'Player already exists',
-    )
+    .replace(/Player with slackId.*?already exists/gi, 'Player already exists')
     .replace(/with slackId.*?not found/gi, 'not found')
     .replace(/slackId\s+\w+/gi, 'player')
     .trim();

@@ -39,7 +39,10 @@ describe('getUserFriendlyErrorMessage', () => {
 
   it('falls back to original error message when no better alternative exists', () => {
     expect(
-      getUserFriendlyErrorMessage(new Error('unexpected input'), defaultMessage),
+      getUserFriendlyErrorMessage(
+        new Error('unexpected input'),
+        defaultMessage,
+      ),
     ).toBe('unexpected input');
   });
 });
