@@ -14,6 +14,30 @@ resource "kubernetes_namespace" "mud" {
   }
 }
 
+resource "kubernetes_cluster_role_binding" "github_actions_cluster_admin" {
+  count = local.github_actions_enabled ? 1 : 0
+
+  metadata {
+    name = "github-actions-cluster-admin"
+    labels = {
+      environment = var.environment
+    }
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = "cluster-admin"
+  }
+
+  subject {
+    kind = "User"
+    name = "system:serviceaccount:${var.project_id}.svc.id.goog"
+  }
+
+  depends_on = [google_container_node_pool.primary]
+}
+
 resource "kubernetes_service_account" "runtime" {
   for_each = google_service_account.runtime
 
