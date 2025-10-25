@@ -635,6 +635,7 @@ resource "kubernetes_service" "world" {
       name        = "http"
       port        = 80
       target_port = 8080
+      node_port   = 30080
     }
   }
 }
@@ -681,6 +682,7 @@ resource "kubernetes_service" "slack" {
       name        = "http"
       port        = 80
       target_port = 8080
+      node_port   = 30081
     }
   }
 }
@@ -703,6 +705,24 @@ resource "kubernetes_service" "tick" {
       name        = "http"
       port        = 80
       target_port = 8080
+    }
+  }
+}
+
+resource "kubernetes_manifest" "slack_backend_config" {
+  manifest = {
+    apiVersion = "cloud.google.com/v1"
+    kind       = "BackendConfig"
+    metadata = {
+      name      = "slack-backend-config"
+      namespace = kubernetes_namespace.mud.metadata[0].name
+    }
+    spec = {
+      healthCheck = {
+        checkIntervalSec = 30
+        type             = "HTTP"
+        requestPath      = "/health-check"
+      }
     }
   }
 }

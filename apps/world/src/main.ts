@@ -13,6 +13,7 @@ async function bootstrap() {
   app.setGlobalPrefix(globalPrefix);
   // Use PORT from environment, fallback to 3001
   const port = env.PORT;
+  Logger.log(`Database URL: ${env.DATABASE_URL}`);
   await app.listen(port, '0.0.0.0');
   Logger.log(
     `🚀 World Service is running on: http://0.0.0.0:${port}/${globalPrefix}`,

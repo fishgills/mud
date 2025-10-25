@@ -31,6 +31,16 @@ const app = new App({
     directInstall: true,
   },
   installationStore: installationStore,
+  customRoutes: [
+    {
+      path: '/health-check',
+      method: 'GET',
+      handler: async (_req, res) => {
+        res.writeHead(200);
+        res.end('OK');
+      },
+    },
+  ],
 });
 
 setAuthLogger({
