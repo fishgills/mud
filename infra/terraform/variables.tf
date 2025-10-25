@@ -161,83 +161,42 @@ variable "workload_identity_provider_id" {
 variable "openai_api_key" {
   description = "OpenAI API key."
   type        = string
-  default     = null
   sensitive   = true
-
-  validation {
-    condition     = var.openai_api_key != null && length(trim(var.openai_api_key)) > 0
-    error_message = "An OpenAI API key must be provided for the DM service."
-  }
 }
 
 variable "slack_bot_token" {
   description = "Slack bot token."
   type        = string
-  default     = null
   sensitive   = true
-
-  validation {
-    condition     = var.slack_bot_token != null && length(trim(var.slack_bot_token)) > 0
-    error_message = "Provide the Slack bot token so the Slack adapter can authenticate."
-  }
 }
 
 variable "slack_signing_secret" {
   description = "Slack signing secret."
   type        = string
-  default     = null
   sensitive   = true
-
-  validation {
-    condition     = var.slack_signing_secret != null && length(trim(var.slack_signing_secret)) > 0
-    error_message = "Provide the Slack signing secret for request verification."
-  }
 }
 
 variable "slack_app_token" {
   description = "Slack app-level token."
   type        = string
-  default     = null
   sensitive   = true
-
-  validation {
-    condition     = var.slack_app_token != null && length(trim(var.slack_app_token)) > 0
-    error_message = "Provide the Slack app-level token for Socket Mode."
-  }
 }
 
 variable "slack_client_id" {
   description = "Slack OAuth client ID."
   type        = string
-  default     = null
   sensitive   = true
 
-  validation {
-    condition     = var.slack_client_id != null && length(trim(var.slack_client_id)) > 0
-    error_message = "Provide the Slack OAuth client ID."
-  }
 }
 
 variable "slack_client_secret" {
   description = "Slack OAuth client secret."
   type        = string
-  default     = null
   sensitive   = true
-
-  validation {
-    condition     = var.slack_client_secret != null && length(trim(var.slack_client_secret)) > 0
-    error_message = "Provide the Slack OAuth client secret."
-  }
 }
 
 variable "slack_state_secret" {
   description = "Slack OAuth state secret."
   type        = string
-  default     = null
   sensitive   = true
-
-  validation {
-    condition     = var.slack_state_secret != null && length(trim(var.slack_state_secret)) > 0
-    error_message = "Provide the Slack OAuth state secret."
-  }
 }
