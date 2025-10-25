@@ -1,25 +1,31 @@
 locals {
-  dm_service_name        = "dm"
-  world_service_name     = "world"
-  slack_bot_service_name = "slack-bot"
-  tick_service_name      = "tick"
-}
+  dm_service_name                = "dm"
+  world_service_name             = "world"
+  slack_bot_service_name         = "slack-bot"
+  tick_service_name              = "tick"
+  github_actions_kubernetes_user = local.github_actions_enabled ? "system:serviceaccount:${var.project_id}.svc.id.goog[${google_service_account.github_actions[0].account_id}]" : null
+  database_secret_payload = {
+    latest = base64encode(local.database_url)
+  }
 
-resource "kubernetes_namespace" "mud" {
-  metadata {
-    name = local.kubernetes_namespace
-    labels = {
-      environment = var.environment
+  provided_secret_payloads = {
+    for key, secret_name in local.provided_secrets_with_values :
+    key => {
+      name = secret_name
+      data = {
+        latest = base64encode(local.provided_secret_values[key])
+      }
     }
   }
 }
 
-resource "kubernetes_cluster_role_binding" "github_actions_cluster_admin" {
+resource "kubernetes_cluster_role_binding" "github_actions_admin" {
   count = local.github_actions_enabled ? 1 : 0
 
   metadata {
     name = "github-actions-cluster-admin"
     labels = {
+      app         = "github-actions"
       environment = var.environment
     }
   }
@@ -31,11 +37,23 @@ resource "kubernetes_cluster_role_binding" "github_actions_cluster_admin" {
   }
 
   subject {
-    kind = "User"
-    name = "system:serviceaccount:${var.project_id}.svc.id.goog"
+    kind      = "User"
+    name      = local.github_actions_kubernetes_user
+    api_group = "rbac.authorization.k8s.io"
   }
 
-  depends_on = [google_container_node_pool.primary]
+  depends_on = [
+    google_container_cluster.primary
+  ]
+}
+
+resource "kubernetes_namespace" "mud" {
+  metadata {
+    name = local.kubernetes_namespace
+    labels = {
+      environment = var.environment
+    }
+  }
 }
 
 resource "kubernetes_service_account" "runtime" {
@@ -60,22 +78,22 @@ resource "kubernetes_secret" "database_url" {
     namespace = kubernetes_namespace.mud.metadata[0].name
   }
 
-  string_data = {
-    latest = local.database_url
-  }
+  data = local.database_secret_payload
+
+  type = "Opaque"
 }
 
 resource "kubernetes_secret" "provided" {
-  for_each = local.provided_secrets_with_values
+  for_each = local.provided_secret_payloads
 
   metadata {
-    name      = each.value
+    name      = each.value.name
     namespace = kubernetes_namespace.mud.metadata[0].name
   }
 
-  string_data = {
-    latest = local.provided_secret_values[each.key]
-  }
+  data = each.value.data
+
+  type = "Opaque"
 }
 
 resource "kubernetes_deployment" "world" {
@@ -237,7 +255,7 @@ resource "kubernetes_deployment" "dm" {
             name = "OPENAI_API_KEY"
             value_from {
               secret_key_ref {
-            name = kubernetes_secret.provided["openai"].metadata[0].name
+                name = kubernetes_secret.provided["openai"].metadata[0].name
                 key  = "latest"
               }
             }
@@ -329,7 +347,7 @@ resource "kubernetes_deployment" "slack_bot" {
           }
 
           env {
-            name  = "DATABASE_URL"
+            name = "DATABASE_URL"
             value_from {
               secret_key_ref {
                 name = kubernetes_secret.database_url.metadata[0].name
@@ -357,7 +375,7 @@ resource "kubernetes_deployment" "slack_bot" {
             name = "SLACK_BOT_TOKEN"
             value_from {
               secret_key_ref {
-            name = kubernetes_secret.provided["slack_bot_token"].metadata[0].name
+                name = kubernetes_secret.provided["slack_bot_token"].metadata[0].name
                 key  = "latest"
               }
             }
@@ -367,7 +385,7 @@ resource "kubernetes_deployment" "slack_bot" {
             name = "SLACK_SIGNING_SECRET"
             value_from {
               secret_key_ref {
-            name = kubernetes_secret.provided["slack_signing_secret"].metadata[0].name
+                name = kubernetes_secret.provided["slack_signing_secret"].metadata[0].name
                 key  = "latest"
               }
             }
@@ -377,7 +395,7 @@ resource "kubernetes_deployment" "slack_bot" {
             name = "SLACK_APP_TOKEN"
             value_from {
               secret_key_ref {
-            name = kubernetes_secret.provided["slack_app_token"].metadata[0].name
+                name = kubernetes_secret.provided["slack_app_token"].metadata[0].name
                 key  = "latest"
               }
             }
@@ -387,7 +405,7 @@ resource "kubernetes_deployment" "slack_bot" {
             name = "SLACK_CLIENT_ID"
             value_from {
               secret_key_ref {
-            name = kubernetes_secret.provided["slack_client_id"].metadata[0].name
+                name = kubernetes_secret.provided["slack_client_id"].metadata[0].name
                 key  = "latest"
               }
             }
@@ -397,7 +415,7 @@ resource "kubernetes_deployment" "slack_bot" {
             name = "SLACK_CLIENT_SECRET"
             value_from {
               secret_key_ref {
-            name = kubernetes_secret.provided["slack_client_secret"].metadata[0].name
+                name = kubernetes_secret.provided["slack_client_secret"].metadata[0].name
                 key  = "latest"
               }
             }
@@ -407,7 +425,7 @@ resource "kubernetes_deployment" "slack_bot" {
             name = "SLACK_STATE_SECRET"
             value_from {
               secret_key_ref {
-            name = kubernetes_secret.provided["slack_state_secret"].metadata[0].name
+                name = kubernetes_secret.provided["slack_state_secret"].metadata[0].name
                 key  = "latest"
               }
             }
@@ -510,8 +528,8 @@ resource "kubernetes_service" "world" {
     }
 
     port {
-      name       = "http"
-      port       = 80
+      name        = "http"
+      port        = 80
       target_port = 8080
     }
   }
@@ -556,8 +574,8 @@ resource "kubernetes_service" "slack_bot" {
     }
 
     port {
-      name       = "http"
-      port       = 80
+      name        = "http"
+      port        = 80
       target_port = 8080
     }
   }
@@ -607,9 +625,9 @@ resource "kubernetes_ingress_v1" "public" {
     name      = "mud-public"
     namespace = kubernetes_namespace.mud.metadata[0].name
     annotations = {
-      "kubernetes.io/ingress.class"             = "gce"
+      "kubernetes.io/ingress.class"                 = "gce"
       "kubernetes.io/ingress.global-static-ip-name" = google_compute_global_address.gke_ingress.name
-      "networking.gke.io/managed-certificates"  = kubernetes_manifest.managed_certificate.manifest["metadata"]["name"]
+      "networking.gke.io/managed-certificates"      = kubernetes_manifest.managed_certificate.manifest["metadata"]["name"]
     }
   }
 

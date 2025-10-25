@@ -35,7 +35,7 @@ variable "gke_max_node_count" {
 variable "gke_node_disk_size_gb" {
   description = "Disk size in GB for each node in the primary GKE node pool."
   type        = number
-  default     = 50
+  default     = 15
 }
 
 variable "domain" {
