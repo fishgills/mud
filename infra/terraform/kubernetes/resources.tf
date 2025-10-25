@@ -83,7 +83,7 @@ locals {
 
   database_secret_id = "database-url"
   database_secret_payload = {
-    latest = base64encode(data.google_secret_manager_secret_version.database_url.secret_data)
+    latest = data.google_secret_manager_secret_version.database_url.secret_data
   }
 
   provided_secret_payloads = {
