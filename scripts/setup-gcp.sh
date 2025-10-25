@@ -63,7 +63,7 @@ enable_apis() {
     
     local apis=(
         "cloudbuild.googleapis.com"
-        "run.googleapis.com"
+        "container.googleapis.com"
         "sql-component.googleapis.com"
         "sqladmin.googleapis.com"
         "redis.googleapis.com"
@@ -71,7 +71,6 @@ enable_apis() {
         "compute.googleapis.com"
         "dns.googleapis.com"
         "certificatemanager.googleapis.com"
-        "vpcaccess.googleapis.com"
         "servicenetworking.googleapis.com"
         "cloudresourcemanager.googleapis.com"
         "iam.googleapis.com"
@@ -103,29 +102,8 @@ create_artifact_registry() {
 
 # Set up service accounts
 setup_service_accounts() {
-    print_status "Setting up service accounts..."
-    
-    # Cloud Run service account
-    local service_account="mud-cloud-run-sa"
-    
-    if gcloud iam service-accounts describe ${service_account}@${PROJECT_ID}.iam.gserviceaccount.com &>/dev/null; then
-        print_status "Service account already exists"
-    else
-        gcloud iam service-accounts create ${service_account} \
-            --display-name="MUD Cloud Run Service Account" \
-            --description="Service account for MUD game Cloud Run services"
-        
-        # Grant necessary roles
-        gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-            --member="serviceAccount:${service_account}@${PROJECT_ID}.iam.gserviceaccount.com" \
-            --role="roles/cloudsql.client"
-        
-        gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-            --member="serviceAccount:${service_account}@${PROJECT_ID}.iam.gserviceaccount.com" \
-            --role="roles/redis.editor"
-        
-        print_status "Service account created and configured"
-    fi
+    print_status "Runtime service accounts are managed by Terraform for the GKE deployment."
+    print_status "No manual service account setup is required in this bootstrap step."
 }
 
 # Display next steps

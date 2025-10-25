@@ -7,7 +7,7 @@ Usage: bootstrap-terraform.sh --project <PROJECT_ID> --bucket <STATE_BUCKET> --t
 
 Options:
   --user-email <EMAIL>        Optional user email to grant storage access for local Terraform runs.
-  --compute-service-account   Runtime service account for Cloud Run (defaults to <PROJECT_NUMBER>-compute@developer.gserviceaccount.com).
+  --compute-service-account   GKE node service account (defaults to <PROJECT_NUMBER>-compute@developer.gserviceaccount.com).
   --runtime-service-account   Additional runtime service account(s) to grant Service Account User on. Repeat or pass a comma-separated list.
 
 Examples:
@@ -141,6 +141,11 @@ run gcloud projects add-iam-policy-binding "$PROJECT" \
   --member="serviceAccount:${TF_SA}" \
   --role="roles/compute.networkAdmin"
 
+echo "Granting roles/container.admin on $PROJECT to $TF_SA"
+run gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:${TF_SA}" \
+  --role="roles/container.admin"
+
 echo "Granting roles/resourcemanager.projectIamAdmin on $PROJECT to $TF_SA"
 run gcloud projects add-iam-policy-binding "$PROJECT" \
   --member="serviceAccount:${TF_SA}" \
@@ -155,11 +160,6 @@ echo "Granting roles/dns.admin on $PROJECT to $TF_SA"
 run gcloud projects add-iam-policy-binding "$PROJECT" \
   --member="serviceAccount:${TF_SA}" \
   --role="roles/dns.admin"
-
-echo "Granting roles/vpcaccess.admin on $PROJECT to $TF_SA"
-run gcloud projects add-iam-policy-binding "$PROJECT" \
-  --member="serviceAccount:${TF_SA}" \
-  --role="roles/vpcaccess.admin"
 
 for runtime_sa in "${RUNTIME_SAS[@]}"; do
   echo "Granting roles/iam.serviceAccountUser on $runtime_sa to $TF_SA"

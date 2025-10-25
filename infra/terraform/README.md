@@ -3,13 +3,13 @@
 This directory provisions the production stack for the MUD services on Google Cloud.
 Terraform manages the following resources:
 
-- Four Cloud Run services (`dm`, `world`, `slack-bot`, `tick`)
+- A Google Kubernetes Engine (GKE) cluster hosting four Kubernetes Deployments/Services/Ingress resources (`dm`, `world`, `slack-bot`, `tick`)
 - Cloud SQL (PostgreSQL 15) with private VPC connectivity
 - Memorystore (Redis) for caching and coordination
 - Artifact Registry (Docker) for the service images
 - Service accounts, Workload Identity Federation for GitHub Actions, and runtime IAM bindings
-- Serverless VPC connector, private service networking, and DNS domain mappings
-- Secret Manager entries that surface application secrets to Cloud Run
+- Shared VPC networking, private service access, and Cloud DNS records for the ingress load balancer
+- Secret Manager entries that populate Kubernetes secrets for runtime configuration
 
 The previous single-VM/docker-compose deployment has been removed.
 
@@ -74,7 +74,7 @@ terraform output -raw github_actions_workload_identity_provider
 The script grants:
 
 - Storage access to the Terraform state bucket
-- IAM roles that let Terraform administer service accounts, Cloud Run, Cloud SQL, Redis, DNS, and networking
+- IAM roles that let Terraform administer service accounts, GKE, Cloud SQL, Redis, DNS, and networking
 - `roles/iam.workloadIdentityUser` so GitHub Actions can impersonate the deployer service account
 
 Re-run the script whenever you add new users or recreate credentials.
@@ -94,7 +94,7 @@ Secrets must be provided via Terraform variables before applying:
 - OpenAI API key
 - Slack bot credentials (token, signing secret, app token, client ID/secret, state secret)
 
-These are stored in Secret Manager and mounted into Cloud Run. Terraform will error if a required secret
+These are stored in Secret Manager and synced into Kubernetes secrets. Terraform will error if a required secret
 is missing a version.
 
 ## Running Terraform Locally

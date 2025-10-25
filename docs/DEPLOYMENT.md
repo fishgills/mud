@@ -1,7 +1,7 @@
 ## Production Deployment Overview
 
-The production stack now lives entirely on Google Cloud Run with shared
-infrastructure managed by Terraform. Four services are deployed:
+The production stack now runs on Google Kubernetes Engine (GKE) with shared
+infrastructure managed by Terraform. Four Kubernetes Deployments/Services are maintained:
 
 - `dm` – core game logic and API
 - `world` – renders world state and map imagery
@@ -15,8 +15,8 @@ Terraform also provisions:
 - Cloud SQL (PostgreSQL 15) with a generated password surfaced via Secret Manager
 - Memorystore (Redis) on the shared VPC
 - Artifact Registry (`mud-services`) for container images
-- Serverless VPC connector and private service networking
-- Secret Manager entries for application secrets
+- Shared VPC networking, private service access, and a global HTTP(S) ingress IP
+- Secret Manager entries that are mirrored into Kubernetes secrets
 - Custom domains (`slack-bot.battleforge.app`, `world.battleforge.app`)
 
 ### Required GitHub Secrets (Production Environment)

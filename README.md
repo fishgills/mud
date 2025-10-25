@@ -12,7 +12,7 @@ Mud is an AI-assisted multiplayer text adventure game built as a Turborepo monor
 | `apps/tick`       | Lightweight worker that regularly calls the DM service to advance the world state.                                                |
 | `libs/database`   | Shared Prisma client and schema for PostgreSQL.                                                                                   |
 | `libs/engine`     | Shared engine primitives and the global EventBus used to coordinate gameplay across services.                                     |
-| `libs/gcp-auth`   | Helpers for authenticating service-to-service calls on Google Cloud Run.                                                          |
+| `libs/gcp-auth`   | Helpers for authenticating service-to-service calls when targeting Google Cloud Run endpoints.                                    |
 | `infra/terraform` | Infrastructure-as-code definitions for deploying the services.                                                                    |
 | `scripts/`        | Deployment and operational scripts (database migrations, certificate automation, etc.).                                           |
 
@@ -85,9 +85,9 @@ All services rely on the following shared configuration:
 | `DM_API_BASE_URL` | Base URL of the DM REST API (local default `http://localhost:3000`). |
 | `PORT`            | HTTP port for the lightweight health server (default `3003`).        |
 
-The shared `@mud/gcp-auth` utilities also look for the `GCP_CLOUD_RUN` or
-`K_SERVICE` environment variables to determine when to mint Cloud Run identity
-tokens automatically.
+The shared `@mud/gcp-auth` utilities still look for the `GCP_CLOUD_RUN` or
+`K_SERVICE` environment variables to mint Cloud Run identity tokens when calling those endpoints.
+When running on GKE, the helpers fall back to standard fetch behavior because internal traffic is unauthenticated.
 
 ## Getting started
 
@@ -190,9 +190,9 @@ world.
 
 ## Deployment
 
-Production runs on Google Cloud Run. Terraform (in `infra/terraform`) manages
-all infrastructure: Cloud Run services, Cloud SQL (PostgreSQL), Memorystore
-(Redis), Artifact Registry, VPC access, Secret Manager, and custom domains. The
+Production runs on Google Kubernetes Engine (GKE). Terraform (in `infra/terraform`) manages
+all infrastructure: the GKE cluster, Kubernetes workloads (Deployments/Services/Ingress), Cloud SQL (PostgreSQL), Memorystore
+(Redis), Artifact Registry, Secret Manager, networking, and custom domains. The
 legacy single-VPS deployment has been removed.
 
 ### Pipeline
@@ -213,8 +213,8 @@ Populate the following GitHub environment secrets before enabling the workflow:
 - `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_STATE_SECRET`
 
 DNS for `slack-bot.battleforge.app` and `world.battleforge.app` is created by
-Terraform as CNAME records to Cloud Run. Certificate provisioning is handled by
-the Cloud Run domain mappings.
+Terraform as A records that point at the shared GKE HTTP(S) load balancer. Certificates
+are provisioned automatically via the GKE ManagedCertificate resource.
 
 ### Manual Terraform runs
 

@@ -6,5 +6,12 @@ dns_zone_name         = "example-com"
 artifact_repo_id      = "mud-services"
 artifact_repo_location = "us-central1"
 
+# Optional: override defaults for the GKE cluster
+# gke_zone             = "us-central1-a"
+# gke_machine_type     = "e2-small"
+# gke_min_node_count   = 1
+# gke_max_node_count   = 3
+# gke_node_disk_size_gb = 50
+
 # Optional: configure Workload Identity Federation for GitHub Actions
 github_repository     = "your-org/your-repo"

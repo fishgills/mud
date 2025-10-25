@@ -12,7 +12,7 @@ Our architecture uses a **hybrid microservices approach** where client-specific 
 ├─────────────┬─────────────┬─────────────┬─────────────────┤
 │   Slack     │   Discord   │     Web     │   (Future)      │
 │   Adapter   │   Adapter   │   Adapter   │   Adapters      │
-│  (Cloud Run)│  (Cloud Run)│  (Cloud Run)│                 │
+│  (GKE Deployment)│  (GKE Deployment)│  (GKE Deployment)│                 │
 └──────┬──────┴──────┬──────┴──────┬──────┴─────────────────┘
        │             │             │
        │    REST     │    REST     │   REST/WebSocket
@@ -165,7 +165,7 @@ For real-time notifications (e.g., "A goblin appeared!", "Player joined your par
 
 ### Internal Service Communication
 
-- **Authentication**: GCP Cloud Run service-to-service auth (OIDC tokens)
+- **Authentication**: In-cluster Kubernetes service accounts and internal DNS (no external auth required)
 - **Protocol**: REST over HTTPS
 - **Error Handling**: Retry with exponential backoff
 
@@ -214,43 +214,31 @@ model DiscordUser {
 
 ## Deployment Strategy
 
-### Cloud Run Services
+### Kubernetes Services
 
-1. **mud-dm** (Game Engine)
-   - Handles all game logic
-   - Exposed REST API
-   - Autoscales based on request volume
+1. **dm** (Game Engine)
+   - Handles all core game logic and exposes a REST API
+   - Runs as a Kubernetes Deployment with multiple replicas and Workload Identity
 
-2. **mud-slack** (Slack Adapter)
-   - Receives Slack events
-   - Calls mud-dm API
-   - Lightweight, stateless
+2. **world** (World Renderer)
+   - Generates world tiles and renders map imagery
+   - Communicates with Redis for caching and responds over HTTP
 
-3. **mud-discord** (Discord Adapter)
-   - Receives Discord events
-   - Calls mud-dm API
-   - Lightweight, stateless
+3. **slack-bot** (Slack Adapter)
+   - Receives Slack events via Bolt
+   - Calls the `dm` and `world` services over in-cluster HTTP
 
-4. **mud-web** (Web Adapter)
-   - REST API + WebSocket
-   - Calls mud-dm API
-   - Session management
-
-5. **mud-world** (World Generation)
-   - Tile generation
-   - Called by mud-dm
-
-6. **mud-tick** (Worker)
-   - Scheduled Cloud Run job
-   - Calls mud-dm to advance time
+4. **tick** (Worker)
+   - Periodically advances world state
+   - Runs as a long-lived deployment that triggers ticks on an interval
 
 ### Service Communication
 
-All services use **internal URLs** for service-to-service calls:
+All services run inside the same Kubernetes namespace and communicate over ClusterIP services:
 
-- No public internet egress
-- Authenticated with GCP service accounts
-- Lower latency
+- No public internet egress for internal calls
+- DNS names follow `<service>.<namespace>.svc.cluster.local`
+- Secrets and credentials are injected via Kubernetes secrets sourced from Secret Manager
 
 ## Client ID Strategy
 

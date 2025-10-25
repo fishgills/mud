@@ -6,5 +6,6 @@
 // - secrets.tf            → Secret Manager definitions
 // - artifact_registry.tf  → Artifact Registry repository
 // - iam.tf                → service accounts and IAM bindings
-// - cloudrun.tf           → Cloud Run services, domain mappings, DNS
+// - gke.tf                → GKE cluster and supporting infrastructure
+// - kubernetes.tf         → Kubernetes namespace, workloads, services, and ingress
 // - outputs.tf            → exported values for scripts and workflows

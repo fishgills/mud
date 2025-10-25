@@ -1,7 +1,7 @@
 locals {
   github_actions_enabled = var.github_repository != null
   github_actions_roles = var.github_repository == null ? [] : [
-    "roles/run.admin",
+    "roles/container.admin",
     "roles/iam.serviceAccountAdmin",
     "roles/iam.serviceAccountUser",
     "roles/compute.networkAdmin",
@@ -75,8 +75,8 @@ resource "google_service_account" "runtime" {
   for_each = local.service_account_ids
 
   account_id   = each.value
-  display_name = "Cloud Run ${each.key} (${var.environment})"
-  description  = "Runtime identity for the ${each.key} Cloud Run service"
+  display_name = "GKE ${each.key} (${var.environment})"
+  description  = "Runtime identity for the ${each.key} service running on GKE"
 }
 
 resource "google_project_iam_member" "runtime_artifact_registry_reader" {
@@ -114,32 +114,18 @@ resource "google_project_iam_member" "runtime_secret_accessor" {
   member  = "serviceAccount:${each.value.email}"
 }
 
-resource "google_project_iam_member" "runtime_vpcaccess" {
-  for_each = {
-    for key, sa in google_service_account.runtime :
-    key => sa if key != "tick"
-  }
-
-  project = var.project_id
-  role    = "roles/vpcaccess.user"
-  member  = "serviceAccount:${each.value.email}"
-}
-
 resource "google_project_iam_member" "runtime_vertex_ai" {
   project = var.project_id
   role    = "roles/aiplatform.user"
   member  = "serviceAccount:${google_service_account.runtime["dm"].email}"
 }
 
-resource "google_cloud_run_service_iam_member" "dm_internal_invokers" {
-  for_each = {
-    slack_bot = google_service_account.runtime["slack_bot"].email
-    tick      = google_service_account.runtime["tick"].email
-  }
+resource "google_service_account_iam_binding" "runtime_workload_identity" {
+  for_each = google_service_account.runtime
 
-  location = var.region
-  project  = var.project_id
-  service  = google_cloud_run_service.dm.name
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:${each.value}"
+  service_account_id = each.value.name
+  role               = "roles/iam.workloadIdentityUser"
+  members = [
+    "serviceAccount:${var.project_id}.svc.id.goog/${local.kubernetes_namespace}/${each.key}"
+  ]
 }
