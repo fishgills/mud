@@ -126,6 +126,6 @@ resource "google_service_account_iam_binding" "runtime_workload_identity" {
   service_account_id = each.value.name
   role               = "roles/iam.workloadIdentityUser"
   members = [
-    "serviceAccount:${var.project_id}.svc.id.goog/${local.kubernetes_namespace}/${each.key}"
+    "serviceAccount:${var.project_id}.svc.id.goog[${local.kubernetes_namespace}/${each.key}]"
   ]
 }

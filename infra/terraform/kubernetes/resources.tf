@@ -24,7 +24,7 @@ locals {
     key => "${id}@${var.project_id}.iam.gserviceaccount.com"
   }
 
-  github_actions_enabled           = var.github_repository != null
+  github_actions_enabled            = var.github_repository != null
   github_actions_service_account_id = "github-actions"
   github_actions_kubernetes_user    = local.github_actions_enabled ? "system:serviceaccount:${var.project_id}.svc.id.goog[${local.github_actions_service_account_id}]" : null
 
@@ -241,12 +241,12 @@ resource "kubernetes_deployment" "world" {
 
           resources {
             limits = {
-              cpu    = "1000m"
-              memory = "512Mi"
+              cpu    = "1"
+              memory = "1Gi"
             }
             requests = {
               cpu    = "500m"
-              memory = "512Mi"
+              memory = "256Mi"
             }
           }
 
@@ -291,7 +291,7 @@ resource "kubernetes_deployment" "dm" {
   }
 
   spec {
-    replicas = 2
+    replicas = 1
 
     selector {
       match_labels = {
@@ -321,12 +321,12 @@ resource "kubernetes_deployment" "dm" {
 
           resources {
             limits = {
-              cpu    = "1000m"
+              cpu    = "1"
               memory = "1Gi"
             }
             requests = {
-              cpu    = "500m"
-              memory = "512Mi"
+              cpu    = "100m"
+              memory = "256Mi"
             }
           }
 
@@ -431,11 +431,11 @@ resource "kubernetes_deployment" "slack" {
 
           resources {
             limits = {
-              cpu    = "1000m"
-              memory = "512Mi"
+              cpu    = "1"
+              memory = "1Gi"
             }
             requests = {
-              cpu    = "250m"
+              cpu    = "100m"
               memory = "256Mi"
             }
           }
@@ -581,11 +581,11 @@ resource "kubernetes_deployment" "tick" {
 
           resources {
             limits = {
-              cpu    = "1000m"
-              memory = "512Mi"
+              cpu    = "1"
+              memory = "1Gi"
             }
             requests = {
-              cpu    = "250m"
+              cpu    = "100m"
               memory = "256Mi"
             }
           }
@@ -729,9 +729,9 @@ resource "kubernetes_ingress_v1" "public" {
     name      = "mud-public"
     namespace = kubernetes_namespace.mud.metadata[0].name
     annotations = {
-      "kubernetes.io/ingress.class"                   = "gce"
-      "kubernetes.io/ingress.global-static-ip-name"   = data.google_compute_global_address.gke_ingress.name
-      "networking.gke.io/managed-certificates"        = kubernetes_manifest.managed_certificate.manifest["metadata"]["name"]
+      "kubernetes.io/ingress.class"                 = "gce"
+      "kubernetes.io/ingress.global-static-ip-name" = data.google_compute_global_address.gke_ingress.name
+      "networking.gke.io/managed-certificates"      = kubernetes_manifest.managed_certificate.manifest["metadata"]["name"]
     }
   }
 

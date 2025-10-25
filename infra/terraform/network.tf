@@ -51,3 +51,20 @@ resource "google_service_networking_connection" "private_service_connection" {
   depends_on              = [google_project_service.apis]
 }
 
+# Allow GKE nodes to connect to Cloud SQL via private IP
+resource "google_compute_firewall" "gke_to_sql" {
+  name    = "gke-to-sql-${var.environment}"
+  network = google_compute_network.shared.self_link
+
+  allow {
+    protocol = "tcp"
+    ports    = ["5432"]
+  }
+
+  source_ranges      = ["10.20.0.0/20"] # GKE nodes
+  destination_ranges = ["10.16.0.0/20"] # Cloud SQL subnet
+  direction          = "INGRESS"
+  priority           = 1000
+  description        = "Allow GKE nodes to connect to Cloud SQL via private IP on port 5432."
+}
+

@@ -17,7 +17,7 @@ variable "gke_zone" {
 variable "gke_machine_type" {
   description = "Machine type for the primary GKE node pool."
   type        = string
-  default     = "e2-small"
+  default     = "e2-standard-2"
 }
 
 variable "gke_min_node_count" {
@@ -35,7 +35,7 @@ variable "gke_max_node_count" {
 variable "gke_node_disk_size_gb" {
   description = "Disk size in GB for each node in the primary GKE node pool."
   type        = number
-  default     = 15
+  default     = 50
 }
 
 variable "domain" {
