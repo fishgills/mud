@@ -1,22 +1,130 @@
 locals {
-  dm_service_name                = "dm"
-  world_service_name             = "world"
-  slack_service_name             = "slack"
-  tick_service_name              = "tick"
-  github_actions_kubernetes_user = local.github_actions_enabled ? "system:serviceaccount:${var.project_id}.svc.id.goog[${google_service_account.github_actions[0].account_id}]" : null
+  project_id           = var.project_id
+  region               = var.region
+  environment          = var.environment
+  gke_location         = coalesce(var.gke_zone, "${var.region}-a")
+  kubernetes_namespace = "mud"
+
+  service_names = {
+    dm    = "dm"
+    world = "world"
+    slack = "slack"
+    tick  = "tick"
+  }
+
+  service_account_ids = {
+    dm    = "dm-run-${var.environment}"
+    world = "world-run-${var.environment}"
+    slack = "slack-run-${var.environment}"
+    tick  = "tick-run-${var.environment}"
+  }
+
+  runtime_service_account_emails = {
+    for key, id in local.service_account_ids :
+    key => "${id}@${var.project_id}.iam.gserviceaccount.com"
+  }
+
+  github_actions_enabled           = var.github_repository != null
+  github_actions_service_account_id = "github-actions"
+  github_actions_kubernetes_user    = local.github_actions_enabled ? "system:serviceaccount:${var.project_id}.svc.id.goog[${local.github_actions_service_account_id}]" : null
+
+  domain_mappings = {
+    slack = "slack.${var.domain}"
+    world = "world.${var.domain}"
+  }
+
+  images = {
+    dm = coalesce(
+      var.dm_image,
+      "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/dm:latest"
+    )
+    world = coalesce(
+      var.world_image,
+      "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/world:latest"
+    )
+    slack = coalesce(
+      var.slack_bot_image,
+      "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/slack:latest"
+    )
+    tick = coalesce(
+      var.tick_image,
+      "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/tick:latest"
+    )
+  }
+
+  provided_secret_ids = {
+    openai               = "openai-api-key"
+    slack_token          = "slack-token"
+    slack_signing_secret = "slack-signing-secret"
+    slack_app_token      = "slack-app-token"
+    slack_client_id      = "slack-client-id"
+    slack_client_secret  = "slack-client-secret"
+    slack_state_secret   = "slack-state-secret"
+  }
+
+  provided_secret_values = {
+    openai               = var.openai_api_key
+    slack_token          = var.slack_bot_token
+    slack_signing_secret = var.slack_signing_secret
+    slack_app_token      = var.slack_app_token
+    slack_client_id      = var.slack_client_id
+    slack_client_secret  = var.slack_client_secret
+    slack_state_secret   = var.slack_state_secret
+  }
+
+  provided_secrets_with_values = nonsensitive({
+    for key, secret_id in local.provided_secret_ids :
+    key => {
+      name  = secret_id
+      value = local.provided_secret_values[key]
+    }
+    if local.provided_secret_values[key] != null
+  })
+
+  database_secret_id = "database-url"
   database_secret_payload = {
-    latest = base64encode(local.database_url)
+    latest = base64encode(data.google_secret_manager_secret_version.database_url.secret_data)
   }
 
   provided_secret_payloads = {
-    for key, secret_name in local.provided_secrets_with_values :
+    for key, config in local.provided_secrets_with_values :
     key => {
-      name = secret_name
+      name = config.name
       data = {
-        latest = base64encode(local.provided_secret_values[key])
+        latest = base64encode(config.value)
       }
     }
   }
+}
+
+data "google_client_config" "default" {}
+
+data "google_container_cluster" "primary" {
+  name     = "mud-${var.environment}"
+  location = local.gke_location
+}
+
+data "google_secret_manager_secret_version" "database_url" {
+  project = var.project_id
+  secret  = local.database_secret_id
+  version = "latest"
+}
+
+data "google_redis_instance" "cache" {
+  project = var.project_id
+  name    = var.redis_instance_name
+  region  = var.region
+}
+
+data "google_compute_global_address" "gke_ingress" {
+  project = var.project_id
+  name    = "mud-gke-ingress-${var.environment}"
+}
+
+provider "kubernetes" {
+  host                   = "https://${data.google_container_cluster.primary.endpoint}"
+  cluster_ca_certificate = base64decode(data.google_container_cluster.primary.master_auth[0].cluster_ca_certificate)
+  token                  = data.google_client_config.default.access_token
 }
 
 resource "kubernetes_cluster_role_binding" "github_actions_admin" {
@@ -41,10 +149,6 @@ resource "kubernetes_cluster_role_binding" "github_actions_admin" {
     name      = local.github_actions_kubernetes_user
     api_group = "rbac.authorization.k8s.io"
   }
-
-  depends_on = [
-    google_container_cluster.primary
-  ]
 }
 
 resource "kubernetes_namespace" "mud" {
@@ -57,24 +161,24 @@ resource "kubernetes_namespace" "mud" {
 }
 
 resource "kubernetes_service_account" "runtime" {
-  for_each = google_service_account.runtime
+  for_each = local.service_names
 
   metadata {
-    name      = each.key
+    name      = each.value
     namespace = kubernetes_namespace.mud.metadata[0].name
     labels = {
-      app         = each.key
+      app         = each.value
       environment = var.environment
     }
     annotations = {
-      "iam.gke.io/gcp-service-account" = each.value.email
+      "iam.gke.io/gcp-service-account" = local.runtime_service_account_emails[each.key]
     }
   }
 }
 
 resource "kubernetes_secret" "database_url" {
   metadata {
-    name      = google_secret_manager_secret.database_url.secret_id
+    name      = local.database_secret_id
     namespace = kubernetes_namespace.mud.metadata[0].name
   }
 
@@ -98,10 +202,10 @@ resource "kubernetes_secret" "provided" {
 
 resource "kubernetes_deployment" "world" {
   metadata {
-    name      = local.world_service_name
+    name      = local.service_names.world
     namespace = kubernetes_namespace.mud.metadata[0].name
     labels = {
-      app         = local.world_service_name
+      app         = local.service_names.world
       environment = var.environment
     }
   }
@@ -111,23 +215,23 @@ resource "kubernetes_deployment" "world" {
 
     selector {
       match_labels = {
-        app = local.world_service_name
+        app = local.service_names.world
       }
     }
 
     template {
       metadata {
         labels = {
-          app         = local.world_service_name
+          app         = local.service_names.world
           environment = var.environment
         }
       }
 
       spec {
-        service_account_name = kubernetes_service_account.runtime[local.world_service_name].metadata[0].name
+        service_account_name = kubernetes_service_account.runtime["world"].metadata[0].name
 
         container {
-          name  = local.world_service_name
+          name  = local.service_names.world
           image = local.images.world
 
           port {
@@ -158,7 +262,7 @@ resource "kubernetes_deployment" "world" {
 
           env {
             name  = "REDIS_URL"
-            value = "redis://${google_redis_instance.cache.host}:6379"
+            value = "redis://${data.google_redis_instance.cache.host}:6379"
           }
 
           env {
@@ -178,10 +282,10 @@ resource "kubernetes_deployment" "world" {
 
 resource "kubernetes_deployment" "dm" {
   metadata {
-    name      = local.dm_service_name
+    name      = local.service_names.dm
     namespace = kubernetes_namespace.mud.metadata[0].name
     labels = {
-      app         = local.dm_service_name
+      app         = local.service_names.dm
       environment = var.environment
     }
   }
@@ -191,23 +295,23 @@ resource "kubernetes_deployment" "dm" {
 
     selector {
       match_labels = {
-        app = local.dm_service_name
+        app = local.service_names.dm
       }
     }
 
     template {
       metadata {
         labels = {
-          app         = local.dm_service_name
+          app         = local.service_names.dm
           environment = var.environment
         }
       }
 
       spec {
-        service_account_name = kubernetes_service_account.runtime[local.dm_service_name].metadata[0].name
+        service_account_name = kubernetes_service_account.runtime["dm"].metadata[0].name
 
         container {
-          name  = local.dm_service_name
+          name  = local.service_names.dm
           image = local.images.dm
 
           port {
@@ -263,7 +367,7 @@ resource "kubernetes_deployment" "dm" {
 
           env {
             name  = "REDIS_URL"
-            value = "redis://${google_redis_instance.cache.host}:6379"
+            value = "redis://${data.google_redis_instance.cache.host}:6379"
           }
 
           env {
@@ -278,7 +382,7 @@ resource "kubernetes_deployment" "dm" {
 
           env {
             name  = "WORLD_SERVICE_URL"
-            value = "http://${local.world_service_name}.${local.kubernetes_namespace}.svc.cluster.local/world"
+            value = "http://${local.service_names.world}.${local.kubernetes_namespace}.svc.cluster.local/world"
           }
         }
       }
@@ -288,10 +392,10 @@ resource "kubernetes_deployment" "dm" {
 
 resource "kubernetes_deployment" "slack" {
   metadata {
-    name      = local.slack_service_name
+    name      = local.service_names.slack
     namespace = kubernetes_namespace.mud.metadata[0].name
     labels = {
-      app         = local.slack_service_name
+      app         = local.service_names.slack
       environment = var.environment
     }
   }
@@ -301,23 +405,23 @@ resource "kubernetes_deployment" "slack" {
 
     selector {
       match_labels = {
-        app = local.slack_service_name
+        app = local.service_names.slack
       }
     }
 
     template {
       metadata {
         labels = {
-          app         = local.slack_service_name
+          app         = local.service_names.slack
           environment = var.environment
         }
       }
 
       spec {
-        service_account_name = kubernetes_service_account.runtime[local.slack_service_name].metadata[0].name
+        service_account_name = kubernetes_service_account.runtime["slack"].metadata[0].name
 
         container {
-          name  = local.slack_service_name
+          name  = local.service_names.slack
           image = local.images.slack
 
           port {
@@ -358,17 +462,17 @@ resource "kubernetes_deployment" "slack" {
 
           env {
             name  = "REDIS_URL"
-            value = "redis://${google_redis_instance.cache.host}:6379"
+            value = "redis://${data.google_redis_instance.cache.host}:6379"
           }
 
           env {
             name  = "DM_API_BASE_URL"
-            value = "http://${local.dm_service_name}.${local.kubernetes_namespace}.svc.cluster.local"
+            value = "http://${local.service_names.dm}.${local.kubernetes_namespace}.svc.cluster.local"
           }
 
           env {
             name  = "WORLD_API_BASE_URL"
-            value = "http://${local.world_service_name}.${local.kubernetes_namespace}.svc.cluster.local/world"
+            value = "http://${local.service_names.world}.${local.kubernetes_namespace}.svc.cluster.local/world"
           }
 
           env {
@@ -438,10 +542,10 @@ resource "kubernetes_deployment" "slack" {
 
 resource "kubernetes_deployment" "tick" {
   metadata {
-    name      = local.tick_service_name
+    name      = local.service_names.tick
     namespace = kubernetes_namespace.mud.metadata[0].name
     labels = {
-      app         = local.tick_service_name
+      app         = local.service_names.tick
       environment = var.environment
     }
   }
@@ -451,23 +555,23 @@ resource "kubernetes_deployment" "tick" {
 
     selector {
       match_labels = {
-        app = local.tick_service_name
+        app = local.service_names.tick
       }
     }
 
     template {
       metadata {
         labels = {
-          app         = local.tick_service_name
+          app         = local.service_names.tick
           environment = var.environment
         }
       }
 
       spec {
-        service_account_name = kubernetes_service_account.runtime[local.tick_service_name].metadata[0].name
+        service_account_name = kubernetes_service_account.runtime["tick"].metadata[0].name
 
         container {
-          name  = local.tick_service_name
+          name  = local.service_names.tick
           image = local.images.tick
 
           port {
@@ -503,7 +607,7 @@ resource "kubernetes_deployment" "tick" {
 
           env {
             name  = "DM_API_BASE_URL"
-            value = "http://${local.dm_service_name}.${local.kubernetes_namespace}.svc.cluster.local"
+            value = "http://${local.service_names.dm}.${local.kubernetes_namespace}.svc.cluster.local"
           }
         }
       }
@@ -513,10 +617,10 @@ resource "kubernetes_deployment" "tick" {
 
 resource "kubernetes_service" "world" {
   metadata {
-    name      = local.world_service_name
+    name      = local.service_names.world
     namespace = kubernetes_namespace.mud.metadata[0].name
     labels = {
-      app = local.world_service_name
+      app = local.service_names.world
     }
   }
 
@@ -524,7 +628,7 @@ resource "kubernetes_service" "world" {
     type = "NodePort"
 
     selector = {
-      app = local.world_service_name
+      app = local.service_names.world
     }
 
     port {
@@ -537,16 +641,16 @@ resource "kubernetes_service" "world" {
 
 resource "kubernetes_service" "dm" {
   metadata {
-    name      = local.dm_service_name
+    name      = local.service_names.dm
     namespace = kubernetes_namespace.mud.metadata[0].name
     labels = {
-      app = local.dm_service_name
+      app = local.service_names.dm
     }
   }
 
   spec {
     selector = {
-      app = local.dm_service_name
+      app = local.service_names.dm
     }
 
     port {
@@ -559,10 +663,10 @@ resource "kubernetes_service" "dm" {
 
 resource "kubernetes_service" "slack" {
   metadata {
-    name      = local.slack_service_name
+    name      = local.service_names.slack
     namespace = kubernetes_namespace.mud.metadata[0].name
     labels = {
-      app = local.slack_service_name
+      app = local.service_names.slack
     }
   }
 
@@ -570,7 +674,7 @@ resource "kubernetes_service" "slack" {
     type = "NodePort"
 
     selector = {
-      app = local.slack_service_name
+      app = local.service_names.slack
     }
 
     port {
@@ -583,16 +687,16 @@ resource "kubernetes_service" "slack" {
 
 resource "kubernetes_service" "tick" {
   metadata {
-    name      = local.tick_service_name
+    name      = local.service_names.tick
     namespace = kubernetes_namespace.mud.metadata[0].name
     labels = {
-      app = local.tick_service_name
+      app = local.service_names.tick
     }
   }
 
   spec {
     selector = {
-      app = local.tick_service_name
+      app = local.service_names.tick
     }
 
     port {
@@ -625,9 +729,9 @@ resource "kubernetes_ingress_v1" "public" {
     name      = "mud-public"
     namespace = kubernetes_namespace.mud.metadata[0].name
     annotations = {
-      "kubernetes.io/ingress.class"                 = "gce"
-      "kubernetes.io/ingress.global-static-ip-name" = google_compute_global_address.gke_ingress.name
-      "networking.gke.io/managed-certificates"      = kubernetes_manifest.managed_certificate.manifest["metadata"]["name"]
+      "kubernetes.io/ingress.class"                   = "gce"
+      "kubernetes.io/ingress.global-static-ip-name"   = data.google_compute_global_address.gke_ingress.name
+      "networking.gke.io/managed-certificates"        = kubernetes_manifest.managed_certificate.manifest["metadata"]["name"]
     }
   }
 
@@ -643,12 +747,9 @@ resource "kubernetes_ingress_v1" "public" {
 
     rule {
       host = local.domain_mappings.world
-
       http {
         path {
-          path      = "/"
-          path_type = "Prefix"
-
+          path = "/*"
           backend {
             service {
               name = kubernetes_service.world.metadata[0].name
@@ -663,12 +764,9 @@ resource "kubernetes_ingress_v1" "public" {
 
     rule {
       host = local.domain_mappings.slack
-
       http {
         path {
-          path      = "/"
-          path_type = "Prefix"
-
+          path = "/*"
           backend {
             service {
               name = kubernetes_service.slack.metadata[0].name

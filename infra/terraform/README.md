@@ -1,22 +1,19 @@
 # Terraform Infrastructure
 
 This directory provisions the production stack for the MUD services on Google Cloud.
-Terraform manages the following resources:
+Terraform is now applied in two stages:
 
-- A Google Kubernetes Engine (GKE) cluster hosting four Kubernetes Deployments/Services/Ingress resources (`dm`, `world`, `slack`, `tick`)
-- Cloud SQL (PostgreSQL 15) with private VPC connectivity
-- Memorystore (Redis) for caching and coordination
-- Artifact Registry (Docker) for the service images
-- Service accounts, Workload Identity Federation for GitHub Actions, and runtime IAM bindings
-- Shared VPC networking, private service access, and Cloud DNS records for the ingress load balancer
-- Secret Manager entries that populate Kubernetes secrets for runtime configuration
+- **Infrastructure (this directory)** – enables core APIs, configures networking, SQL, Redis,
+  Artifact Registry, IAM, and creates the GKE cluster plus supporting static IPs and secrets.
+- **Kubernetes (`./kubernetes`)** – once the cluster is ready, applies the Kubernetes namespace,
+  service accounts, deployments, services, ingress, and managed certificates.
 
 The previous single-VM/docker-compose deployment has been removed.
 
 ## Remote State Backend
 
 Terraform state should live in Google Cloud Storage so local and CI/CD runs stay in sync.
-The backend configuration is stored in `backend.hcl`, which is intentionally not committed.
+Each root module keeps its backend configuration in an untracked `backend.hcl` file.
 
 1. Create (or reuse) a GCS bucket:
 
@@ -37,6 +34,17 @@ The backend configuration is stored in `backend.hcl`, which is intentionally not
    prefix = "prod"
    ```
 
+   Repeat the step for the Kubernetes module:
+
+   ```bash
+   cp backend.hcl.example kubernetes/backend.hcl
+   ```
+
+   ```hcl
+   bucket = "mud-terraform-state"
+   prefix = "prod/kubernetes"
+   ```
+
 3. Initialize Terraform with the backend settings:
 
    ```bash
@@ -47,8 +55,8 @@ The backend configuration is stored in `backend.hcl`, which is intentionally not
 
 ### GitHub Actions
 
-The deploy workflow (added separately) generates `backend.hcl` on the fly. Supply these GitHub
-environment secrets so the workflow can build the file:
+The deploy workflow (added separately) generates both `backend.hcl` files on the fly. Supply these GitHub
+environment secrets so the workflow can build the files:
 
 - `TF_BACKEND_BUCKET`
 - `TF_BACKEND_PREFIX`
@@ -107,10 +115,20 @@ is missing a version.
    ```bash
    terraform init -backend-config=backend.hcl
    ```
-3. Plan or apply:
+3. Plan or apply the infrastructure stack:
+
    ```bash
    terraform plan   # review changes
-   terraform apply  # deploy
+   terraform apply  # deploy core infrastructure
+   ```
+
+4. Switch into the Kubernetes module and apply once the cluster is ready:
+
+   ```bash
+   cd kubernetes
+   terraform init -backend-config=backend.hcl
+   terraform plan
+   terraform apply
    ```
 
 Always run `plan` before `apply`, especially when modifying production infrastructure.

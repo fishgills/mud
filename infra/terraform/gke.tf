@@ -85,15 +85,6 @@ resource "google_container_node_pool" "primary" {
   }
 }
 
-data "google_container_cluster" "primary" {
-  name     = google_container_cluster.primary.name
-  location = local.gke_location
-
-  depends_on = [google_container_node_pool.primary]
-}
-
-data "google_client_config" "default" {}
-
 resource "google_compute_global_address" "gke_ingress" {
   name = "mud-gke-ingress-${var.environment}"
 }
