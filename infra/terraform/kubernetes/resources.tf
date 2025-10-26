@@ -274,6 +274,28 @@ resource "kubernetes_deployment" "world" {
               }
             }
           }
+
+          liveness_probe {
+            http_get {
+              path = "/world/health-check"
+              port = 8080
+            }
+            initial_delay_seconds = 30
+            period_seconds        = 30
+            timeout_seconds       = 5
+            failure_threshold     = 3
+          }
+
+          readiness_probe {
+            http_get {
+              path = "/world/health-check"
+              port = 8080
+            }
+            initial_delay_seconds = 5
+            period_seconds        = 5
+            timeout_seconds       = 3
+            failure_threshold     = 3
+          }
         }
       }
     }
@@ -383,6 +405,28 @@ resource "kubernetes_deployment" "dm" {
           env {
             name  = "WORLD_SERVICE_URL"
             value = "http://${local.service_names.world}.${local.kubernetes_namespace}.svc.cluster.local/world"
+          }
+
+          liveness_probe {
+            http_get {
+              path = "/health-check"
+              port = 8080
+            }
+            initial_delay_seconds = 30
+            period_seconds        = 10
+            timeout_seconds       = 5
+            failure_threshold     = 3
+          }
+
+          readiness_probe {
+            http_get {
+              path = "/health-check"
+              port = 8080
+            }
+            initial_delay_seconds = 5
+            period_seconds        = 5
+            timeout_seconds       = 3
+            failure_threshold     = 3
           }
         }
       }
@@ -534,6 +578,28 @@ resource "kubernetes_deployment" "slack" {
               }
             }
           }
+
+          liveness_probe {
+            http_get {
+              path = "/health-check"
+              port = 8080
+            }
+            initial_delay_seconds = 30
+            period_seconds        = 10
+            timeout_seconds       = 5
+            failure_threshold     = 3
+          }
+
+          readiness_probe {
+            http_get {
+              path = "/health-check"
+              port = 8080
+            }
+            initial_delay_seconds = 5
+            period_seconds        = 5
+            timeout_seconds       = 3
+            failure_threshold     = 3
+          }
         }
       }
     }
@@ -609,6 +675,28 @@ resource "kubernetes_deployment" "tick" {
             name  = "DM_API_BASE_URL"
             value = "http://${local.service_names.dm}.${local.kubernetes_namespace}.svc.cluster.local"
           }
+
+          liveness_probe {
+            http_get {
+              path = "/health-check"
+              port = 8080
+            }
+            initial_delay_seconds = 30
+            period_seconds        = 10
+            timeout_seconds       = 5
+            failure_threshold     = 3
+          }
+
+          readiness_probe {
+            http_get {
+              path = "/health-check"
+              port = 8080
+            }
+            initial_delay_seconds = 5
+            period_seconds        = 5
+            timeout_seconds       = 3
+            failure_threshold     = 3
+          }
         }
       }
     }
@@ -621,6 +709,9 @@ resource "kubernetes_service" "world" {
     namespace = kubernetes_namespace.mud.metadata[0].name
     labels = {
       app = local.service_names.world
+    }
+    annotations = {
+      "cloud.google.com/backend-config" = "{\"default\":\"world-backend-config\"}"
     }
   }
 
@@ -669,6 +760,9 @@ resource "kubernetes_service" "slack" {
     labels = {
       app = local.service_names.slack
     }
+    annotations = {
+      "cloud.google.com/backend-config" = "{\"default\":\"slack-backend-config\"}"
+    }
   }
 
   spec {
@@ -705,24 +799,6 @@ resource "kubernetes_service" "tick" {
       name        = "http"
       port        = 80
       target_port = 8080
-    }
-  }
-}
-
-resource "kubernetes_manifest" "slack_backend_config" {
-  manifest = {
-    apiVersion = "cloud.google.com/v1"
-    kind       = "BackendConfig"
-    metadata = {
-      name      = "slack-backend-config"
-      namespace = kubernetes_namespace.mud.metadata[0].name
-    }
-    spec = {
-      healthCheck = {
-        checkIntervalSec = 30
-        type             = "HTTP"
-        requestPath      = "/health-check"
-      }
     }
   }
 }
@@ -796,6 +872,50 @@ resource "kubernetes_ingress_v1" "public" {
             }
           }
         }
+      }
+    }
+  }
+}
+
+resource "kubernetes_manifest" "backend_config_world" {
+  manifest = {
+    apiVersion = "cloud.google.com/v1"
+    kind       = "BackendConfig"
+    metadata = {
+      name      = "world-backend-config"
+      namespace = kubernetes_namespace.mud.metadata[0].name
+    }
+    spec = {
+      healthCheck = {
+        checkIntervalSec   = 10
+        timeoutSec         = 5
+        healthyThreshold   = 2
+        unhealthyThreshold = 3
+        requestPath        = "/health-check"
+        port               = 8080
+        type               = "HTTP"
+      }
+    }
+  }
+}
+
+resource "kubernetes_manifest" "backend_config_slack" {
+  manifest = {
+    apiVersion = "cloud.google.com/v1"
+    kind       = "BackendConfig"
+    metadata = {
+      name      = "slack-backend-config"
+      namespace = kubernetes_namespace.mud.metadata[0].name
+    }
+    spec = {
+      healthCheck = {
+        checkIntervalSec   = 10
+        timeoutSec         = 5
+        healthyThreshold   = 2
+        unhealthyThreshold = 3
+        requestPath        = "/health-check"
+        port               = 8080
+        type               = "HTTP"
       }
     }
   }

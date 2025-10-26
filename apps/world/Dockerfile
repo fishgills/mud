@@ -42,6 +42,7 @@ RUN apk update \
   cairo \
   pango \
   jpeg \
+  curl \
   giflib \
   librsvg
 
