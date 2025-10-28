@@ -281,7 +281,7 @@ resource "kubernetes_deployment" "world" {
               port = 8080
             }
             initial_delay_seconds = 30
-            period_seconds        = 30
+            period_seconds        = 10
             timeout_seconds       = 5
             failure_threshold     = 3
           }
@@ -891,9 +891,10 @@ resource "kubernetes_manifest" "backend_config_world" {
         timeoutSec         = 5
         healthyThreshold   = 2
         unhealthyThreshold = 3
-        requestPath        = "/health-check"
-        port               = 8080
-        type               = "HTTP"
+        requestPath        = "/world/health-check"
+        # Health checks must hit the NodePort on the node. Service `world` uses NodePort 30080.
+        port = 30080
+        type = "HTTP"
       }
     }
   }
@@ -914,8 +915,9 @@ resource "kubernetes_manifest" "backend_config_slack" {
         healthyThreshold   = 2
         unhealthyThreshold = 3
         requestPath        = "/health-check"
-        port               = 8080
-        type               = "HTTP"
+        # Health checks must hit the NodePort on the node. Service `slack` uses NodePort 30081.
+        port = 30081
+        type = "HTTP"
       }
     }
   }

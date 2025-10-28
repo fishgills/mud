@@ -11,6 +11,13 @@ const installationStore = new PrismaInstallationStore({
   clientId: env.SLACK_CLIENT_ID,
   prismaTable: getPrismaClient().slackAppInstallation,
 });
+
+console.log(`Slack Environment Variables: `);
+console.log(`SLACK_CLIENT_ID: ${env.SLACK_CLIENT_ID}`);
+console.log(`SLACK_SIGNING_SECRET: ${env.SLACK_SIGNING_SECRET}`);
+console.log(`SLACK_STATE_SECRET: ${env.SLACK_STATE_SECRET}`);
+console.log(`SLACK_CLIENT_SECRET: ${env.SLACK_CLIENT_SECRET}`);
+
 const app = new App({
   // token: env.SLACK_BOT_TOKEN,
   signingSecret: env.SLACK_SIGNING_SECRET,
