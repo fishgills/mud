@@ -91,7 +91,7 @@ jobs:
       #   run: |
       #     cat > backend.hcl <<'EOF'
       #     bucket = "${{ vars.TF_BACKEND_BUCKET }}"
-      #     prefix = "${{ vars.TF_BACKEND_PREFIX }}"
+      #     prefix = "${{ vars.TF_BACKEND_PREFIX }}/state"
       #     EOF
 
       # - name: Terraform Init (infrastructure)
