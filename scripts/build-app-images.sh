@@ -38,7 +38,7 @@ build_and_optionally_push() {
 
   echo "Building ${image_uri}:{latest,${IMAGE_TAG}} using ${dockerfile_path}"
   build_args=(
-    docker build
+    docker build --pull
     -f "$dockerfile_path"
     -t "${image_uri}:latest"
     -t "${image_uri}:${IMAGE_TAG}"

@@ -20,6 +20,7 @@ IMAGE_LATEST="${REGISTRY}/${PROJECT_ID}/${ARTIFACT_REPO}/${APP}:latest"
 
 echo "Building Docker image for $APP..."
 docker build \
+  --pull \
   -f "apps/${APP}/Dockerfile" \
   --build-arg "GIT_SHA=${GIT_SHA}" \
   --label "org.opencontainers.image.revision=${GIT_SHA}" \

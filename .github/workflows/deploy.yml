@@ -60,7 +60,7 @@ jobs:
           IMAGE_REPO: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ matrix.service }}
         run: |
           set -euo pipefail
-          docker build -f "${{ matrix.dockerfile }}" -t "${IMAGE_REPO}:${IMAGE_TAG}" -t "${IMAGE_REPO}:latest" .
+          docker build --pull -f "${{ matrix.dockerfile }}" -t "${IMAGE_REPO}:${IMAGE_TAG}" -t "${IMAGE_REPO}:latest" .
           docker push "${IMAGE_REPO}:${IMAGE_TAG}"
           docker push "${IMAGE_REPO}:latest"
 
@@ -86,13 +86,13 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Write Terraform backend config (infrastructure)
-        working-directory: ${{ env.TF_INFRA_WORKDIR }}
-        run: |
-          cat > backend.hcl <<'EOF'
-          bucket = "${{ vars.TF_BACKEND_BUCKET }}"
-          prefix = "${{ vars.TF_BACKEND_PREFIX }}"
-          EOF
+      # - name: Write Terraform backend config (infrastructure)
+      #   working-directory: ${{ env.TF_INFRA_WORKDIR }}
+      #   run: |
+      #     cat > backend.hcl <<'EOF'
+      #     bucket = "${{ vars.TF_BACKEND_BUCKET }}"
+      #     prefix = "${{ vars.TF_BACKEND_PREFIX }}"
+      #     EOF
 
       # - name: Terraform Init (infrastructure)
       #   working-directory: ${{ env.TF_INFRA_WORKDIR }}
