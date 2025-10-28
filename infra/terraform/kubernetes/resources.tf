@@ -245,7 +245,7 @@ resource "kubernetes_deployment" "world" {
               memory = "1Gi"
             }
             requests = {
-              cpu    = "500m"
+              cpu    = "200m"
               memory = "256Mi"
             }
           }
@@ -347,8 +347,8 @@ resource "kubernetes_deployment" "dm" {
               memory = "1Gi"
             }
             requests = {
-              cpu    = "100m"
-              memory = "256Mi"
+              cpu    = "50m"
+              memory = "128Mi"
             }
           }
 
@@ -479,8 +479,8 @@ resource "kubernetes_deployment" "slack" {
               memory = "1Gi"
             }
             requests = {
-              cpu    = "100m"
-              memory = "256Mi"
+              cpu    = "50m"
+              memory = "128Mi"
             }
           }
 
@@ -651,8 +651,8 @@ resource "kubernetes_deployment" "tick" {
               memory = "1Gi"
             }
             requests = {
-              cpu    = "100m"
-              memory = "256Mi"
+              cpu    = "50m"
+              memory = "128Mi"
             }
           }
 
