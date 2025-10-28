@@ -516,7 +516,7 @@ resource "kubernetes_deployment" "slack" {
 
           env {
             name  = "WORLD_API_BASE_URL"
-            value = "http://${local.service_names.world}.${local.kubernetes_namespace}.svc.cluster.local/world"
+            value = "https://world.battleforge.app/world"
           }
 
           env {

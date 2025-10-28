@@ -5,27 +5,54 @@ import { setAuthLogger } from '@mud/gcp-auth';
 import { env } from './env';
 import { NotificationService } from './notification.service';
 import { getPrismaClient } from '@mud/database';
+
 import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
 
+// Decode any env values that were accidentally base64-encoded so the app
+// always receives raw strings. We create `decodedEnv` from `env` and use it
+// throughout the app.
+const maybeDecodeBase64 = (v?: string): string | undefined => {
+  if (!v) return v;
+  const tryDecode = (input: string): string | null => {
+    try {
+      const decoded = Buffer.from(input, 'base64').toString('utf8');
+      if (Buffer.from(decoded, 'utf8').toString('base64') === input) {
+        return decoded;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const once = tryDecode(v);
+  if (once !== null) {
+    const twice = tryDecode(once);
+    return twice !== null ? twice : once;
+  }
+  return v;
+};
+
+const decodedEnv = Object.fromEntries(
+  Object.entries(process.env).map(([k, v]) => [
+    k,
+    typeof v === 'string' ? (maybeDecodeBase64(v) ?? v) : v,
+  ]),
+) as unknown as typeof env;
+
 const installationStore = new PrismaInstallationStore({
-  clientId: env.SLACK_CLIENT_ID,
+  clientId: decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
   prismaTable: getPrismaClient().slackAppInstallation,
 });
 
-console.log(`Slack Environment Variables: `);
-console.log(`SLACK_CLIENT_ID: ${env.SLACK_CLIENT_ID}`);
-console.log(`SLACK_SIGNING_SECRET: ${env.SLACK_SIGNING_SECRET}`);
-console.log(`SLACK_STATE_SECRET: ${env.SLACK_STATE_SECRET}`);
-console.log(`SLACK_CLIENT_SECRET: ${env.SLACK_CLIENT_SECRET}`);
-
 const app = new App({
   // token: env.SLACK_BOT_TOKEN,
-  signingSecret: env.SLACK_SIGNING_SECRET,
+  signingSecret: decodedEnv.SLACK_SIGNING_SECRET,
   socketMode: false,
   // OAuth (optional): if clientId/clientSecret/stateSecret are provided, installer is enabled
-  clientId: env.SLACK_CLIENT_ID,
-  clientSecret: env.SLACK_CLIENT_SECRET,
-  stateSecret: env.SLACK_STATE_SECRET,
+  clientId: decodedEnv.SLACK_CLIENT_ID,
+  clientSecret: decodedEnv.SLACK_CLIENT_SECRET,
+  stateSecret: decodedEnv.SLACK_STATE_SECRET,
   scopes: [
     'app_mentions:read',
     'chat:write',
@@ -208,7 +235,7 @@ app.message(async ({ message, say, client }) => {
 registerActions(app);
 
 async function start() {
-  await app.start(Number(env.PORT));
+  await app.start(Number(decodedEnv.PORT ?? env.PORT));
   console.log(
     `⚡️ Slack MUD bot is running! 🚀 On http://localhost:${env.PORT}`,
   );
