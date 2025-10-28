@@ -115,3 +115,9 @@ variable "slack_state_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "image_tag" {
+  description = "Tag to use for container images."
+  type        = string
+  default     = "latest"
+}

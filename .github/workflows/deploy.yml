@@ -64,104 +64,104 @@ jobs:
           docker push "${IMAGE_REPO}:${IMAGE_TAG}"
           docker push "${IMAGE_REPO}:latest"
 
-  # terraform:
-  #   runs-on: ubuntu-latest
-  #   environment: gcp
-  #   needs: build
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
+  terraform:
+    runs-on: ubuntu-latest
+    environment: gcp
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  #     - name: Authenticate to Google Cloud
-  #       uses: google-github-actions/auth@v2
-  #       with:
-  #         workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-  #         service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
 
-  #     - name: Set up gcloud SDK
-  #       uses: google-github-actions/setup-gcloud@v2
-  #       with:
-  #         project_id: ${{ env.PROJECT_ID }}
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
 
-  #     - name: Set up Terraform
-  #       uses: hashicorp/setup-terraform@v3
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
 
-  #     - name: Write Terraform backend config (infrastructure)
-  #       working-directory: ${{ env.TF_INFRA_WORKDIR }}
-  #       run: |
-  #         cat > backend.hcl <<'EOF'
-  #         bucket = "${{ vars.TF_BACKEND_BUCKET }}"
-  #         prefix = "${{ vars.TF_BACKEND_PREFIX }}"
-  #         EOF
+      - name: Write Terraform backend config (infrastructure)
+        working-directory: ${{ env.TF_INFRA_WORKDIR }}
+        run: |
+          cat > backend.hcl <<'EOF'
+          bucket = "${{ vars.TF_BACKEND_BUCKET }}"
+          prefix = "${{ vars.TF_BACKEND_PREFIX }}"
+          EOF
 
-  #     - name: Terraform Init (infrastructure)
-  #       working-directory: ${{ env.TF_INFRA_WORKDIR }}
-  #       env:
-  #         GOOGLE_PROJECT: ${{ env.PROJECT_ID }}
-  #       run: terraform init -backend-config=backend.hcl
+      # - name: Terraform Init (infrastructure)
+      #   working-directory: ${{ env.TF_INFRA_WORKDIR }}
+      #   env:
+      #     GOOGLE_PROJECT: ${{ env.PROJECT_ID }}
+      #   run: terraform init -backend-config=backend.hcl
 
-  #     - name: Terraform Validate (infrastructure)
-  #       working-directory: ${{ env.TF_INFRA_WORKDIR }}
-  #       run: terraform validate
+      # - name: Terraform Validate (infrastructure)
+      #   working-directory: ${{ env.TF_INFRA_WORKDIR }}
+      #   run: terraform validate
 
-  #     - name: Terraform Apply (infrastructure)
-  #       working-directory: ${{ env.TF_INFRA_WORKDIR }}
-  #       env:
-  #         TF_VAR_project_id: ${{ env.PROJECT_ID }}
-  #         TF_VAR_region: ${{ env.REGION }}
-  #         TF_VAR_artifact_repo_id: ${{ env.ARTIFACT_REPO }}
-  #         TF_VAR_artifact_repo_location: ${{ env.REGION }}
-  #         TF_VAR_dm_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/dm:${{ env.IMAGE_TAG }}
-  #         TF_VAR_world_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/world:${{ env.IMAGE_TAG }}
-  #         TF_VAR_slack_bot_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/slack:${{ env.IMAGE_TAG }}
-  #         TF_VAR_tick_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/tick:${{ env.IMAGE_TAG }}
-  #         TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-  #         TF_VAR_slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
-  #         TF_VAR_slack_signing_secret: ${{ secrets.SLACK_SIGNING_SECRET }}
-  #         TF_VAR_slack_app_token: ${{ secrets.SLACK_APP_TOKEN }}
-  #         TF_VAR_slack_client_id: ${{ secrets.SLACK_CLIENT_ID }}
-  #         TF_VAR_slack_client_secret: ${{ secrets.SLACK_CLIENT_SECRET }}
-  #         TF_VAR_slack_state_secret: ${{ secrets.SLACK_STATE_SECRET }}
-  #         TF_VAR_github_repository: ${{ github.repository }}
-  #         TF_INPUT: 'false'
-  #       run: terraform apply -auto-approve
+      # - name: Terraform Apply (infrastructure)
+      #   working-directory: ${{ env.TF_INFRA_WORKDIR }}
+      #   env:
+      #     TF_VAR_project_id: ${{ env.PROJECT_ID }}
+      #     TF_VAR_region: ${{ env.REGION }}
+      #     TF_VAR_artifact_repo_id: ${{ env.ARTIFACT_REPO }}
+      #     TF_VAR_artifact_repo_location: ${{ env.REGION }}
+      #     TF_VAR_dm_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/dm:${{ env.IMAGE_TAG }}
+      #     TF_VAR_world_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/world:${{ env.IMAGE_TAG }}
+      #     TF_VAR_slack_bot_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/slack:${{ env.IMAGE_TAG }}
+      #     TF_VAR_tick_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/tick:${{ env.IMAGE_TAG }}
+      #     TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+      #     TF_VAR_slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+      #     TF_VAR_slack_signing_secret: ${{ secrets.SLACK_SIGNING_SECRET }}
+      #     TF_VAR_slack_app_token: ${{ secrets.SLACK_APP_TOKEN }}
+      #     TF_VAR_slack_client_id: ${{ secrets.SLACK_CLIENT_ID }}
+      #     TF_VAR_slack_client_secret: ${{ secrets.SLACK_CLIENT_SECRET }}
+      #     TF_VAR_slack_state_secret: ${{ secrets.SLACK_STATE_SECRET }}
+      #     TF_VAR_github_repository: ${{ github.repository }}
+      #     TF_INPUT: 'false'
+      #   run: terraform apply -auto-approve
 
-  #     - name: Write Terraform backend config (kubernetes)
-  #       working-directory: ${{ env.TF_KUBERNETES_WORKDIR }}
-  #       run: |
-  #         cat > backend.hcl <<'EOF'
-  #         bucket = "${{ vars.TF_BACKEND_BUCKET }}"
-  #         prefix = "${{ vars.TF_BACKEND_PREFIX }}/kubernetes"
-  #         EOF
+      - name: Write Terraform backend config (kubernetes)
+        working-directory: ${{ env.TF_KUBERNETES_WORKDIR }}
+        run: |
+          cat > backend.hcl <<'EOF'
+          bucket = "${{ vars.TF_BACKEND_BUCKET }}"
+          prefix = "${{ vars.TF_BACKEND_PREFIX }}/kubernetes"
+          EOF
 
-  #     - name: Terraform Init (kubernetes)
-  #       working-directory: ${{ env.TF_KUBERNETES_WORKDIR }}
-  #       env:
-  #         GOOGLE_PROJECT: ${{ env.PROJECT_ID }}
-  #       run: terraform init -backend-config=backend.hcl
+      - name: Terraform Init (kubernetes)
+        working-directory: ${{ env.TF_KUBERNETES_WORKDIR }}
+        env:
+          GOOGLE_PROJECT: ${{ env.PROJECT_ID }}
+        run: terraform init -backend-config=backend.hcl
 
-  #     - name: Terraform Validate (kubernetes)
-  #       working-directory: ${{ env.TF_KUBERNETES_WORKDIR }}
-  #       run: terraform validate
+      - name: Terraform Validate (kubernetes)
+        working-directory: ${{ env.TF_KUBERNETES_WORKDIR }}
+        run: terraform validate
 
-  #     - name: Terraform Apply (kubernetes)
-  #       working-directory: ${{ env.TF_KUBERNETES_WORKDIR }}
-  #       env:
-  #         TF_VAR_project_id: ${{ env.PROJECT_ID }}
-  #         TF_VAR_region: ${{ env.REGION }}
-  #         TF_VAR_artifact_repo_id: ${{ env.ARTIFACT_REPO }}
-  #         TF_VAR_artifact_repo_location: ${{ env.REGION }}
-  #         TF_VAR_dm_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/dm:${{ env.IMAGE_TAG }}
-  #         TF_VAR_world_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/world:${{ env.IMAGE_TAG }}
-  #         TF_VAR_slack_bot_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/slack:${{ env.IMAGE_TAG }}
-  #         TF_VAR_tick_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/tick:${{ env.IMAGE_TAG }}
-  #         TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-  #         TF_VAR_slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
-  #         TF_VAR_slack_signing_secret: ${{ secrets.SLACK_SIGNING_SECRET }}
-  #         TF_VAR_slack_app_token: ${{ secrets.SLACK_APP_TOKEN }}
-  #         TF_VAR_slack_client_id: ${{ secrets.SLACK_CLIENT_ID }}
-  #         TF_VAR_slack_client_secret: ${{ secrets.SLACK_CLIENT_SECRET }}
-  #         TF_VAR_slack_state_secret: ${{ secrets.SLACK_STATE_SECRET }}
-  #         TF_VAR_github_repository: ${{ github.repository }}
-  #         TF_INPUT: 'false'
-  #       run: terraform apply -auto-approve
+      - name: Terraform Apply (kubernetes)
+        working-directory: ${{ env.TF_KUBERNETES_WORKDIR }}
+        env:
+          TF_VAR_project_id: ${{ env.PROJECT_ID }}
+          TF_VAR_region: ${{ env.REGION }}
+          TF_VAR_artifact_repo_id: ${{ env.ARTIFACT_REPO }}
+          TF_VAR_artifact_repo_location: ${{ env.REGION }}
+          TF_VAR_dm_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/dm:${{ env.IMAGE_TAG }}
+          TF_VAR_world_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/world:${{ env.IMAGE_TAG }}
+          TF_VAR_slack_bot_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/slack:${{ env.IMAGE_TAG }}
+          TF_VAR_tick_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/tick:${{ env.IMAGE_TAG }}
+          TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          TF_VAR_slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+          TF_VAR_slack_signing_secret: ${{ secrets.SLACK_SIGNING_SECRET }}
+          TF_VAR_slack_app_token: ${{ secrets.SLACK_APP_TOKEN }}
+          TF_VAR_slack_client_id: ${{ secrets.SLACK_CLIENT_ID }}
+          TF_VAR_slack_client_secret: ${{ secrets.SLACK_CLIENT_SECRET }}
+          TF_VAR_slack_state_secret: ${{ secrets.SLACK_STATE_SECRET }}
+          TF_VAR_github_repository: ${{ github.repository }}
+          TF_INPUT: 'false'
+        run: terraform apply -auto-approve
