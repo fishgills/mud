@@ -14,6 +14,9 @@ export const COMMANDS = {
   COMPLETE: 'complete',
   REROLL: 'reroll',
   INVENTORY: 'inventory',
+  PICKUP: 'pickup',
+  EQUIP: 'equip',
+  DROP: 'drop',
   // Movement (text aliases)
   NORTH: 'north',
   SOUTH: 'south',

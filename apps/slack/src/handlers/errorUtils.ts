@@ -41,3 +41,29 @@ export function getUserFriendlyErrorMessage(
 
   return safeMessage || defaultMessage;
 }
+
+/**
+ * Maps backend error codes (ErrCodes) to user-friendly Slack messages.
+ * Returns null when no mapping exists.
+ */
+export function mapErrCodeToFriendlyMessage(code?: string): string | null {
+  if (!code) return null;
+  switch (code) {
+    case 'INVALID_SLOT':
+      return 'That item cannot be equipped to the selected slot.';
+    case 'ITEM_NOT_EQUIPPABLE':
+      return 'This item cannot be equipped.';
+    case 'NOT_OWNED':
+      return "You don't own that item.";
+    case 'LOCKED':
+      return 'Someone else is interacting with that item right now. Try again in a moment.';
+    case 'WORLD_ITEM_NOT_FOUND':
+      return 'That item is no longer available.';
+    case 'PLAYER_NOT_FOUND':
+      return `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`;
+    case 'INVENTORY_FULL':
+      return 'Your inventory is full.';
+    default:
+      return null;
+  }
+}

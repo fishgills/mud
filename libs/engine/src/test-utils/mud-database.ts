@@ -20,8 +20,7 @@ export interface Player {
   chestItemId: number | null;
   legsItemId: number | null;
   armsItemId: number | null;
-  leftHandItemId: number | null;
-  rightHandItemId: number | null;
+  playerItems?: Array<Record<string, any>>;
   lastAction?: Date;
   createdAt?: Date;
   updatedAt?: Date;
@@ -76,10 +75,17 @@ const state = {
   nextMonsterId: 1,
 };
 
-const matchesFilter = (value: any, filter: Record<string, any>): boolean => {
-  if (filter.equals !== undefined) {
+const matchesFilter = (
+  value: unknown,
+  filter: Record<string, unknown>,
+): boolean => {
+  const f = filter as Record<string, any>;
+  if (f.equals !== undefined) {
     if (typeof value === 'string' && filter.mode === 'insensitive') {
-      if (value.toLowerCase() !== String(filter.equals).toLowerCase()) {
+      if (
+        value.toString().toLowerCase() !==
+        String((filter as any).equals).toLowerCase()
+      ) {
         return false;
       }
     } else if (value !== filter.equals) {
@@ -93,19 +99,21 @@ const matchesFilter = (value: any, filter: Record<string, any>): boolean => {
     }
   }
 
-  if (filter.gte !== undefined && value < filter.gte) {
+  // Numeric comparisons — coerce to any for flexibility in mock DB filters.
+  const vAny: any = value;
+  if (f.gte !== undefined && vAny < f.gte) {
     return false;
   }
 
-  if (filter.lte !== undefined && value > filter.lte) {
+  if (f.lte !== undefined && vAny > f.lte) {
     return false;
   }
 
-  if (filter.lt !== undefined && value >= filter.lt) {
+  if (f.lt !== undefined && vAny >= f.lt) {
     return false;
   }
 
-  if (filter.gt !== undefined && value <= filter.gt) {
+  if (f.gt !== undefined && vAny <= f.gt) {
     return false;
   }
 
@@ -208,10 +216,7 @@ const playerModel = {
       chestItemId: data.chestItemId !== undefined ? data.chestItemId : null,
       legsItemId: data.legsItemId !== undefined ? data.legsItemId : null,
       armsItemId: data.armsItemId !== undefined ? data.armsItemId : null,
-      leftHandItemId:
-        data.leftHandItemId !== undefined ? data.leftHandItemId : null,
-      rightHandItemId:
-        data.rightHandItemId !== undefined ? data.rightHandItemId : null,
+      playerItems: data.playerItems ?? [],
       lastAction: data.lastAction ?? now,
       createdAt: data.createdAt ?? now,
       updatedAt: data.updatedAt ?? now,

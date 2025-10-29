@@ -37,12 +37,6 @@ model Player {
   level        Int           @default(1)
   skillPoints  Int           @default(0)
   isAlive      Boolean       @default(true)
-  headItemId        Int?
-  chestItemId       Int?
-  legsItemId        Int?
-  armsItemId        Int?
-  leftHandItemId    Int?
-  rightHandItemId   Int?
   lastAction   DateTime      @default(now())
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -51,6 +45,7 @@ model Player {
   party        Party?        @relation(fields: [partyId], references: [id])
   partyId      Int?
   partyMembers PartyMember[]
+  playerItems  PlayerItem[]
 }
 
 model WorldSeed {
@@ -230,8 +225,69 @@ model Item {
   attack      Int?     @default(0) // Attack bonus for weapons
   defense     Int?     @default(0) // Defense bonus for armor
   healthBonus Int?     @default(0) // Health restoration for consumables
+  slot        PlayerSlot? // Optional equip slot for equippable items
+  playerItems  PlayerItem[]
+  worldItems   WorldItem[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// Inventory and loot enums/models
+enum ItemQuality {
+  Trash
+  Poor
+  Common
+  Uncommon
+  Fine
+  Superior
+  Rare
+  Epic
+  Legendary
+  Mythic
+  Artifact
+  Ascended
+  Transcendent
+  Primal
+  Divine
+}
+
+enum PlayerSlot {
+  head
+  chest
+  arms
+  legs
+  weapon
+}
+
+model PlayerItem {
+  id         Int         @id @default(autoincrement())
+  player     Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId   Int
+  item       Item        @relation(fields: [itemId], references: [id])
+  itemId     Int
+  quantity   Int         @default(1)
+  equipped   Boolean     @default(false)
+  slot       PlayerSlot?
+  quality    ItemQuality @default(Common)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([playerId])
+}
+
+model WorldItem {
+  id                Int         @id @default(autoincrement())
+  item              Item        @relation(fields: [itemId], references: [id])
+  itemId            Int
+  quality           ItemQuality @default(Common)
+  x                 Int
+  y                 Int
+  quantity          Int         @default(1)
+  spawnedByMonsterId Int?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([x, y])
 }
 
 model SlackAppInstallation {

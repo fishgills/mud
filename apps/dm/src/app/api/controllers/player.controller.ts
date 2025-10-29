@@ -10,11 +10,14 @@ import {
   Query,
 } from '@nestjs/common';
 import type { PlayerEntity } from '@mud/engine';
+import type { PlayerItem, Item } from '@prisma/client';
 import { PlayerService } from '../../player/player.service';
+import { PlayerItemService } from '../../player/player-item.service';
 import { MonsterService } from '../../monster/monster.service';
 import { CombatService } from '../../combat/combat.service';
 import { WorldService } from '../../world/world.service';
 import { EntityToDtoAdapter } from '../adapters/entity-to-dto.adapter';
+import { AppError } from '../../errors/app-error';
 import type { Player } from '../dto/player.dto';
 import type { Monster } from '../dto/monster.dto';
 import type { CombatLog } from '../dto/combat-log.dto';
@@ -67,6 +70,7 @@ export class PlayersController {
     private readonly monsterService: MonsterService,
     private readonly combatService: CombatService,
     private readonly worldService: WorldService,
+    private readonly playerItemService: PlayerItemService,
   ) {}
 
   @Post()
@@ -566,6 +570,176 @@ export class PlayersController {
       nearbyMonsters: nearbyMonsters ?? base.nearbyMonsters,
       nearbyPlayers: nearbyPlayers ?? base.nearbyPlayers,
     };
+  }
+
+  @Get('items')
+  async getPlayerItems(
+    @Query('slackId') slackId?: string,
+    @Query('clientId') clientId?: string,
+  ): Promise<PlayerResponse> {
+    try {
+      const player = await this.playerService.getPlayerByIdentifier({
+        slackId,
+        clientId,
+      });
+
+      const base = EntityToDtoAdapter.playerEntityToDto(player);
+      // Fetch bag items
+      const bagItems = await this.playerItemService.listBag(player.id);
+
+      const bag = (bagItems || []).map(
+        (pi: PlayerItem & { item?: Item | null }) => {
+          const item = pi.item ?? null;
+          const allowedSlots: string[] = [];
+          if (item && item.slot) {
+            // item.slot is a PlayerSlot enum value
+            allowedSlots.push(String(item.slot));
+          } else if (item && item.type === 'weapon') {
+            // fallback: weapons equip to weapon slot
+            allowedSlots.push('weapon');
+          }
+
+          return {
+            id: pi.id,
+            playerId: pi.playerId,
+            itemId: pi.itemId,
+            quality: String(pi.quality ?? 'Common'),
+            equipped: Boolean(pi.equipped ?? false),
+            slot: pi.slot ?? null,
+            allowedSlots,
+            createdAt:
+              pi.createdAt instanceof Date
+                ? pi.createdAt.toISOString()
+                : new Date().toISOString(),
+          };
+        },
+      );
+
+      return {
+        success: true,
+        data: {
+          ...base,
+          bag,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error ? error.message : 'Failed to fetch items',
+        code: error instanceof AppError ? error.code : undefined,
+      };
+    }
+  }
+
+  @Post('pickup')
+  async pickup(
+    @Body()
+    payload: {
+      slackId?: string;
+      clientId?: string;
+      worldItemId?: number;
+    },
+  ) {
+    const { slackId, clientId, worldItemId } = payload ?? {};
+    if (
+      !worldItemId ||
+      (typeof worldItemId !== 'number' && isNaN(Number(worldItemId)))
+    ) {
+      return { success: false, message: 'worldItemId is required' };
+    }
+
+    try {
+      const player = await this.playerService.getPlayerByIdentifier({
+        slackId,
+        clientId,
+      });
+      const created = await this.playerItemService.pickup(
+        player.id,
+        Number(worldItemId),
+      );
+      return { success: true, data: created };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Pickup failed',
+        code: error instanceof AppError ? error.code : undefined,
+      };
+    }
+  }
+
+  @Post('equip')
+  async equip(
+    @Body()
+    payload: {
+      slackId?: string;
+      clientId?: string;
+      playerItemId?: number;
+      slot?: string;
+    },
+  ) {
+    const { slackId, clientId, playerItemId, slot } = payload ?? {};
+    if (!playerItemId || !slot) {
+      return { success: false, message: 'playerItemId and slot are required' };
+    }
+    // Validate slot against allowed player slots
+    const allowedSlots = ['head', 'chest', 'arms', 'legs', 'weapon'] as const;
+    if (
+      typeof slot !== 'string' ||
+      !(allowedSlots as readonly string[]).includes(slot)
+    ) {
+      return { success: false, message: 'Invalid slot' };
+    }
+    try {
+      const player = await this.playerService.getPlayerByIdentifier({
+        slackId,
+        clientId,
+      });
+      await this.playerItemService.equip(
+        player.id,
+        Number(playerItemId),
+        slot as import('@prisma/client').PlayerSlot,
+      );
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Equip failed',
+        code: error instanceof AppError ? error.code : undefined,
+      };
+    }
+  }
+
+  @Post('drop')
+  async drop(
+    @Body()
+    payload: {
+      slackId?: string;
+      clientId?: string;
+      playerItemId?: number;
+    },
+  ) {
+    const { slackId, clientId, playerItemId } = payload ?? {};
+    if (!playerItemId) {
+      return { success: false, message: 'playerItemId is required' };
+    }
+    try {
+      const player = await this.playerService.getPlayerByIdentifier({
+        slackId,
+        clientId,
+      });
+      const created = await this.playerItemService.drop(
+        player.id,
+        Number(playerItemId),
+      );
+      return { success: true, data: created };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Drop failed',
+        code: error instanceof AppError ? error.code : undefined,
+      };
+    }
   }
 
   private async loadNearbyPlayers(center: Player): Promise<Player[]> {

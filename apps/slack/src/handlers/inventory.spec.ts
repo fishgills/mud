@@ -1,14 +1,14 @@
 jest.mock('../dm-client', () => ({
-  getPlayer: jest.fn(),
+  getPlayerItems: jest.fn(),
 }));
 
 import type { SayMessage } from './types';
 import { inventoryHandler, __private__ } from './inventory';
-import { getPlayer } from '../dm-client';
+import { getPlayerItems } from '../dm-client';
 import { COMMANDS } from '../commands';
 
-const mockedGetPlayer = getPlayer as unknown as jest.MockedFunction<
-  typeof getPlayer
+const mockedGetPlayer = getPlayerItems as unknown as jest.MockedFunction<
+  typeof getPlayerItems
 >;
 
 describe('inventory handler', () => {
@@ -39,8 +39,7 @@ describe('inventory handler', () => {
         chest: 5,
         legs: null,
         arms: 7,
-        leftHand: null,
-        rightHand: 9,
+        weapon: 9,
       },
     });
 
@@ -86,8 +85,7 @@ describe('inventory handler', () => {
           chest: null,
           legs: 8,
           arms: null,
-          leftHand: null,
-          rightHand: null,
+          weapon: null,
         },
       },
     } as never);

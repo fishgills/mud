@@ -188,16 +188,54 @@ export class EntityToDtoAdapter {
 
     const equipmentSource =
       (raw.equipment as Record<string, unknown> | undefined) ?? {};
+    const playerItems =
+      (raw.playerItems as Array<Record<string, unknown>> | undefined) ?? [];
+
+    // Start with empty equipment slots
     const equipment: PlayerEquipment = {
-      head: toNumberOrNull(equipmentSource.head ?? raw.headItemId),
-      chest: toNumberOrNull(equipmentSource.chest ?? raw.chestItemId),
-      legs: toNumberOrNull(equipmentSource.legs ?? raw.legsItemId),
-      arms: toNumberOrNull(equipmentSource.arms ?? raw.armsItemId),
-      leftHand: toNumberOrNull(equipmentSource.leftHand ?? raw.leftHandItemId),
-      rightHand: toNumberOrNull(
-        equipmentSource.rightHand ?? raw.rightHandItemId,
-      ),
+      head: null,
+      chest: null,
+      legs: null,
+      arms: null,
+      weapon: null,
     };
+
+    // If playerItems relation is present, prefer equipped PlayerItem rows
+    if (Array.isArray(playerItems)) {
+      for (const pi of playerItems) {
+        const isEquipped = toBoolean(pi.equipped ?? false, false);
+        if (!isEquipped) continue;
+
+        // Determine which slot this playerItem occupies. Prefer the per-player
+        // assigned slot (pi.slot) but fall back to the Item's declared slot
+        // (pi.item?.slot). For weapons, fall back to 'weapon' when item.type
+        // indicates a weapon and no slot is set.
+        let slot = toStringOrUndefined(pi.slot);
+        const item = pi.item as Record<string, unknown> | undefined;
+        const itemSlot = toStringOrUndefined(item?.slot);
+        const itemType = toStringOrUndefined(item?.type);
+        if (!slot) {
+          if (itemSlot) slot = itemSlot;
+          else if (itemType === 'weapon') slot = 'weapon';
+        }
+
+        const itemId = toNumberOrNull(pi.itemId);
+        if (!slot || itemId === null) continue;
+        if (slot === 'head') equipment.head = itemId;
+        else if (slot === 'chest') equipment.chest = itemId;
+        else if (slot === 'legs') equipment.legs = itemId;
+        else if (slot === 'arms') equipment.arms = itemId;
+        else if (slot === 'weapon') equipment.weapon = itemId;
+      }
+    }
+
+    // Fallback to equipmentSource values if a slot is still empty
+    equipment.head = equipment.head ?? toNumberOrNull(equipmentSource.head);
+    equipment.chest = equipment.chest ?? toNumberOrNull(equipmentSource.chest);
+    equipment.legs = equipment.legs ?? toNumberOrNull(equipmentSource.legs);
+    equipment.arms = equipment.arms ?? toNumberOrNull(equipmentSource.arms);
+    equipment.weapon =
+      equipment.weapon ?? toNumberOrNull(equipmentSource.weapon);
 
     return {
       id: toNumber(raw.id, 0),

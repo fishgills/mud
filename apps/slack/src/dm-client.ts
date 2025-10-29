@@ -54,6 +54,7 @@ async function dmRequest<T>(
 export interface SuccessResponse {
   success: boolean;
   message?: string;
+  code?: string;
 }
 
 export interface PlayerRecord extends Record<string, unknown> {
@@ -86,8 +87,7 @@ export interface PlayerRecord extends Record<string, unknown> {
     chest?: number | null;
     legs?: number | null;
     arms?: number | null;
-    leftHand?: number | null;
-    rightHand?: number | null;
+    weapon?: number | null;
   };
 }
 
@@ -359,6 +359,46 @@ export async function getLookView(params: {
   });
 }
 
+export async function getPlayerItems(params: {
+  slackId?: string;
+  clientId?: string;
+}): Promise<PlayerResponse> {
+  return dmRequest<PlayerResponse>('/players/items', HttpMethod.GET, {
+    query: { slackId: params.slackId, clientId: params.clientId },
+  });
+}
+
+export async function pickup(input: {
+  slackId?: string;
+  clientId?: string;
+  worldItemId?: number;
+}): Promise<any> {
+  return dmRequest<any>('/players/pickup', HttpMethod.POST, {
+    body: input,
+  });
+}
+
+export async function equip(input: {
+  slackId?: string;
+  clientId?: string;
+  playerItemId?: number;
+  slot?: string;
+}): Promise<SuccessResponse> {
+  return dmRequest<SuccessResponse>('/players/equip', HttpMethod.POST, {
+    body: input,
+  });
+}
+
+export async function drop(input: {
+  slackId?: string;
+  clientId?: string;
+  playerItemId?: number;
+}): Promise<SuccessResponse> {
+  return dmRequest<SuccessResponse>('/players/drop', HttpMethod.POST, {
+    body: input,
+  });
+}
+
 export async function getLocationEntities(params: {
   x: number;
   y: number;
@@ -387,6 +427,10 @@ export const dmClient = {
   sniffNearestMonster,
   getLookView,
   getLocationEntities,
+  getPlayerItems,
+  pickup,
+  equip,
+  drop,
 };
 
 type DirectionCode = 'n' | 's' | 'e' | 'w';

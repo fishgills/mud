@@ -1,26 +1,19 @@
 import { COMMANDS } from '../commands';
-import { getPlayer } from '../dm-client';
+import { getPlayerItems } from '../dm-client';
 import type { PlayerRecord } from '../dm-client';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { registerHandler } from './handlerRegistry';
 import type { HandlerContext, SayMessage } from './types';
 import { toClientId } from '../utils/clientId';
 
-type EquipmentSlotKey =
-  | 'head'
-  | 'chest'
-  | 'legs'
-  | 'arms'
-  | 'leftHand'
-  | 'rightHand';
+type EquipmentSlotKey = 'head' | 'chest' | 'legs' | 'arms' | 'weapon';
 
 const EQUIPMENT_SLOTS: Array<{ key: EquipmentSlotKey; label: string }> = [
   { key: 'head', label: 'Head' },
   { key: 'chest', label: 'Chest' },
   { key: 'legs', label: 'Legs' },
   { key: 'arms', label: 'Arms' },
-  { key: 'leftHand', label: 'Left Hand' },
-  { key: 'rightHand', label: 'Right Hand' },
+  { key: 'weapon', label: 'Weapon' },
 ];
 
 const formatSlotValue = (value: number | null | undefined): string => {
@@ -82,6 +75,69 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
             'You are not wearing any gear yet. Find loot to equip items!',
         },
       },
+      // Show bag contents if present — render each item with Equip/Drop buttons
+      ...(Array.isArray(player.bag) && player.bag.length > 0
+        ? player.bag.flatMap((it: any) => {
+            // Pass allowedSlots in the button value as JSON so the action handler
+            // can open a modal limited to valid slots for this item.
+            const allowedSlots: string[] = Array.isArray(it.allowedSlots)
+              ? it.allowedSlots
+              : [];
+            const equipPayload = JSON.stringify({
+              playerItemId: it.id,
+              allowedSlots,
+            });
+
+            const equipDisabled = allowedSlots.length === 0;
+
+            const actions: any[] = [
+              {
+                type: 'button',
+                text: { type: 'plain_text', text: 'Equip' },
+                action_id: 'inventory_equip',
+                value: equipPayload,
+                // When there are no allowed slots, disable the Equip button
+                disabled: equipDisabled,
+              },
+              {
+                type: 'button',
+                text: { type: 'plain_text', text: 'Drop' },
+                style: 'danger',
+                action_id: 'inventory_drop',
+                value: String(it.id),
+              },
+            ];
+
+            const blocks: any[] = [
+              {
+                type: 'section',
+                text: {
+                  type: 'mrkdwn',
+                  text: `*Item #${it.itemId}* (instance id: ${it.id}) — *${it.quality}*`,
+                },
+              },
+              {
+                type: 'actions',
+                elements: actions,
+              },
+            ];
+
+            if (equipDisabled) {
+              // Add a small context note explaining why Equip is disabled
+              blocks.push({
+                type: 'context',
+                elements: [
+                  {
+                    type: 'mrkdwn',
+                    text: '_This item cannot be equipped._',
+                  },
+                ],
+              });
+            }
+
+            return blocks;
+          })
+        : []),
       {
         type: 'context',
         elements: [
@@ -101,7 +157,7 @@ export const inventoryHandler = async ({
 }: HandlerContext): Promise<void> => {
   const missingCharacterMessage = `You don't have a character yet! Use "${COMMANDS.NEW} YourName" to create one.`;
   try {
-    const response = await getPlayer({ slackId: toClientId(userId) });
+    const response = await getPlayerItems({ slackId: toClientId(userId) });
     if (!response.success || !response.data) {
       await say({
         text:
@@ -110,6 +166,7 @@ export const inventoryHandler = async ({
       return;
     }
 
+    // `getPlayerItems` returns a PlayerResponse where data includes bag
     await say(buildInventoryMessage(response.data));
   } catch (error) {
     const message = getUserFriendlyErrorMessage(

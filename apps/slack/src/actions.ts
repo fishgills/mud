@@ -18,7 +18,10 @@ import {
 } from './commands';
 import { dmClient } from './dm-client';
 import { PlayerAttribute, TargetType } from './dm-types';
-import { getUserFriendlyErrorMessage } from './handlers/errorUtils';
+import {
+  getUserFriendlyErrorMessage,
+  mapErrCodeToFriendlyMessage,
+} from './handlers/errorUtils';
 import {
   MONSTER_SELECTION_BLOCK_ID,
   SELF_ATTACK_ERROR,
@@ -468,6 +471,170 @@ export function registerActions(app: App) {
     const userId = body.user?.id;
     if (!userId) return;
     await dispatchCommandViaDM(client, userId, COMMANDS.EAST);
+  });
+
+  // Inventory actions: Equip (opens modal to choose slot) and Drop
+  app.action<BlockAction>('inventory_equip', async ({ ack, body, client }) => {
+    await ack();
+    const userId = body.user?.id;
+    const triggerId = (body as any).trigger_id as string | undefined;
+    const rawValue = (body.actions?.[0] as any)?.value as string | undefined;
+    if (!userId || !triggerId || !rawValue) return;
+
+    // Value is JSON string from inventory: { playerItemId, allowedSlots }
+    let payload: { playerItemId: number; allowedSlots?: string[] } | null =
+      null;
+    try {
+      payload = JSON.parse(rawValue) as {
+        playerItemId: number;
+        allowedSlots?: string[];
+      };
+    } catch {
+      // If parsing fails, fallback to treating value as playerItemId
+      const id = Number(rawValue);
+      if (Number.isFinite(id)) payload = { playerItemId: id, allowedSlots: [] };
+    }
+
+    if (!payload) return;
+
+    const { playerItemId, allowedSlots = [] } = payload;
+
+    // Build options from allowedSlots; default to all slots if none provided
+    const slotOptions = (
+      allowedSlots.length > 0
+        ? allowedSlots
+        : ['head', 'chest', 'arms', 'legs', 'weapon']
+    ).map((s) => ({
+      text: {
+        type: 'plain_text' as const,
+        text: s[0].toUpperCase() + s.slice(1),
+      },
+      value: s,
+    }));
+
+    // Open modal to pick a slot (limited by allowedSlots)
+    try {
+      await client.views.open({
+        trigger_id: triggerId,
+        view: {
+          type: 'modal',
+          callback_id: 'inventory_equip_view',
+          private_metadata: JSON.stringify({ playerItemId, userId }),
+          title: { type: 'plain_text', text: 'Equip Item' },
+          submit: { type: 'plain_text', text: 'Equip' },
+          close: { type: 'plain_text', text: 'Cancel' },
+          blocks: [
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: `Choose a slot to equip item #${playerItemId}`,
+              },
+            },
+            {
+              type: 'input',
+              block_id: 'slot_block',
+              label: { type: 'plain_text', text: 'Slot' },
+              element: {
+                type: 'static_select',
+                action_id: 'selected_slot',
+                placeholder: { type: 'plain_text', text: 'Select a slot' },
+                options: slotOptions,
+              },
+            },
+          ],
+        },
+      });
+    } catch (err) {
+      // fallback: DM instructive message
+      const dm = await client.conversations.open({ users: userId });
+      const channel = dm.channel?.id;
+      if (channel) {
+        await client.chat.postMessage({
+          channel,
+          text: `To equip item ${playerItemId}, type: \`equip ${playerItemId} <slot>\``,
+        });
+      }
+    }
+  });
+
+  app.view('inventory_equip_view', async ({ ack, view, client }) => {
+    await ack();
+    const meta = view.private_metadata
+      ? JSON.parse(view.private_metadata)
+      : null;
+    const playerItemId = meta?.playerItemId;
+    const userId = meta?.userId;
+    if (!playerItemId || !userId) return;
+    const slot = view.state.values?.slot_block?.selected_slot?.selected_option
+      ?.value as string | undefined;
+    if (!slot) return;
+
+    try {
+      const res = await dmClient.equip({
+        slackId: toClientId(userId),
+        playerItemId: Number(playerItemId),
+        slot,
+      });
+      const dm = await client.conversations.open({ users: userId });
+      const channel = dm.channel?.id;
+      if (channel) {
+        const resCode = (res as unknown as { code?: string })?.code;
+        const friendly = mapErrCodeToFriendlyMessage(resCode);
+        const text = res.success
+          ? `Equipped item ${playerItemId} to ${slot}`
+          : (friendly ?? `Failed to equip: ${res.message ?? 'Unknown error'}`);
+        await client.chat.postMessage({ channel, text });
+      }
+    } catch (err) {
+      const dm = await client.conversations.open({ users: userId });
+      const channel = dm.channel?.id;
+      if (channel) {
+        await client.chat.postMessage({
+          channel,
+          text: `Failed to equip item ${playerItemId}`,
+        });
+      }
+    }
+  });
+
+  app.action<BlockAction>('inventory_drop', async ({ ack, body, client }) => {
+    await ack();
+    const userId = body.user?.id;
+    const value = (body.actions?.[0] as any)?.value as string | undefined;
+    const channelId = body.channel?.id || (body.container as any)?.channel_id;
+    if (!userId || !value) return;
+    try {
+      const res = await dmClient.drop({
+        slackId: toClientId(userId),
+        playerItemId: Number(value),
+      });
+      const resCode = (res as unknown as { code?: string })?.code;
+      const friendly = mapErrCodeToFriendlyMessage(resCode);
+      const text = res.success
+        ? `Dropped item ${value}.`
+        : (friendly ?? `Failed to drop: ${res.message ?? 'Unknown error'}`);
+      // Post ephemeral to the channel where the action occurred, if available
+      if (channelId) {
+        await client.chat.postEphemeral({
+          channel: channelId,
+          user: userId,
+          text,
+        });
+      } else {
+        const dm = await client.conversations.open({ users: userId });
+        const ch = dm.channel?.id;
+        if (ch) await client.chat.postMessage({ channel: ch, text });
+      }
+    } catch (err) {
+      const channel = body.channel?.id || (body.container as any)?.channel_id;
+      if (channel)
+        await client.chat.postEphemeral({
+          channel,
+          user: userId,
+          text: 'Failed to drop item',
+        });
+    }
   });
 
   app.action(ATTACK_ACTIONS.MONSTER_SELECT, async ({ ack }) => {

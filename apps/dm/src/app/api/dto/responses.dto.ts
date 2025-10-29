@@ -25,6 +25,7 @@ export interface TickResult {
 export interface SuccessResponse {
   success: boolean;
   message?: string;
+  code?: string;
 }
 
 export interface TickSuccessResponse extends SuccessResponse {

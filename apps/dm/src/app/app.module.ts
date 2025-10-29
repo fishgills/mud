@@ -29,6 +29,8 @@ import { PrefetchService } from './prefetch/prefetch.service';
 import { PlayerNotificationService } from './player/player-notification.service';
 import { LocationNotificationService } from './notifications/location-notification.service';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
+import { PlayerItemService } from './player/player-item.service';
+import { LootService } from './monster/loot.service';
 
 @Module({
   imports: [AiModule],
@@ -58,6 +60,8 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
     PrefetchService,
     PlayerNotificationService,
     LocationNotificationService,
+    PlayerItemService,
+    LootService,
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,

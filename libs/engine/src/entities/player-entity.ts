@@ -9,8 +9,7 @@ export interface EquipmentSlots {
   chest: number | null;
   legs: number | null;
   arms: number | null;
-  leftHand: number | null;
-  rightHand: number | null;
+  weapon: number | null;
 }
 
 const createEmptyEquipment = (): EquipmentSlots => ({
@@ -18,8 +17,7 @@ const createEmptyEquipment = (): EquipmentSlots => ({
   chest: null,
   legs: null,
   arms: null,
-  leftHand: null,
-  rightHand: null,
+  weapon: null,
 });
 
 export type ClientType = 'slack' | 'discord' | 'web';

@@ -163,12 +163,6 @@ export class PlayerFactory {
         gold: 0,
         xp: 0,
         isAlive: true,
-        headItemId: null,
-        chestItemId: null,
-        legsItemId: null,
-        armsItemId: null,
-        leftHandItemId: null,
-        rightHandItemId: null,
       },
     });
 
@@ -209,6 +203,7 @@ export class PlayerFactory {
       where: {
         OR: orClauses,
       },
+      include: { playerItems: { include: { item: true } } },
     });
 
     if (!player) {
@@ -231,6 +226,7 @@ export class PlayerFactory {
         },
       },
       orderBy: { id: 'asc' },
+      include: { playerItems: { include: { item: true } } },
     });
 
     if (matches.length === 0) {
@@ -276,6 +272,7 @@ export class PlayerFactory {
           ? { id: { not: options.excludePlayerId } }
           : {}),
       },
+      include: { playerItems: { include: { item: true } } },
     });
     return players.map((p) => {
       const clientType = (p.clientType || 'slack') as ClientType;
@@ -333,6 +330,7 @@ export class PlayerFactory {
 
     const players = await this.prisma.player.findMany({
       where: whereClause,
+      include: { playerItems: { include: { item: true } } },
     });
 
     // Calculate distances and filter by actual radius
@@ -426,12 +424,8 @@ export class PlayerFactory {
         level: entity.level,
         skillPoints: entity.skillPoints,
         isAlive: entity.combat.isAlive,
-        headItemId: entity.equipment.head,
-        chestItemId: entity.equipment.chest,
-        legsItemId: entity.equipment.legs,
-        armsItemId: entity.equipment.arms,
-        leftHandItemId: entity.equipment.leftHand,
-        rightHandItemId: entity.equipment.rightHand,
+        // Equipment is managed via playerItems relations; do not persist
+        // legacy item columns here.
       },
     });
   }
@@ -491,14 +485,57 @@ export class PlayerFactory {
       level: player.level,
       skillPoints: player.skillPoints,
       partyId: undefined, // TODO: Add when party system is implemented
-      equipment: {
-        head: player.headItemId ?? null,
-        chest: player.chestItemId ?? null,
-        legs: player.legsItemId ?? null,
-        arms: player.armsItemId ?? null,
-        leftHand: player.leftHandItemId ?? null,
-        rightHand: player.rightHandItemId ?? null,
-      },
+      // Build equipment from playerItems relation if present (preferred), otherwise empty slots
+      equipment: ((): Record<string, number | null> => {
+        const defaultEquip: Record<string, number | null> = {
+          head: null,
+          chest: null,
+          legs: null,
+          arms: null,
+          weapon: null,
+        };
+        const playerItems = (
+          player as unknown as { playerItems?: Array<Record<string, unknown>> }
+        ).playerItems;
+        if (Array.isArray(playerItems)) {
+          for (const pi of playerItems) {
+            const equipped = pi?.equipped ?? false;
+            if (!equipped) continue;
+
+            // Prefer the player's assigned slot; fall back to the item's
+            // declared slot (pi.item?.slot). If the item has type 'weapon'
+            // and no slot is present, treat it as a 'weapon'.
+            let slot: string | undefined =
+              typeof pi?.slot === 'string' ? (pi.slot as string) : undefined;
+            const item = (pi as unknown as { item?: Record<string, unknown> })
+              .item;
+            const itemSlot =
+              typeof item?.slot === 'string'
+                ? (item!.slot as string)
+                : undefined;
+            const itemType =
+              typeof item?.type === 'string'
+                ? (item!.type as string)
+                : undefined;
+            if (!slot) {
+              if (itemSlot) slot = itemSlot;
+              else if (itemType === 'weapon') slot = 'weapon';
+            }
+
+            const itemId = pi?.itemId ?? null;
+            if (!slot || itemId === null || itemId === undefined) continue;
+            if (slot === 'head') defaultEquip.head = Number(itemId);
+            else if (slot === 'chest') defaultEquip.chest = Number(itemId);
+            else if (slot === 'legs') defaultEquip.legs = Number(itemId);
+            else if (slot === 'arms') defaultEquip.arms = Number(itemId);
+            else if (slot === 'weapon') defaultEquip.weapon = Number(itemId);
+          }
+        }
+        // No legacy column fallback: equipment is derived only from the
+        // player's playerItems relation.
+
+        return defaultEquip;
+      })(),
     });
   }
 

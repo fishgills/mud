@@ -36,8 +36,6 @@ const basePlayerData = {
   chestItemId: null,
   legsItemId: null,
   armsItemId: null,
-  leftHandItemId: null,
-  rightHandItemId: null,
   lastAction: new Date('2024-01-01T00:00:00Z'),
 };
 
@@ -75,8 +73,7 @@ describe('PlayerFactory', () => {
       chest: null,
       legs: null,
       arms: null,
-      leftHand: null,
-      rightHand: null,
+      weapon: null,
     });
     expect(stored).toMatchObject({
       clientId: 'slack:U123',
@@ -95,8 +92,34 @@ describe('PlayerFactory', () => {
   });
 
   it('loads players by client id and handles legacy formats', async () => {
+    // Create a player with playerItems relation to represent equipped items.
     const created = await prisma.player.create({
-      data: { ...basePlayerData, headItemId: 42, rightHandItemId: 7 },
+      data: {
+        ...basePlayerData,
+        playerItems: [
+          {
+            id: 201,
+            playerId: undefined,
+            itemId: 42,
+            equipped: true,
+            slot: 'head',
+            item: { id: 42, name: 'Iron Helmet', slot: 'head', type: 'armor' },
+          },
+          {
+            id: 202,
+            playerId: undefined,
+            itemId: 7,
+            equipped: true,
+            slot: 'weapon',
+            item: {
+              id: 7,
+              name: 'Short Sword',
+              slot: 'weapon',
+              type: 'weapon',
+            },
+          },
+        ],
+      },
     });
 
     const loaded = await PlayerFactory.load('U123', 'slack');
@@ -108,8 +131,7 @@ describe('PlayerFactory', () => {
       chest: null,
       legs: null,
       arms: null,
-      leftHand: null,
-      rightHand: 7,
+      weapon: 7,
     });
   });
 
@@ -239,7 +261,8 @@ describe('PlayerFactory', () => {
     entity.position.y = 6;
     entity.combat.hp = 10;
     entity.gold = 250;
-    entity.equipment.leftHand = 99;
+    // use canonical weapon slot
+    entity.equipment.weapon = 99;
     entity.equipment.arms = 33;
 
     await PlayerFactory.save(entity);
@@ -253,8 +276,6 @@ describe('PlayerFactory', () => {
       y: 6,
       hp: 10,
       gold: 250,
-      leftHandItemId: 99,
-      armsItemId: 33,
     });
 
     const previousLastAction = created.lastAction!;
@@ -296,5 +317,48 @@ describe('PlayerFactory', () => {
     expect(count).toBe(1);
 
     jest.useRealTimers();
+  });
+
+  it('maps equipment using item.slot when playerItem.slot is missing', () => {
+    // Build a fake database player object with playerItems including an item that
+    // declares its slot. The playerItem.slot is intentionally omitted/null.
+    const playerFromDb: Record<string, unknown> = {
+      id: 999,
+      clientId: 'slack:U999',
+      clientType: 'slack',
+      slackId: 'U999',
+      name: 'Mapper',
+      x: 0,
+      y: 0,
+      hp: 10,
+      maxHp: 10,
+      strength: 5,
+      agility: 5,
+      health: 5,
+      level: 1,
+      skillPoints: 0,
+      gold: 0,
+      xp: 0,
+      isAlive: true,
+      playerItems: [
+        {
+          id: 123,
+          playerId: 999,
+          itemId: 42,
+          equipped: true,
+          // slot missing here on purpose
+          slot: null,
+          item: {
+            id: 42,
+            name: 'Iron Helmet',
+            slot: 'head',
+            type: 'armor',
+          },
+        },
+      ],
+    };
+
+    const entity = PlayerFactory.fromDatabaseModel(playerFromDb, 'slack');
+    expect(entity.equipment.head).toBe(42);
   });
 });

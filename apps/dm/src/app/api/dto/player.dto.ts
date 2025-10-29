@@ -1,13 +1,13 @@
 import type { TileInfo } from './tile-info.dto';
 import type { Monster } from './monster.dto';
+import type { PlayerItemDto } from './player-item.dto';
 
 export interface PlayerEquipment {
   head: number | null;
   chest: number | null;
   legs: number | null;
   arms: number | null;
-  leftHand: number | null;
-  rightHand: number | null;
+  weapon: number | null;
 }
 
 export interface Player {
@@ -36,4 +36,5 @@ export interface Player {
   nearbyPlayers?: Player[];
   nearbyMonsters?: Monster[];
   equipment?: PlayerEquipment;
+  bag?: PlayerItemDto[];
 }
