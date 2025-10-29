@@ -28,7 +28,15 @@ jobs:
           node-version: 20
           cache: 'yarn'
       - run: yarn install --frozen-lockfile
-      - run: yarn turbo run test
+      - name: Prisma generate (workspace)
+        run: yarn --cwd libs/database generate
+      - name: Run tests (turbo)
+        env:
+          NODE_ENV: test
+          CI: true
+          USE_IN_MEMORY_REDIS: 'true'
+          SKIP_REAL_SERVICES: 'true'
+        run: yarn turbo run test
 
   build:
     name: Build (sanity)
@@ -40,4 +48,12 @@ jobs:
           node-version: 20
           cache: 'yarn'
       - run: yarn install --frozen-lockfile
-      - run: yarn turbo run build
+      - name: Prisma generate (workspace)
+        run: yarn --cwd libs/database generate
+      - name: Run build (turbo)
+        env:
+          NODE_ENV: production
+          CI: true
+          USE_IN_MEMORY_REDIS: 'true'
+          SKIP_REAL_SERVICES: 'true'
+        run: yarn turbo run build
