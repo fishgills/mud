@@ -1,4 +1,5 @@
-import { authorizedFetch } from '@mud/gcp-auth';
+// Use the platform's global fetch implementation instead of the removed @mud/gcp-auth helper.
+const authorizedFetch = globalThis.fetch as typeof fetch;
 import { Direction, TargetType } from './dm-types';
 import { env } from './env';
 

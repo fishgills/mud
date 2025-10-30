@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { WORLD_CHUNK_SIZE } from '@mud/constants';
-import { authorizedFetch } from '@mud/gcp-auth';
+// Use platform global fetch directly; @mud/gcp-auth was removed as this repo targets GKE.
+const authorizedFetch = globalThis.fetch as typeof fetch;
 import type {
   WorldTileDto,
   TileWithNearbyDto,

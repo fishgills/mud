@@ -4,6 +4,23 @@ Small helper for authenticating requests to private Google Cloud Run services fr
 
 ## What it does
 
+# @mud/gcp-auth (DEPRECATED)
+
+This package used to provide Cloud Run service-to-service authentication helpers
+for projects running on Google Cloud Run. The repository has since standardized on
+GKE-only deployments and these helpers are no longer required.
+
+What changed
+
+- Callers were updated to use the platform's global `fetch` or GKE-native auth.
+- The implementation in `src/gcp-auth.ts` is now a small compatibility shim that
+  forwards to `globalThis.fetch` and no-ops for Cloud Run-specific features.
+
+If you want to remove this package entirely from the monorepo, delete this
+directory and remove `@mud/gcp-auth` entries from package.json files in apps.
+
+For now the shim remains to avoid breaking any stray imports.
+
 - Uses Google Application Default Credentials to obtain an ID token scoped for the target Cloud Run service (audience).
 - Exposes an `authorizedFetch` that automatically injects `Authorization: Bearer <id_token>` for non-localhost URLs.
 - No-op on localhost to keep local development simple.

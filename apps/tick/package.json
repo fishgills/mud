@@ -6,7 +6,6 @@
     "@mud/tracer": "*"
   },
   "devDependencies": {
-    "@mud/gcp-auth": "*",
     "@types/node": "^24.5.2"
   },
   "scripts": {

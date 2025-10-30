@@ -1,7 +1,6 @@
 // server.ts
 import '@mud/tracer/register'; // must come before importing any instrumented module.
 import { App } from '@slack/bolt';
-import { setAuthLogger } from '@mud/gcp-auth';
 import { env } from './env';
 import { NotificationService } from './notification.service';
 import { getPrismaClient } from '@mud/database';
@@ -77,11 +76,8 @@ const app = new App({
   ],
 });
 
-setAuthLogger({
-  log: (...args: unknown[]) => app.logger.info(String(args[0] ?? '')),
-  warn: (...args: unknown[]) => app.logger.warn(String(args[0] ?? '')),
-  error: (...args: unknown[]) => app.logger.error(String(args[0] ?? '')),
-});
+// No-op: cloud-run specific auth helper removed for GKE-only deployments. Use platform
+// native credentials/auth where necessary. Previously this called `setAuthLogger(...)`.
 
 // Absorb ACME HTTP-01 challenge probes from Google-managed certs for domain mappings.
 // These requests look like: /.well-known/acme-challenge/<token>

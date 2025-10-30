@@ -1,14 +1,9 @@
-import { authorizedFetch } from '@mud/gcp-auth';
-import { WorldService } from './world.service';
 import { refreshEnv } from '../../env';
 
-jest.mock('@mud/gcp-auth', () => ({
-  authorizedFetch: jest.fn(),
-}));
-
-const mockFetch = authorizedFetch as jest.MockedFunction<
-  typeof authorizedFetch
->;
+// Mock global fetch instead of the removed @mud/gcp-auth wrapper.
+// We must set the mock on globalBefore the module that captures `globalThis.fetch`
+// is loaded, so we create/reset modules in beforeEach and require the service lazily.
+const mockFetch = jest.fn() as jest.MockedFunction<typeof fetch>;
 
 const createResponse = <T>(data: T, init?: Partial<Response>): Response => {
   return {
@@ -74,7 +69,16 @@ describe('WorldService (REST)', () => {
     refreshEnv();
   });
 
-  const serviceFactory = () => new WorldService();
+  const serviceFactory = () => {
+    // Ensure modules are loaded after we've mocked global fetch
+    // so the module-level `const authorizedFetch = globalThis.fetch` captures our mock.
+    jest.resetModules();
+    (globalThis as any).fetch = mockFetch;
+    // require the service after setting up the mock
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { WorldService } = require('./world.service');
+    return new WorldService();
+  };
 
   it('parses tile responses into WorldTile', async () => {
     mockFetch.mockResolvedValueOnce(

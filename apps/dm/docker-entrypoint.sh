@@ -4,11 +4,9 @@ set -e
 echo "🚀 DM Service startup..."
 
 # Run database migrations
-# echo "📦 Running database migrations..."
-# cd libs/database
-# npx prisma migrate deploy || {
-#   echo "⚠️  Migration failed, but continuing (may be first run)"
-# }
+echo "📦 Running database migrations..."
+cd libs/database
+npx prisma migrate deploy
 
 cd /app
 

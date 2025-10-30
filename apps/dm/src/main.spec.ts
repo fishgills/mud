@@ -15,10 +15,6 @@ jest.mock('@nestjs/core', () => ({
   },
 }));
 
-jest.mock('@mud/gcp-auth', () => ({
-  setAuthLogger: jest.fn(),
-}));
-
 jest.mock('./app/app.module', () => ({
   AppModule: class {},
 }));

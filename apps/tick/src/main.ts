@@ -1,7 +1,9 @@
 import '@mud/tracer/register';
 
 import http from 'http';
-import { authorizedFetch, setAuthLogger } from '@mud/gcp-auth';
+
+// Use global fetch in place of the removed @mud/gcp-auth helper
+const authorizedFetch = globalThis.fetch as typeof fetch;
 
 const DM_API_BASE_URL = process.env.DM_API_BASE_URL || 'http://localhost:3000';
 
@@ -14,11 +16,7 @@ const ACTIVITY_THRESHOLD_MINUTES = parseInt(
   10,
 );
 
-setAuthLogger({
-  log: (...args: unknown[]) => console.log(String(args[0] ?? '')),
-  warn: (...args: unknown[]) => console.warn(String(args[0] ?? '')),
-  error: (...args: unknown[]) => console.error(String(args[0] ?? '')),
-});
+// auth logger removed (was setAuthLogger) — not needed on GKE
 
 async function hasActivePlayers(): Promise<boolean> {
   try {
