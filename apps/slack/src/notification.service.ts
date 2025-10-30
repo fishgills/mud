@@ -5,16 +5,17 @@
  * from the DM service via Redis Pub/Sub and delivers them to Slack users.
  */
 
-import { App } from '@slack/bolt';
 import { RedisEventBridge, NotificationMessage } from '@mud/redis-client';
+import {
+  getCredentialsForSlackUser,
+  getWebClientForToken,
+} from './utils/authorize';
 import { env } from './env';
 
 export class NotificationService {
   private bridge: RedisEventBridge;
-  private app: App;
 
-  constructor(app: App) {
-    this.app = app;
+  constructor() {
     this.bridge = new RedisEventBridge({
       redisUrl: env.REDIS_URL,
       channelPrefix: 'game',
@@ -52,13 +53,42 @@ export class NotificationService {
   private async handleNotification(
     notification: NotificationMessage,
   ): Promise<void> {
-    console.log(
+    // High-level receipt log
+    console.info(
       `📨 Received ${notification.type} notification for ${notification.recipients.length} recipients`,
     );
+
+    // Debug: show a sanitized notification summary
+    try {
+      const safePreview = (text?: string | null) => {
+        if (!text) return '';
+        const s = String(text).replace(/\s+/g, ' ').trim();
+        return s.length > 160 ? `${s.slice(0, 157)}...` : s;
+      };
+
+      console.debug('notification.preview:', {
+        type: notification.type,
+        recipients: notification.recipients.length,
+        // preview first recipient message for quick triage
+        firstMessage: notification.recipients[0]
+          ? safePreview(notification.recipients[0].message)
+          : null,
+      });
+    } catch (e) {
+      // non-fatal logging helper error
+      console.debug('Failed to produce notification preview', e);
+    }
 
     // Send message to each recipient
     for (const recipient of notification.recipients) {
       try {
+        console.debug('processing recipient:', {
+          clientId: recipient.clientId,
+          role: recipient.role || 'participant',
+          priority: recipient.priority || 'normal',
+          hasBlocks:
+            Array.isArray(recipient.blocks) && recipient.blocks.length > 0,
+        });
         const slackUserId = this.extractSlackUserId(recipient.clientId);
 
         if (!slackUserId) {
@@ -67,9 +97,28 @@ export class NotificationService {
         }
 
         // Open DM channel with user
-        const dm = await this.app.client.conversations.open({
-          users: slackUserId,
-        });
+        console.debug(`opening DM with ${slackUserId}`);
+        // Resolve bot credentials for the slack user so we can call the
+        // Web API with the correct bot token for that user's workspace.
+        const creds = await getCredentialsForSlackUser(slackUserId);
+        if (!creds?.botToken) {
+          console.error(`No bot credentials found for user ${slackUserId}`);
+          continue;
+        }
+
+        const web = getWebClientForToken(creds.botToken);
+        const dm = await web.conversations.open({ users: slackUserId });
+
+        // Log DM open response shape minimally
+        try {
+          console.debug('dm.open response:', {
+            ok: Boolean(dm.ok),
+            channelId: dm.channel?.id || null,
+            is_im: dm.channel?.is_im || null,
+          });
+        } catch (e) {
+          console.debug('Failed to log dm.open response', e);
+        }
 
         const channelId = dm.channel?.id;
         if (!channelId) {
@@ -81,9 +130,21 @@ export class NotificationService {
         const hasBlocks =
           Array.isArray(recipient.blocks) && recipient.blocks.length > 0;
         if (hasBlocks) {
-          await this.app.client.chat.postMessage({
+          const blocksCount = Array.isArray(recipient.blocks)
+            ? recipient.blocks.length
+            : 0;
+          console.debug('posting message with blocks, payload preview:', {
             channel: channelId,
-            text: recipient.message, // keep full text as fallback and for action handlers
+            textPreview:
+              typeof recipient.message === 'string' &&
+              recipient.message.length > 120
+                ? `${recipient.message.slice(0, 117)}...`
+                : recipient.message,
+            blocksCount,
+          });
+          await web.chat.postMessage({
+            channel: channelId,
+            text: recipient.message,
             blocks: (recipient.blocks || []) as unknown as (
               | import('@slack/types').KnownBlock
               | import('@slack/types').Block
@@ -91,7 +152,19 @@ export class NotificationService {
           });
         } else {
           // Add a minimal block wrapper for high-priority messages when no blocks provided
-          await this.app.client.chat.postMessage({
+          const textPreview =
+            typeof recipient.message === 'string' &&
+            recipient.message.length > 120
+              ? `${recipient.message.slice(0, 117)}...`
+              : recipient.message;
+
+          console.debug('posting message without blocks, payload preview:', {
+            channel: channelId,
+            textPreview,
+            hasBlocks: recipient.priority === 'high',
+          });
+
+          await web.chat.postMessage({
             channel: channelId,
             text: recipient.message,
             ...(recipient.priority === 'high' && {
@@ -112,9 +185,11 @@ export class NotificationService {
           `✅ Sent ${notification.type} notification to ${slackUserId} (${recipient.role || 'participant'})`,
         );
       } catch (error) {
+        // Provide stack-aware debug for errors
+        // Log error object for debugging; stringify may fail on circulars so pass as-is
         console.error(
           `Error sending notification to ${recipient.clientId}:`,
-          error,
+          JSON.stringify(error, null, 2),
         );
       }
     }

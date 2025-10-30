@@ -4,4 +4,4 @@ This library was generated with [Nx](https://nx.dev).
 
 ## Building
 
-Run `nx build constants` to build the library.
+Run `yarn build constants` to build the library.

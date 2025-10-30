@@ -52,4 +52,4 @@ The helper will:
 
 ## Building
 
-Run `nx build gcp-auth` to build the library.
+Run `yarn build gcp-auth` to build the library.

@@ -61,6 +61,17 @@ export interface PlayerLeavePartyEvent extends BaseGameEvent {
   partyId: number;
 }
 
+export interface LootSpawnEvent extends BaseGameEvent {
+  eventType: 'loot:spawn';
+  x: number;
+  y: number;
+  drops: Array<
+    { itemId: number; quality: string; quantity: number } & Record<
+      string,
+      unknown
+    >
+  >;
+}
 // Combat Events
 export interface CombatStartEvent extends BaseGameEvent {
   eventType: 'combat:start';
@@ -214,6 +225,7 @@ export type GameEvent =
   | PartyCreateEvent
   | PartyDisbandEvent
   | WeatherChangeEvent
+  | LootSpawnEvent
   | TimeTickEvent;
 
 export type GameEventType = GameEvent['eventType'];

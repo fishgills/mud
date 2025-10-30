@@ -14,6 +14,7 @@ import {
   type MonsterMoveEvent,
   type MonsterSpawnEvent,
   type MonsterDeathEvent,
+  type LootSpawnEvent,
   type MonsterEncounterEvent,
   type CombatStartEvent,
   type CombatHitEvent,
@@ -70,6 +71,9 @@ export class LocationNotificationService
     );
     this.subscribe<MonsterDeathEvent>('monster:death', (event) =>
       this.handleMonsterDeath(event),
+    );
+    this.subscribe<LootSpawnEvent>('loot:spawn', (event) =>
+      this.handleLootSpawn(event),
     );
     this.subscribe<MonsterEncounterEvent>('monster:encounter', (event) =>
       this.handleMonsterEncounter(event),
@@ -229,6 +233,35 @@ export class LocationNotificationService
       {
         type: 'monster',
         message: `${event.monster.name} is defeated at ${this.describeLocation(event.x, event.y)}.`,
+      },
+    );
+  }
+
+  private async handleLootSpawn(event: LootSpawnEvent): Promise<void> {
+    const drops = Array.isArray(event.drops) ? event.drops : [];
+    type LootEventDrop = {
+      itemId: number;
+      quantity?: number;
+      quality?: string | null;
+      itemName?: string | null;
+    };
+    const summary = drops.length
+      ? drops
+          .map((d: LootEventDrop) => {
+            const name = d.itemName || null;
+            if (name)
+              return `${d.quantity ?? 1}x ${name} (${String(d.quality)})`;
+            return `${d.quantity ?? 1}x item #${d.itemId} (${String(d.quality)})`;
+          })
+          .join(', ')
+      : 'some items';
+
+    await this.notifyPlayersAtLocation(
+      event,
+      { x: event.x, y: event.y },
+      {
+        type: 'world',
+        message: `Loot appears: ${summary} at ${this.describeLocation(event.x, event.y)}.`,
       },
     );
   }

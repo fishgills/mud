@@ -4,6 +4,11 @@ import { App } from '@slack/bolt';
 import { env } from './env';
 import { NotificationService } from './notification.service';
 import { getPrismaClient } from '@mud/database';
+import {
+  authorize,
+  invalidateAuthorizeCache,
+  clearAllAuthorizeCache,
+} from './utils/authorize';
 
 import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
 
@@ -42,19 +47,74 @@ const decodedEnv = Object.fromEntries(
 const installationStore = new PrismaInstallationStore({
   clientId: decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
   prismaTable: getPrismaClient().slackAppInstallation,
+  onFetchInstallation: async (args) => {
+    console.log(
+      `Installation fetched: ${args.installation.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
+        args.installation.isEnterpriseInstall
+          ? args.installation.enterprise?.id
+          : args.installation.team?.id
+      }`,
+    );
+  },
+  onStoreInstallation: async (args) => {
+    console.log(
+      `Installation stored: ${args.installation.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
+        args.installation.isEnterpriseInstall
+          ? args.installation.enterprise?.id
+          : args.installation.team?.id
+      }`,
+    );
+    try {
+      const teamId =
+        args.installation.team?.id ?? args.installation.team?.id ?? null;
+      const enterpriseId = args.installation.enterprise?.id ?? null;
+      await invalidateAuthorizeCache(
+        decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
+        teamId,
+        enterpriseId,
+      );
+    } catch (err) {
+      console.warn('Failed to invalidate authorize cache on store:', err);
+    }
+  },
+  onDeleteInstallation: async (args) => {
+    console.log(
+      `Installation deleted: ${args.query.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
+        args.query.isEnterpriseInstall
+          ? args.query.enterpriseId
+          : args.query.teamId
+      }`,
+    );
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const teamId = (args.query as any).teamId ?? null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const enterpriseId = (args.query as any).enterpriseId ?? null;
+      await invalidateAuthorizeCache(
+        decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
+        teamId,
+        enterpriseId,
+      );
+    } catch (err) {
+      console.warn('Failed to invalidate authorize cache on delete:', err);
+    }
+  },
 });
+
+// authorize is implemented in src/utils/authorize.ts and imported above.
 
 const app = new App({
   // token: env.SLACK_BOT_TOKEN,
   signingSecret: decodedEnv.SLACK_SIGNING_SECRET,
   socketMode: false,
   // OAuth (optional): if clientId/clientSecret/stateSecret are provided, installer is enabled
-  clientId: decodedEnv.SLACK_CLIENT_ID,
-  clientSecret: decodedEnv.SLACK_CLIENT_SECRET,
-  stateSecret: decodedEnv.SLACK_STATE_SECRET,
+  // clientId: decodedEnv.SLACK_CLIENT_ID,
+  // clientSecret: decodedEnv.SLACK_CLIENT_SECRET,
+  // stateSecret: decodedEnv.SLACK_STATE_SECRET,
   scopes: [
     'app_mentions:read',
     'chat:write',
+    'channels:read',
     'im:history',
     'im:read',
     'im:write',
@@ -64,6 +124,9 @@ const app = new App({
     directInstall: true,
   },
   installationStore: installationStore,
+  // Per-request authorization resolver that returns the correct token set
+  // based on the incoming event's teamId/enterpriseId.
+  authorize,
   customRoutes: [
     {
       path: '/health-check',
@@ -109,6 +172,9 @@ import './handlers/delete';
 import './handlers/map';
 import './handlers/stats';
 import './handlers/inventory';
+import './handlers/pickup';
+import './handlers/drop';
+import './handlers/equip';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { COMMANDS } from './commands';
 import { registerActions } from './actions';
@@ -182,6 +248,7 @@ app.message(async ({ message, say, client }) => {
   const lowerText = text.toLowerCase();
   for (const [key, handler] of Object.entries(getAllHandlers())) {
     // Check if the message starts with the command or contains it as a whole word
+    console.log(`Checking handler for command: ${key}`);
     if (
       lowerText === key.toLowerCase() ||
       lowerText.startsWith(key.toLowerCase() + ' ') ||
@@ -231,13 +298,19 @@ app.message(async ({ message, say, client }) => {
 registerActions(app);
 
 async function start() {
+  // Clear any existing authorize cache on startup so we start with a clean slate.
+  try {
+    await clearAllAuthorizeCache();
+  } catch (err) {
+    console.warn('Failed to clear authorize cache on startup:', err);
+  }
   await app.start(Number(decodedEnv.PORT ?? env.PORT));
   console.log(
     `⚡️ Slack MUD bot is running! 🚀 On http://localhost:${env.PORT}`,
   );
 
   // Start notification service to receive game events
-  const notificationService = new NotificationService(app);
+  const notificationService = new NotificationService();
   await notificationService.start();
 }
 

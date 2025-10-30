@@ -54,6 +54,6 @@ To regenerate the Prisma client after schema changes:
 
 ```bash
 cd libs/database
-npx prisma generate
-nx build @mud/database
+yarn prisma generate
+yarn build @mud/database
 ```

@@ -44,7 +44,9 @@ export class SystemController {
       ? Number.parseFloat(rawMinutesThreshold)
       : 30;
     if (Number.isNaN(minutesThreshold) || minutesThreshold < 0) {
-      throw new BadRequestException('minutesThreshold must be a positive number');
+      throw new BadRequestException(
+        'minutesThreshold must be a positive number',
+      );
     }
 
     const active = await this.playerService.hasActivePlayers(minutesThreshold);
