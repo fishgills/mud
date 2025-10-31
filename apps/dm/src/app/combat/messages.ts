@@ -120,9 +120,10 @@ export class CombatMessenger {
       });
       const rawText = (ai?.output_text ?? '').trim();
       if (rawText) {
+        // strip opening fence and any remaining fences (closing or inline)
         const cleaned = rawText
           .replace(/^```(json)?\s*/i, '')
-          .replace(/```$/i, '')
+          .replace(/```/g, '')
           .trim();
         if (cleaned) return cleaned;
       }

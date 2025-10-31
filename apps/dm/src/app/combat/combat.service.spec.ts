@@ -1,11 +1,242 @@
+// Mocks for engine and database before importing the service
+jest.mock('@mud/engine', () => {
+  // Use a single shared EventBus instance stored on globalThis so that
+  // both the test file and any modules under test reference the exact
+  // same listeners/implementation. This avoids subtle mocking issues
+  // where different closures hold different listener arrays.
+  const globalKey = '__TEST_EVENT_BUS__';
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - attach test helper to globalThis
+  if (!(globalThis as any)[globalKey]) {
+    (globalThis as any)[globalKey] = (() => {
+      const listeners: Array<(ev: unknown) => Promise<void> | void> = [];
+      const bus = {
+        on: jest.fn(
+          (
+            eventType: string,
+            handler: (ev: unknown) => Promise<void> | void,
+          ) => {
+            listeners.push(handler);
+            // expose last registered and the array for test introspection
+            (bus as any).__lastRegistered = handler;
+            (bus as any).__listeners = listeners;
+            return () => {
+              const idx = listeners.indexOf(handler);
+              if (idx >= 0) listeners.splice(idx, 1);
+            };
+          },
+        ),
+        emit: jest.fn(async (ev: unknown) => {
+          for (const h of [...listeners]) {
+            // await in case handlers are async
+            // eslint-disable-next-line no-await-in-loop
+            await (h as any)(ev);
+          }
+          return Promise.resolve();
+        }),
+        clear: jest.fn(() => {
+          listeners.length = 0;
+        }),
+        // placeholders that will be filled when handlers are registered
+        __lastRegistered: undefined as unknown,
+        __listeners: listeners as unknown,
+      } as unknown as {
+        on: (
+          eventType: string,
+          handler: (ev: unknown) => Promise<void> | void,
+        ) => () => void;
+        emit: (ev: unknown) => Promise<void>;
+        clear: () => void;
+        __lastRegistered: unknown;
+        __listeners: unknown;
+      };
+
+      return bus;
+    })();
+  }
+
+  const sharedBus = (globalThis as any)[globalKey];
+
+  return {
+    MonsterFactory: {
+      load: jest.fn(),
+      save: jest.fn(),
+      delete: jest.fn(),
+    },
+    EventBus: sharedBus,
+  };
+});
+
+jest.mock('@mud/database', () => ({
+  getPrismaClient: () => ({
+    combatLog: { create: jest.fn().mockResolvedValue({}) },
+  }),
+}));
+
 import { CombatService, Combatant } from './combat.service';
-import { EventBus } from '@mud/engine';
+import { MonsterFactory, EventBus } from '@mud/engine';
 import type { PlayerEntity, CombatInitiateEvent } from '@mud/engine';
 import type { EventBridgeService } from '../../shared/event-bridge.service';
 import type { PlayerService } from '../player/player.service';
 import type { AiService } from '../../openai/ai.service';
 import type { CombatRound, DetailedCombatLog, CombatResult } from '../api';
 
+describe('CombatService (unit)', () => {
+  const makePlayer = (overrides: any = {}) => ({
+    id: overrides.id ?? 1,
+    name: overrides.name ?? 'Attacker',
+    combat: {
+      hp: overrides.hp ?? 10,
+      maxHp: 10,
+      isAlive: overrides.isAlive ?? true,
+    },
+    attributes: { strength: overrides.str ?? 12, agility: overrides.agi ?? 12 },
+    level: overrides.level ?? 1,
+    position: { x: overrides.x ?? 0, y: overrides.y ?? 0 },
+    clientType: 'slack',
+    clientId: overrides.clientId ?? 'S1',
+    xp: overrides.xp ?? 0,
+    gold: overrides.gold ?? 0,
+  });
+
+  beforeEach(() => jest.resetAllMocks());
+
+  test('blocks combat when players are in different locations', async () => {
+    const playerService: any = {
+      getPlayer: jest
+        .fn()
+        .mockResolvedValueOnce(makePlayer({ name: 'A', x: 0, y: 0 })),
+      getPlayerByClientId: jest.fn(),
+      getPlayersAtLocation: jest.fn().mockResolvedValue([]),
+    };
+    const aiService: any = { getText: jest.fn() };
+    const eventBridge: any = { publishCombatNotifications: jest.fn() };
+
+    // defender at different location
+    playerService.getPlayer.mockResolvedValueOnce(
+      makePlayer({ name: 'B', x: 1, y: 1 }),
+    );
+
+    const svc = new CombatService(playerService, aiService, eventBridge);
+
+    await expect(svc.playerAttackPlayer('A', 'B')).rejects.toThrow(
+      'Target is not at your location',
+    );
+  });
+
+  test('blocks combat when one combatant is dead', async () => {
+    const playerService: any = {
+      getPlayer: jest
+        .fn()
+        .mockResolvedValue(makePlayer({ name: 'A', isAlive: false })),
+      getPlayerByClientId: jest.fn(),
+      getPlayersAtLocation: jest.fn().mockResolvedValue([]),
+    };
+    const aiService: any = { getText: jest.fn() };
+    const eventBridge: any = { publishCombatNotifications: jest.fn() };
+
+    const svc = new CombatService(playerService, aiService, eventBridge);
+    await expect(svc.playerAttackPlayer('A', 'B')).rejects.toThrow(
+      'One or both combatants are dead',
+    );
+  });
+
+  test('successful player vs player runs, applies results, and publishes notifications', async () => {
+    // First, craft deterministic combat log returned by engine.runCombat
+    const predeterminedLog: any = {
+      combatId: 'c-test',
+      participant1: 'Attacker',
+      participant2: 'Defender',
+      firstAttacker: 'Attacker',
+      initiativeRolls: [],
+      rounds: [
+        {
+          roundNumber: 1,
+          attackerName: 'Attacker',
+          defenderName: 'Defender',
+          attackRoll: 15,
+          attackModifier: 2,
+          totalAttack: 17,
+          defenderAC: 12,
+          hit: true,
+          damage: 5,
+          defenderHpAfter: 0,
+          killed: true,
+        },
+      ],
+      winner: 'Attacker',
+      loser: 'Defender',
+      xpAwarded: 10,
+      goldAwarded: 3,
+      timestamp: new Date(),
+      location: { x: 0, y: 0 },
+    };
+
+    const playerA = makePlayer({
+      id: 1,
+      name: 'Attacker',
+      clientId: 'S-A',
+      x: 0,
+      y: 0,
+    });
+    const playerB = makePlayer({
+      id: 2,
+      name: 'Defender',
+      clientId: 'S-B',
+      x: 0,
+      y: 0,
+    });
+
+    const playerService: any = {
+      getPlayer: jest.fn().mockImplementation((id: string) => {
+        if (id === 'Attacker' || id === 'S-A') return Promise.resolve(playerA);
+        if (id === 'Defender' || id === 'S-B') return Promise.resolve(playerB);
+        return Promise.resolve(null);
+      }),
+      getPlayerByClientId: jest.fn().mockResolvedValue(null),
+      getPlayersAtLocation: jest
+        .fn()
+        .mockResolvedValue([
+          { id: 3, name: 'Obs', clientType: 'slack', clientId: 'S-OBS' },
+        ]),
+      updatePlayerStats: jest.fn().mockResolvedValue({
+        level: playerA.level,
+        skillPoints: 0,
+        combat: { maxHp: 10, hp: playerA.combat.hp },
+      }),
+      getPlayerById: jest.fn(),
+      getPlayerByName: jest.fn(),
+    };
+
+    const aiService: any = {
+      getText: jest.fn().mockResolvedValue({ output_text: '' }),
+    };
+    const eventBridge: any = {
+      publishCombatNotifications: jest.fn().mockResolvedValue(true),
+    };
+
+    // Ensure MonsterFactory.delete isn't used in this path
+    (MonsterFactory.delete as jest.Mock).mockResolvedValue(true);
+
+    const svc = new CombatService(playerService, aiService, eventBridge);
+    // stub the internal runCombat on this instance for deterministic behaviour
+    jest.spyOn(svc as any, 'runCombat').mockResolvedValue(predeterminedLog);
+
+    const result = await svc.playerAttackPlayer('Attacker', 'Defender');
+
+    expect(result.success).toBe(true);
+    expect(result.winnerName).toBe('Attacker');
+    // match the xp/gold values we injected in the mocked combat log
+    expect(result.xpGained).toBe(10);
+    expect(result.goldGained).toBe(3);
+    expect(result.roundsCompleted).toBe(1);
+    expect(result.totalDamageDealt).toBe(5);
+    expect(result.playerMessages.some((m) => m.role === 'observer')).toBe(true);
+    expect(eventBridge.publishCombatNotifications).toHaveBeenCalled();
+    // legacy short message preserved
+    expect(typeof result.message).toBe('string');
+  });
+});
 type MockPrismaClient = {
   combatLog: {
     findMany: jest.Mock;
@@ -1117,7 +1348,16 @@ describe('CombatService', () => {
       timestamp: new Date(),
     };
 
-    await EventBus.emit(combatEvent);
+    // Ensure the service registered a handler on EventBus and invoke it
+    // directly from the mock's recorded calls to deterministically test
+    // the wiring (this avoids relying on emit semantics which can vary
+    // between test environments).
+    const onMock = (EventBus as any).on as jest.Mock;
+    expect(onMock).toHaveBeenCalled();
+    const registeredHandler = onMock.mock.calls[0][1] as (
+      ev: unknown,
+    ) => Promise<void> | void;
+    await registeredHandler(combatEvent);
 
     expect(initiateSpy).toHaveBeenCalledWith(
       42,
