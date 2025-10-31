@@ -1,6 +1,6 @@
 // server.ts
 import '@mud/tracer/register'; // must come before importing any instrumented module.
-import { App } from '@slack/bolt';
+import { App, MemoryInstallationStore } from '@slack/bolt';
 import { env } from './env';
 import { NotificationService } from './notification.service';
 import { getPrismaClient } from '@mud/database';
@@ -108,9 +108,9 @@ const app = new App({
   signingSecret: decodedEnv.SLACK_SIGNING_SECRET,
   socketMode: false,
   // OAuth (optional): if clientId/clientSecret/stateSecret are provided, installer is enabled
-  // clientId: decodedEnv.SLACK_CLIENT_ID,
-  // clientSecret: decodedEnv.SLACK_CLIENT_SECRET,
-  // stateSecret: decodedEnv.SLACK_STATE_SECRET,
+  clientId: decodedEnv.SLACK_CLIENT_ID,
+  clientSecret: decodedEnv.SLACK_CLIENT_SECRET,
+  stateSecret: decodedEnv.SLACK_STATE_SECRET,
   scopes: [
     'app_mentions:read',
     'chat:write',
@@ -123,10 +123,11 @@ const app = new App({
   installerOptions: {
     directInstall: true,
   },
-  installationStore: installationStore,
+  // installationStore: installationStore,
+  installationStore: new MemoryInstallationStore(),
   // Per-request authorization resolver that returns the correct token set
   // based on the incoming event's teamId/enterpriseId.
-  authorize,
+  // authorize,
   customRoutes: [
     {
       path: '/health-check',
