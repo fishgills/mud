@@ -10,8 +10,8 @@
     "build": "tsc"
   },
   "exports": {
-    ".": "./src/constants.ts",
-    "./constants": "./src/constants.ts"
+    ".": "./dist/constants.js",
+    "./constants": "./dist/constants.js"
   },
   "dependencies": {
     "tslib": "^2.3.0"
