@@ -304,7 +304,7 @@ async function start() {
   );
 
   // Start notification service to receive game events
-  const notificationService = new NotificationService();
+  const notificationService = new NotificationService(app);
   await notificationService.start();
 }
 
