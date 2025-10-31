@@ -11,7 +11,7 @@ module.exports = {
   transformIgnorePatterns: ['node_modules/'],
   moduleFileExtensions: ['ts', 'js', 'html'],
   collectCoverage: true,
-  coverageReporters: ['text-summary', 'lcov', 'html'],
+  coverageReporters: ['text', 'lcov', 'html'],
   coverageDirectory: 'test-output/jest/coverage',
   // Prevent Jest from hanging on open handles
   testTimeout: 10000,

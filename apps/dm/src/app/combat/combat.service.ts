@@ -11,7 +11,6 @@ import {
   type CombatInitiateEvent,
 } from '@mud/engine';
 import { PlayerService } from '../player/player.service';
-import { PlayerStatsDto } from '../player/dto/player.dto';
 import { AiService } from '../../openai/ai.service';
 import { EventBridgeService } from '../../shared/event-bridge.service';
 import type {
@@ -21,6 +20,9 @@ import type {
   CombatPerformanceBreakdown,
   CombatMessagePerformance,
 } from '../api';
+import { runCombat as engineRunCombat } from './engine';
+import { CombatMessenger } from './messages';
+import { applyCombatResults as resultsApplyCombatResults } from './results';
 
 interface CombatNarrative {
   summary: string;
@@ -64,6 +66,7 @@ export interface Combatant {
 export class CombatService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CombatService.name);
   private prisma = getPrismaClient();
+  private messenger: CombatMessenger;
   private readonly subscriptions: Array<() => void> = [];
 
   constructor(
@@ -71,6 +74,16 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
     private aiService: AiService,
     private eventBridge: EventBridgeService,
   ) {}
+
+  // Initialize messenger after DI
+  private initMessenger() {
+    if (!this.messenger)
+      this.messenger = new CombatMessenger(
+        this.playerService,
+        this.aiService,
+        this.logger,
+      );
+  }
 
   onModuleInit(): void {
     const unsubscribe = EventBus.on<CombatInitiateEvent>(
@@ -580,204 +593,18 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
     combatant1: Combatant,
     combatant2: Combatant,
   ): Promise<DetailedCombatLog> {
-    const combatId = `combat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    this.logger.log(
-      `🗡️ COMBAT START: ${combatant1.name} vs ${combatant2.name} [ID: ${combatId}]`,
-    );
-
-    // Emit combat start event
-    await EventBus.emit({
-      eventType: 'combat:start',
-      attacker: {
-        type: combatant1.type,
-        id: combatant1.id,
-        name: combatant1.name,
-      },
-      defender: {
-        type: combatant2.type,
-        id: combatant2.id,
-        name: combatant2.name,
-      },
-      x: combatant1.x,
-      y: combatant1.y,
-      timestamp: new Date(),
+    // Pass service-level helper functions as overrides so unit tests that spy
+    // on service internals (rollD20, calculateXpGain, etc.) continue to work.
+    return engineRunCombat(combatant1, combatant2, this.logger, {
+      rollD20: this.rollD20.bind(this),
+      rollDice: this.rollDice.bind(this),
+      getModifier: this.getModifier.bind(this),
+      calculateAC: this.calculateAC.bind(this),
+      rollInitiative: this.rollInitiative.bind(this),
+      calculateDamage: this.calculateDamage.bind(this),
+      calculateXpGain: this.calculateXpGain.bind(this),
+      calculateGoldReward: this.calculateGoldReward.bind(this),
     });
-
-    // Roll initiative
-    this.logger.debug(`Rolling initiative...`);
-    const init1 = this.rollInitiative(combatant1.agility);
-    const init2 = this.rollInitiative(combatant2.agility);
-
-    const initiativeRolls = [
-      { name: combatant1.name, ...init1 },
-      { name: combatant2.name, ...init2 },
-    ];
-
-    // Determine who goes first
-    let attacker = init1.total >= init2.total ? combatant1 : combatant2;
-    let defender = init1.total >= init2.total ? combatant2 : combatant1;
-    const firstAttacker = attacker.name;
-
-    this.logger.log(
-      `⚡ Initiative Results: ${combatant1.name}=${init1.total}, ${combatant2.name}=${init2.total} | ${firstAttacker} goes first!`,
-    );
-
-    const rounds: CombatRound[] = [];
-    let roundNumber = 1;
-
-    // Combat loop - continue until someone dies
-    this.logger.debug(`Starting combat loop...`);
-    while (attacker.isAlive && defender.isAlive && roundNumber <= 100) {
-      // Safety limit
-      this.logger.debug(
-        `⚔️ Round ${roundNumber}: ${attacker.name} attacks ${defender.name}`,
-      );
-
-      // Attacker attacks defender
-      const attackRoll = this.rollD20();
-      const attackModifier = this.getModifier(attacker.strength);
-      const totalAttack = attackRoll + attackModifier;
-      const defenderAC = this.calculateAC(defender.agility);
-      const hit = totalAttack >= defenderAC;
-
-      this.logger.debug(
-        `Attack roll: ${attackRoll} + ${attackModifier} = ${totalAttack} vs AC ${defenderAC} -> ${hit ? 'HIT' : 'MISS'}`,
-      );
-
-      let damage = 0;
-      let killed = false;
-
-      if (hit) {
-        damage = this.calculateDamage(attacker.strength);
-        const oldHp = defender.hp;
-        defender.hp = Math.max(0, defender.hp - damage);
-        this.logger.debug(
-          `💥 ${attacker.name} hits ${defender.name} for ${damage} damage! HP: ${oldHp} -> ${defender.hp}`,
-        );
-
-        if (defender.hp <= 0) {
-          defender.isAlive = false;
-          killed = true;
-          this.logger.log(`💀 ${defender.name} is defeated!`);
-        }
-      } else {
-        this.logger.debug(`🛡️ ${attacker.name} misses ${defender.name}`);
-      }
-
-      rounds.push({
-        roundNumber,
-        attackerName: attacker.name,
-        defenderName: defender.name,
-        attackRoll,
-        attackModifier,
-        totalAttack,
-        defenderAC,
-        hit,
-        damage,
-        defenderHpAfter: defender.hp,
-        killed,
-      });
-
-      // Emit combat hit or miss event
-      if (hit) {
-        await EventBus.emit({
-          eventType: 'combat:hit',
-          attacker: {
-            type: attacker.type,
-            id: attacker.id,
-            name: attacker.name,
-          },
-          defender: {
-            type: defender.type,
-            id: defender.id,
-            name: defender.name,
-          },
-          damage,
-          x: attacker.x,
-          y: attacker.y,
-          timestamp: new Date(),
-        });
-      } else {
-        await EventBus.emit({
-          eventType: 'combat:miss',
-          attacker: {
-            type: attacker.type,
-            id: attacker.id,
-            name: attacker.name,
-          },
-          defender: {
-            type: defender.type,
-            id: defender.id,
-            name: defender.name,
-          },
-          x: attacker.x,
-          y: attacker.y,
-          timestamp: new Date(),
-        });
-      }
-
-      if (killed) break;
-
-      // Switch roles for next attack
-      [attacker, defender] = [defender, attacker];
-
-      this.logger.debug(`Turn switch: Next attacker is ${attacker.name}`);
-
-      // Only increment round number after both combatants have attacked
-      if (roundNumber % 2 === 0) {
-        roundNumber++;
-      } else {
-        roundNumber++;
-      }
-    }
-
-    this.logger.log(
-      `🏁 Combat completed after ${Math.ceil((roundNumber - 1) / 2)} full rounds`,
-    );
-
-    const winner = combatant1.isAlive ? combatant1 : combatant2;
-    const loser = combatant1.isAlive ? combatant2 : combatant1;
-    const xpAwarded = this.calculateXpGain(winner.level, loser.level);
-    const goldAwarded = this.calculateGoldReward(winner.level, loser.level);
-
-    this.logger.log(`🏆 Winner: ${winner.name} (${winner.hp} HP remaining)`);
-    this.logger.log(`💀 Loser: ${loser.name} (${loser.hp} HP remaining)`);
-    this.logger.debug(
-      `📈 XP calculation: winner level ${winner.level}, loser level ${loser.level} = ${xpAwarded} XP`,
-    );
-
-    const combatLog: DetailedCombatLog = {
-      combatId,
-      participant1: combatant1.name,
-      participant2: combatant2.name,
-      initiativeRolls,
-      firstAttacker,
-      rounds,
-      winner: winner.name,
-      loser: loser.name,
-      xpAwarded,
-      goldAwarded,
-      timestamp: new Date(),
-      location: { x: combatant1.x, y: combatant1.y },
-    };
-
-    this.logger.log(
-      `💾 Combat log created with ${rounds.length} individual attacks and ${rounds.reduce((sum, round) => sum + round.damage, 0)} total damage`,
-    );
-
-    // Emit combat end event
-    await EventBus.emit({
-      eventType: 'combat:end',
-      winner: { type: winner.type, id: winner.id, name: winner.name },
-      loser: { type: loser.type, id: loser.id, name: loser.name },
-      xpGained: xpAwarded,
-      goldGained: goldAwarded,
-      x: combatLog.location.x,
-      y: combatLog.location.y,
-      timestamp: new Date(),
-    });
-
-    return combatLog;
   }
 
   // Update HP in database and award XP
@@ -786,128 +613,14 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
     combatant1: Combatant,
     combatant2: Combatant,
   ): Promise<void> {
-    this.logger.debug(
-      `🔄 Applying combat results for combat ${combatLog.combatId}`,
+    return resultsApplyCombatResults(
+      combatLog,
+      combatant1,
+      combatant2,
+      this.playerService,
+      this.prisma,
+      this.logger,
     );
-
-    const winner =
-      combatant1.name === combatLog.winner ? combatant1 : combatant2;
-    const loser = combatant1.name === combatLog.loser ? combatant1 : combatant2;
-
-    this.logger.debug(
-      `Winner: ${winner.name} (${winner.type}, ID: ${winner.id}), Loser: ${loser.name} (${loser.type}, ID: ${loser.id})`,
-    );
-
-    // Update loser's HP
-    this.logger.debug(`Updating loser ${loser.name} HP to ${loser.hp}...`);
-    if (loser.type === 'player') {
-      if (!loser.slackId) {
-        throw new Error(
-          `Player ${loser.name} missing slackId in combat results`,
-        );
-      }
-      await this.playerService.updatePlayerStats(loser.slackId, {
-        hp: loser.hp,
-      });
-      if (!loser.isAlive) {
-        this.logger.log(`🏥 Respawning defeated player ${loser.name}`);
-        await this.playerService.respawnPlayer(loser.slackId);
-      }
-    } else {
-      if (!loser.isAlive) {
-        await MonsterFactory.delete(loser.id, {
-          killedBy: { type: winner.type, id: winner.id },
-        });
-        this.logger.log(
-          `🗑️ Removed defeated monster ${loser.name} from the world`,
-        );
-      } else {
-        const monsterEntity = await MonsterFactory.load(loser.id);
-        if (monsterEntity) {
-          monsterEntity.combat.hp = loser.hp;
-          monsterEntity.combat.isAlive = loser.isAlive;
-          await MonsterFactory.save(monsterEntity);
-          this.logger.debug(
-            `Monster ${loser.name} updated: HP=${loser.hp}, alive=${loser.isAlive}`,
-          );
-        }
-      }
-    }
-
-    // Award XP to winner if they're a player
-    if (winner.type === 'player') {
-      if (!winner.slackId) {
-        throw new Error(
-          `Player ${winner.name} missing slackId in combat results`,
-        );
-      }
-      this.logger.debug(
-        `Awarding ${combatLog.xpAwarded} XP to winner ${winner.name}...`,
-      );
-      const currentPlayer = await this.playerService.getPlayer(winner.slackId);
-      const newXp = currentPlayer.xp + combatLog.xpAwarded;
-      const goldAwarded = Math.max(0, combatLog.goldAwarded ?? 0);
-      const updatedStats: PlayerStatsDto = { xp: newXp, hp: winner.hp };
-      let newGoldTotal = currentPlayer.gold;
-      if (goldAwarded > 0) {
-        newGoldTotal = currentPlayer.gold + goldAwarded;
-        updatedStats.gold = newGoldTotal;
-      }
-      const updatedPlayer = await this.playerService.updatePlayerStats(
-        winner.slackId,
-        updatedStats,
-      );
-      this.logger.log(
-        `📈 ${winner.name} gained ${combatLog.xpAwarded} XP! Total XP: ${currentPlayer.xp} -> ${newXp}`,
-      );
-      if (goldAwarded > 0) {
-        this.logger.log(
-          `💰 ${winner.name} gained ${goldAwarded} gold! Total Gold: ${currentPlayer.gold} -> ${newGoldTotal}`,
-        );
-      }
-
-      if (updatedPlayer.level > currentPlayer.level) {
-        const skillPointsAwarded = Math.max(
-          0,
-          updatedPlayer.skillPoints - currentPlayer.skillPoints,
-        );
-        winner.level = updatedPlayer.level;
-        winner.maxHp = updatedPlayer.combat.maxHp;
-        winner.hp = updatedPlayer.combat.hp;
-        winner.levelUp = {
-          previousLevel: currentPlayer.level,
-          newLevel: updatedPlayer.level,
-          skillPointsAwarded,
-        };
-      }
-    } else {
-      this.logger.debug(
-        `Winner ${winner.name} is a monster, no XP or gold awarded`,
-      );
-    }
-
-    // Log to database for history
-    const totalDamage = combatLog.rounds.reduce(
-      (total, round) => total + round.damage,
-      0,
-    );
-    this.logger.debug(
-      `Logging combat to database: attacker=${winner.id}, defender=${loser.id}, damage=${totalDamage}`,
-    );
-
-    await this.prisma.combatLog.create({
-      data: {
-        attackerId: winner.id,
-        attackerType: winner.type,
-        defenderId: loser.id,
-        defenderType: loser.type,
-        damage: totalDamage,
-        x: combatLog.location.x,
-        y: combatLog.location.y,
-      },
-    });
-
-    this.logger.log(`💾 Combat results applied and logged to database`);
   }
 
   /**
@@ -918,17 +631,22 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
     attacker: Combatant,
     defender: Combatant,
   ): Promise<{ messages: CombatMessage[]; perf: CombatMessagePerformance }> {
+    // Generate participant and observer messages using service-level
+    // helpers so unit tests can spy/mock `generateCombatNarrative` and
+    // `generateEntertainingSummary` on this service instance.
     const start = Date.now();
-    const perf: CombatMessagePerformance = { totalMs: 0 };
+    const perf: CombatMessagePerformance = {
+      totalMs: 0,
+    } as CombatMessagePerformance;
     const messages: CombatMessage[] = [];
     const { x, y } = combatLog.location;
 
     const measure = async <T>(
       fn: () => Promise<T>,
     ): Promise<{ value: T; duration: number }> => {
-      const startAt = Date.now();
+      const s = Date.now();
       const value = await fn();
-      return { value, duration: Date.now() - startAt };
+      return { value, duration: Date.now() - s };
     };
 
     const attackerPromise = measure(() =>
@@ -939,7 +657,6 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
       defender.type === 'player' &&
       !!defender.slackId &&
       defender.slackId !== attacker.slackId;
-
     const defenderPromise = defenderEligible
       ? measure(() =>
           this.buildParticipantMessage(combatLog, defender, 'defender'),
@@ -951,11 +668,9 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
         excludePlayerId: attacker.type === 'player' ? attacker.id : undefined,
       }),
     );
-
     const observerNarrativePromise = measure(() =>
       this.generateCombatNarrative(combatLog, {}),
     );
-
     const observerSummaryPromise = measure(() =>
       this.generateEntertainingSummary(combatLog, {}),
     );
@@ -976,7 +691,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
 
     const observersResult = await observerLookupPromise;
     perf.observerLookupMs = observersResult.duration;
-    const observers = observersResult.value;
+    const observers = observersResult.value as any[];
 
     const observerNarrativeResult = await observerNarrativePromise;
     perf.observerNarrativeMs = observerNarrativeResult.duration;
@@ -987,26 +702,28 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
     const observerSummary = observerSummaryResult.value;
 
     for (const observer of observers) {
-      if (defender.type === 'player' && observer.id === defender.id) {
-        continue;
-      }
-
+      if (defender.type === 'player' && observer.id === defender.id) continue;
       if (observer.clientType === 'slack' && observer.clientId) {
-        const slackId = observer.clientId;
         messages.push({
-          slackId,
+          slackId: observer.clientId,
           name: observer.name,
           message: `📣 Combat nearby: ${observerMessage}`,
           role: 'observer',
-          blocks: this.buildSummaryBlocks(
-            `📣 Combat nearby: ${observerSummary}`,
-          ),
+          blocks: [
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: `📣 Combat nearby: ${observerSummary}`,
+              },
+            },
+            { type: 'actions', elements: [] },
+          ],
         });
       }
     }
 
     perf.totalMs = Date.now() - start;
-
     this.logger.debug(
       `Generated ${messages.length} combat messages (${messages.filter((m) => m.role === 'observer').length} observers)`,
     );
@@ -1132,7 +849,29 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
         xpGained: combatLog.winner === attacker.name ? combatLog.xpAwarded : 0,
         goldGained:
           combatLog.winner === attacker.name ? combatLog.goldAwarded : 0,
-        message: messages[0]?.message || '',
+        // Keep legacy behavior for callers/tests that expect a short summary
+        // in `result.message`. Prefer the participant's narrative message
+        // (which tests commonly mock), falling back to the short summary
+        // stored in the first message's blocks when the narrative isn't
+        // available.
+        message: (() => {
+          const first = messages[0];
+          if (!first) return '';
+          if (first.message) return first.message;
+          try {
+            if (first.blocks && first.blocks.length) {
+              const section = first.blocks.find(
+                (b) => (b as any)?.type === 'section' && (b as any)?.text?.text,
+              );
+              if (section && (section as any).text?.text) {
+                return String((section as any).text.text);
+              }
+            }
+          } catch (e) {
+            // ignore and fallthrough to empty
+          }
+          return '';
+        })(),
         playerMessages: messages,
         perfBreakdown: breakdown,
       };
