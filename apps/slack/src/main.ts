@@ -3,14 +3,7 @@ import '@mud/tracer/register'; // must come before importing any instrumented mo
 import { App, MemoryInstallationStore } from '@slack/bolt';
 import { env } from './env';
 import { NotificationService } from './notification.service';
-import { getPrismaClient } from '@mud/database';
-import {
-  authorize,
-  invalidateAuthorizeCache,
-  clearAllAuthorizeCache,
-} from './utils/authorize';
-
-import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
+import { clearAllAuthorizeCache } from './utils/authorize';
 
 // Decode any env values that were accidentally base64-encoded so the app
 // always receives raw strings. We create `decodedEnv` from `env` and use it
@@ -44,62 +37,62 @@ const decodedEnv = Object.fromEntries(
   ]),
 ) as unknown as typeof env;
 
-const installationStore = new PrismaInstallationStore({
-  clientId: decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
-  prismaTable: getPrismaClient().slackAppInstallation,
-  onFetchInstallation: async (args) => {
-    console.log(
-      `Installation fetched: ${args.installation.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
-        args.installation.isEnterpriseInstall
-          ? args.installation.enterprise?.id
-          : args.installation.team?.id
-      }`,
-    );
-  },
-  onStoreInstallation: async (args) => {
-    console.log(
-      `Installation stored: ${args.installation.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
-        args.installation.isEnterpriseInstall
-          ? args.installation.enterprise?.id
-          : args.installation.team?.id
-      }`,
-    );
-    try {
-      const teamId =
-        args.installation.team?.id ?? args.installation.team?.id ?? null;
-      const enterpriseId = args.installation.enterprise?.id ?? null;
-      await invalidateAuthorizeCache(
-        decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
-        teamId,
-        enterpriseId,
-      );
-    } catch (err) {
-      console.warn('Failed to invalidate authorize cache on store:', err);
-    }
-  },
-  onDeleteInstallation: async (args) => {
-    console.log(
-      `Installation deleted: ${args.query.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
-        args.query.isEnterpriseInstall
-          ? args.query.enterpriseId
-          : args.query.teamId
-      }`,
-    );
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const teamId = (args.query as any).teamId ?? null;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const enterpriseId = (args.query as any).enterpriseId ?? null;
-      await invalidateAuthorizeCache(
-        decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
-        teamId,
-        enterpriseId,
-      );
-    } catch (err) {
-      console.warn('Failed to invalidate authorize cache on delete:', err);
-    }
-  },
-});
+// const installationStore = new PrismaInstallationStore({
+//   clientId: decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
+//   prismaTable: getPrismaClient().slackAppInstallation,
+//   onFetchInstallation: async (args) => {
+//     console.log(
+//       `Installation fetched: ${args.installation.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
+//         args.installation.isEnterpriseInstall
+//           ? args.installation.enterprise?.id
+//           : args.installation.team?.id
+//       }`,
+//     );
+//   },
+//   onStoreInstallation: async (args) => {
+//     console.log(
+//       `Installation stored: ${args.installation.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
+//         args.installation.isEnterpriseInstall
+//           ? args.installation.enterprise?.id
+//           : args.installation.team?.id
+//       }`,
+//     );
+//     try {
+//       const teamId =
+//         args.installation.team?.id ?? args.installation.team?.id ?? null;
+//       const enterpriseId = args.installation.enterprise?.id ?? null;
+//       await invalidateAuthorizeCache(
+//         decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
+//         teamId,
+//         enterpriseId,
+//       );
+//     } catch (err) {
+//       console.warn('Failed to invalidate authorize cache on store:', err);
+//     }
+//   },
+//   onDeleteInstallation: async (args) => {
+//     console.log(
+//       `Installation deleted: ${args.query.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
+//         args.query.isEnterpriseInstall
+//           ? args.query.enterpriseId
+//           : args.query.teamId
+//       }`,
+//     );
+//     try {
+//       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+//       const teamId = (args.query as any).teamId ?? null;
+//       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+//       const enterpriseId = (args.query as any).enterpriseId ?? null;
+//       await invalidateAuthorizeCache(
+//         decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
+//         teamId,
+//         enterpriseId,
+//       );
+//     } catch (err) {
+//       console.warn('Failed to invalidate authorize cache on delete:', err);
+//     }
+//   },
+// });
 
 // authorize is implemented in src/utils/authorize.ts and imported above.
 
