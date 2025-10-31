@@ -90,23 +90,23 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
 
             const equipDisabled = allowedSlots.length === 0;
 
-            const actions: any[] = [
-              {
+            // Build actions array but omit the Equip button when it's not applicable.
+            const actions: Array<Record<string, unknown>> = [];
+            if (!equipDisabled) {
+              actions.push({
                 type: 'button',
                 text: { type: 'plain_text', text: 'Equip' },
                 action_id: 'inventory_equip',
                 value: equipPayload,
-                // When there are no allowed slots, disable the Equip button
-                disabled: equipDisabled,
-              },
-              {
-                type: 'button',
-                text: { type: 'plain_text', text: 'Drop' },
-                style: 'danger',
-                action_id: 'inventory_drop',
-                value: String(it.id),
-              },
-            ];
+              });
+            }
+            actions.push({
+              type: 'button',
+              text: { type: 'plain_text', text: 'Drop' },
+              style: 'danger',
+              action_id: 'inventory_drop',
+              value: String(it.id),
+            });
 
             const blocks: any[] = [
               {
