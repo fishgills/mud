@@ -4,7 +4,7 @@ import type { PlayerRecord } from '../dm-client';
 import type { KnownBlock, Block, ActionsBlock, Button } from '@slack/types';
 // Use Prisma-generated enum for item qualities so the mapping follows the
 // canonical backend enum values.
-import { ItemQuality } from '@prisma/client';
+import { ItemQuality, PlayerSlot } from '@prisma/client';
 import { getQualityBadge, formatQualityLabel } from '@mud/constants';
 
 type PlayerWithBag = PlayerRecord & { bag?: ItemRecord[] };
@@ -13,14 +13,14 @@ import { registerHandler } from './handlerRegistry';
 import type { HandlerContext, SayMessage } from './types';
 import { toClientId } from '../utils/clientId';
 
-type EquipmentSlotKey = 'head' | 'chest' | 'legs' | 'arms' | 'weapon';
+type EquipmentSlotKey = PlayerSlot;
 
 const EQUIPMENT_SLOTS: Array<{ key: EquipmentSlotKey; label: string }> = [
-  { key: 'head', label: 'Head' },
-  { key: 'chest', label: 'Chest' },
-  { key: 'legs', label: 'Legs' },
-  { key: 'arms', label: 'Arms' },
-  { key: 'weapon', label: 'Weapon' },
+  { key: PlayerSlot.head, label: 'Head' },
+  { key: PlayerSlot.chest, label: 'Chest' },
+  { key: PlayerSlot.legs, label: 'Legs' },
+  { key: PlayerSlot.arms, label: 'Arms' },
+  { key: PlayerSlot.weapon, label: 'Weapon' },
 ];
 
 const formatSlotValue = (

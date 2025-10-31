@@ -3,22 +3,21 @@ export const WORLD_CHUNK_SIZE = 50;
 // Quality badging helpers for UI rendering. Keys match the Prisma ItemQuality
 // enum string names to keep the mapping stable with the backend.
 export const QUALITY_BADGES: Record<string, string> = {
-  hi: 'there',
-  //   Trash: '⬛',
-  //   Poor: '⚫',
-  //   Common: '⚪',
-  //   Uncommon: '🟢',
-  //   Fine: '🔹',
-  //   Superior: '🔷',
-  //   Rare: '🔵',
-  //   Epic: '🟣',
-  //   Legendary: '🟠',
-  //   Mythic: '🔥',
-  //   Artifact: '✨',
-  //   Ascended: '🌟',
-  //   Transcendent: '💠',
-  //   Primal: '🛡️',
-  //   Divine: '👑',
+  Trash: '⬛',
+  Poor: '⚫',
+  Common: '⚪',
+  Uncommon: '🟢',
+  Fine: '🔹',
+  Superior: '🔷',
+  Rare: '🔵',
+  Epic: '🟣',
+  Legendary: '🟠',
+  Mythic: '🔥',
+  Artifact: '✨',
+  Ascended: '🌟',
+  Transcendent: '💠',
+  Primal: '🛡️',
+  Divine: '👑',
 };
 
 /**
