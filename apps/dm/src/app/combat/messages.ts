@@ -302,7 +302,11 @@ export class CombatMessenger {
 
     const observersResult = await observerLookupPromise;
     perf.observerLookupMs = observersResult.duration;
-    const observers = observersResult.value as Array<Record<string, unknown>>;
+    // observersResult.value may be a concrete PlayerEntity[]; convert via
+    // unknown first to satisfy TypeScript when narrowing to a loose Record.
+    const observers = observersResult.value as unknown as Array<
+      Record<string, unknown>
+    >;
 
     const observerNarrativeResult = await observerNarrativePromise;
     perf.observerNarrativeMs = observerNarrativeResult.duration;

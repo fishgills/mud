@@ -912,7 +912,10 @@ export function registerActions(app: App) {
         let itemName = selectedText ?? 'an item';
         let quantity: number | undefined = undefined;
         if (itemFromRes) {
-          itemName = itemFromRes.itemName ?? itemFromRes.name ?? itemName;
+          // Ensure we always end up with a string for itemName
+          const candidate =
+            itemFromRes.itemName ?? itemFromRes.name ?? itemName;
+          if (typeof candidate === 'string') itemName = candidate;
           quantity =
             typeof itemFromRes.quantity === 'number'
               ? itemFromRes.quantity

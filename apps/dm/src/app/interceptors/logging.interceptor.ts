@@ -37,7 +37,9 @@ export class LoggingInterceptor implements NestInterceptor {
     const start = Date.now();
 
     const resolveResponse = (httpObj: unknown): Response | undefined => {
-      const h = httpObj as Record<string, unknown>;
+      // Convert through unknown first so TypeScript won't complain when
+      // narrowing potentially concrete framework types to a loose Record.
+      const h = httpObj as unknown as Record<string, unknown>;
       const getRes = h.getResponse;
       if (typeof getRes === 'function') {
         try {
@@ -50,7 +52,7 @@ export class LoggingInterceptor implements NestInterceptor {
       }
       const maybeRes = (h.getResponse ?? h.response) as unknown;
       if (typeof maybeRes === 'object' && maybeRes !== null) {
-        const sr = maybeRes as Record<string, unknown>;
+        const sr = maybeRes as unknown as Record<string, unknown>;
         if (typeof sr.statusCode === 'number') return maybeRes as Response;
       }
       return undefined;
@@ -64,7 +66,8 @@ export class LoggingInterceptor implements NestInterceptor {
         const response = resolveResponse(http);
         const status =
           response &&
-          typeof (response as Record<string, unknown>).statusCode === 'number'
+          typeof (response as unknown as Record<string, unknown>).statusCode ===
+            'number'
             ? (response as unknown as { statusCode: number }).statusCode
             : 0;
 
@@ -101,14 +104,19 @@ export class LoggingInterceptor implements NestInterceptor {
         const response = resolveResponse(http);
         const status =
           response &&
-          typeof (response as Record<string, unknown>).statusCode === 'number'
+          typeof (response as unknown as Record<string, unknown>).statusCode ===
+            'number'
             ? (response as unknown as { statusCode: number }).statusCode
-            : ((err && ((err as Record<string, unknown>).status as number)) ??
+            : ((err &&
+                ((err as unknown as Record<string, unknown>)
+                  .status as number)) ??
               500);
 
         // Always log errors, including health endpoint failures.
         const errMsg =
-          err && typeof (err as Record<string, unknown>).message === 'string'
+          err &&
+          typeof (err as unknown as Record<string, unknown>).message ===
+            'string'
             ? (err as { message?: string }).message
             : String(err);
         this.logger.error(
