@@ -65,6 +65,11 @@ export const ATTACK_ACTIONS = {
   ATTACK_MONSTER: 'attack_action_attack_monster',
 } as const;
 
+export const PICKUP_ACTIONS = {
+  ITEM_SELECT: 'pickup_action_item_select',
+  PICKUP: 'pickup_action_pickup',
+} as const;
+
 export const STAT_ACTIONS = {
   INCREASE_STRENGTH: 'stats_action_increase_strength',
   INCREASE_AGILITY: 'stats_action_increase_agility',

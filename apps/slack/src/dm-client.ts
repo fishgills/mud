@@ -103,6 +103,16 @@ export interface MonsterRecord extends Record<string, unknown> {
   isAlive?: boolean;
 }
 
+export interface ItemRecord extends Record<string, unknown> {
+  id?: number; // world item id
+  itemId?: number;
+  itemName?: string | null;
+  quantity?: number | null;
+  quality?: string | null;
+  x?: number;
+  y?: number;
+}
+
 export interface PlayerResponse extends SuccessResponse {
   data?: PlayerRecord;
 }
@@ -213,6 +223,7 @@ export interface LookViewResponse extends SuccessResponse {
 export interface LocationEntitiesResult {
   players: PlayerRecord[];
   monsters: MonsterRecord[];
+  items?: ItemRecord[];
 }
 
 export interface CreatePlayerRequest {

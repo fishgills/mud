@@ -12,3 +12,6 @@
 - Never amend commits unless you have explicit written approval in the task thread.
 - Terminal has an authenticed session so gcloud cli is available.
 - Never use gcloud cli to make modifications. Treat it as read only and use it for gathering information or debugging.
+
+- Slack bot communication note:
+  - All player-facing Slack communications are delivered via direct message (DM) with the bot. Commands that affect nearby players (for example, `pickup`) DM the acting player with detailed results and DM other players at the same x/y with a short, vague notification.
