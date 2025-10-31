@@ -3,7 +3,7 @@ import '@mud/tracer/register'; // must come before importing any instrumented mo
 import { App, MemoryInstallationStore } from '@slack/bolt';
 import { env } from './env';
 import { NotificationService } from './notification.service';
-import { clearAllAuthorizeCache } from './utils/authorize';
+// import { clearAllAuthorizeCache } from './utils/authorize';
 
 // Decode any env values that were accidentally base64-encoded so the app
 // always receives raw strings. We create `decodedEnv` from `env` and use it
@@ -293,11 +293,11 @@ registerActions(app);
 
 async function start() {
   // Clear any existing authorize cache on startup so we start with a clean slate.
-  try {
-    await clearAllAuthorizeCache();
-  } catch (err) {
-    console.warn('Failed to clear authorize cache on startup:', err);
-  }
+  // try {
+  //   await clearAllAuthorizeCache();
+  // } catch (err) {
+  //   console.warn('Failed to clear authorize cache on startup:', err);
+  // }
   await app.start(Number(decodedEnv.PORT ?? env.PORT));
   console.log(
     `⚡️ Slack MUD bot is running! 🚀 On http://localhost:${env.PORT}`,
