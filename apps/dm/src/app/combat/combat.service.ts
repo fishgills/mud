@@ -691,7 +691,9 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
 
     const observersResult = await observerLookupPromise;
     perf.observerLookupMs = observersResult.duration;
-    const observers = observersResult.value as any[];
+    const observers = observersResult.value as unknown as Array<
+      Record<string, unknown>
+    >;
 
     const observerNarrativeResult = await observerNarrativePromise;
     perf.observerNarrativeMs = observerNarrativeResult.duration;
@@ -702,11 +704,20 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
     const observerSummary = observerSummaryResult.value;
 
     for (const observer of observers) {
-      if (defender.type === 'player' && observer.id === defender.id) continue;
-      if (observer.clientType === 'slack' && observer.clientId) {
+      const obsId = observer.id as number | undefined;
+      if (
+        defender.type === 'player' &&
+        typeof obsId === 'number' &&
+        obsId === defender.id
+      )
+        continue;
+      const clientType = observer.clientType as string | undefined;
+      const clientId = observer.clientId as string | undefined;
+      const observerName = observer.name as string | undefined;
+      if (clientType === 'slack' && clientId) {
         messages.push({
-          slackId: observer.clientId,
-          name: observer.name,
+          slackId: clientId,
+          name: observerName ?? 'Someone',
           message: `📣 Combat nearby: ${observerMessage}`,
           role: 'observer',
           blocks: [
@@ -859,16 +870,27 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
           if (!first) return '';
           if (first.message) return first.message;
           try {
-            if (first.blocks && first.blocks.length) {
-              const section = first.blocks.find(
-                (b) => (b as any)?.type === 'section' && (b as any)?.text?.text,
-              );
-              if (section && (section as any).text?.text) {
-                return String((section as any).text.text);
+            const blocks = first.blocks as
+              | Array<Record<string, unknown>>
+              | undefined;
+            if (blocks && blocks.length) {
+              const section = blocks.find((b) => {
+                const maybeText = b.text as Record<string, unknown> | undefined;
+                return (
+                  typeof b.type === 'string' &&
+                  typeof maybeText?.text === 'string'
+                );
+              });
+              if (section) {
+                const textObj = section.text as { text?: unknown } | undefined;
+                if (textObj && typeof textObj.text === 'string') {
+                  return String(textObj.text);
+                }
               }
             }
-          } catch (e) {
+          } catch (err) {
             // ignore and fallthrough to empty
+            this.logger.debug('Error extracting summary text', err);
           }
           return '';
         })(),

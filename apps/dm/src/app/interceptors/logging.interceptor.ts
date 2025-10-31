@@ -35,17 +35,38 @@ export class LoggingInterceptor implements NestInterceptor {
     }
 
     const start = Date.now();
+
+    const resolveResponse = (httpObj: unknown): Response | undefined => {
+      const h = httpObj as Record<string, unknown>;
+      const getRes = h.getResponse;
+      if (typeof getRes === 'function') {
+        try {
+          return (getRes as (...args: unknown[]) => unknown).call(
+            httpObj,
+          ) as Response;
+        } catch {
+          return undefined;
+        }
+      }
+      const maybeRes = (h.getResponse ?? h.response) as unknown;
+      if (typeof maybeRes === 'object' && maybeRes !== null) {
+        const sr = maybeRes as Record<string, unknown>;
+        if (typeof sr.statusCode === 'number') return maybeRes as Response;
+      }
+      return undefined;
+    };
+
     return next.handle().pipe(
       tap((data) => {
         const duration = Date.now() - start;
         // Some test ExecutionContext mocks provide getResponse as a function,
         // others provide a plain property. Be defensive when retrieving it.
-        const _getRes = (http as any).getResponse;
-        const response: Response | undefined =
-          typeof _getRes === 'function'
-            ? _getRes.call(http)
-            : ((http as any).getResponse ?? (http as any).response);
-        const status = (response as any)?.statusCode ?? 0;
+        const response = resolveResponse(http);
+        const status =
+          response &&
+          typeof (response as Record<string, unknown>).statusCode === 'number'
+            ? (response as unknown as { statusCode: number }).statusCode
+            : 0;
 
         // For health endpoints, only log when status indicates failure (>= 400).
         if (isHealthEndpoint) {
@@ -77,17 +98,21 @@ export class LoggingInterceptor implements NestInterceptor {
       }),
       catchError((err) => {
         const duration = Date.now() - start;
-        const _getRes = (http as any).getResponse;
-        const response: Response | undefined =
-          typeof _getRes === 'function'
-            ? _getRes.call(http)
-            : ((http as any).getResponse ?? (http as any).response);
+        const response = resolveResponse(http);
         const status =
-          (response as any)?.statusCode ?? (err && err.status) ?? 500;
+          response &&
+          typeof (response as Record<string, unknown>).statusCode === 'number'
+            ? (response as unknown as { statusCode: number }).statusCode
+            : ((err && ((err as Record<string, unknown>).status as number)) ??
+              500);
 
         // Always log errors, including health endpoint failures.
+        const errMsg =
+          err && typeof (err as Record<string, unknown>).message === 'string'
+            ? (err as { message?: string }).message
+            : String(err);
         this.logger.error(
-          `[DM-ERROR] ${method} ${url} failed with status ${status} after ${duration}ms - ${err?.message ?? err}`,
+          `[DM-ERROR] ${method} ${url} failed with status ${status} after ${duration}ms - ${errMsg}`,
         );
         return throwError(() => err);
       }),

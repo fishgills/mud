@@ -63,7 +63,10 @@ export async function applyCombatResults(
     const currentPlayer = await playerService.getPlayer(winner.slackId);
     const newXp = currentPlayer.xp + combatLog.xpAwarded;
     const goldAwarded = Math.max(0, combatLog.goldAwarded ?? 0);
-    const updatedStats: any = { xp: newXp, hp: winner.hp };
+    const updatedStats: Partial<{ xp: number; hp: number; gold: number }> = {
+      xp: newXp,
+      hp: winner.hp,
+    };
     let newGoldTotal = currentPlayer.gold;
     if (goldAwarded > 0) {
       newGoldTotal = currentPlayer.gold + goldAwarded;

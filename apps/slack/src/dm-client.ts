@@ -384,10 +384,14 @@ export async function pickup(input: {
   slackId?: string;
   clientId?: string;
   worldItemId?: number;
-}): Promise<any> {
-  return dmRequest<any>('/players/pickup', HttpMethod.POST, {
-    body: input,
-  });
+}): Promise<SuccessResponse & { item?: ItemRecord; data?: unknown }> {
+  return dmRequest<SuccessResponse & { item?: ItemRecord; data?: unknown }>(
+    '/players/pickup',
+    HttpMethod.POST,
+    {
+      body: input,
+    },
+  );
 }
 
 export async function equip(input: {

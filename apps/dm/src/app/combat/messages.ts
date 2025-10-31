@@ -302,7 +302,7 @@ export class CombatMessenger {
 
     const observersResult = await observerLookupPromise;
     perf.observerLookupMs = observersResult.duration;
-    const observers = observersResult.value as any[];
+    const observers = observersResult.value as Array<Record<string, unknown>>;
 
     const observerNarrativeResult = await observerNarrativePromise;
     perf.observerNarrativeMs = observerNarrativeResult.duration;
@@ -313,11 +313,21 @@ export class CombatMessenger {
     const observerSummary = observerSummaryResult.value;
 
     for (const observer of observers) {
-      if (defender.type === 'player' && observer.id === defender.id) continue;
-      if (observer.clientType === 'slack' && observer.clientId) {
+      // guard runtime types from external playerService responses
+      const obsId = observer.id as number | undefined;
+      if (
+        defender.type === 'player' &&
+        typeof obsId === 'number' &&
+        obsId === defender.id
+      )
+        continue;
+      const clientType = observer.clientType as string | undefined;
+      const clientId = observer.clientId as string | undefined;
+      const observerName = observer.name as string | undefined;
+      if (clientType === 'slack' && clientId) {
         messages.push({
-          slackId: observer.clientId,
-          name: observer.name,
+          slackId: clientId,
+          name: observerName ?? 'Someone',
           message: `📣 Combat nearby: ${observerMessage}`,
           role: 'observer',
           blocks: this.buildSummaryBlocks(

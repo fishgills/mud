@@ -33,6 +33,31 @@ import type { HandlerContext, SayMessage } from './handlers/types';
 import type { ViewStateValue } from '@slack/bolt';
 import { toClientId } from './utils/clientId';
 import { extractSlackId } from './utils/clientId';
+import type { ItemRecord } from './dm-client';
+
+// Small helpers to avoid casting to `any` throughout action handlers
+const getActionValue = (body: unknown): string | undefined => {
+  const b = body as { actions?: Array<Record<string, unknown>> | undefined };
+  const a = b.actions && b.actions[0];
+  if (!a) return undefined;
+  const v = (a as { value?: unknown }).value;
+  return typeof v === 'string' ? v : undefined;
+};
+
+const getTriggerId = (body: unknown): string | undefined => {
+  return (body as { trigger_id?: unknown }).trigger_id as string | undefined;
+};
+
+const getChannelIdFromBody = (body: unknown): string | undefined => {
+  const b = body as {
+    channel?: { id?: unknown } | undefined;
+    container?: { channel_id?: unknown } | undefined;
+  };
+  if (b.channel && typeof b.channel.id === 'string') return b.channel.id;
+  if (b.container && typeof b.container.channel_id === 'string')
+    return b.container.channel_id;
+  return undefined;
+};
 import { ITEM_SELECTION_BLOCK_ID } from './handlers/pickup';
 
 type SlackBlockState = Record<string, Record<string, ViewStateValue>>;
@@ -505,8 +530,8 @@ export function registerActions(app: App) {
   app.action<BlockAction>('inventory_equip', async ({ ack, body, client }) => {
     await ack();
     const userId = body.user?.id;
-    const triggerId = (body as any).trigger_id as string | undefined;
-    const rawValue = (body.actions?.[0] as any)?.value as string | undefined;
+    const triggerId = getTriggerId(body);
+    const rawValue = getActionValue(body);
     if (!userId || !triggerId || !rawValue) return;
 
     // Value is JSON string from inventory: { playerItemId, allowedSlots }
@@ -575,6 +600,7 @@ export function registerActions(app: App) {
       });
     } catch (err) {
       // fallback: DM instructive message
+      console.warn('Failed to open equip modal', err);
       const dm = await client.conversations.open({ users: userId });
       const channel = dm.channel?.id;
       if (channel) {
@@ -614,7 +640,8 @@ export function registerActions(app: App) {
           : (friendly ?? `Failed to equip: ${res.message ?? 'Unknown error'}`);
         await client.chat.postMessage({ channel, text });
       }
-    } catch (err) {
+    } catch (error) {
+      console.warn('inventory_equip_view handler failed', error);
       const dm = await client.conversations.open({ users: userId });
       const channel = dm.channel?.id;
       if (channel) {
@@ -629,8 +656,8 @@ export function registerActions(app: App) {
   app.action<BlockAction>('inventory_drop', async ({ ack, body, client }) => {
     await ack();
     const userId = body.user?.id;
-    const value = (body.actions?.[0] as any)?.value as string | undefined;
-    const channelId = body.channel?.id || (body.container as any)?.channel_id;
+    const value = getActionValue(body);
+    const channelId = getChannelIdFromBody(body);
     if (!userId || !value) return;
     try {
       const res = await dmClient.drop({
@@ -654,8 +681,9 @@ export function registerActions(app: App) {
         const ch = dm.channel?.id;
         if (ch) await client.chat.postMessage({ channel: ch, text });
       }
-    } catch (err) {
-      const channel = body.channel?.id || (body.container as any)?.channel_id;
+    } catch (error) {
+      console.warn('inventory_drop failed', error);
+      const channel = getChannelIdFromBody(body);
       if (channel)
         await client.chat.postEphemeral({
           channel,
@@ -876,8 +904,11 @@ export function registerActions(app: App) {
         }
 
         // Determine item name/quantity from response if available, otherwise fall back to selectedText
-        const itemFromRes =
-          (pickupResult as any)?.item ?? (pickupResult as any)?.data?.item;
+        const typedPickup = pickupResult as unknown as {
+          item?: ItemRecord;
+          data?: { item?: ItemRecord } | undefined;
+        };
+        const itemFromRes = typedPickup.item ?? typedPickup.data?.item;
         let itemName = selectedText ?? 'an item';
         let quantity: number | undefined = undefined;
         if (itemFromRes) {
@@ -914,7 +945,9 @@ export function registerActions(app: App) {
         if (typeof x === 'number' && typeof y === 'number') {
           const loc = await dmClient.getLocationEntities({ x, y });
           for (const p of loc.players || []) {
-            const slack = extractSlackId(p as any) as string | undefined;
+            const slack = extractSlackId(
+              p as unknown as Record<string, unknown>,
+            ) as string | undefined;
             if (!slack || slack === userId) continue;
             try {
               const dm = await client.conversations.open({ users: slack });
@@ -924,7 +957,7 @@ export function registerActions(app: App) {
                   channel: ch,
                   text: `${playerName} picked something up from the ground.`,
                 });
-            } catch (err) {
+            } catch {
               // ignore individual DM failures
             }
           }
