@@ -261,6 +261,15 @@ export interface LookViewData {
   inSettlement: boolean;
   description: string;
   monsters: Monster[];
+  items?: Array<{
+    id: number;
+    itemId: number;
+    quantity?: number;
+    quality?: string | null;
+    itemName?: string | null;
+    x?: number;
+    y?: number;
+  }>;
 }
 
 export interface PerformanceStats {

@@ -1,6 +1,6 @@
 import { HandlerContext } from './types';
 import { COMMANDS } from '../commands';
-import { getOccupantsSummaryAt } from './locationUtils';
+import { getOccupantsSummaryAt, sendItemsSummary } from './locationUtils';
 import { PlayerCommandHandler } from './base';
 
 export const lookHandlerHelp = `Look around with enhanced vision based on terrain height. Returns a panoramic description, visible peaks, nearby settlements, and biome summary. Example: Send 'look' or 'l'.`;
@@ -56,6 +56,17 @@ export class LookHandler extends PlayerCommandHandler {
     });
     if (occupants) {
       await say({ text: occupants });
+    }
+
+    // If the DM returned any world items at the player's location, show them.
+    // Use the shared helper so item rendering follows the same pattern as players/monsters.
+    const maybeItems = (res.data as unknown as { items?: unknown } | undefined)
+      ?.items;
+    if (maybeItems) {
+      await sendItemsSummary(
+        say,
+        maybeItems as Array<Record<string, unknown>> | undefined,
+      );
     }
 
     const perf: Perf | undefined = res.perf as Perf | undefined;

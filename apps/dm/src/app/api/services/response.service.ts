@@ -24,6 +24,15 @@ export class ResponseService {
     description: string,
     nearbyPlayers: NearbyPlayerInfo[],
     monsters: Monster[],
+    items?: Array<{
+      id: number;
+      itemId: number;
+      quantity?: number;
+      quality?: string | null;
+      itemName?: string | null;
+      x?: number;
+      y?: number;
+    }>,
   ): LookViewData {
     return {
       location: {
@@ -41,6 +50,7 @@ export class ResponseService {
       visiblePeaks,
       visibleSettlements,
       monsters,
+      items,
       currentSettlement: currentSettlement
         ? {
             name: currentSettlement.name,

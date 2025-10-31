@@ -30,6 +30,7 @@ import {
   ResponseService,
 } from '../services';
 import { EntityToDtoAdapter } from '../adapters/entity-to-dto.adapter';
+import { getPrismaClient } from '@mud/database';
 import { calculateDirection } from '../../shared/direction.util';
 import { env } from '../../../env';
 
@@ -613,6 +614,41 @@ export class MovementController {
         timing,
       );
 
+      // Also fetch any world items at the player's location and include their
+      // item names where possible so the look view can show loot on the ground.
+      const prisma = getPrismaClient();
+      let items: Array<{
+        id: number;
+        itemId: number;
+        quantity?: number;
+        quality?: string | null;
+        itemName?: string | null;
+        x?: number;
+        y?: number;
+      }> = [];
+
+      try {
+        const worldItems = await prisma.worldItem.findMany({
+          where: { x: player.position.x, y: player.position.y },
+          include: { item: true },
+        });
+        items = worldItems.map((wi) => ({
+          id: wi.id,
+          itemId: wi.itemId,
+          quantity: wi.quantity ?? 1,
+          quality: wi.quality ?? null,
+          itemName: wi.item ? (wi.item.name as string) : null,
+          x: wi.x,
+          y: wi.y,
+        }));
+      } catch (err) {
+        // Non-fatal: if DB lookup fails, just omit items from response
+        this.logger.warn(
+          `Failed to load world items for look view: ${err instanceof Error ? err.message : err}`,
+        );
+        items = [];
+      }
+
       const responseData = this.responseService.buildResponseData(
         centerTile,
         visibilityRadius,
@@ -623,6 +659,7 @@ export class MovementController {
         description,
         nearbyPlayers,
         EntityToDtoAdapter.monsterEntitiesToDto(monsters),
+        items,
       );
 
       const totalMs = Date.now() - t0;

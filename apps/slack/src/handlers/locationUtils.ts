@@ -194,6 +194,109 @@ export type NearbyMonster = {
   hp?: number | null;
 };
 
+export type NearbyItem = {
+  id?: number | string;
+  itemId?: number | null; // catalog id
+  itemName?: string | null; // friendly name when available
+  quantity?: number | null;
+  quality?: string | null;
+  x?: number | null;
+  y?: number | null;
+};
+
+function toNearbyItem(
+  record: NearbyItem | Record<string, unknown>,
+): NearbyItem {
+  const r = record as Record<string, unknown>;
+  const id =
+    typeof r.id === 'number' || typeof r.id === 'string'
+      ? (r.id as number | string)
+      : undefined;
+  const itemId = typeof r.itemId === 'number' ? (r.itemId as number) : null;
+  const itemName =
+    typeof r.itemName === 'string' ? (r.itemName as string) : null;
+  const quantity =
+    typeof r.quantity === 'number' ? (r.quantity as number) : null;
+  const quality = typeof r.quality === 'string' ? (r.quality as string) : null;
+  const x = typeof r.x === 'number' ? (r.x as number) : null;
+  const y = typeof r.y === 'number' ? (r.y as number) : null;
+
+  return { id, itemId, itemName, quantity, quality, x, y };
+}
+
+// Build a consistent single-message summary for items at a location
+export function buildItemsSummary(items: NearbyItem[] = []): string | null {
+  if (!items || items.length === 0) return null;
+  const lines: string[] = ['Items here:'];
+  for (const it of items) {
+    const qty = typeof it.quantity === 'number' ? it.quantity : 1;
+    const name =
+      it.itemName ??
+      (it.itemId ? `item #${it.itemId}` : `item #${it.id ?? 'unknown'}`);
+    const quality = it.quality ? ` (${it.quality})` : '';
+    lines.push(`- ${qty}x ${name}${quality}`);
+  }
+  return lines.join('\n');
+}
+
+// Send items summary using arrays already available (e.g., from look response)
+export function buildItemsBlocks(
+  items: NearbyItem[] = [],
+  opts?: { includeDebug?: boolean },
+): KnownBlock[] {
+  const blocks: KnownBlock[] = [];
+  if (!items || items.length === 0) return blocks;
+
+  const heading: SectionBlock = {
+    type: 'section',
+    text: { type: 'mrkdwn', text: '*Items here*' },
+  };
+  blocks.push(heading);
+
+  const itemLines = items.map((it) => {
+    const qty = typeof it.quantity === 'number' ? it.quantity : 1;
+    const name =
+      it.itemName ??
+      (it.itemId ? `item #${it.itemId}` : `item #${it.id ?? 'unknown'}`);
+    const quality = it.quality ? ` (${it.quality})` : '';
+    return `• ${qty}x ${name}${quality}`;
+  });
+
+  const itemsBlock: SectionBlock = {
+    type: 'section',
+    text: { type: 'mrkdwn', text: itemLines.join('\n') },
+  };
+  blocks.push(itemsBlock);
+
+  const includeDebug = opts?.includeDebug ?? true;
+  if (includeDebug) {
+    const debugBlock: ContextBlock = {
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: `Debug: items=${items.length}` }],
+    };
+    blocks.push(debugBlock);
+  }
+
+  return blocks;
+}
+
+export async function sendItemsSummary(
+  say: (message: { text?: string; blocks?: KnownBlock[] }) => Promise<unknown>,
+  items: Array<NearbyItem | Record<string, unknown>> | undefined,
+): Promise<void> {
+  const normalized: NearbyItem[] = (items || []).map((i) => toNearbyItem(i));
+  if (!normalized || normalized.length === 0) return;
+
+  const blocks = buildItemsBlocks(normalized, { includeDebug: false });
+  const text = buildItemsSummary(normalized) ?? 'Items here.';
+
+  if (blocks.length > 0) {
+    await say({ blocks, text });
+  } else {
+    await say({ text });
+  }
+}
+
 // Build a consistent single-message summary for co-located players/monsters
 export function buildOccupantsSummary(
   players: NearbyPlayer[] = [],
