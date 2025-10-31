@@ -18,20 +18,19 @@ export class LoggingInterceptor implements NestInterceptor {
     const request = http.getRequest<Request>();
     const method = request?.method ?? 'UNKNOWN';
     const url = request?.originalUrl ?? request?.url ?? 'unknown';
-    const headers = request?.headers ?? {};
 
     // Skip noisy logging for health endpoints (unless they fail).
     // Match paths like /health, /health-check or any segment containing 'health'.
     const isHealthEndpoint = /(^|\/)health(-check)?($|\/)/i.test(url);
 
     if (!isHealthEndpoint) {
-      this.logger.log(`[DM-REQUEST] ${method} ${url}`);
-      this.logger.debug(`[DM-REQUEST] Headers: ${JSON.stringify(headers)}`);
-
-      const userAgent = headers['user-agent'] ?? headers['User-Agent'] ?? 'N/A';
-      const authPresent = headers.authorization ? 'Present' : 'Missing';
-      this.logger.debug(`[DM-REQUEST] User-Agent: ${userAgent}`);
-      this.logger.debug(`[DM-REQUEST] Authorization: ${authPresent}`);
+      const ip =
+        (request as Request & { ip?: string }).ip ??
+        (request.socket &&
+          (request.socket as unknown as { remoteAddress?: string })
+            .remoteAddress) ??
+        'unknown';
+      this.logger.log(`[DM-REQUEST] ${method} ${url} from ${ip}`);
     }
 
     const start = Date.now();
