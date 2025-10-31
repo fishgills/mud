@@ -1,6 +1,13 @@
 import { COMMANDS } from '../commands';
-import { getPlayerItems } from '../dm-client';
+import { getPlayerItems, ItemRecord } from '../dm-client';
 import type { PlayerRecord } from '../dm-client';
+import type { KnownBlock, Block, ActionsBlock, Button } from '@slack/types';
+// Use Prisma-generated enum for item qualities so the mapping follows the
+// canonical backend enum values.
+import { ItemQuality } from '@prisma/client';
+import { getQualityBadge, formatQualityLabel } from '@mud/constants';
+
+type PlayerWithBag = PlayerRecord & { bag?: ItemRecord[] };
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { registerHandler } from './handlerRegistry';
 import type { HandlerContext, SayMessage } from './types';
@@ -16,17 +23,40 @@ const EQUIPMENT_SLOTS: Array<{ key: EquipmentSlotKey; label: string }> = [
   { key: 'weapon', label: 'Weapon' },
 ];
 
-const formatSlotValue = (value: number | null | undefined): string => {
+const formatSlotValue = (
+  value: number | null | undefined,
+  bag?: ItemRecord[] | undefined,
+): string => {
   if (value === null || value === undefined) {
     return '_Empty_';
   }
-  return `Item #${value}`;
+
+  if (Array.isArray(bag)) {
+    const found = bag.find((b) => b.id === value || b.itemId === value);
+    if (found) {
+      // Show human-friendly name; do NOT display numeric ids in the UI
+      return found.itemName ?? 'Unknown Item';
+    }
+  }
+
+  // If a numeric id was provided but we couldn't resolve a name from bag,
+  // fall back to the legacy "Item #<id>" label so unit tests and callers
+  // that only have an id still get a sensible string. When rendering the
+  // actual inventory UI we pass the player's bag so names are shown.
+  if (typeof value === 'number') {
+    return `Item #${value}`;
+  }
+
+  // Otherwise show a neutral unknown label
+  return 'Unknown Item';
 };
 
 const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
   const equipment = player.equipment ?? {};
+  const bag = (player as PlayerWithBag).bag ?? [];
+
   const equipmentLines = EQUIPMENT_SLOTS.map(
-    ({ key, label }) => `• *${label}:* ${formatSlotValue(equipment[key])}`,
+    ({ key, label }) => `• *${label}:* ${formatSlotValue(equipment[key], bag)}`,
   ).join('\n');
 
   const level = player.level ?? '?';
@@ -76,8 +106,8 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
         },
       },
       // Show bag contents if present — render each item with Equip/Drop buttons
-      ...(Array.isArray(player.bag) && player.bag.length > 0
-        ? player.bag.flatMap((it: any) => {
+      ...(bag.length > 0
+        ? bag.flatMap((it: ItemRecord) => {
             // Pass allowedSlots in the button value as JSON so the action handler
             // can open a modal limited to valid slots for this item.
             const allowedSlots: string[] = Array.isArray(it.allowedSlots)
@@ -91,7 +121,7 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
             const equipDisabled = allowedSlots.length === 0;
 
             // Build actions array but omit the Equip button when it's not applicable.
-            const actions: Array<Record<string, unknown>> = [];
+            const actions: Button[] = [];
             if (!equipDisabled) {
               actions.push({
                 type: 'button',
@@ -108,18 +138,26 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
               value: String(it.id),
             });
 
-            const blocks: any[] = [
+            const badge = getQualityBadge(
+              it.quality ?? String(ItemQuality.Common),
+            );
+            const qualityLabel = formatQualityLabel(
+              it.quality ?? String(ItemQuality.Common),
+            );
+
+            const blocks: Array<KnownBlock | Block> = [
               {
                 type: 'section',
                 text: {
                   type: 'mrkdwn',
-                  text: `*Item #${it.itemId}* (instance id: ${it.id}) — *${it.quality}*`,
+                  // Render a small badge, the quality, then the item name. Do not render any numeric ids.
+                  text: `*${badge} ${qualityLabel} ${it.itemName ?? 'Unknown Item'}*`,
                 },
               },
               {
                 type: 'actions',
                 elements: actions,
-              },
+              } as ActionsBlock,
             ];
 
             if (equipDisabled) {

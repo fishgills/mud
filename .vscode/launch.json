@@ -43,10 +43,12 @@
       "request": "attach",
       "address": "localhost",
       "port": 9233,
-      "skipFiles": ["<node_internals>/**"],
-      "restart": false,
-      "outFiles": ["${workspaceFolder}/apps/slack/dist/**/*.js"],
-      "sourceMaps": true
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "${workspaceFolder}",
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ]
     },
     {
       "name": "Attach",

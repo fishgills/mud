@@ -603,6 +603,8 @@ export class PlayersController {
             id: pi.id,
             playerId: pi.playerId,
             itemId: pi.itemId,
+            // Expose the human-friendly item name so UIs can render it
+            itemName: item?.name ?? null,
             quality: String(pi.quality ?? 'Common'),
             equipped: Boolean(pi.equipped ?? false),
             slot: pi.slot ?? null,

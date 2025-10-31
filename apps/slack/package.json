@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "serve": "ts-node-dev --respawn src/main.ts",
+    "serve": "ts-node-dev --inspect=0.0.0.0:9233 --respawn src/main.ts",
     "check-types": "tsc --noEmit",
     "test": "jest",
     "lint": "eslint"
@@ -16,6 +16,7 @@
   "dependencies": {
     "@mud/redis-client": "*",
     "@mud/tracer": "*",
+    "@mud/constants": "*",
     "@seratch_/bolt-prisma": "^1.0.5",
     "@slack/bolt": "^4.4.0",
     "dotenv": "^17.2.2",
