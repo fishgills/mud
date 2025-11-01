@@ -356,8 +356,12 @@ describe('PlayerService', () => {
 
   it('respawns, deletes, and finds players nearby', async () => {
     const service = new PlayerService(worldService);
-    const respawned = await service.respawnPlayer('EXIST');
+    const { player: respawned, event: respawnEvent } =
+      await service.respawnPlayer('EXIST');
     expect(respawned.combat.isAlive).toBe(true);
+    expect(respawnEvent).toEqual(
+      expect.objectContaining({ eventType: 'player:respawn' }),
+    );
 
     const removed = await service.deletePlayer('EXIST');
     expect(removed.clientId).toBe('EXIST');

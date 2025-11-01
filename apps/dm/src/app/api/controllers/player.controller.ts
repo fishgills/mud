@@ -305,7 +305,9 @@ export class PlayersController {
       throw new BadRequestException('slackId is required');
     }
     try {
-      const player = await this.playerService.respawnPlayer(payload.slackId);
+      const { player } = await this.playerService.respawnPlayer(
+        payload.slackId,
+      );
       return {
         success: true,
         data: await this.buildPlayerDto(player, { includeDetails: false }),

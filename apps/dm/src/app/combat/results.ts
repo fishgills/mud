@@ -1,9 +1,13 @@
-import { MonsterFactory } from '@mud/engine';
+import { MonsterFactory, type PlayerRespawnEvent } from '@mud/engine';
 import type { PlayerService } from '../player/player.service';
 import type { PrismaClient } from '@prisma/client';
 import { Logger } from '@nestjs/common';
 import type { DetailedCombatLog } from '../api';
 import type { Combatant } from './types';
+
+export interface CombatResultEffects {
+  playerRespawnEvents: PlayerRespawnEvent[];
+}
 
 export async function applyCombatResults(
   combatLog: DetailedCombatLog,
@@ -12,11 +16,13 @@ export async function applyCombatResults(
   playerService: PlayerService,
   prisma: PrismaClient,
   logger: Logger,
-): Promise<void> {
+): Promise<CombatResultEffects> {
   logger.debug(`🔄 Applying combat results for combat ${combatLog.combatId}`);
 
   const winner = combatant1.name === combatLog.winner ? combatant1 : combatant2;
   const loser = combatant1.name === combatLog.loser ? combatant1 : combatant2;
+
+  const playerRespawnEvents: PlayerRespawnEvent[] = [];
 
   logger.debug(
     `Winner: ${winner.name} (${winner.type}, ID: ${winner.id}), Loser: ${loser.name} (${loser.type}, ID: ${loser.id})`,
@@ -30,7 +36,12 @@ export async function applyCombatResults(
     await playerService.updatePlayerStats(loser.slackId, { hp: loser.hp });
     if (!loser.isAlive) {
       logger.log(`🏥 Respawning defeated player ${loser.name}`);
-      await playerService.respawnPlayer(loser.slackId);
+      const { event } = await playerService.respawnPlayer(loser.slackId, {
+        emitEvent: false,
+      });
+      if (event) {
+        playerRespawnEvents.push(event);
+      }
     }
   } else {
     if (!loser.isAlive) {
@@ -123,4 +134,6 @@ export async function applyCombatResults(
   });
 
   logger.log(`💾 Combat results applied and logged to database`);
+
+  return { playerRespawnEvents };
 }

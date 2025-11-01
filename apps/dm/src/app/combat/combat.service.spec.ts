@@ -108,6 +108,10 @@ describe('CombatService (unit)', () => {
         .mockResolvedValueOnce(makePlayer({ name: 'A', x: 0, y: 0 })),
       getPlayerByClientId: jest.fn(),
       getPlayersAtLocation: jest.fn().mockResolvedValue([]),
+      respawnPlayer: jest.fn().mockResolvedValue({
+        player: makePlayer(),
+        event: undefined,
+      }),
     };
     const aiService: any = { getText: jest.fn() };
     const eventBridge: any = { publishCombatNotifications: jest.fn() };
@@ -131,6 +135,10 @@ describe('CombatService (unit)', () => {
         .mockResolvedValue(makePlayer({ name: 'A', isAlive: false })),
       getPlayerByClientId: jest.fn(),
       getPlayersAtLocation: jest.fn().mockResolvedValue([]),
+      respawnPlayer: jest.fn().mockResolvedValue({
+        player: makePlayer(),
+        event: undefined,
+      }),
     };
     const aiService: any = { getText: jest.fn() };
     const eventBridge: any = { publishCombatNotifications: jest.fn() };
@@ -199,6 +207,10 @@ describe('CombatService (unit)', () => {
         .mockResolvedValue([
           { id: 3, name: 'Obs', clientType: 'slack', clientId: 'S-OBS' },
         ]),
+      respawnPlayer: jest.fn().mockResolvedValue({
+        player: makePlayer(),
+        event: undefined,
+      }),
       updatePlayerStats: jest.fn().mockResolvedValue({
         level: playerA.level,
         skillPoints: 0,
@@ -218,9 +230,21 @@ describe('CombatService (unit)', () => {
     // Ensure MonsterFactory.delete isn't used in this path
     (MonsterFactory.delete as jest.Mock).mockResolvedValue(true);
 
+    const eventBusEmit = EventBus.emit as jest.Mock;
+    eventBusEmit.mockClear();
+
     const svc = new CombatService(playerService, aiService, eventBridge);
     // stub the internal runCombat on this instance for deterministic behaviour
-    jest.spyOn(svc as any, 'runCombat').mockResolvedValue(predeterminedLog);
+    const runCombatSpy = jest
+      .spyOn(svc as any, 'runCombat')
+      .mockResolvedValue(predeterminedLog);
+    const respawnEvent = {
+      eventType: 'player:respawn',
+      player: { id: playerB.id },
+    } as Record<string, unknown>;
+    const applyResultsSpy = jest
+      .spyOn(svc as any, 'applyCombatResults')
+      .mockResolvedValue({ playerRespawnEvents: [respawnEvent] });
 
     const result = await svc.playerAttackPlayer('Attacker', 'Defender');
 
@@ -233,6 +257,13 @@ describe('CombatService (unit)', () => {
     expect(result.totalDamageDealt).toBe(5);
     expect(result.playerMessages.some((m) => m.role === 'observer')).toBe(true);
     expect(eventBridge.publishCombatNotifications).toHaveBeenCalled();
+    expect(applyResultsSpy).toHaveBeenCalled();
+    expect(runCombatSpy).toHaveBeenCalled();
+    expect(eventBusEmit).toHaveBeenCalledWith(respawnEvent);
+    const publishOrder = (eventBridge.publishCombatNotifications as jest.Mock)
+      .mock.invocationCallOrder[0];
+    const emitOrder = eventBusEmit.mock.invocationCallOrder[0];
+    expect(emitOrder).toBeGreaterThan(publishOrder);
     // legacy short message preserved
     expect(typeof result.message).toBe('string');
   });
@@ -286,7 +317,10 @@ const createHelperService = () => {
   const playerService = {
     getPlayer: jest.fn(),
     updatePlayerStats: jest.fn(),
-    respawnPlayer: jest.fn(),
+    respawnPlayer: jest.fn().mockImplementation(async (slackId: string) => ({
+      player: createPlayer({ slackId, clientId: slackId }),
+      event: undefined,
+    })),
   } as unknown as PlayerService;
 
   const aiService = {
@@ -529,7 +563,10 @@ describe('CombatService', () => {
       getPlayer: jest.fn(),
       getPlayerByClientId: jest.fn().mockRejectedValue(new Error('not found')),
       updatePlayerStats: jest.fn(),
-      respawnPlayer: jest.fn(),
+      respawnPlayer: jest.fn().mockImplementation(async (slackId: string) => ({
+        player: createPlayer({ slackId, clientId: slackId }),
+        event: undefined,
+      })),
       getPlayersAtLocation: jest.fn().mockResolvedValue([]),
     } as jest.Mocked<MockPlayerService>;
 
@@ -616,7 +653,7 @@ describe('CombatService', () => {
       );
     const applyResultsSpy = jest
       .spyOn(internals, 'applyCombatResults')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue({ playerRespawnEvents: [] });
     const initiativeSpy = jest
       .spyOn(internals, 'rollInitiative')
       .mockImplementationOnce(() => ({ roll: 15, modifier: 2, total: 17 }))
@@ -891,7 +928,7 @@ describe('CombatService', () => {
       .mockResolvedValue(combatLog);
     const applyResultsSpy = jest
       .spyOn(internals, 'applyCombatResults')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue({ playerRespawnEvents: [] });
     const narrativeSpy = jest
       .spyOn(internals, 'generateCombatNarrative')
       .mockImplementation(async (_combatLog, options) =>
@@ -1244,7 +1281,7 @@ describe('CombatService', () => {
       .mockResolvedValue(combatLog);
     const applyResultsSpy = jest
       .spyOn(internals, 'applyCombatResults')
-      .mockResolvedValue(undefined);
+      .mockResolvedValue({ playerRespawnEvents: [] });
     const narrativeSpy = jest
       .spyOn(internals, 'generateCombatNarrative')
       .mockImplementation(async (_combatLog, options) =>

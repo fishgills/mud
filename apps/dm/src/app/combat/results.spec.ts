@@ -65,7 +65,7 @@ describe('applyCombatResults', () => {
         skillPoints: 0,
         combat: { maxHp: 20, hp: 10 },
       }),
-      respawnPlayer: jest.fn(),
+      respawnPlayer: jest.fn().mockResolvedValue({ player: null, event: null }),
     };
 
     const prisma: any = {
@@ -147,7 +147,15 @@ describe('applyCombatResults', () => {
         skillPoints: 0,
         combat: { maxHp: 10, hp: 10 },
       }),
-      respawnPlayer: jest.fn().mockResolvedValue(true),
+      respawnPlayer: jest.fn().mockResolvedValue({
+        player: {
+          id: 2,
+          name: 'Other',
+        },
+        event: {
+          eventType: 'player:respawn',
+        },
+      }),
     };
 
     const prisma: any = {
@@ -168,7 +176,9 @@ describe('applyCombatResults', () => {
       'S2',
       expect.objectContaining({ hp: 0 }),
     );
-    expect(playerService.respawnPlayer).toHaveBeenCalledWith('S2');
+    expect(playerService.respawnPlayer).toHaveBeenCalledWith('S2', {
+      emitEvent: false,
+    });
     expect(playerService.getPlayer).toHaveBeenCalledWith('S1');
     expect(prisma.combatLog.create).toHaveBeenCalled();
   });

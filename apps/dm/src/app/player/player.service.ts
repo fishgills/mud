@@ -6,7 +6,13 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { getPrismaClient } from '@mud/database';
-import { PlayerFactory, ClientType, PlayerEntity, EventBus } from '@mud/engine';
+import {
+  PlayerFactory,
+  ClientType,
+  PlayerEntity,
+  EventBus,
+  type PlayerRespawnEvent,
+} from '@mud/engine';
 import {
   CreatePlayerDto,
   MovePlayerDto,
@@ -474,7 +480,10 @@ export class PlayerService {
     return player;
   }
 
-  async respawnPlayer(slackId: string): Promise<PlayerEntity> {
+  async respawnPlayer(
+    slackId: string,
+    options: { emitEvent?: boolean } = {},
+  ): Promise<{ player: PlayerEntity; event: PlayerRespawnEvent | null }> {
     const player = await this.getPlayer(slackId);
 
     // Find a random spawn position
@@ -491,20 +500,24 @@ export class PlayerService {
     const dbPlayer = await this.prisma.player.findUnique({
       where: { id: player.id },
     });
+    let respawnEvent: PlayerRespawnEvent | null = null;
     if (dbPlayer) {
-      await EventBus.emit({
+      respawnEvent = {
         eventType: 'player:respawn',
         player: dbPlayer,
         x: spawnPosition.x,
         y: spawnPosition.y,
         timestamp: new Date(),
-      });
+      };
+      if (options.emitEvent !== false) {
+        await EventBus.emit(respawnEvent);
+      }
     }
     this.logger.log(
       `🏥 Player ${player.name} respawned at (${spawnPosition.x}, ${spawnPosition.y})`,
     );
 
-    return player;
+    return { player, event: respawnEvent };
   }
 
   async deletePlayer(slackId: string): Promise<PlayerEntity> {

@@ -9,6 +9,7 @@ import {
   MonsterFactory,
   EventBus,
   type CombatInitiateEvent,
+  type PlayerRespawnEvent,
 } from '@mud/engine';
 import { PlayerService } from '../player/player.service';
 import { AiService } from '../../openai/ai.service';
@@ -22,7 +23,10 @@ import type {
 } from '../api';
 import { runCombat as engineRunCombat } from './engine';
 import { CombatMessenger } from './messages';
-import { applyCombatResults as resultsApplyCombatResults } from './results';
+import {
+  applyCombatResults as resultsApplyCombatResults,
+  type CombatResultEffects,
+} from './results';
 
 interface CombatNarrative {
   summary: string;
@@ -612,7 +616,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
     combatLog: DetailedCombatLog,
     combatant1: Combatant,
     combatant2: Combatant,
-  ): Promise<void> {
+  ): Promise<CombatResultEffects> {
     return resultsApplyCombatResults(
       combatLog,
       combatant1,
@@ -812,7 +816,11 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
       perf.runCombatMs = Date.now() - combatStart;
 
       const applyStart = Date.now();
-      await this.applyCombatResults(combatLog, attacker, defender);
+      const effects = await this.applyCombatResults(
+        combatLog,
+        attacker,
+        defender,
+      );
       perf.applyResultsMs = Date.now() - applyStart;
 
       const { messages: generatedMessages, perf: generatedPerf } =
@@ -824,21 +832,27 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
       const winner = attacker.name === combatLog.winner ? attacker : defender;
       const loser = attacker.name === combatLog.loser ? attacker : defender;
 
-      const notificationStart = Date.now();
-      await this.eventBridge.publishCombatNotifications(
-        {
-          eventType: 'combat:end',
-          winner: { type: winner.type, id: winner.id, name: winner.name },
-          loser: { type: loser.type, id: loser.id, name: loser.name },
-          xpGained: combatLog.xpAwarded,
-          goldGained: combatLog.goldAwarded,
-          x: combatLog.location.x,
-          y: combatLog.location.y,
-          timestamp: new Date(),
-        },
-        messages,
-      );
-      perf.notificationMs = Date.now() - notificationStart;
+      let notificationElapsed = 0;
+      try {
+        const notificationStart = Date.now();
+        await this.eventBridge.publishCombatNotifications(
+          {
+            eventType: 'combat:end',
+            winner: { type: winner.type, id: winner.id, name: winner.name },
+            loser: { type: loser.type, id: loser.id, name: loser.name },
+            xpGained: combatLog.xpAwarded,
+            goldGained: combatLog.goldAwarded,
+            x: combatLog.location.x,
+            y: combatLog.location.y,
+            timestamp: new Date(),
+          },
+          messages,
+        );
+        notificationElapsed = Date.now() - notificationStart;
+      } finally {
+        perf.notificationMs = notificationElapsed;
+        await this.dispatchRespawnEvents(effects.playerRespawnEvents);
+      }
 
       perf.totalMs = Date.now() - timingStart;
 
@@ -968,6 +982,21 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
     playerSlackId: string,
   ): Promise<CombatResult> {
     return this.initiateCombat(monsterId, 'monster', playerSlackId, 'player');
+  }
+
+  private async dispatchRespawnEvents(
+    events: PlayerRespawnEvent[],
+  ): Promise<void> {
+    if (!Array.isArray(events) || events.length === 0) {
+      return;
+    }
+    for (const event of events) {
+      try {
+        await EventBus.emit(event);
+      } catch (err) {
+        this.logger.warn('Failed to emit deferred respawn event', err);
+      }
+    }
   }
 
   /**
