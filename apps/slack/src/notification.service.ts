@@ -6,19 +6,16 @@
  */
 
 import { RedisEventBridge, NotificationMessage } from '@mud/redis-client';
-// import {
-//   getCredentialsForSlackUser,
-//   getWebClientForToken,
-// } from './utils/authorize';
 import { env } from './env';
-import { App } from '@slack/bolt';
+import {
+  getCredentialsForSlackUser,
+  getWebClientForToken,
+} from './utils/authorize';
 
 export class NotificationService {
   private bridge: RedisEventBridge;
-  private app: App;
 
-  constructor(app: App) {
-    this.app = app;
+  constructor() {
     this.bridge = new RedisEventBridge({
       redisUrl: env.REDIS_URL,
       channelPrefix: 'game',
@@ -108,35 +105,32 @@ export class NotificationService {
         // installation rows in the DB. To ensure notifications still work in
         // those situations, fall back to the globally configured
         // SLACK_BOT_TOKEN from env when a user-scoped bot token isn't found.
-        // let creds = null as { botToken?: string; botId?: string } | null;
-        // try {
-        //   creds = await getCredentialsForSlackUser(slackUserId);
-        // } catch (err) {
-        //   console.debug(
-        //     `Failed to resolve per-user credentials for ${slackUserId}:`,
-        //     err,
-        //   );
-        // }
+        let creds = null as { botToken?: string; botId?: string } | null;
+        try {
+          creds = await getCredentialsForSlackUser(slackUserId);
+        } catch (err) {
+          console.debug(
+            `Failed to resolve per-user credentials for ${slackUserId}:`,
+            err,
+          );
+        }
 
-        // const botToken = creds?.botToken ?? env.SLACK_BOT_TOKEN;
-        // if (!botToken) {
-        //   console.error(
-        //     `No bot credentials or fallback SLACK_BOT_TOKEN available for user ${slackUserId}`,
-        //   );
-        //   continue;
-        // }
+        const botToken = creds?.botToken ?? env.SLACK_BOT_TOKEN;
+        if (!botToken) {
+          console.error(
+            `No bot credentials or fallback SLACK_BOT_TOKEN available for user ${slackUserId}`,
+          );
+          continue;
+        }
 
-        // if (!creds?.botToken) {
-        //   console.debug(
-        //     `Using fallback SLACK_BOT_TOKEN for notifications to ${slackUserId}`,
-        //   );
-        // }
+        if (!creds?.botToken) {
+          console.debug(
+            `Using fallback SLACK_BOT_TOKEN for notifications to ${slackUserId}`,
+          );
+        }
 
-        // const web = getWebClientForToken(botToken);
-        // const dm = await web.conversations.open({ users: slackUserId });
-        const dm = await this.app.client.conversations.open({
-          users: slackUserId,
-        });
+        const web = getWebClientForToken(botToken);
+        const dm = await web.conversations.open({ users: slackUserId });
 
         // Log DM open response shape minimally
         try {
@@ -171,7 +165,7 @@ export class NotificationService {
                 : recipient.message,
             blocksCount,
           });
-          await this.app.client.chat.postMessage({
+          await web.chat.postMessage({
             channel: channelId,
             text: recipient.message,
             blocks: (recipient.blocks || []) as unknown as (
@@ -192,8 +186,7 @@ export class NotificationService {
             textPreview,
             hasBlocks: recipient.priority === 'high',
           });
-
-          await this.app.client.chat.postMessage({
+          await web.chat.postMessage({
             channel: channelId,
             text: recipient.message,
             ...(recipient.priority === 'high' && {
