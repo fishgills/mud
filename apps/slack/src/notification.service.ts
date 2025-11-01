@@ -7,19 +7,25 @@
 
 import { RedisEventBridge, NotificationMessage } from '@mud/redis-client';
 import { env } from './env';
-import {
-  getCredentialsForSlackUser,
-  getWebClientForToken,
-} from './utils/authorize';
+import type { InstallationStore, InstallationQuery } from '@slack/oauth';
+import { WebClient } from '@slack/web-api';
+
+interface NotificationServiceOptions {
+  installationStore?: InstallationStore;
+  fallbackBotToken?: string | null;
+}
 
 export class NotificationService {
   private bridge: RedisEventBridge;
+  private readonly options: NotificationServiceOptions;
+  private readonly webClients = new Map<string, WebClient>();
 
-  constructor() {
+  constructor(options: NotificationServiceOptions = {}) {
+    this.options = options;
     this.bridge = new RedisEventBridge({
       redisUrl: env.REDIS_URL,
       channelPrefix: 'game',
-      enableLogging: env.isProduction === false,
+      enableLogging: true,
     });
   }
 
@@ -105,17 +111,10 @@ export class NotificationService {
         // installation rows in the DB. To ensure notifications still work in
         // those situations, fall back to the globally configured
         // SLACK_BOT_TOKEN from env when a user-scoped bot token isn't found.
-        let creds = null as { botToken?: string; botId?: string } | null;
-        try {
-          creds = await getCredentialsForSlackUser(slackUserId);
-        } catch (err) {
-          console.debug(
-            `Failed to resolve per-user credentials for ${slackUserId}:`,
-            err,
-          );
-        }
-
-        const botToken = creds?.botToken ?? env.SLACK_BOT_TOKEN;
+        const { token: botToken, fromFallback } = await this.resolveBotToken(
+          slackUserId,
+          recipient.clientId,
+        );
         if (!botToken) {
           console.error(
             `No bot credentials or fallback SLACK_BOT_TOKEN available for user ${slackUserId}`,
@@ -123,13 +122,13 @@ export class NotificationService {
           continue;
         }
 
-        if (!creds?.botToken) {
+        if (fromFallback) {
           console.debug(
-            `Using fallback SLACK_BOT_TOKEN for notifications to ${slackUserId}`,
+            `Using fallback bot token for notifications to ${slackUserId}`,
           );
         }
 
-        const web = getWebClientForToken(botToken);
+        const web = this.getOrCreateWebClient(botToken);
         const dm = await web.conversations.open({ users: slackUserId });
 
         // Log DM open response shape minimally
@@ -231,5 +230,71 @@ export class NotificationService {
 
     // Accept raw Slack IDs (e.g., U123456) for backward compatibility
     return trimmed;
+  }
+
+  private async resolveBotToken(
+    slackUserId: string,
+    rawClientId: string | null | undefined,
+  ): Promise<{
+    token: string | null;
+    fromFallback: boolean;
+  }> {
+    const fallback =
+      this.options.fallbackBotToken ?? env.SLACK_BOT_TOKEN ?? null;
+    const store = this.options.installationStore;
+
+    if (!store) {
+      return { token: fallback, fromFallback: true };
+    }
+
+    try {
+      const teamId = this.extractSlackTeamId(rawClientId);
+      const query = {
+        userId: slackUserId,
+        teamId: teamId ?? undefined,
+        enterpriseId: undefined,
+        isEnterpriseInstall: false,
+      } as unknown as InstallationQuery<false>;
+      const installation = await store.fetchInstallation(query);
+      const token = installation.bot?.token ?? installation.user?.token ?? null;
+      if (token) {
+        return { token, fromFallback: false };
+      }
+      console.warn(
+        `Installation for ${slackUserId} did not include a bot or user token; falling back to env token`,
+      );
+    } catch (error) {
+      console.warn(
+        `Failed to fetch installation for ${slackUserId}; falling back to env token`,
+        error,
+      );
+    }
+
+    return { token: fallback, fromFallback: true };
+  }
+
+  private extractSlackTeamId(
+    clientId: string | null | undefined,
+  ): string | null {
+    if (!clientId) return null;
+    const segments = clientId
+      .split(':')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (segments.length === 3 && segments[0] === 'slack') {
+      return segments[1] || null;
+    }
+    return null;
+  }
+
+  private getOrCreateWebClient(token: string): WebClient {
+    const cached = this.webClients.get(token);
+    if (cached) return cached;
+    console.debug('[NotificationService] creating WebClient (token prefix)', {
+      tokenPreview: token.slice(0, 8),
+    });
+    const client = new WebClient(token);
+    this.webClients.set(token, client);
+    return client;
   }
 }

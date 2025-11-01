@@ -4,13 +4,7 @@ import { App } from '@slack/bolt';
 import { env } from './env';
 import { getPrismaClient } from '@mud/database';
 import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
-import {
-  authorize,
-  clearAllAuthorizeCache,
-  invalidateAuthorizeCache,
-} from './utils/authorize';
 import { NotificationService } from './notification.service';
-// import { clearAllAuthorizeCache } from './utils/authorize';
 
 // Decode any env values that were accidentally base64-encoded so the app
 // always receives raw strings. We create `decodedEnv` from `env` and use it
@@ -64,18 +58,6 @@ const installationStore = new PrismaInstallationStore({
           : args.installation.team?.id
       }`,
     );
-    try {
-      const teamId =
-        args.installation.team?.id ?? args.installation.team?.id ?? null;
-      const enterpriseId = args.installation.enterprise?.id ?? null;
-      await invalidateAuthorizeCache(
-        decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
-        teamId,
-        enterpriseId,
-      );
-    } catch (err) {
-      console.warn('Failed to invalidate authorize cache on store:', err);
-    }
   },
   onDeleteInstallation: async (args) => {
     console.log(
@@ -85,31 +67,16 @@ const installationStore = new PrismaInstallationStore({
           : args.query.teamId
       }`,
     );
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const teamId = (args.query as any).teamId ?? null;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const enterpriseId = (args.query as any).enterpriseId ?? null;
-      await invalidateAuthorizeCache(
-        decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
-        teamId,
-        enterpriseId,
-      );
-    } catch (err) {
-      console.warn('Failed to invalidate authorize cache on delete:', err);
-    }
   },
 });
-
-// authorize is implemented in src/utils/authorize.ts and imported above.
 
 const app = new App({
   signingSecret: decodedEnv.SLACK_SIGNING_SECRET,
   socketMode: false,
   // OAuth (optional): if clientId/clientSecret/stateSecret are provided, installer is enabled
-  // clientId: decodedEnv.SLACK_CLIENT_ID,
-  // clientSecret: decodedEnv.SLACK_CLIENT_SECRET,
-  // stateSecret: decodedEnv.SLACK_STATE_SECRET,
+  clientId: decodedEnv.SLACK_CLIENT_ID,
+  clientSecret: decodedEnv.SLACK_CLIENT_SECRET,
+  stateSecret: decodedEnv.SLACK_STATE_SECRET,
   scopes: [
     'app_mentions:read',
     'chat:write',
@@ -119,13 +86,10 @@ const app = new App({
     'im:write',
     'users:read',
   ],
-  // installerOptions: {
-  //   directInstall: true,
-  // },
+  installerOptions: {
+    directInstall: true,
+  },
   installationStore: installationStore,
-  // Per-request authorization resolver that returns the correct token set
-  // based on the incoming event's teamId/enterpriseId.
-  authorize,
   customRoutes: [
     {
       path: '/health-check',
@@ -297,19 +261,16 @@ app.message(async ({ message, say, client }) => {
 registerActions(app);
 
 async function start() {
-  // Clear any existing authorize cache on startup so we start with a clean slate.
-  try {
-    await clearAllAuthorizeCache();
-  } catch (err) {
-    console.warn('Failed to clear authorize cache on startup:', err);
-  }
   await app.start(Number(decodedEnv.PORT ?? env.PORT));
   console.log(
     `⚡️ Slack MUD bot is running! 🚀 On http://localhost:${env.PORT}`,
   );
 
   // Start notification service to receive game events
-  const notificationService = new NotificationService();
+  const notificationService = new NotificationService({
+    installationStore,
+    fallbackBotToken: decodedEnv.SLACK_BOT_TOKEN ?? env.SLACK_BOT_TOKEN ?? null,
+  });
   await notificationService.start();
 }
 
