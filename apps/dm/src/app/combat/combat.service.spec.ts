@@ -67,12 +67,6 @@ jest.mock('@mud/engine', () => {
   };
 });
 
-jest.mock('@mud/database', () => ({
-  getPrismaClient: () => ({
-    combatLog: { create: jest.fn().mockResolvedValue({}) },
-  }),
-}));
-
 import { CombatService, Combatant } from './combat.service';
 import { MonsterFactory, EventBus } from '@mud/engine';
 import type { PlayerEntity, CombatInitiateEvent } from '@mud/engine';
@@ -80,6 +74,7 @@ import type { EventBridgeService } from '../../shared/event-bridge.service';
 import type { PlayerService } from '../player/player.service';
 import type { AiService } from '../../openai/ai.service';
 import type { CombatRound, DetailedCombatLog, CombatResult } from '../api';
+import type { ItemQuality } from '@prisma/client';
 
 describe('CombatService (unit)', () => {
   const makePlayer = (overrides: any = {}) => ({
@@ -278,6 +273,9 @@ type MockPrismaClient = {
     delete: jest.Mock;
     update: jest.Mock;
   };
+  playerItem: {
+    findMany: jest.Mock;
+  };
 };
 
 function createMockPrisma(): MockPrismaClient {
@@ -290,6 +288,9 @@ function createMockPrisma(): MockPrismaClient {
       findUnique: jest.fn(),
       delete: jest.fn(),
       update: jest.fn(),
+    },
+    playerItem: {
+      findMany: jest.fn().mockResolvedValue([]),
     },
   };
 }
@@ -304,9 +305,15 @@ function ensureCombatPrismaHolder() {
   return globalObject[key] as { current: MockPrismaClient };
 }
 
-jest.mock('@mud/database', () => ({
-  getPrismaClient: () => ensureCombatPrismaHolder().current,
-}));
+jest.mock('@mud/database', () => {
+  const actual =
+    jest.requireActual<typeof import('@mud/database')>('@mud/database');
+
+  return {
+    ...actual,
+    getPrismaClient: () => ensureCombatPrismaHolder().current,
+  };
+});
 
 const combatPrismaHolder = ensureCombatPrismaHolder();
 
@@ -976,6 +983,93 @@ describe('CombatService', () => {
     expect(attackerCall).toEqual([combatLog, { secondPersonName: 'Attacker' }]);
     expect(defenderCall).toEqual([combatLog, { secondPersonName: 'Defender' }]);
     expect(observerCall).toEqual([combatLog, {}]);
+  });
+
+  it('applies equipment bonuses from equipped player items', async () => {
+    const attackerPlayer = createPlayer({
+      id: 99,
+      name: 'EquippedHero',
+      slackId: 'equipped',
+      hp: 9,
+      maxHp: 12,
+      strength: 16,
+      agility: 13,
+      level: 5,
+      x: 0,
+      y: 0,
+    });
+
+    playerService.getPlayer.mockResolvedValue(attackerPlayer);
+
+    const now = new Date();
+    const weaponQuality = 'Epic' as ItemQuality;
+    const armorQuality = 'Fine' as ItemQuality;
+
+    combatPrismaHolder.current.playerItem.findMany.mockResolvedValue([
+      {
+        id: 1,
+        playerId: attackerPlayer.id,
+        itemId: 2001,
+        quantity: 1,
+        equipped: true,
+        slot: 'weapon',
+        quality: weaponQuality,
+        createdAt: now,
+        updatedAt: now,
+        item: {
+          id: 2001,
+          name: 'Runeblade',
+          type: 'weapon',
+          description: 'A blade humming with energy.',
+          value: 0,
+          attack: 5,
+          defense: 0,
+          healthBonus: 0,
+          slot: 'weapon',
+          createdAt: now,
+          updatedAt: now,
+        },
+      },
+      {
+        id: 2,
+        playerId: attackerPlayer.id,
+        itemId: 2002,
+        quantity: 1,
+        equipped: true,
+        slot: 'chest',
+        quality: armorQuality,
+        createdAt: now,
+        updatedAt: now,
+        item: {
+          id: 2002,
+          name: 'Gleaming Breastplate',
+          type: 'armor',
+          description: 'Polished plates that shimmer.',
+          value: 0,
+          attack: 0,
+          defense: 3,
+          healthBonus: 1,
+          slot: 'chest',
+          createdAt: now,
+          updatedAt: now,
+        },
+      },
+    ]);
+
+    const internals = getInternals();
+    const combatant = await internals.playerToCombatant('equipped');
+
+    expect(combatPrismaHolder.current.playerItem.findMany).toHaveBeenCalledWith(
+      {
+        where: { playerId: attackerPlayer.id, equipped: true },
+        include: { item: true },
+      },
+    );
+    expect(combatant.attackBonus).toBe(4);
+    expect(combatant.damageBonus).toBe(9);
+    expect(combatant.armorBonus).toBe(4);
+    expect(combatant.maxHp).toBe(13);
+    expect(combatant.hp).toBe(10);
   });
 
   it('applies level ups for winning players and includes the details in messages', async () => {

@@ -139,22 +139,26 @@ export async function runCombat(
       `⚔️ Round ${roundNumber}: ${attacker.name} attacks ${defender.name}`,
     );
     const attackRoll = (overrides?.rollD20 ?? useRollD20)();
-    const attackModifier = (overrides?.getModifier ?? useGetModifier)(
+    const baseAttackModifier = (overrides?.getModifier ?? useGetModifier)(
       attacker.strength,
     );
+    const attackModifier = baseAttackModifier + (attacker.attackBonus ?? 0);
     const totalAttack = attackRoll + attackModifier;
-    const defenderAC = (overrides?.calculateAC ?? useCalculateAC)(
+    const baseDefenderAC = (overrides?.calculateAC ?? useCalculateAC)(
       defender.agility,
     );
+    const defenderAC = baseDefenderAC + (defender.armorBonus ?? 0);
     const hit = totalAttack >= defenderAC;
 
     let damage = 0;
     let killed = false;
 
     if (hit) {
-      damage = (overrides?.calculateDamage ?? useCalculateDamage)(
+      const baseDamage = (overrides?.calculateDamage ?? useCalculateDamage)(
         attacker.strength,
       );
+      const damageBonus = attacker.damageBonus ?? 0;
+      damage = Math.max(1, baseDamage + damageBonus);
       defender.hp = Math.max(0, defender.hp - damage);
       if (defender.hp <= 0) {
         defender.isAlive = false;

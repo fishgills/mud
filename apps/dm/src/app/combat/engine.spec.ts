@@ -50,6 +50,9 @@ describe('runCombat orchestration with overrides', () => {
     x: opts.x ?? 0,
     y: opts.y ?? 0,
     slackId: opts.slackId,
+    attackBonus: opts.attackBonus,
+    damageBonus: opts.damageBonus,
+    armorBonus: opts.armorBonus,
   });
 
   test('attacker wins and xp/gold from overrides are applied to returned log', async () => {
@@ -103,5 +106,58 @@ describe('runCombat orchestration with overrides', () => {
     expect(result.goldAwarded).toBe(4);
     expect(result.rounds.length).toBeGreaterThanOrEqual(1);
     expect(result.firstAttacker).toBe('Hero');
+  });
+
+  test('applies attack, damage, and armor bonuses from combatants', async () => {
+    const attacker = makeCombatant({
+      name: 'Champion',
+      id: 10,
+      strength: 10,
+      agility: 10,
+      attackBonus: 5,
+      damageBonus: 8,
+      hp: 10,
+      maxHp: 10,
+    });
+
+    const defender = makeCombatant({
+      name: 'Guardian',
+      id: 20,
+      strength: 10,
+      agility: 10,
+      armorBonus: 4,
+      hp: 8,
+      maxHp: 8,
+    });
+
+    const logger = {
+      log: jest.fn(),
+      debug: jest.fn(),
+      error: jest.fn(),
+      warn: jest.fn(),
+    } as any;
+
+    const overrides = {
+      rollInitiative: () => ({ roll: 15, modifier: 0, total: 15 }),
+      rollD20: () => 10,
+      calculateDamage: () => 1,
+      calculateXpGain: () => 0,
+      calculateGoldReward: () => 0,
+    } as const;
+
+    const result = await runCombat(
+      attacker,
+      defender,
+      logger,
+      overrides as any,
+    );
+
+    const [firstRound] = result.rounds;
+    expect(firstRound.attackModifier).toBe(5);
+    expect(firstRound.defenderAC).toBe(14);
+    expect(firstRound.damage).toBe(9);
+    expect(firstRound.hit).toBe(true);
+    expect(result.winner).toBe('Champion');
+    expect(defender.hp).toBe(0);
   });
 });

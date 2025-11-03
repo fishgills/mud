@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient, Prisma, ItemQuality } from '@prisma/client';
 
 // Singleton pattern for Prisma client
 let prisma: PrismaClient | undefined;
@@ -17,7 +17,7 @@ export async function disconnectPrisma(): Promise<void> {
 }
 
 // Re-export PrismaClient class and types from Prisma for convenience
-export { PrismaClient, Prisma };
+export { PrismaClient, Prisma, ItemQuality };
 
 export type {
   Player,
@@ -28,4 +28,8 @@ export type {
   Settlement,
   Landmark,
   CombatLog,
+  Item,
+  PlayerItem,
 } from '@prisma/client';
+
+export type { ItemQuality as ItemQualityType } from '@prisma/client';

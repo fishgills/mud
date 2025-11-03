@@ -35,6 +35,9 @@ export interface Combatant {
     newLevel: number;
     skillPointsAwarded: number;
   };
+  attackBonus?: number;
+  damageBonus?: number;
+  armorBonus?: number;
 }
 
 export type { CombatRound, DetailedCombatLog };

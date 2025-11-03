@@ -4,7 +4,12 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { getPrismaClient, CombatLog as PrismaCombatLog } from '@mud/database';
+import {
+  getPrismaClient,
+  CombatLog as PrismaCombatLog,
+  ItemQuality,
+} from '@mud/database';
+import type { Item, PlayerItem, ItemQualityType } from '@mud/database';
 import {
   MonsterFactory,
   EventBus,
@@ -27,6 +32,26 @@ import {
   applyCombatResults as resultsApplyCombatResults,
   type CombatResultEffects,
 } from './results';
+
+const QUALITY_MULTIPLIERS: Record<ItemQualityType, number> = {
+  [ItemQuality.Trash]: 0.4,
+  [ItemQuality.Poor]: 0.7,
+  [ItemQuality.Common]: 1,
+  [ItemQuality.Uncommon]: 1.15,
+  [ItemQuality.Fine]: 1.25,
+  [ItemQuality.Superior]: 1.35,
+  [ItemQuality.Rare]: 1.5,
+  [ItemQuality.Epic]: 1.7,
+  [ItemQuality.Legendary]: 1.9,
+  [ItemQuality.Mythic]: 2.1,
+  [ItemQuality.Artifact]: 2.4,
+  [ItemQuality.Ascended]: 2.7,
+  [ItemQuality.Transcendent]: 3,
+  [ItemQuality.Primal]: 3.4,
+  [ItemQuality.Divine]: 3.8,
+};
+
+type EquippedPlayerItem = PlayerItem & { item: Item | null };
 
 interface CombatNarrative {
   summary: string;
@@ -64,6 +89,9 @@ export interface Combatant {
     newLevel: number;
     skillPointsAwarded: number;
   };
+  attackBonus?: number;
+  damageBonus?: number;
+  armorBonus?: number;
 }
 
 @Injectable()
@@ -238,6 +266,88 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
       )}, final ${finalGold}`,
     );
     return finalGold;
+  }
+
+  private getQualityMultiplier(
+    quality: ItemQualityType | null | undefined,
+  ): number {
+    const key = quality ?? ItemQuality.Common;
+    return QUALITY_MULTIPLIERS[key] ?? QUALITY_MULTIPLIERS[ItemQuality.Common];
+  }
+
+  private async getEquippedItems(
+    playerId: number,
+  ): Promise<EquippedPlayerItem[]> {
+    if (!this.prisma?.playerItem) {
+      return [];
+    }
+    try {
+      return await this.prisma.playerItem.findMany({
+        where: { playerId, equipped: true },
+        include: { item: true },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to load equipped items for player ${playerId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [];
+    }
+  }
+
+  private calculateEquipmentEffects(items: EquippedPlayerItem[]): {
+    attackBonus: number;
+    damageBonus: number;
+    armorBonus: number;
+    hpBonus: number;
+  } {
+    const totals = {
+      attackBonus: 0,
+      damageBonus: 0,
+      armorBonus: 0,
+      hpBonus: 0,
+    };
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return totals;
+    }
+
+    for (const record of items) {
+      const item = record.item;
+      if (!item) continue;
+
+      const multiplier = this.getQualityMultiplier(record.quality);
+      const normalizedSlot = ((): string | undefined => {
+        if (typeof record.slot === 'string') return record.slot;
+        if (typeof item.slot === 'string') return item.slot;
+        const type =
+          typeof item.type === 'string' ? item.type.toLowerCase() : '';
+        if (type === 'weapon') return 'weapon';
+        return undefined;
+      })();
+
+      const baseAttack = item.attack ?? 0;
+      const baseDefense = item.defense ?? 0;
+      const baseHealth = item.healthBonus ?? 0;
+
+      if (normalizedSlot === 'weapon' && baseAttack > 0) {
+        const toHit = Math.round(baseAttack * multiplier * 0.5);
+        const damage = Math.round(baseAttack * multiplier);
+        if (toHit !== 0) totals.attackBonus += toHit;
+        if (damage !== 0) totals.damageBonus += damage;
+      }
+
+      if (normalizedSlot !== 'weapon' && baseDefense > 0) {
+        const defense = Math.round(baseDefense * multiplier);
+        if (defense !== 0) totals.armorBonus += defense;
+      }
+
+      if (baseHealth > 0) {
+        const health = Math.round(baseHealth * multiplier);
+        if (health !== 0) totals.hpBonus += health;
+      }
+    }
+
+    return totals;
   }
 
   private formatCombatNarrative(narrative: CombatNarrative): string {
@@ -548,12 +658,21 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
       throw new Error('Player not found or not alive');
     }
 
-    const combatant = {
+    const equippedItems = await this.getEquippedItems(player.id);
+    const equipmentTotals = this.calculateEquipmentEffects(equippedItems);
+
+    const effectiveMaxHp = player.combat.maxHp + equipmentTotals.hpBonus;
+    const effectiveHp = Math.min(
+      effectiveMaxHp,
+      player.combat.hp + equipmentTotals.hpBonus,
+    );
+
+    const combatant: Combatant = {
       id: player.id,
       name: player.name,
       type: 'player' as const,
-      hp: player.combat.hp,
-      maxHp: player.combat.maxHp,
+      hp: effectiveHp,
+      maxHp: effectiveMaxHp,
       strength: player.attributes.strength,
       agility: player.attributes.agility,
       level: player.level,
@@ -562,6 +681,23 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
       y: player.position.y,
       slackId: player.clientType === 'slack' ? player.clientId : undefined,
     };
+
+    if (equipmentTotals.attackBonus > 0) {
+      combatant.attackBonus = equipmentTotals.attackBonus;
+    }
+    if (equipmentTotals.damageBonus > 0) {
+      combatant.damageBonus = equipmentTotals.damageBonus;
+    }
+    if (equipmentTotals.armorBonus > 0) {
+      combatant.armorBonus = equipmentTotals.armorBonus;
+    }
+
+    if (Array.isArray(equippedItems) && equippedItems.length > 0) {
+      this.logger.debug(
+        `Equipment bonuses for ${combatant.name}: +${equipmentTotals.attackBonus} atk, +${equipmentTotals.damageBonus} dmg, +${equipmentTotals.armorBonus} AC, +${equipmentTotals.hpBonus} HP (${equippedItems.length} items)`,
+      );
+    }
+
     this.logger.debug(
       `Player combatant: ${combatant.name} (Str:${combatant.strength}, Agi:${combatant.agility}, HP:${combatant.hp}/${combatant.maxHp}, Lvl:${combatant.level})`,
     );
