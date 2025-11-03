@@ -24,7 +24,7 @@ describe('inventory handler', () => {
     expect(formatSlotValue(12)).toBe('Item #12');
   });
 
-  it('builds an inventory message with equipment summary', () => {
+  it('builds an inventory message that lists equipment slots once', () => {
     const { buildInventoryMessage } = __private__;
     const message = buildInventoryMessage({
       id: 1,
@@ -45,19 +45,27 @@ describe('inventory handler', () => {
     });
 
     expect(message.blocks).toBeDefined();
-    const equipmentSummary = message.blocks?.find((block) => {
+    const headBlock = (message.blocks ?? []).find((block) => {
       if (block.type !== 'section') return false;
       const sectionBlock = block as SectionBlock;
-      if (!Array.isArray(sectionBlock.fields)) return false;
-      return sectionBlock.fields.some((field) =>
-        field?.text?.includes('*Head*'),
+      return (
+        sectionBlock.text?.type === 'mrkdwn' &&
+        typeof sectionBlock.text.text === 'string' &&
+        sectionBlock.text.text.includes('*Head*')
       );
     }) as SectionBlock | undefined;
-    expect(equipmentSummary).toBeDefined();
-    const summaryTexts =
-      equipmentSummary?.fields?.map((field) => field?.text ?? '') ?? [];
-    expect(summaryTexts.join('\n')).toContain('*Head*\n_Empty_');
-    expect(summaryTexts.join('\n')).toContain('*Chest*\nItem #5');
+    expect(headBlock?.text?.text).toContain('_Empty_');
+
+    const chestBlock = (message.blocks ?? []).find((block) => {
+      if (block.type !== 'section') return false;
+      const sectionBlock = block as SectionBlock;
+      return (
+        sectionBlock.text?.type === 'mrkdwn' &&
+        typeof sectionBlock.text.text === 'string' &&
+        sectionBlock.text.text.includes('*Chest*')
+      );
+    }) as SectionBlock | undefined;
+    expect(chestBlock?.text?.text).toContain('Item #5');
   });
 
   it('shows equipped controls and excludes equipped items from the backpack', () => {
@@ -118,6 +126,17 @@ describe('inventory handler', () => {
     );
     expect(equipButtons.some((btn) => btn.value?.includes('102'))).toBe(true);
     expect(equipButtons.every((btn) => !btn.value?.includes('101'))).toBe(true);
+
+    const weaponSections = (message.blocks ?? []).filter((block) => {
+      if (block.type !== 'section') return false;
+      const sectionBlock = block as SectionBlock;
+      return (
+        sectionBlock.text?.type === 'mrkdwn' &&
+        typeof sectionBlock.text.text === 'string' &&
+        sectionBlock.text.text.includes('*Weapon*')
+      );
+    });
+    expect(weaponSections).toHaveLength(1);
   });
 
   it('notifies when the player has no character', async () => {

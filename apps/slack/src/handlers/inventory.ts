@@ -255,19 +255,21 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
         text: '*Equipped Gear*',
       },
     },
-    {
-      type: 'section',
-      fields: equippedEntries.map(({ label, item, fallback }) => ({
-        type: 'mrkdwn',
-        text: `*${label}*\n${item ? formatItemDisplay(item) : fallback}`,
-      })),
-    },
   ];
 
   for (const entry of equippedEntries) {
     if (entry.item) {
       blocks.push(...createEquippedItemBlocks(entry.label, entry.item));
+      continue;
     }
+
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*${entry.label}*\n${entry.fallback}`,
+      },
+    });
   }
 
   blocks.push({ type: 'divider' });
