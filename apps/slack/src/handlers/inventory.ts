@@ -23,6 +23,132 @@ const EQUIPMENT_SLOTS: Array<{ key: EquipmentSlotKey; label: string }> = [
   { key: PlayerSlot.weapon, label: 'Weapon' },
 ];
 
+const defaultQuality = String(ItemQuality.Common);
+
+const resolvePlayerItemId = (item: ItemRecord | undefined): number | null => {
+  const id = item?.id;
+  return typeof id === 'number' ? id : null;
+};
+
+const formatItemDisplay = (item: ItemRecord | undefined): string => {
+  if (!item) return '_Empty_';
+  const badge = getQualityBadge(item.quality ?? defaultQuality);
+  const qualityLabel = formatQualityLabel(item.quality ?? defaultQuality);
+  const name = item.itemName ?? 'Unknown Item';
+  return `${badge} ${qualityLabel} ${name}`;
+};
+
+const createEquippedItemBlocks = (
+  slotLabel: string,
+  item: ItemRecord,
+): Array<KnownBlock | Block> => {
+  const playerItemId = resolvePlayerItemId(item);
+  const title = formatItemDisplay(item);
+
+  const blocks: Array<KnownBlock | Block> = [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*${slotLabel}*
+${title}`,
+      },
+    },
+  ];
+
+  if (playerItemId !== null) {
+    blocks.push({
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Unequip' },
+          style: 'primary',
+          action_id: 'inventory_unequip',
+          value: String(playerItemId),
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Drop' },
+          style: 'danger',
+          action_id: 'inventory_drop',
+          value: String(playerItemId),
+        },
+      ],
+    } as ActionsBlock);
+  }
+
+  return blocks;
+};
+
+const createBackpackItemBlocks = (
+  item: ItemRecord,
+): Array<KnownBlock | Block> => {
+  const playerItemId = resolvePlayerItemId(item);
+  const badge = getQualityBadge(item.quality ?? defaultQuality);
+  const qualityLabel = formatQualityLabel(item.quality ?? defaultQuality);
+  const name = item.itemName ?? 'Unknown Item';
+  const allowedSlots: string[] = Array.isArray(item.allowedSlots)
+    ? item.allowedSlots
+    : [];
+  const equipDisabled = allowedSlots.length === 0;
+
+  const actions: Button[] = [];
+
+  if (!equipDisabled && playerItemId !== null) {
+    actions.push({
+      type: 'button',
+      text: { type: 'plain_text', text: 'Equip' },
+      action_id: 'inventory_equip',
+      value: JSON.stringify({
+        playerItemId,
+        allowedSlots,
+      }),
+    });
+  }
+
+  if (playerItemId !== null) {
+    actions.push({
+      type: 'button',
+      text: { type: 'plain_text', text: 'Drop' },
+      style: 'danger',
+      action_id: 'inventory_drop',
+      value: String(playerItemId),
+    });
+  }
+
+  const blocks: Array<KnownBlock | Block> = [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*${badge} ${qualityLabel} ${name}*`,
+      },
+    },
+  ];
+
+  if (actions.length > 0) {
+    blocks.push({
+      type: 'actions',
+      elements: actions,
+    } as ActionsBlock);
+  }
+
+  if (equipDisabled) {
+    blocks.push({
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: '_This item cannot be equipped._',
+        },
+      ],
+    });
+  }
+
+  return blocks;
+};
+
 const formatSlotValue = (
   value: number | null | undefined,
   bag?: ItemRecord[] | undefined,
@@ -34,158 +160,152 @@ const formatSlotValue = (
   if (Array.isArray(bag)) {
     const found = bag.find((b) => b.id === value || b.itemId === value);
     if (found) {
-      // Show human-friendly name; do NOT display numeric ids in the UI
       return found.itemName ?? 'Unknown Item';
     }
   }
 
-  // If a numeric id was provided but we couldn't resolve a name from bag,
-  // fall back to the legacy "Item #<id>" label so unit tests and callers
-  // that only have an id still get a sensible string. When rendering the
-  // actual inventory UI we pass the player's bag so names are shown.
   if (typeof value === 'number') {
     return `Item #${value}`;
   }
 
-  // Otherwise show a neutral unknown label
   return 'Unknown Item';
 };
 
 const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
   const equipment = player.equipment ?? {};
   const bag = (player as PlayerWithBag).bag ?? [];
+  const bagById = new Map<number, ItemRecord>();
+  bag.forEach((item) => {
+    if (typeof item.id === 'number') {
+      bagById.set(item.id, item);
+    }
+  });
 
-  const equipmentLines = EQUIPMENT_SLOTS.map(
-    ({ key, label }) => `• *${label}:* ${formatSlotValue(equipment[key], bag)}`,
-  ).join('\n');
+  const equippedEntries = EQUIPMENT_SLOTS.map(({ key, label }) => {
+    const equippedId = equipment[key];
+    let item: ItemRecord | undefined;
+
+    if (typeof equippedId === 'number') {
+      item = bagById.get(equippedId);
+    }
+
+    if (!item) {
+      item = bag.find((bagItem) => bagItem.slot === key && bagItem.equipped);
+    }
+
+    return { key, label, item, fallback: formatSlotValue(equippedId, bag) };
+  });
+
+  const equippedIds = new Set<number>();
+  for (const entry of equippedEntries) {
+    const id = resolvePlayerItemId(entry.item);
+    if (id !== null) {
+      equippedIds.add(id);
+    }
+  }
+
+  const unequippedItems = bag.filter((item) => {
+    const id = resolvePlayerItemId(item);
+    if (id !== null && equippedIds.has(id)) {
+      return false;
+    }
+    return !(item.equipped === true);
+  });
 
   const level = player.level ?? '?';
   const gold = player.gold ?? 0;
   const hp = player.hp ?? 0;
   const maxHp = player.maxHp ?? hp;
 
-  return {
-    text: `${player.name ?? 'Inventory'}`,
-    blocks: [
-      {
-        type: 'header',
-        text: {
-          type: 'plain_text',
-          text: `🎒 ${player.name ?? 'Inventory'}`,
-          emoji: true,
-        },
+  const blocks: Array<KnownBlock | Block> = [
+    {
+      type: 'header',
+      text: {
+        type: 'plain_text',
+        text: `🎒 ${player.name ?? 'Inventory'}`,
+        emoji: true,
       },
-      {
-        type: 'section',
-        fields: [
-          {
-            type: 'mrkdwn',
-            text: `*Level*\n${level}`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*HP*\n${hp}/${maxHp}`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Gold*\n${gold}`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Position*\n(${player.x ?? '?'}, ${player.y ?? '?'})`,
-          },
-        ],
-      },
-      {
-        type: 'section',
-        text: {
+    },
+    {
+      type: 'section',
+      fields: [
+        {
           type: 'mrkdwn',
-          text:
-            equipmentLines ||
-            'You are not wearing any gear yet. Find loot to equip items!',
+          text: `*Level*\n${level}`,
         },
+        {
+          type: 'mrkdwn',
+          text: `*HP*\n${hp}/${maxHp}`,
+        },
+        {
+          type: 'mrkdwn',
+          text: `*Gold*\n${gold}`,
+        },
+        {
+          type: 'mrkdwn',
+          text: `*Position*\n(${player.x ?? '?'}, ${player.y ?? '?'})`,
+        },
+      ],
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*Equipped Gear*',
       },
-      // Show bag contents if present — render each item with Equip/Drop buttons
-      ...(bag.length > 0
-        ? bag.flatMap((it: ItemRecord) => {
-            // Pass allowedSlots in the button value as JSON so the action handler
-            // can open a modal limited to valid slots for this item.
-            const allowedSlots: string[] = Array.isArray(it.allowedSlots)
-              ? it.allowedSlots
-              : [];
-            const equipPayload = JSON.stringify({
-              playerItemId: it.id,
-              allowedSlots,
-            });
+    },
+    {
+      type: 'section',
+      fields: equippedEntries.map(({ label, item, fallback }) => ({
+        type: 'mrkdwn',
+        text: `*${label}*\n${item ? formatItemDisplay(item) : fallback}`,
+      })),
+    },
+  ];
 
-            const equipDisabled = allowedSlots.length === 0;
+  for (const entry of equippedEntries) {
+    if (entry.item) {
+      blocks.push(...createEquippedItemBlocks(entry.label, entry.item));
+    }
+  }
 
-            // Build actions array but omit the Equip button when it's not applicable.
-            const actions: Button[] = [];
-            if (!equipDisabled) {
-              actions.push({
-                type: 'button',
-                text: { type: 'plain_text', text: 'Equip' },
-                action_id: 'inventory_equip',
-                value: equipPayload,
-              });
-            }
-            actions.push({
-              type: 'button',
-              text: { type: 'plain_text', text: 'Drop' },
-              style: 'danger',
-              action_id: 'inventory_drop',
-              value: String(it.id),
-            });
+  blocks.push({ type: 'divider' });
+  blocks.push({
+    type: 'section',
+    text: { type: 'mrkdwn', text: '*Backpack*' },
+  });
 
-            const badge = getQualityBadge(
-              it.quality ?? String(ItemQuality.Common),
-            );
-            const qualityLabel = formatQualityLabel(
-              it.quality ?? String(ItemQuality.Common),
-            );
+  if (unequippedItems.length === 0) {
+    blocks.push({
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: '_Your backpack is empty._',
+        },
+      ],
+    });
+  } else {
+    unequippedItems.forEach((item) => {
+      blocks.push(...createBackpackItemBlocks(item));
+    });
+  }
 
-            const blocks: Array<KnownBlock | Block> = [
-              {
-                type: 'section',
-                text: {
-                  type: 'mrkdwn',
-                  // Render a small badge, the quality, then the item name. Do not render any numeric ids.
-                  text: `*${badge} ${qualityLabel} ${it.itemName ?? 'Unknown Item'}*`,
-                },
-              },
-              {
-                type: 'actions',
-                elements: actions,
-              } as ActionsBlock,
-            ];
-
-            if (equipDisabled) {
-              // Add a small context note explaining why Equip is disabled
-              blocks.push({
-                type: 'context',
-                elements: [
-                  {
-                    type: 'mrkdwn',
-                    text: '_This item cannot be equipped._',
-                  },
-                ],
-              });
-            }
-
-            return blocks;
-          })
-        : []),
+  blocks.push({ type: 'divider' });
+  blocks.push({
+    type: 'context',
+    elements: [
       {
-        type: 'context',
-        elements: [
-          {
-            type: 'mrkdwn',
-            text: `Use \`${COMMANDS.STATS}\` for detailed attributes.`,
-          },
-        ],
+        type: 'mrkdwn',
+        text: `Use \`${COMMANDS.STATS}\` for detailed attributes.`,
       },
     ],
+  });
+
+  return {
+    text: `${player.name ?? 'Inventory'}`,
+    blocks,
   };
 };
 

@@ -693,6 +693,49 @@ export function registerActions(app: App) {
     }
   });
 
+  app.action<BlockAction>(
+    'inventory_unequip',
+    async ({ ack, body, client }) => {
+      await ack();
+      const userId = body.user?.id;
+      const value = getActionValue(body);
+      const channelId = getChannelIdFromBody(body);
+      if (!userId || !value) return;
+      try {
+        const res = await dmClient.unequip({
+          slackId: toClientId(userId),
+          playerItemId: Number(value),
+        });
+        const resCode = (res as unknown as { code?: string })?.code;
+        const friendly = mapErrCodeToFriendlyMessage(resCode);
+        const text = res.success
+          ? `Unequipped item ${value}.`
+          : (friendly ??
+            `Failed to unequip: ${res.message ?? 'Unknown error'}`);
+        if (channelId) {
+          await client.chat.postEphemeral({
+            channel: channelId,
+            user: userId,
+            text,
+          });
+        } else {
+          const dm = await client.conversations.open({ users: userId });
+          const ch = dm.channel?.id;
+          if (ch) await client.chat.postMessage({ channel: ch, text });
+        }
+      } catch (error) {
+        console.warn('inventory_unequip failed', error);
+        const channel = getChannelIdFromBody(body);
+        if (channel)
+          await client.chat.postEphemeral({
+            channel,
+            user: userId,
+            text: 'Failed to unequip item',
+          });
+      }
+    },
+  );
+
   app.action(ATTACK_ACTIONS.MONSTER_SELECT, async ({ ack }) => {
     await ack();
   });

@@ -2,6 +2,7 @@ jest.mock('../dm-client', () => ({
   getPlayerItems: jest.fn(),
 }));
 
+import type { ActionsBlock, Button, SectionBlock } from '@slack/types';
 import type { SayMessage } from './types';
 import { inventoryHandler, __private__ } from './inventory';
 import { getPlayerItems } from '../dm-client';
@@ -23,7 +24,7 @@ describe('inventory handler', () => {
     expect(formatSlotValue(12)).toBe('Item #12');
   });
 
-  it('builds an inventory message with equipment slots', () => {
+  it('builds an inventory message with equipment summary', () => {
     const { buildInventoryMessage } = __private__;
     const message = buildInventoryMessage({
       id: 1,
@@ -44,12 +45,79 @@ describe('inventory handler', () => {
     });
 
     expect(message.blocks).toBeDefined();
-    const section = message.blocks?.find(
-      (block) => block.type === 'section' && 'text' in block,
-    ) as Extract<SayMessage['blocks'][number], { type: 'section' }> | undefined;
-    expect(section?.text?.type).toBe('mrkdwn');
-    expect(section?.text?.text).toContain('*Head:* _Empty_');
-    expect(section?.text?.text).toContain('*Chest:* Item #5');
+    const equipmentSummary = message.blocks?.find((block) => {
+      if (block.type !== 'section') return false;
+      const sectionBlock = block as SectionBlock;
+      if (!Array.isArray(sectionBlock.fields)) return false;
+      return sectionBlock.fields.some((field) =>
+        field?.text?.includes('*Head*'),
+      );
+    }) as SectionBlock | undefined;
+    expect(equipmentSummary).toBeDefined();
+    const summaryTexts =
+      equipmentSummary?.fields?.map((field) => field?.text ?? '') ?? [];
+    expect(summaryTexts.join('\n')).toContain('*Head*\n_Empty_');
+    expect(summaryTexts.join('\n')).toContain('*Chest*\nItem #5');
+  });
+
+  it('shows equipped controls and excludes equipped items from the backpack', () => {
+    const { buildInventoryMessage } = __private__;
+    const message = buildInventoryMessage({
+      id: 1,
+      name: 'Hero',
+      level: 2,
+      gold: 15,
+      hp: 6,
+      maxHp: 10,
+      x: 10,
+      y: -5,
+      equipment: {
+        head: null,
+        chest: null,
+        legs: null,
+        arms: null,
+        weapon: 101,
+      },
+      bag: [
+        {
+          id: 101,
+          itemId: 12,
+          itemName: 'Shortsword',
+          quality: 'Uncommon',
+          equipped: true,
+          slot: 'weapon',
+          allowedSlots: ['weapon'],
+        },
+        {
+          id: 102,
+          itemId: 13,
+          itemName: 'Dagger',
+          quality: 'Common',
+          equipped: false,
+          slot: null,
+          allowedSlots: ['weapon'],
+        },
+      ],
+    } as never);
+
+    const actionBlocks = (message.blocks ?? []).filter(
+      (block): block is ActionsBlock => block.type === 'actions',
+    );
+    const allButtons = actionBlocks.flatMap((block) =>
+      (block.elements ?? []).filter((el): el is Button => el.type === 'button'),
+    );
+
+    const unequipButtons = allButtons.filter(
+      (btn) => btn.action_id === 'inventory_unequip',
+    );
+    expect(unequipButtons.length).toBeGreaterThan(0);
+    expect(unequipButtons.some((btn) => btn.value === '101')).toBe(true);
+
+    const equipButtons = allButtons.filter(
+      (btn) => btn.action_id === 'inventory_equip',
+    );
+    expect(equipButtons.some((btn) => btn.value?.includes('102'))).toBe(true);
+    expect(equipButtons.every((btn) => !btn.value?.includes('101'))).toBe(true);
   });
 
   it('notifies when the player has no character', async () => {

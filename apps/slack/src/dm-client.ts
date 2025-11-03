@@ -111,6 +111,11 @@ export interface ItemRecord extends Record<string, unknown> {
   quality?: string | null;
   x?: number;
   y?: number;
+  playerId?: number;
+  slot?: string | null;
+  equipped?: boolean;
+  allowedSlots?: string[];
+  createdAt?: string;
 }
 
 export interface PlayerResponse extends SuccessResponse {
@@ -405,6 +410,16 @@ export async function equip(input: {
   });
 }
 
+export async function unequip(input: {
+  slackId?: string;
+  clientId?: string;
+  playerItemId?: number;
+}): Promise<SuccessResponse> {
+  return dmRequest<SuccessResponse>('/players/unequip', HttpMethod.POST, {
+    body: input,
+  });
+}
+
 export async function drop(input: {
   slackId?: string;
   clientId?: string;
@@ -446,6 +461,7 @@ export const dmClient = {
   getPlayerItems,
   pickup,
   equip,
+  unequip,
   drop,
 };
 

@@ -92,7 +92,10 @@ export class PlayerItemService {
       where: { id: playerItemId },
     });
     if (!pi || pi.playerId !== playerId) {
-      throw new Error('Item not found or not owned by player');
+      throw new AppError(
+        ErrCodes.NOT_OWNED,
+        'Item not found or not owned by player',
+      );
     }
     await this.prisma.playerItem.update({
       where: { id: playerItemId },

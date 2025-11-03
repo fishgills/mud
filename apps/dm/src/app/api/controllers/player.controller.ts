@@ -746,6 +746,35 @@ export class PlayersController {
     }
   }
 
+  @Post('unequip')
+  async unequip(
+    @Body()
+    payload: {
+      slackId?: string;
+      clientId?: string;
+      playerItemId?: number;
+    },
+  ) {
+    const { slackId, clientId, playerItemId } = payload ?? {};
+    if (!playerItemId) {
+      return { success: false, message: 'playerItemId is required' };
+    }
+    try {
+      const player = await this.playerService.getPlayerByIdentifier({
+        slackId,
+        clientId,
+      });
+      await this.playerItemService.unequip(player.id, Number(playerItemId));
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unequip failed',
+        code: error instanceof AppError ? error.code : undefined,
+      };
+    }
+  }
+
   private async loadNearbyPlayers(center: Player): Promise<Player[]> {
     const results: Player[] = [];
     for (let dx = -1; dx <= 1; dx++) {
