@@ -330,8 +330,12 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
       const baseHealth = item.healthBonus ?? 0;
 
       if (normalizedSlot === 'weapon' && baseAttack > 0) {
-        const toHit = Math.round(baseAttack * multiplier * 0.5);
-        const damage = Math.round(baseAttack * multiplier);
+        const scaledAttack = baseAttack * multiplier;
+        const scaledToHit = baseAttack * multiplier * 0.5;
+        const toHit =
+          scaledToHit > 0 ? Math.max(1, Math.round(scaledToHit)) : 0;
+        const damage =
+          scaledAttack > 0 ? Math.max(1, Math.round(scaledAttack)) : 0;
         if (toHit !== 0) totals.attackBonus += toHit;
         if (damage !== 0) totals.damageBonus += damage;
       }

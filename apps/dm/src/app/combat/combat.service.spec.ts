@@ -384,6 +384,50 @@ describe('CombatService helpers', () => {
     expect(describeRound(hitRound)).toContain('Damage: 6');
   });
 
+  it('ensures even the lowest-quality weapon outperforms fighting unarmed', () => {
+    const { service } = createHelperService();
+    const calculateEquipmentEffects = accessPrivate<
+      (items: Array<Record<string, unknown>>) => {
+        attackBonus: number;
+        damageBonus: number;
+        armorBonus: number;
+        hpBonus: number;
+      }
+    >(service, 'calculateEquipmentEffects').bind(service);
+
+    const unarmedTotals = calculateEquipmentEffects([]);
+    const now = new Date();
+    const trashWeapon = {
+      id: 1,
+      playerId: 42,
+      itemId: 9001,
+      quantity: 1,
+      equipped: true,
+      slot: 'weapon',
+      quality: 'Trash' as ItemQuality,
+      createdAt: now,
+      updatedAt: now,
+      item: {
+        id: 9001,
+        name: 'Rusty Shiv',
+        type: 'weapon',
+        description: 'Barely a blade, but still a blade.',
+        value: 0,
+        attack: 1,
+        defense: 0,
+        healthBonus: 0,
+        slot: 'weapon',
+        createdAt: now,
+        updatedAt: now,
+      },
+    };
+
+    const weaponTotals = calculateEquipmentEffects([trashWeapon]);
+
+    expect(weaponTotals.attackBonus).toBeGreaterThan(unarmedTotals.attackBonus);
+    expect(weaponTotals.damageBonus).toBeGreaterThan(unarmedTotals.damageBonus);
+  });
+
   it('falls back to deterministic combat narrative when AI response is empty', async () => {
     const { service, aiService } = createHelperService();
     aiService.getText.mockResolvedValue({ output_text: '' });
