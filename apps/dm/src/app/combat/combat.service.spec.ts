@@ -357,7 +357,15 @@ describe('CombatService helpers', () => {
   it('describes combat rounds from the second-person perspective', () => {
     const { service } = createHelperService();
     const describeRound = accessPrivate<
-      (round: CombatRound, options?: { secondPersonName?: string }) => string
+      (
+        round: CombatRound,
+        options?: {
+          secondPersonName?: string;
+          attackerCombatant?: Combatant;
+          defenderCombatant?: Combatant;
+        },
+        context?: { combatantsByName?: Map<string, Combatant> },
+      ) => string
     >(service, 'describeRound').bind(service);
 
     const hitRound: CombatRound = {
@@ -374,14 +382,19 @@ describe('CombatService helpers', () => {
       defenderHpAfter: 4,
     };
 
-    expect(describeRound(hitRound, { secondPersonName: 'Hero' })).toContain(
-      'You strike Goblin',
+    const youPerspective = describeRound(hitRound, {
+      secondPersonName: 'Hero',
+    });
+    expect(youPerspective).toContain(
+      'You attack: d20 15 + 2 = 17 vs AC 12 -> HIT',
     );
-    expect(describeRound(hitRound)).toContain('Hero hits Goblin');
-    expect(describeRound(hitRound)).toContain(
-      'Attack: d20 15 + 2 = 17 vs AC 12 (HIT)',
+    expect(youPerspective).toContain('Damage: 6 -> Goblin HP 4');
+
+    const thirdPerson = describeRound(hitRound);
+    expect(thirdPerson).toContain(
+      'Hero attack: d20 15 + 2 = 17 vs AC 12 -> HIT',
     );
-    expect(describeRound(hitRound)).toContain('Damage: 6');
+    expect(thirdPerson).toContain('Damage: 6 -> Goblin HP 4');
   });
 
   it('ensures even the lowest-quality weapon outperforms fighting unarmed', () => {
@@ -428,50 +441,97 @@ describe('CombatService helpers', () => {
     expect(weaponTotals.damageBonus).toBeGreaterThan(unarmedTotals.damageBonus);
   });
 
-  it('falls back to deterministic combat narrative when AI response is empty', async () => {
+  it('produces deterministic combat narrative with equipment metrics', async () => {
     const { service, aiService } = createHelperService();
-    aiService.getText.mockResolvedValue({ output_text: '' });
 
     const generateCombatNarrative = accessPrivate<
       (
         log: DetailedCombatLog,
-        options?: { secondPersonName?: string },
+        options?: {
+          secondPersonName?: string;
+          attackerCombatant?: Combatant;
+          defenderCombatant?: Combatant;
+        },
       ) => Promise<string>
     >(service, 'generateCombatNarrative').bind(service);
 
-    const narrative = await generateCombatNarrative({
-      combatId: 'test',
-      participant1: 'Hero',
-      participant2: 'Goblin',
-      initiativeRolls: [],
-      firstAttacker: 'Hero',
-      rounds: [
+    const attackerCombatant: Combatant = {
+      id: 1,
+      name: 'Hero',
+      type: 'player',
+      hp: 12,
+      maxHp: 12,
+      strength: 14,
+      agility: 12,
+      level: 5,
+      isAlive: true,
+      x: 0,
+      y: 0,
+      attackBonus: 2,
+      damageBonus: 3,
+      armorBonus: 1,
+      equippedItems: [
         {
-          roundNumber: 1,
-          attackerName: 'Hero',
-          defenderName: 'Goblin',
-          attackRoll: 15,
-          attackModifier: 2,
-          totalAttack: 17,
-          defenderAC: 12,
-          hit: true,
-          damage: 5,
-          defenderHpAfter: 3,
-          killed: false,
+          name: 'Fine Longsword',
+          slot: 'weapon',
+          quality: 'Fine' as ItemQuality,
         },
       ],
-      winner: 'Hero',
-      loser: 'Goblin',
-      xpAwarded: 12,
-      goldAwarded: 4,
-      timestamp: new Date('2023-01-01T00:00:00Z'),
-      location: { x: 0, y: 0 },
-    });
+    };
 
-    expect(aiService.getText).toHaveBeenCalled();
-    expect(narrative).toContain('**Combat Summary:**');
-    expect(narrative).toContain('Round 1:');
-    expect(narrative).toContain('Attack: d20 15 + 2 = 17 vs AC 12 (HIT)');
+    const defenderCombatant: Combatant = {
+      id: 2,
+      name: 'Goblin',
+      type: 'monster',
+      hp: 8,
+      maxHp: 8,
+      strength: 10,
+      agility: 11,
+      level: 2,
+      isAlive: true,
+      x: 0,
+      y: 0,
+    };
+
+    const narrative = await generateCombatNarrative(
+      {
+        combatId: 'test',
+        participant1: 'Hero',
+        participant2: 'Goblin',
+        initiativeRolls: [],
+        firstAttacker: 'Hero',
+        rounds: [
+          {
+            roundNumber: 1,
+            attackerName: 'Hero',
+            defenderName: 'Goblin',
+            attackRoll: 15,
+            attackModifier: 2,
+            totalAttack: 17,
+            defenderAC: 12,
+            hit: true,
+            damage: 5,
+            defenderHpAfter: 3,
+            killed: false,
+          },
+        ],
+        winner: 'Hero',
+        loser: 'Goblin',
+        xpAwarded: 12,
+        goldAwarded: 4,
+        timestamp: new Date('2023-01-01T00:00:00Z'),
+        location: { x: 0, y: 0 },
+      },
+      { attackerCombatant, defenderCombatant },
+    );
+
+    expect(aiService.getText).not.toHaveBeenCalled();
+    expect(narrative).toContain(
+      'Hero (Lvl 5, HP 12/12, Str 14, Agi 12, Atk +2, Dmg +3, AC +1, Gear: Fine Longsword [Fine]) vs Goblin (Lvl 2, HP 8/8, Str 10, Agi 11, Gear: none)',
+    );
+    expect(narrative).toContain('Round 1');
+    expect(narrative).toContain('Hero attack: d20 15 + 2 = 17 vs AC 12 -> HIT');
+    expect(narrative).toContain('Damage: 5 -> Goblin HP 3/8');
   });
 
   it('returns combat logs for a location via the prisma client', async () => {
@@ -566,7 +626,11 @@ const createPlayer = (
 type CombatServiceInternals = {
   generateCombatNarrative: (
     combatLog: DetailedCombatLog,
-    options?: { secondPersonName?: string },
+    options?: {
+      secondPersonName?: string;
+      attackerCombatant?: Combatant;
+      defenderCombatant?: Combatant;
+    },
   ) => Promise<string>;
   applyCombatResults: (
     combatLog: DetailedCombatLog,
@@ -794,11 +858,22 @@ describe('CombatService', () => {
     const [observerLogArg, observerOptions] = narrativeSpy.mock.calls[2];
 
     expect(attackerLogArg).toBe(combatLog);
-    expect(attackerOptions).toEqual({ secondPersonName: 'Attacker' });
+    expect(attackerOptions).toMatchObject({
+      secondPersonName: 'Attacker',
+      attackerCombatant: expect.objectContaining({ name: 'Attacker' }),
+      defenderCombatant: expect.objectContaining({ name: 'Defender' }),
+    });
     expect(defenderLogArg).toBe(combatLog);
-    expect(defenderOptions).toEqual({ secondPersonName: 'Defender' });
+    expect(defenderOptions).toMatchObject({
+      secondPersonName: 'Defender',
+      attackerCombatant: expect.objectContaining({ name: 'Attacker' }),
+      defenderCombatant: expect.objectContaining({ name: 'Defender' }),
+    });
     expect(observerLogArg).toBe(combatLog);
-    expect(observerOptions).toEqual({});
+    expect(observerOptions).toMatchObject({
+      attackerCombatant: expect.objectContaining({ name: 'Attacker' }),
+      defenderCombatant: expect.objectContaining({ name: 'Defender' }),
+    });
   });
 
   it('throws when players are in different locations', async () => {
@@ -1024,9 +1099,23 @@ describe('CombatService', () => {
     expect(applyResultsSpy).toHaveBeenCalledTimes(1);
     expect(narrativeSpy.mock.calls).toHaveLength(3);
     const [attackerCall, defenderCall, observerCall] = narrativeSpy.mock.calls;
-    expect(attackerCall).toEqual([combatLog, { secondPersonName: 'Attacker' }]);
-    expect(defenderCall).toEqual([combatLog, { secondPersonName: 'Defender' }]);
-    expect(observerCall).toEqual([combatLog, {}]);
+    expect(attackerCall[0]).toBe(combatLog);
+    expect(attackerCall[1]).toMatchObject({
+      secondPersonName: 'Attacker',
+      attackerCombatant: expect.objectContaining({ name: 'Attacker' }),
+      defenderCombatant: expect.objectContaining({ name: 'Defender' }),
+    });
+    expect(defenderCall[0]).toBe(combatLog);
+    expect(defenderCall[1]).toMatchObject({
+      secondPersonName: 'Defender',
+      attackerCombatant: expect.objectContaining({ name: 'Attacker' }),
+      defenderCombatant: expect.objectContaining({ name: 'Defender' }),
+    });
+    expect(observerCall[0]).toBe(combatLog);
+    expect(observerCall[1]).toMatchObject({
+      attackerCombatant: expect.objectContaining({ name: 'Attacker' }),
+      defenderCombatant: expect.objectContaining({ name: 'Defender' }),
+    });
   });
 
   it('applies equipment bonuses from equipped player items', async () => {
@@ -1449,8 +1538,17 @@ describe('CombatService', () => {
     expect(applyResultsSpy).toHaveBeenCalledTimes(1);
     expect(narrativeSpy.mock.calls).toHaveLength(2);
     const [attackerCall, observerCall] = narrativeSpy.mock.calls;
-    expect(attackerCall).toEqual([combatLog, { secondPersonName: 'Attacker' }]);
-    expect(observerCall).toEqual([combatLog, {}]);
+    expect(attackerCall[0]).toBe(combatLog);
+    expect(attackerCall[1]).toMatchObject({
+      secondPersonName: 'Attacker',
+      attackerCombatant: expect.objectContaining({ name: 'Attacker' }),
+      defenderCombatant: expect.objectContaining({ name: 'Defender' }),
+    });
+    expect(observerCall[0]).toBe(combatLog);
+    expect(observerCall[1]).toMatchObject({
+      attackerCombatant: expect.objectContaining({ name: 'Attacker' }),
+      defenderCombatant: expect.objectContaining({ name: 'Defender' }),
+    });
   });
 
   it('prevents player vs monster combat when they are apart', async () => {

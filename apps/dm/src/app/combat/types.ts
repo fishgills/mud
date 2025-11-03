@@ -1,12 +1,21 @@
 import type { CombatRound, DetailedCombatLog } from '../api';
+import type { ItemQualityType } from '@mud/database';
+
+export type CombatantEquipment = {
+  name: string;
+  slot?: string | null;
+  quality?: ItemQualityType | null;
+};
 
 export interface CombatNarrative {
-  summary: string;
+  metrics: string;
   rounds: string[];
 }
 
 export interface NarrativeOptions {
   secondPersonName?: string;
+  attackerCombatant?: Combatant;
+  defenderCombatant?: Combatant;
 }
 
 export interface CombatMessage {
@@ -38,6 +47,7 @@ export interface Combatant {
   attackBonus?: number;
   damageBonus?: number;
   armorBonus?: number;
+  equippedItems?: CombatantEquipment[];
 }
 
 export type { CombatRound, DetailedCombatLog };

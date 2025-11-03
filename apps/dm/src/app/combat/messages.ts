@@ -6,7 +6,12 @@ import type {
   CombatMessagePerformance,
   CombatRound,
 } from '../api';
-import type { Combatant, CombatMessage } from './types';
+import type {
+  Combatant,
+  CombatMessage,
+  CombatNarrative,
+  NarrativeOptions,
+} from './types';
 
 export class CombatMessenger {
   constructor(
@@ -15,125 +20,181 @@ export class CombatMessenger {
     private logger: Logger,
   ) {}
 
-  private formatCombatNarrative(narrative: {
-    summary: string;
-    rounds: string[];
-  }) {
-    const lines = ['**Combat Summary:**', narrative.summary.trim()];
+  private formatCombatNarrative(narrative: CombatNarrative) {
+    const lines = [narrative.metrics.trim()];
+
     if (narrative.rounds.length) {
-      lines.push('', '**Combat Log:**');
-      narrative.rounds.forEach((line, index) =>
-        lines.push(`Round ${index + 1}: ${line.trim()}`),
-      );
+      lines.push('');
+      narrative.rounds.forEach((round, index) => {
+        lines.push(`Round ${index + 1}`);
+        round
+          .split('\n')
+          .map((segment) => segment.trim())
+          .filter((segment) => segment.length > 0)
+          .forEach((segment) => lines.push(segment));
+        if (index !== narrative.rounds.length - 1) {
+          lines.push('');
+        }
+      });
     }
+
     return lines.join('\n');
+  }
+
+  private formatPerspectiveName(
+    name: string,
+    secondPersonName?: string,
+  ): string {
+    return secondPersonName && name === secondPersonName ? 'You' : name;
+  }
+
+  private formatModifier(value: number): string {
+    return value >= 0 ? `+ ${value}` : `- ${Math.abs(value)}`;
+  }
+
+  private formatGearList(combatant?: Combatant): string {
+    const items = combatant?.equippedItems?.filter((item) => item?.name);
+    if (!items || items.length === 0) {
+      return 'none';
+    }
+
+    return items
+      .map((item) => {
+        const quality = item.quality ? ` [${item.quality}]` : '';
+        return `${item.name}${quality}`;
+      })
+      .join('; ');
+  }
+
+  private formatCombatantMetrics(
+    fallbackName: string | undefined,
+    combatant: Combatant | undefined,
+    secondPersonName?: string,
+  ): string {
+    const safeName =
+      fallbackName && fallbackName.trim().length
+        ? fallbackName
+        : (combatant?.name ?? 'Unknown');
+    const label = this.formatPerspectiveName(safeName, secondPersonName);
+
+    if (!combatant) {
+      return label;
+    }
+
+    const metrics: string[] = [
+      `Lvl ${combatant.level}`,
+      `HP ${combatant.hp}/${combatant.maxHp}`,
+      `Str ${combatant.strength}`,
+      `Agi ${combatant.agility}`,
+    ];
+
+    if (combatant.attackBonus && combatant.attackBonus !== 0) {
+      metrics.push(`Atk +${combatant.attackBonus}`);
+    }
+    if (combatant.damageBonus && combatant.damageBonus !== 0) {
+      metrics.push(`Dmg +${combatant.damageBonus}`);
+    }
+    if (combatant.armorBonus && combatant.armorBonus !== 0) {
+      metrics.push(`AC +${combatant.armorBonus}`);
+    }
+
+    metrics.push(`Gear: ${this.formatGearList(combatant)}`);
+
+    return `${label} (${metrics.join(', ')})`;
   }
 
   private describeRound(
     round: CombatRound,
-    options: { secondPersonName?: string } = {},
+    options: NarrativeOptions = {},
+    context: { combatantsByName?: Map<string, Combatant> } = {},
   ) {
-    const { secondPersonName } = options;
-    const attackerIsYou = secondPersonName === round.attackerName;
-    const defenderIsYou = secondPersonName === round.defenderName;
-    const formatModifier = (value: number) =>
-      value >= 0 ? `+ ${value}` : `- ${Math.abs(value)}`;
-    const attackDetails = `Attack: d20 ${round.attackRoll} ${formatModifier(round.attackModifier)} = ${round.totalAttack} vs AC ${round.defenderAC} (${round.hit ? 'HIT' : 'MISS'})`;
-    const damageDetails = round.hit
-      ? `Damage: ${round.damage}${round.killed ? ' (defeated)' : ''}`
-      : null;
-    const mathDetails = damageDetails
-      ? `${attackDetails}; ${damageDetails}`
-      : attackDetails;
-    if (round.hit) {
-      if (attackerIsYou)
-        return `You strike ${round.defenderName} for ${round.damage} damage${round.killed ? ', defeating them!' : '!'} _(${mathDetails})_`;
-      if (defenderIsYou)
-        return `${round.attackerName} hits you for ${round.damage} damage${round.killed ? ', leaving you defeated!' : '!'} _(${mathDetails})_`;
-      return `${round.attackerName} hits ${round.defenderName} for ${round.damage} damage${round.killed ? ', slaying them!' : '!'} _(${mathDetails})_`;
-    }
-    if (attackerIsYou)
-      return `You swing at ${round.defenderName} but miss. _(${mathDetails})_`;
-    if (defenderIsYou)
-      return `${round.attackerName} swings at you but misses. _(${mathDetails})_`;
-    return `${round.attackerName} swings at ${round.defenderName} but misses. _(${mathDetails})_`;
+    const attackerLabel = this.formatPerspectiveName(
+      round.attackerName,
+      options.secondPersonName,
+    );
+    const defenderLabel = this.formatPerspectiveName(
+      round.defenderName,
+      options.secondPersonName,
+    );
+
+    const attackLine = `${attackerLabel} attack: d20 ${round.attackRoll} ${this.formatModifier(
+      round.attackModifier,
+    )} = ${round.totalAttack} vs AC ${round.defenderAC} -> ${round.hit ? 'HIT' : 'MISS'}`;
+
+    const defender =
+      context.combatantsByName?.get(round.defenderName) ?? undefined;
+    const defenderMaxHp =
+      typeof defender?.maxHp === 'number' ? defender.maxHp : undefined;
+    const hpAfter = round.defenderHpAfter;
+    const hpSegment =
+      defenderMaxHp !== undefined
+        ? `${hpAfter}/${defenderMaxHp}`
+        : `${hpAfter}`;
+
+    const damageLine = round.hit
+      ? `Damage: ${round.damage} -> ${defenderLabel} HP ${hpSegment}${round.killed ? ' KO' : ''}`
+      : `Damage: 0 -> ${defenderLabel} HP ${hpSegment} (miss)`;
+
+    return [attackLine, damageLine].join('\n');
   }
 
   private createFallbackNarrative(
     combatLog: DetailedCombatLog,
-    options: { secondPersonName?: string } = {},
-  ) {
-    const summary = `${combatLog.winner} defeats ${combatLog.loser} after ${Math.ceil(combatLog.rounds.length / 2)} rounds of combat.`;
-    const rounds = combatLog.rounds.map((r) => this.describeRound(r, options));
-    return { summary, rounds };
+    options: NarrativeOptions = {},
+  ): CombatNarrative {
+    const combatantsByName = new Map<string, Combatant>();
+    if (options.attackerCombatant) {
+      combatantsByName.set(
+        options.attackerCombatant.name,
+        options.attackerCombatant,
+      );
+    }
+    if (options.defenderCombatant) {
+      combatantsByName.set(
+        options.defenderCombatant.name,
+        options.defenderCombatant,
+      );
+    }
+
+    const attackerName =
+      combatLog.firstAttacker ||
+      combatLog.participant1 ||
+      options.attackerCombatant?.name ||
+      'Unknown attacker';
+    const defenderName =
+      attackerName === combatLog.participant1
+        ? combatLog.participant2 ||
+          options.defenderCombatant?.name ||
+          'Unknown defender'
+        : combatLog.participant1 ||
+          options.defenderCombatant?.name ||
+          'Unknown defender';
+
+    const metrics = [
+      this.formatCombatantMetrics(
+        attackerName,
+        combatantsByName.get(attackerName),
+        options.secondPersonName,
+      ),
+      this.formatCombatantMetrics(
+        defenderName,
+        combatantsByName.get(defenderName),
+        options.secondPersonName,
+      ),
+    ].join(' vs ');
+
+    const rounds = combatLog.rounds.map((round) =>
+      this.describeRound(round, options, { combatantsByName }),
+    );
+
+    return { metrics, rounds };
   }
 
   async generateCombatNarrative(
     combatLog: DetailedCombatLog,
-    options: { secondPersonName?: string } = {},
+    options: NarrativeOptions = {},
   ) {
-    const totalRounds = Math.ceil(combatLog.rounds.length / 2);
-    const totalDamage = combatLog.rounds.reduce(
-      (sum, round) => sum + round.damage,
-      0,
-    );
-    const maxDetailedRounds = 10;
-    const roundSummaries = combatLog.rounds
-      .slice(0, maxDetailedRounds)
-      .map(
-        (round) =>
-          `${round.roundNumber}: ${round.attackerName} ${round.hit ? `hit ${round.defenderName} for ${round.damage}` : `missed ${round.defenderName}`}${round.killed ? ' (final blow)' : ''}`,
-      )
-      .join(' | ');
-    const roundOverflow =
-      combatLog.rounds.length > maxDetailedRounds ? ' | …' : '';
-    const roundBreakdownLine = combatLog.rounds.length
-      ? `Round breakdown: ${roundSummaries}${roundOverflow || ''}`
-      : 'Round breakdown: no exchanges recorded.';
-    const locationLine = combatLog.location
-      ? `Location: (${combatLog.location.x}, ${combatLog.location.y})`
-      : 'Location: unknown';
-    const perspectiveInstruction = options.secondPersonName
-      ? `Refer to ${options.secondPersonName} as "you" while keeping opponents in third person.`
-      : 'Use third-person narration for everyone.';
-
-    const prompt = [
-      'You are a fantasy combat narrator crafting Slack-ready copy.',
-      'Deliver two vivid sentences describing the flow and outcome, then provide a short round-by-round log on new lines.',
-      perspectiveInstruction,
-      'Stay energetic, avoid dice jargon, and ground everything in the facts provided.',
-      `Combat ID: ${combatLog.combatId}`,
-      `Participants: ${combatLog.participant1} vs ${combatLog.participant2}`,
-      `Winner: ${combatLog.winner}; Loser: ${combatLog.loser}; First strike: ${combatLog.firstAttacker}`,
-      `Rounds completed: ${totalRounds}; Total damage: ${totalDamage}`,
-      `Rewards (winner): +${combatLog.xpAwarded} XP, +${combatLog.goldAwarded} gold`,
-      locationLine,
-      roundBreakdownLine,
-    ].join('\n');
-
-    this.logger.debug(`Combat narrative AI prompt: ${prompt}`);
-    try {
-      const ai = await this.aiService.getText(prompt, {
-        timeoutMs: 20000,
-        maxTokens: 220,
-        model: 'gpt-4o-mini',
-      });
-      const rawText = (ai?.output_text ?? '').trim();
-      if (rawText) {
-        // strip opening fence and any remaining fences (closing or inline)
-        const cleaned = rawText
-          .replace(/^```(json)?\s*/i, '')
-          .replace(/```/g, '')
-          .trim();
-        if (cleaned) return cleaned;
-      }
-    } catch (error) {
-      this.logger.debug(`AI combat narrative generation failed: ${error}`);
-    }
     const fallback = this.createFallbackNarrative(combatLog, options);
-    this.logger.debug(
-      `Using fallback combat narrative: ${JSON.stringify(fallback)}`,
-    );
     return this.formatCombatNarrative(fallback);
   }
 
@@ -223,9 +284,14 @@ export class CombatMessenger {
     combatLog: DetailedCombatLog,
     participant: Combatant,
     role: 'attacker' | 'defender',
+    context: { attacker: Combatant; defender: Combatant },
   ) {
     if (participant.type !== 'player' || !participant.slackId) return null;
-    const options = { secondPersonName: participant.name };
+    const options: NarrativeOptions = {
+      secondPersonName: participant.name,
+      attackerCombatant: context.attacker,
+      defenderCombatant: context.defender,
+    };
     const [narrative, summary] = await Promise.all([
       this.generateCombatNarrative(combatLog, options),
       this.generateEntertainingSummary(combatLog, options),
@@ -262,8 +328,15 @@ export class CombatMessenger {
       return { value, duration: Date.now() - s };
     };
 
+    const participantContext = { attacker, defender };
+
     const attackerPromise = measure(() =>
-      this.buildParticipantMessage(combatLog, attacker, 'attacker'),
+      this.buildParticipantMessage(
+        combatLog,
+        attacker,
+        'attacker',
+        participantContext,
+      ),
     );
     const defenderEligible =
       defender.type === 'player' &&
@@ -271,7 +344,12 @@ export class CombatMessenger {
       defender.slackId !== attacker.slackId;
     const defenderPromise = defenderEligible
       ? measure(() =>
-          this.buildParticipantMessage(combatLog, defender, 'defender'),
+          this.buildParticipantMessage(
+            combatLog,
+            defender,
+            'defender',
+            participantContext,
+          ),
         )
       : undefined;
     const observerLookupPromise = measure(() =>
@@ -280,7 +358,10 @@ export class CombatMessenger {
       }),
     );
     const observerNarrativePromise = measure(() =>
-      this.generateCombatNarrative(combatLog, {}),
+      this.generateCombatNarrative(combatLog, {
+        attackerCombatant: attacker,
+        defenderCombatant: defender,
+      }),
     );
     const observerSummaryPromise = measure(() =>
       this.generateEntertainingSummary(combatLog, {}),
