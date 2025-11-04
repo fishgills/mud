@@ -128,9 +128,32 @@ export class PlayerService {
     this.logger.log(`[DM-DB] Looking up player with clientId: ${clientId}`);
 
     // Parse clientType from clientId format (e.g., "slack:U123")
-    const parts = clientId.split(':');
-    const clientType = parts.length > 1 ? (parts[0] as ClientType) : 'slack';
-    const actualId = parts.length > 1 ? parts[1] : clientId;
+    const segments = clientId
+      .split(':')
+      .map((segment) => segment.trim())
+      .filter((segment) => segment.length > 0);
+
+    let clientType: ClientType = 'slack';
+    let actualId = clientId.trim();
+
+    if (segments.length === 1) {
+      actualId = segments[0];
+    } else if (segments.length > 1) {
+      const potentialType = segments[0];
+      const remaining = segments.slice(1).join(':');
+
+      const knownTypes: readonly ClientType[] = ['slack', 'discord', 'web'];
+
+      if (
+        remaining.length > 0 &&
+        knownTypes.includes(potentialType as ClientType)
+      ) {
+        clientType = potentialType as ClientType;
+        actualId = remaining;
+      } else {
+        actualId = segments.join(':');
+      }
+    }
 
     const entity = await PlayerFactory.load(actualId, clientType);
 

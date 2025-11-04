@@ -31,7 +31,7 @@ const isClientType = (value: unknown): value is ClientType => {
 
 const parseClientIdentifier = (
   raw: string | null | undefined,
-): { type?: ClientType; id?: string } => {
+): { type?: ClientType; id?: string; legacyId?: string } => {
   if (!raw) {
     return {};
   }
@@ -45,27 +45,36 @@ const parseClientIdentifier = (
     return {};
   }
 
+  const legacyId = segments[segments.length - 1];
+
   if (segments.length === 1) {
-    return { id: segments[0] };
+    return { id: segments[0], legacyId };
   }
 
   const potentialType = segments[0];
-  const potentialId = segments[segments.length - 1];
+  const type = isClientType(potentialType) ? potentialType : undefined;
+  const idSegments = type ? segments.slice(1) : segments;
 
   return {
-    type: isClientType(potentialType) ? potentialType : undefined,
-    id: potentialId,
+    type,
+    id: idSegments.join(':') || undefined,
+    legacyId,
   };
 };
 
 const normalizeClientIdentifier = (
   raw: string | null | undefined,
   fallbackType: ClientType,
-): { id: string; type: ClientType } => {
+): { id: string; type: ClientType; legacyId?: string } => {
   const parsed = parseClientIdentifier(raw);
   const type = parsed.type ?? fallbackType;
-  const id = (parsed.id ?? raw ?? '').trim();
-  return { id, type };
+  let id = (parsed.id ?? raw ?? '').trim();
+
+  if (!id && raw) {
+    id = raw.trim();
+  }
+
+  return { id, type, legacyId: parsed.legacyId };
 };
 
 const normalizeSlackId = (value: string | null | undefined): string => {
@@ -87,14 +96,15 @@ const buildClientIdVariants = (
   clientType: ClientType,
 ): {
   clientIdVariants: Set<string>;
-  slackIdVariants: Set<string>;
   canonicalId: string;
   canonicalType: ClientType;
+  userId?: string;
 } => {
-  const { id: canonicalId, type: canonicalType } = normalizeClientIdentifier(
-    raw,
-    clientType,
-  );
+  const {
+    id: canonicalId,
+    type: canonicalType,
+    legacyId,
+  } = normalizeClientIdentifier(raw, clientType);
 
   const clientIdVariants = new Set<string>([
     `${canonicalType}:${canonicalId}`,
@@ -116,14 +126,18 @@ const buildClientIdVariants = (
     }
   }
 
-  const slackIdVariants = new Set<string>();
-  if (canonicalType === 'slack') {
-    slackIdVariants.add(canonicalId);
-    slackIdVariants.add(raw);
-    slackIdVariants.add(`slack:${canonicalId}`);
+  const canonicalSegments = canonicalId
+    .split(':')
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  const userId = canonicalSegments[canonicalSegments.length - 1] ?? legacyId;
+
+  if (userId && userId.length > 0) {
+    clientIdVariants.add(`${canonicalType}:${userId}`);
+    clientIdVariants.add(userId);
   }
 
-  return { clientIdVariants, slackIdVariants, canonicalId, canonicalType };
+  return { clientIdVariants, canonicalId, canonicalType, userId };
 };
 
 export class PlayerFactory {
@@ -146,10 +160,8 @@ export class PlayerFactory {
 
     const player = await this.prisma.player.create({
       data: {
-        slackId:
-          canonicalClientType === 'slack' ? canonicalClientId : undefined, // Keep for backwards compat
-        clientId: fullClientId, // New field: "slack:U123" or "discord:456"
-        clientType: canonicalClientType, // New field: "slack", "discord", "web"
+        clientId: fullClientId, // "slack:U123" or "discord:456"
+        clientType: canonicalClientType, // "slack", "discord", "web"
         name,
         x: x ?? 0,
         y: y ?? 0,
@@ -188,16 +200,21 @@ export class PlayerFactory {
     clientId: string,
     clientType: ClientType,
   ): Promise<PlayerEntity | null> {
-    const { clientIdVariants, slackIdVariants, canonicalType } =
-      buildClientIdVariants(clientId, clientType);
+    const { clientIdVariants, canonicalType, userId } = buildClientIdVariants(
+      clientId,
+      clientType,
+    );
 
-    const orClauses: Array<{ clientId: string } | { slackId: string }> = [];
+    const orClauses: Array<
+      { clientId: string } | { clientId: { endsWith: string } }
+    > = [];
     clientIdVariants.forEach((id) => {
       orClauses.push({ clientId: id });
     });
-    slackIdVariants.forEach((id) => {
-      orClauses.push({ slackId: id });
-    });
+    if (canonicalType === 'slack' && userId && userId.length > 0) {
+      // Support workspace-qualified IDs like slack:T123:U999 via legacy userId
+      orClauses.push({ clientId: { endsWith: `:${userId}` } });
+    }
 
     const player = await this.prisma.player.findFirst({
       where: {
@@ -306,7 +323,7 @@ export class PlayerFactory {
     // Build where clause
     const whereClause: {
       isAlive?: boolean;
-      slackId?: { not: string };
+      AND?: Array<Record<string, unknown>>;
       x?: { gte: number; lte: number };
       y?: { gte: number; lte: number };
     } = {};
@@ -317,9 +334,20 @@ export class PlayerFactory {
 
     if (options?.excludeSlackId) {
       const normalizedExclude = normalizeSlackId(options.excludeSlackId);
-      whereClause.slackId = {
-        not: normalizedExclude || options.excludeSlackId,
-      };
+      const variants = new Set<string>();
+      if (normalizedExclude) {
+        variants.add(normalizedExclude);
+        variants.add(`slack:${normalizedExclude}`);
+      }
+      variants.add(options.excludeSlackId);
+
+      const nots: Array<Record<string, unknown>> = Array.from(variants).map(
+        (v) => ({ clientId: v }),
+      );
+      if (normalizedExclude) {
+        nots.push({ clientId: { endsWith: `:${normalizedExclude}` } });
+      }
+      whereClause.AND = [{ clientType: 'slack' }, { NOT: nots }];
     }
 
     // Use bounding box if radius is finite
@@ -379,18 +407,20 @@ export class PlayerFactory {
     clientId: string,
     clientType: ClientType,
   ): Promise<void> {
-    const { clientIdVariants, slackIdVariants } = buildClientIdVariants(
+    const { clientIdVariants, userId, canonicalType } = buildClientIdVariants(
       clientId,
       clientType,
     );
 
-    const orClauses: Array<{ clientId: string } | { slackId: string }> = [];
+    const orClauses: Array<
+      { clientId: string } | { clientId: { endsWith: string } }
+    > = [];
     clientIdVariants.forEach((id) => {
       orClauses.push({ clientId: id });
     });
-    slackIdVariants.forEach((id) => {
-      orClauses.push({ slackId: id });
-    });
+    if (canonicalType === 'slack' && userId && userId.length > 0) {
+      orClauses.push({ clientId: { endsWith: `:${userId}` } });
+    }
 
     if (orClauses.length === 0) {
       return;
@@ -446,12 +476,6 @@ export class PlayerFactory {
 
     let resolvedClientId = parsedClientId;
     let resolvedClientType = parsedClientType;
-
-    if (!resolvedClientId && player.slackId) {
-      const slackId = normalizeSlackId(player.slackId);
-      resolvedClientId = slackId;
-      resolvedClientType = 'slack';
-    }
 
     if (!resolvedClientId) {
       resolvedClientId = '';

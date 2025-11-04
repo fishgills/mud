@@ -200,7 +200,10 @@ describe('EncounterService', () => {
       expect(combatCall?.[0]).toMatchObject({
         eventType: 'combat:initiate',
         attacker: expect.objectContaining({ id: 1, type: 'monster' }),
-        defender: expect.objectContaining({ id: 'U123456', type: 'player' }),
+        defender: expect.objectContaining({
+          id: 'slack:U123456',
+          type: 'player',
+        }),
         metadata: expect.objectContaining({
           source: 'encounter.service',
           reason: 'monster-ambush',
@@ -269,11 +272,11 @@ describe('EncounterService', () => {
       expect(combatCalls).toHaveLength(2);
       expect(combatCalls[0][0]).toMatchObject({
         attacker: expect.objectContaining({ id: 1 }),
-        defender: expect.objectContaining({ id: 'U123456' }),
+        defender: expect.objectContaining({ id: 'slack:U123456' }),
       });
       expect(combatCalls[1][0]).toMatchObject({
         attacker: expect.objectContaining({ id: 2 }),
-        defender: expect.objectContaining({ id: 'U123456' }),
+        defender: expect.objectContaining({ id: 'slack:U123456' }),
       });
 
       jest.spyOn(Math, 'random').mockRestore();

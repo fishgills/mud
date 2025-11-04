@@ -5,7 +5,7 @@ import {
   MovePlayerRequest,
   PlayerStatsRequest,
 } from '../api/dto/player-requests.dto';
-import { EventBus } from '@mud/engine';
+import { EventBus, PlayerFactory } from '@mud/engine';
 
 const players: Record<string, unknown>[] = [];
 
@@ -246,6 +246,24 @@ describe('PlayerService', () => {
     await expect(service.getPlayerByName('Existing')).rejects.toThrow(
       BadRequestException,
     );
+  });
+
+  it('resolves players using workspace-qualified client identifiers', async () => {
+    const service = new PlayerService(worldService);
+
+    await PlayerFactory.create({
+      clientId: 'slack:T42:U777',
+      clientType: 'slack',
+      name: 'WorkspaceTraveler',
+    });
+
+    const directLoad = await PlayerFactory.load('slack:T42:U777', 'slack');
+    const byFullId = await service.getPlayerByClientId('slack:T42:U777');
+    const byCanonical = await service.getPlayerByClientId('T42:U777');
+
+    expect(directLoad?.clientId).toBe('T42:U777');
+    expect(byFullId.clientId).toBe('T42:U777');
+    expect(byCanonical.clientId).toBe('T42:U777');
   });
 
   it('moves players and validates movement', async () => {

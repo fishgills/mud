@@ -1,6 +1,7 @@
 import { LocationNotificationService } from './location-notification.service';
 import type {
   PlayerMoveEvent,
+  PlayerSpawnEvent,
   MonsterMoveEvent,
   MonsterSpawnEvent,
   CombatHitEvent,
@@ -44,7 +45,9 @@ describe('LocationNotificationService', () => {
   it('notifies nearby players when someone arrives', async () => {
     playerService.getPlayersAtLocation
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([createPlayer({ clientId: 'U789', id: 101 })]);
+      .mockResolvedValueOnce([
+        createPlayer({ clientId: 'T001:U789', id: 101 }),
+      ]);
 
     const event: PlayerMoveEvent = {
       eventType: 'player:move',
@@ -70,7 +73,7 @@ describe('LocationNotificationService', () => {
     const payload = eventBridge.publishNotification.mock.calls[0][0];
     expect(payload.type).toBe('player');
     expect(payload.recipients).toHaveLength(1);
-    expect(payload.recipients[0].clientId).toBe('slack:U789');
+    expect(payload.recipients[0].clientId).toBe('slack:T001:U789');
     expect(payload.recipients[0].message).toContain(
       'arrives from the south-west',
     );
@@ -79,7 +82,7 @@ describe('LocationNotificationService', () => {
   it('notifies players when a monster moves in and out', async () => {
     playerService.getPlayersAtLocation
       .mockResolvedValueOnce([createPlayer({ clientId: 'slack:U555', id: 7 })])
-      .mockResolvedValueOnce([createPlayer({ clientId: 'U556', id: 8 })]);
+      .mockResolvedValueOnce([createPlayer({ clientId: 'T002:U556', id: 8 })]);
 
     const event: MonsterMoveEvent = {
       eventType: 'monster:move',
@@ -108,7 +111,7 @@ describe('LocationNotificationService', () => {
     expect(first.recipients[0].message).toContain('leaves heading east');
 
     const second = eventBridge.publishNotification.mock.calls[1][0];
-    expect(second.recipients[0].clientId).toBe('slack:U556');
+    expect(second.recipients[0].clientId).toBe('slack:T002:U556');
     expect(second.recipients[0].message).toContain('moves in from the west');
   });
 
@@ -137,7 +140,7 @@ describe('LocationNotificationService', () => {
 
   it('notifies combat activity with damage details', async () => {
     playerService.getPlayersAtLocation.mockResolvedValue([
-      createPlayer({ clientId: 'U321', id: 55 }),
+      createPlayer({ clientId: 'T003:U321', id: 55 }),
     ]);
 
     const event: CombatHitEvent = {
@@ -168,6 +171,33 @@ describe('LocationNotificationService', () => {
     const payload = eventBridge.publishNotification.mock.calls[0][0];
     expect(payload.type).toBe('combat');
     expect(payload.recipients[0].message).toContain('11 damage');
-    expect(payload.recipients[0].clientId).toBe('slack:U321');
+    expect(payload.recipients[0].clientId).toBe('slack:T003:U321');
+  });
+
+  it('emits workspace-aware client ids for spawn notifications', async () => {
+    playerService.getPlayersAtLocation.mockResolvedValue([
+      createPlayer({ clientId: 'T777:U999', id: 202 }),
+    ]);
+
+    const event = {
+      eventType: 'player:spawn',
+      player: {
+        id: 1,
+        name: 'Traveler',
+      },
+      x: 5,
+      y: -5,
+      timestamp: new Date(),
+    } as unknown as PlayerSpawnEvent;
+
+    await (
+      service as unknown as {
+        handlePlayerSpawn: (e: PlayerSpawnEvent) => Promise<void>;
+      }
+    ).handlePlayerSpawn(event);
+
+    expect(eventBridge.publishNotification).toHaveBeenCalledTimes(1);
+    const payload = eventBridge.publishNotification.mock.calls[0][0];
+    expect(payload.recipients[0].clientId).toBe('slack:T777:U999');
   });
 });

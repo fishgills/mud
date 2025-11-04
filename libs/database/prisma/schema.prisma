@@ -21,7 +21,6 @@ model GameState {
 
 model Player {
   id           Int           @id @default(autoincrement())
-  slackId      String?       @unique // Legacy: Slack user ID (kept for backwards compat)
   clientId     String?       @unique // New: Full client ID (e.g., "slack:U123", "discord:456")
   clientType   String?       @default("slack") // New: Client type ("slack", "discord", "web")
   name         String

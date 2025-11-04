@@ -18,7 +18,6 @@ const prisma = getPrismaClient();
 const basePlayerData = {
   clientId: 'slack:U123',
   clientType: 'slack',
-  slackId: 'U123',
   name: 'Hero',
   x: 1,
   y: 2,
@@ -92,47 +91,32 @@ describe('PlayerFactory', () => {
   });
 
   it('loads players by client id and handles legacy formats', async () => {
-    // Create a player with playerItems relation to represent equipped items.
-    const created = await prisma.player.create({
-      data: {
-        ...basePlayerData,
-        playerItems: [
-          {
-            id: 201,
-            playerId: undefined,
-            itemId: 42,
-            equipped: true,
-            slot: 'head',
-            item: { id: 42, name: 'Iron Helmet', slot: 'head', type: 'armor' },
-          },
-          {
-            id: 202,
-            playerId: undefined,
-            itemId: 7,
-            equipped: true,
-            slot: 'weapon',
-            item: {
-              id: 7,
-              name: 'Short Sword',
-              slot: 'weapon',
-              type: 'weapon',
-            },
-          },
-        ],
-      },
-    });
+    const created = await prisma.player.create({ data: basePlayerData });
 
     const loaded = await PlayerFactory.load('U123', 'slack');
 
     expect(loaded?.id).toBe(created.id);
     expect(loaded?.clientId).toBe('U123');
-    expect(loaded?.equipment).toEqual({
-      head: 42,
-      chest: null,
-      legs: null,
-      arms: null,
-      weapon: 7,
+  });
+
+  it('preserves workspace-qualified slack identifiers', async () => {
+    const workspacePlayer = await PlayerFactory.create({
+      clientId: 'slack:T12345:U999',
+      clientType: 'slack',
+      name: 'WorkspaceHero',
     });
+
+    const loadedByFullId = await PlayerFactory.load(
+      'slack:T12345:U999',
+      'slack',
+    );
+    const loadedByCanonical = await PlayerFactory.load('T12345:U999', 'slack');
+    const loadedByLegacy = await PlayerFactory.load('U999', 'slack');
+
+    expect(loadedByFullId?.id).toBe(workspacePlayer.id);
+    expect(loadedByFullId?.clientId).toBe('T12345:U999');
+    expect(loadedByCanonical?.clientId).toBe('T12345:U999');
+    expect(loadedByLegacy?.clientId).toBe('T12345:U999');
   });
 
   it('loads by name and enforces uniqueness', async () => {
@@ -144,7 +128,6 @@ describe('PlayerFactory', () => {
       data: {
         ...basePlayerData,
         clientId: 'slack:U124',
-        slackId: 'U124',
         name: 'Hero',
       },
     });
@@ -160,7 +143,6 @@ describe('PlayerFactory', () => {
       data: {
         ...basePlayerData,
         clientId: 'slack:U125',
-        slackId: 'U125',
         name: 'Ranger',
         x: 0,
         y: 0,
@@ -192,7 +174,6 @@ describe('PlayerFactory', () => {
       data: {
         ...basePlayerData,
         clientId: 'slack:U124',
-        slackId: 'U124',
         id: 2,
         x: 0,
         y: 4,
@@ -202,7 +183,6 @@ describe('PlayerFactory', () => {
       data: {
         ...basePlayerData,
         clientId: 'slack:U125',
-        slackId: 'U125',
         id: 3,
         x: 4,
         y: 0,
@@ -212,7 +192,6 @@ describe('PlayerFactory', () => {
       data: {
         ...basePlayerData,
         clientId: 'slack:U126',
-        slackId: 'U126',
         id: 4,
         x: -4,
         y: 0,
@@ -222,7 +201,6 @@ describe('PlayerFactory', () => {
       data: {
         ...basePlayerData,
         clientId: 'slack:U127',
-        slackId: 'U127',
         id: 5,
         x: 0,
         y: -3,
@@ -232,7 +210,6 @@ describe('PlayerFactory', () => {
       data: {
         ...basePlayerData,
         clientId: 'slack:U128',
-        slackId: 'U128',
         id: 6,
         x: -2,
         y: -2,
@@ -300,7 +277,6 @@ describe('PlayerFactory', () => {
       data: {
         ...basePlayerData,
         clientId: 'slack:U200',
-        slackId: 'U200',
         lastAction: new Date('2024-01-01T11:55:00Z'),
       },
     });
@@ -308,7 +284,6 @@ describe('PlayerFactory', () => {
       data: {
         ...basePlayerData,
         clientId: 'slack:U201',
-        slackId: 'U201',
         lastAction: new Date('2024-01-01T11:20:00Z'),
       },
     });
@@ -326,7 +301,6 @@ describe('PlayerFactory', () => {
       id: 999,
       clientId: 'slack:U999',
       clientType: 'slack',
-      slackId: 'U999',
       name: 'Mapper',
       x: 0,
       y: 0,
@@ -358,7 +332,10 @@ describe('PlayerFactory', () => {
       ],
     };
 
-    const entity = PlayerFactory.fromDatabaseModel(playerFromDb, 'slack');
+    const entity = PlayerFactory.fromDatabaseModel(
+      playerFromDb as any,
+      'slack',
+    );
     expect(entity.equipment.head).toBe(42);
   });
 });

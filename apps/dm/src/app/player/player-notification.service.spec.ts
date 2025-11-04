@@ -49,7 +49,7 @@ describe('PlayerNotificationService', () => {
     );
   });
 
-  it('publishes a player notification when a respawn event has a Slack ID', async () => {
+  it('publishes a player notification when a respawn event has a Slack clientId', async () => {
     service.onModuleInit();
     const event: PlayerRespawnEvent = {
       eventType: 'player:respawn',
@@ -57,7 +57,8 @@ describe('PlayerNotificationService', () => {
       player: {
         id: 1,
         name: 'Test Player',
-        slackId: 'U123',
+        clientId: 'slack:U123',
+        clientType: 'slack',
       } as unknown as PlayerRespawnEvent['player'],
       x: 10,
       y: 20,
@@ -77,7 +78,7 @@ describe('PlayerNotificationService', () => {
     );
   });
 
-  it('does not publish notification when Slack ID is missing', async () => {
+  it('does not publish notification when Slack clientId is missing', async () => {
     service.onModuleInit();
     const event: PlayerRespawnEvent = {
       eventType: 'player:respawn',
@@ -85,7 +86,8 @@ describe('PlayerNotificationService', () => {
       player: {
         id: 2,
         name: 'No Slack',
-        slackId: null,
+        clientId: null,
+        clientType: 'slack',
       } as unknown as PlayerRespawnEvent['player'],
       x: 5,
       y: 7,

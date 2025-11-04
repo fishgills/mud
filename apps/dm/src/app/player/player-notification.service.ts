@@ -36,7 +36,7 @@ export class PlayerNotificationService
   }
 
   private async handlePlayerRespawn(event: PlayerRespawnEvent): Promise<void> {
-    const slackId = event.player.slackId;
+    const slackId = this.resolveSlackUserId(event.player);
     if (!slackId) {
       this.logger.warn(
         `Received player:respawn for player ${event.player.id} without a Slack ID`,
@@ -77,5 +77,39 @@ export class PlayerNotificationService
     this.logger.debug(
       `Sent respawn notification to ${slackId} for location ${locationText}`,
     );
+  }
+
+  private resolveSlackUserId(player: {
+    clientId: string | null;
+    clientType: string | null;
+  }): string | null {
+    const clientId = player.clientId?.trim();
+    if (!clientId) {
+      return null;
+    }
+
+    const clientType = (player.clientType ?? 'slack').trim().toLowerCase();
+    if (clientType !== 'slack') {
+      return null;
+    }
+
+    const segments = clientId
+      .split(':')
+      .map((segment) => segment.trim())
+      .filter((segment) => segment.length > 0);
+
+    if (segments.length === 0) {
+      return null;
+    }
+
+    if (segments[0].toLowerCase() === 'slack') {
+      segments.shift();
+    }
+
+    if (segments.length === 0) {
+      return null;
+    }
+
+    return segments[segments.length - 1];
   }
 }

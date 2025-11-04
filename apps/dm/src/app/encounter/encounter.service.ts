@@ -83,7 +83,6 @@ export class EncounterService implements OnModuleInit {
           });
           const playerIdentifier = this.resolvePlayerIdentifier(
             player.clientId,
-            player.slackId,
           );
           if (!playerIdentifier) {
             console.error(
@@ -117,13 +116,7 @@ export class EncounterService implements OnModuleInit {
     }
   }
 
-  private resolvePlayerIdentifier(
-    clientId?: string | null,
-    slackId?: string | null,
-  ): string | null {
-    if (slackId && slackId.trim().length > 0) {
-      return slackId.trim();
-    }
+  private resolvePlayerIdentifier(clientId?: string | null): string | null {
     if (clientId && clientId.trim().length > 0) {
       return clientId.trim();
     }
