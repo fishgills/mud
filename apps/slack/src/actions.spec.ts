@@ -2,6 +2,12 @@ jest.mock('./dm-client', () => {
   const dmClient = {
     attack: jest.fn(),
     spendSkillPoint: jest.fn(),
+    equip: jest.fn(),
+    drop: jest.fn(),
+    unequip: jest.fn(),
+    pickup: jest.fn(),
+    getPlayer: jest.fn(),
+    getLocationEntities: jest.fn(),
   };
   return { dmClient };
 });
@@ -14,6 +20,8 @@ import {
   MOVE_ACTIONS,
   ATTACK_ACTIONS,
   STAT_ACTIONS,
+  PICKUP_ACTIONS,
+  COMBAT_ACTIONS,
 } from './commands';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { HandlerContext } from './handlers/types';
@@ -22,6 +30,7 @@ import {
   MONSTER_SELECTION_BLOCK_ID,
   SELF_ATTACK_ERROR,
 } from './handlers/attack';
+import { ITEM_SELECTION_BLOCK_ID } from './handlers/pickup';
 import { dmClient } from './dm-client';
 import { PlayerAttribute, TargetType } from './dm-types';
 import { toClientId } from './utils/clientId';
@@ -29,6 +38,12 @@ import { toClientId } from './utils/clientId';
 const mockedDmClient = dmClient as unknown as {
   attack: jest.Mock;
   spendSkillPoint: jest.Mock;
+  equip: jest.Mock;
+  drop: jest.Mock;
+  unequip: jest.Mock;
+  pickup: jest.Mock;
+  getPlayer: jest.Mock;
+  getLocationEntities: jest.Mock;
 };
 
 type AckMock = jest.Mock<Promise<void>, unknown[]>;
@@ -43,7 +58,11 @@ type FilesUploadV2Mock = jest.Mock<Promise<void>, unknown[]>;
 
 type MockSlackClient = {
   conversations: { open: ConversationsOpenMock };
-  chat: { postMessage: ChatPostMessageMock; update: ChatUpdateMock };
+  chat: {
+    postMessage: ChatPostMessageMock;
+    update: ChatUpdateMock;
+    postEphemeral?: jest.Mock<Promise<void>, unknown[]>;
+  };
   views?: { open: ViewsOpenMock };
   files?: { uploadV2: FilesUploadV2Mock };
 };
@@ -55,6 +74,9 @@ const createChatMocks = (): MockSlackClient['chat'] => ({
   update: jest
     .fn<Promise<void>, unknown[]>()
     .mockResolvedValue(undefined) as ChatUpdateMock,
+  postEphemeral: jest
+    .fn<Promise<void>, unknown[]>()
+    .mockResolvedValue(undefined),
 });
 
 type SlackActionHandler = (args: {
@@ -62,6 +84,7 @@ type SlackActionHandler = (args: {
   body: {
     user?: { id?: string };
     trigger_id?: string;
+    actions?: Array<Record<string, unknown>>;
     state?: { values?: Record<string, Record<string, unknown>> };
     container?: { channel_id?: string; message_ts?: string };
     channel?: { id?: string };
@@ -73,16 +96,44 @@ type SlackActionHandler = (args: {
 
 type SlackViewHandler = (args: {
   ack: AckMock;
-  body: {
+  body?: {
     user?: { id?: string };
     view?: {
       state?: {
-        values?: Record<string, Record<string, { value?: string | null }>>;
+        values?: Record<
+          string,
+          Record<
+            string,
+            {
+              value?: string | null;
+              selected_option?: { value?: string | null };
+            }
+          >
+        >;
       };
+    };
+  };
+  view?: {
+    private_metadata?: string;
+    state?: {
+      values?: Record<
+        string,
+        Record<
+          string,
+          {
+            value?: string | null;
+            selected_option?: { value?: string | null };
+          }
+        >
+      >;
     };
   };
   client: MockSlackClient;
 }) => Promise<void> | void;
+
+const INVENTORY_EQUIP_ACTION = 'inventory_equip';
+const INVENTORY_DROP_ACTION = 'inventory_drop';
+const INVENTORY_UNEQUIP_ACTION = 'inventory_unequip';
 
 describe('registerActions', () => {
   const handlers = getAllHandlers();
@@ -101,6 +152,12 @@ describe('registerActions', () => {
     viewHandlers = {};
     mockedDmClient.attack.mockReset();
     mockedDmClient.spendSkillPoint.mockReset();
+    mockedDmClient.equip.mockReset();
+    mockedDmClient.drop.mockReset();
+    mockedDmClient.unequip.mockReset();
+    mockedDmClient.pickup.mockReset();
+    mockedDmClient.getPlayer.mockReset();
+    mockedDmClient.getLocationEntities.mockReset();
     const app = {
       action: jest.fn((actionId: string, handler: SlackActionHandler) => {
         actionHandlers[actionId] = handler;
@@ -1124,5 +1181,466 @@ describe('registerActions', () => {
     expect(respond).toHaveBeenCalledWith(
       expect.objectContaining({ response_type: 'ephemeral' }),
     );
+  });
+
+  describe('inventory actions', () => {
+    it('opens the equip modal with allowed slots', async () => {
+      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+      const viewsOpen = jest.fn().mockResolvedValue(undefined) as ViewsOpenMock;
+      const client: MockSlackClient = {
+        conversations: {
+          open: jest.fn() as ConversationsOpenMock,
+        },
+        chat: createChatMocks(),
+        views: { open: viewsOpen },
+      };
+
+      await actionHandlers[INVENTORY_EQUIP_ACTION]({
+        ack,
+        body: {
+          user: { id: 'U1' },
+          trigger_id: 'TR1',
+          actions: [
+            {
+              value: JSON.stringify({
+                playerItemId: 7,
+                allowedSlots: ['weapon', 'head'],
+              }),
+            },
+          ],
+        },
+        client,
+      });
+
+      expect(ack).toHaveBeenCalled();
+      expect(viewsOpen).toHaveBeenCalledWith(
+        expect.objectContaining({ trigger_id: 'TR1' }),
+      );
+
+      const { view } = viewsOpen.mock.calls[0][0] as {
+        view: {
+          private_metadata: string;
+          blocks: Array<Record<string, unknown>>;
+        };
+      };
+      expect(JSON.parse(view.private_metadata)).toEqual({
+        playerItemId: 7,
+        userId: 'U1',
+      });
+
+      const slotBlock = view.blocks.find(
+        (block) => block.block_id === 'slot_block',
+      ) as {
+        element?: {
+          options?: Array<{ value: string; text?: { text: string } }>;
+        };
+      };
+
+      expect(slotBlock?.element?.options).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            value: 'weapon',
+            text: expect.objectContaining({ text: 'Weapon' }),
+          }),
+          expect.objectContaining({
+            value: 'head',
+            text: expect.objectContaining({ text: 'Head' }),
+          }),
+        ]),
+      );
+    });
+
+    it('falls back to DM guidance when the equip modal fails', async () => {
+      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+      const viewsOpen = jest
+        .fn()
+        .mockRejectedValue(new Error('missing scope')) as ViewsOpenMock;
+      const dmOpen = jest.fn().mockResolvedValue({
+        channel: { id: 'DM-U1' },
+      }) as ConversationsOpenMock;
+      const chat = createChatMocks();
+      const client: MockSlackClient = {
+        conversations: { open: dmOpen },
+        chat,
+        views: { open: viewsOpen },
+      };
+
+      await actionHandlers[INVENTORY_EQUIP_ACTION]({
+        ack,
+        body: {
+          user: { id: 'U1' },
+          trigger_id: 'TR2',
+          actions: [{ value: JSON.stringify({ playerItemId: 5 }) }],
+        },
+        client,
+      });
+
+      expect(dmOpen).toHaveBeenCalledWith({ users: 'U1' });
+      expect(chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'DM-U1',
+          text: 'To equip item 5, type: `equip 5 <slot>`',
+        }),
+      );
+    });
+
+    it('handles equip submissions and posts the result', async () => {
+      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+      mockedDmClient.equip.mockResolvedValueOnce({ success: true });
+      const dmOpen = jest.fn().mockResolvedValue({
+        channel: { id: 'DM-U1' },
+      }) as ConversationsOpenMock;
+      const chat = createChatMocks();
+      const client: MockSlackClient = {
+        conversations: { open: dmOpen },
+        chat,
+      };
+
+      await viewHandlers.inventory_equip_view({
+        ack,
+        view: {
+          private_metadata: JSON.stringify({ playerItemId: 9, userId: 'U1' }),
+          state: {
+            values: {
+              slot_block: {
+                selected_slot: {
+                  selected_option: { value: 'weapon' },
+                },
+              },
+            },
+          },
+        },
+        client,
+      });
+
+      expect(mockedDmClient.equip).toHaveBeenCalledWith({
+        slackId: toClientId('U1'),
+        playerItemId: 9,
+        slot: 'weapon',
+      });
+      expect(chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'DM-U1',
+          text: 'Equipped item 9 to weapon',
+        }),
+      );
+    });
+
+    it('drops an item and posts an ephemeral confirmation', async () => {
+      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+      mockedDmClient.drop.mockResolvedValueOnce({ success: true });
+      const postEphemeral = jest.fn().mockResolvedValue(undefined);
+      const chat = createChatMocks();
+      chat.postEphemeral = postEphemeral;
+      const client: MockSlackClient = {
+        conversations: { open: jest.fn() as ConversationsOpenMock },
+        chat,
+      };
+
+      await actionHandlers[INVENTORY_DROP_ACTION]({
+        ack,
+        body: {
+          user: { id: 'U1' },
+          channel: { id: 'C-DROP' },
+          actions: [{ value: '12' }],
+        },
+        client,
+      });
+
+      expect(mockedDmClient.drop).toHaveBeenCalledWith({
+        slackId: toClientId('U1'),
+        playerItemId: 12,
+      });
+      expect(postEphemeral).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'C-DROP',
+          user: 'U1',
+          text: 'Dropped item 12.',
+        }),
+      );
+    });
+
+    it('reports unequip errors in-channel', async () => {
+      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+      mockedDmClient.unequip.mockResolvedValueOnce({
+        success: false,
+        message: 'no slot',
+      });
+      const postEphemeral = jest.fn().mockResolvedValue(undefined);
+      const chat = createChatMocks();
+      chat.postEphemeral = postEphemeral;
+      const client: MockSlackClient = {
+        conversations: { open: jest.fn() as ConversationsOpenMock },
+        chat,
+      };
+
+      await actionHandlers[INVENTORY_UNEQUIP_ACTION]({
+        ack,
+        body: {
+          user: { id: 'U1' },
+          channel: { id: 'C-UNEQUIP' },
+          actions: [{ value: '55' }],
+        },
+        client,
+      });
+
+      expect(postEphemeral).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'C-UNEQUIP',
+          user: 'U1',
+          text: 'Failed to unequip: no slot',
+        }),
+      );
+    });
+  });
+
+  describe('pickup actions', () => {
+    it('updates the pickup message and notifies nearby players', async () => {
+      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+      mockedDmClient.pickup.mockResolvedValueOnce({
+        success: true,
+        item: { itemName: 'Health Potion', quantity: 2 },
+      });
+      mockedDmClient.getPlayer.mockResolvedValueOnce({
+        data: { name: 'Hero', x: 3, y: 4 },
+      });
+      mockedDmClient.getLocationEntities.mockResolvedValueOnce({
+        players: [{ slackId: 'U2' }],
+      });
+
+      const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;
+      const postMessage = jest
+        .fn()
+        .mockResolvedValue(undefined) as ChatPostMessageMock;
+      const chat = createChatMocks();
+      chat.update = update;
+      chat.postMessage = postMessage;
+      const dmOpen = jest
+        .fn()
+        .mockImplementation(({ users }: { users: string }) => {
+          if (users === 'U1') {
+            return Promise.resolve({ channel: { id: 'DM-U1' } });
+          }
+          if (users === 'U2') {
+            return Promise.resolve({ channel: { id: 'DM-U2' } });
+          }
+          return Promise.resolve({ channel: { id: 'DM-OTHER' } });
+        }) as ConversationsOpenMock;
+      const client: MockSlackClient = {
+        conversations: { open: dmOpen },
+        chat,
+      };
+
+      const messageBlocks: KnownBlock[] = [
+        {
+          type: 'actions',
+          block_id: ITEM_SELECTION_BLOCK_ID,
+          elements: [],
+        } as unknown as KnownBlock,
+      ];
+
+      await actionHandlers[PICKUP_ACTIONS.PICKUP]({
+        ack,
+        body: {
+          user: { id: 'U1' },
+          channel: { id: 'C-PICK' },
+          message: { ts: 'TS1', blocks: messageBlocks },
+          state: {
+            values: {
+              pick_block: {
+                [PICKUP_ACTIONS.ITEM_SELECT]: {
+                  selected_option: {
+                    value: 'W:55',
+                    text: { text: 'Health Potion' },
+                  },
+                },
+              },
+            },
+          },
+        },
+        client,
+      });
+
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'C-PICK',
+          ts: 'TS1',
+          text: 'Picking up item...',
+        }),
+      );
+      const updatedBlocks = (
+        update.mock.calls[0][0] as {
+          blocks: KnownBlock[];
+        }
+      ).blocks;
+      const progressBlock = updatedBlocks.find(
+        (block) => block.block_id === ITEM_SELECTION_BLOCK_ID,
+      ) as SectionBlock;
+      expect(progressBlock?.text?.text).toBe('Picking up item...');
+
+      expect(dmOpen).toHaveBeenCalledWith({ users: 'U1' });
+      expect(dmOpen).toHaveBeenCalledWith({ users: 'U2' });
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'DM-U1',
+          text: 'You have picked up 2 × Health Potion',
+        }),
+      );
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'DM-U2',
+          text: 'Hero picked something up from the ground.',
+        }),
+      );
+    });
+  });
+
+  describe('combat log actions', () => {
+    it('formats multiline combat logs with readable bullets', async () => {
+      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+      const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;
+      const chat = createChatMocks();
+      chat.update = update;
+      const client: MockSlackClient = {
+        conversations: { open: jest.fn() as ConversationsOpenMock },
+        chat,
+      };
+
+      const fullText =
+        '**Combat Log:**Round 1 You attack: swing\nDamage roll: 7\nRound 2 Wild Boar attacks: gore\nDamage roll: 8';
+
+      await actionHandlers[COMBAT_ACTIONS.SHOW_LOG]({
+        ack,
+        body: {
+          channel: { id: 'C-COMBAT' },
+          message: {
+            ts: 'TS-COMBAT',
+            text: fullText,
+            blocks: [
+              {
+                type: 'section',
+                text: { type: 'mrkdwn', text: 'Summary' },
+              } as unknown as KnownBlock,
+            ],
+          },
+        },
+        client,
+      });
+
+      const payload = update.mock.calls[0][0] as {
+        blocks: KnownBlock[];
+      };
+      const detailedBlock = payload.blocks.find(
+        (block) =>
+          block.type === 'section' &&
+          (block as SectionBlock).text?.text?.includes('Round 1'),
+      ) as SectionBlock;
+
+      expect(detailedBlock?.text?.text).toContain(
+        '• Round 1: You attack: swing\n    Damage roll: 7',
+      );
+      expect(detailedBlock?.text?.text).toContain(
+        '• Round 2: Wild Boar attacks: gore',
+      );
+
+      const actionsBlock = payload.blocks.find(
+        (block) => block.type === 'actions',
+      ) as ActionsBlock;
+      expect(actionsBlock?.elements).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action_id: COMBAT_ACTIONS.HIDE_LOG,
+            text: expect.objectContaining({ text: 'Hide combat log' }),
+          }),
+        ]),
+      );
+    });
+
+    it('falls back to a code block when no rounds are detected', async () => {
+      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+      const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;
+      const chat = createChatMocks();
+      chat.update = update;
+      const client: MockSlackClient = {
+        conversations: { open: jest.fn() as ConversationsOpenMock },
+        chat,
+      };
+
+      await actionHandlers[COMBAT_ACTIONS.SHOW_LOG]({
+        ack,
+        body: {
+          channel: { id: 'C-COMBAT' },
+          message: {
+            ts: 'TS-COMBAT',
+            text: 'Summary only',
+            blocks: [
+              {
+                type: 'section',
+                text: { type: 'mrkdwn', text: 'Summary' },
+              } as unknown as KnownBlock,
+            ],
+          },
+        },
+        client,
+      });
+
+      const payload = update.mock.calls[0][0] as {
+        blocks: KnownBlock[];
+      };
+      const fallbackBlock = payload.blocks.find(
+        (block) =>
+          block.type === 'section' &&
+          (block as SectionBlock).text?.text?.includes('```Summary only```'),
+      );
+      expect(fallbackBlock).toBeDefined();
+    });
+
+    it('restores the summary view when hiding the combat log', async () => {
+      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+      const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;
+      const chat = createChatMocks();
+      chat.update = update;
+      const client: MockSlackClient = {
+        conversations: { open: jest.fn() as ConversationsOpenMock },
+        chat,
+      };
+
+      await actionHandlers[COMBAT_ACTIONS.HIDE_LOG]({
+        ack,
+        body: {
+          channel: { id: 'C-COMBAT' },
+          message: {
+            ts: 'TS-COMBAT',
+            text: 'Summary',
+            blocks: [
+              {
+                type: 'section',
+                text: { type: 'mrkdwn', text: 'Summary details' },
+              } as unknown as KnownBlock,
+              {
+                type: 'actions',
+                elements: [],
+              } as unknown as KnownBlock,
+            ],
+          },
+        },
+        client,
+      });
+
+      const payload = update.mock.calls[0][0] as {
+        blocks: KnownBlock[];
+      };
+      const actionsBlock = payload.blocks.find(
+        (block) => block.type === 'actions',
+      ) as ActionsBlock;
+      expect(actionsBlock?.elements).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action_id: COMBAT_ACTIONS.SHOW_LOG,
+            text: expect.objectContaining({ text: 'View full combat log' }),
+          }),
+        ]),
+      );
+    });
   });
 });

@@ -9,30 +9,50 @@ import type {
 } from '@slack/types';
 import { COMBAT_ACTIONS } from '../commands';
 
-const extractCombatLogLines = (fullText: string): string[] => {
+type CombatLogEntry = { round: string; description: string };
+
+const extractCombatLogEntries = (fullText: string): CombatLogEntry[] => {
   const marker = '**Combat Log:**';
   const start = fullText.indexOf(marker);
   const text = start >= 0 ? fullText.slice(start + marker.length) : fullText;
 
-  const regex = /Round\s+(\d+)\s*:\s*([\s\S]*?)(?=(?:Round\s+\d+\s*:)|$)/gi;
-  const lines: string[] = [];
+  const regex =
+    /Round\s+(\d+)(?:\s*:)?\s*([\s\S]*?)(?=(?:Round\s+\d+(?:\s*:)?\s*)|$)/gi;
+  const entries: CombatLogEntry[] = [];
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
     const roundNo = match[1];
-    const desc = (match[2] || '').replace(/\s+/g, ' ').trim();
+    const rawDesc = (match[2] || '').trim();
+    const normalized = rawDesc
+      .split(/\r?\n+/)
+      .map((line) => line.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .map((line, index) => (index === 0 ? line : `    ${line}`))
+      .join('\n');
     if (roundNo) {
-      lines.push(`• Round ${roundNo}: ${desc}`);
+      entries.push({ round: roundNo, description: normalized });
     }
   }
 
-  if (lines.length > 0) return lines;
+  if (entries.length > 0) return entries;
 
-  const rough = text.replace(/\.?\s+(?=Round\s+\d+\s*:)/g, '\n');
+  const rough = text.replace(/\.?\s+(?=Round\s+\d+(?:\s*:)?\s*)/g, '\n');
   return rough
     .split(/\n+/)
     .map((s) => s.trim())
-    .filter((s) => /^Round\s+\d+\s*:/i.test(s))
-    .map((s) => `• ${s}`);
+    .filter((s) => /^Round\s+\d+(?:\s*:)?\s*/i.test(s))
+    .map((line) => {
+      const [, round = '', description = ''] =
+        line.match(/Round\s+(\d+)(?:\s*:)?\s*(.*)$/i) || [];
+      const normalized = description
+        .split(/\r?\n+/)
+        .map((part) => part.replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .map((part, index) => (index === 0 ? part : `    ${part}`))
+        .join('\n');
+      return { round, description: normalized };
+    })
+    .filter((entry): entry is CombatLogEntry => Boolean(entry.round));
 };
 
 const chunk = <T>(arr: T[], size: number): T[][] => {
@@ -85,12 +105,15 @@ export const registerCombatLogActions = (app: App) => {
         text: { type: 'mrkdwn', text: '*Combat Log*' },
       } as SectionBlock);
 
-      const lines = extractCombatLogLines(fullText);
-      if (lines.length > 0) {
-        for (const group of chunk(lines, 12)) {
+      const entries = extractCombatLogEntries(fullText);
+      if (entries.length > 0) {
+        for (const group of chunk(entries, 12)) {
+          const blockText = group
+            .map((entry) => `• Round ${entry.round}: ${entry.description}`)
+            .join('\n');
           newBlocks.push({
             type: 'section',
-            text: { type: 'mrkdwn', text: group.join('\n') },
+            text: { type: 'mrkdwn', text: blockText },
           } as SectionBlock);
         }
       } else {
