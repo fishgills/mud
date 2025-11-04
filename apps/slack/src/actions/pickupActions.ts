@@ -5,11 +5,22 @@ import {
   mapErrCodeToFriendlyMessage,
 } from '../handlers/errorUtils';
 import { dmClient } from '../dm-client';
-import { PICKUP_ACTIONS } from '../commands';
+import { PICKUP_ACTIONS, COMMANDS } from '../commands';
 import { ITEM_SELECTION_BLOCK_ID } from '../handlers/pickup';
 import { toClientId, extractSlackId } from '../utils/clientId';
 import type { SlackBlockState } from './helpers';
 import type { ItemRecord } from '../dm-client';
+
+const formatQualityLabel = (quality: unknown): string | null => {
+  if (typeof quality !== 'string') return null;
+  const normalized = quality.replace(/[_\s]+/g, ' ').trim();
+  if (!normalized) return null;
+  return normalized
+    .toLowerCase()
+    .split(' ')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
 
 const buildBlocksWithPickupInProgress = (
   blocks: KnownBlock[] | undefined,
@@ -145,9 +156,12 @@ export const registerPickupActions = (app: App) => {
         let itemName = selectedText ?? 'an item';
         let quantity: number | undefined = undefined;
         if (itemFromRes) {
-          const candidate =
-            itemFromRes.itemName ?? itemFromRes.name ?? itemName;
-          if (typeof candidate === 'string') itemName = candidate;
+          const baseName = itemFromRes.itemName ?? itemFromRes.name ?? itemName;
+          const quality = itemFromRes.quality ?? undefined;
+          if (typeof baseName === 'string') {
+            const qualityLabel = formatQualityLabel(quality);
+            itemName = qualityLabel ? `${qualityLabel} ${baseName}` : baseName;
+          }
           if (typeof itemFromRes.quantity === 'number')
             quantity = itemFromRes.quantity;
         }
@@ -161,7 +175,7 @@ export const registerPickupActions = (app: App) => {
               : itemName;
           await client.chat.postMessage({
             channel: pickerChannel,
-            text: `You have picked up ${qtyText}`,
+            text: `You have picked up ${qtyText}. Check your \`${COMMANDS.INVENTORY}\` next.`,
           });
         }
 

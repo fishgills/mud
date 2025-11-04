@@ -1459,7 +1459,7 @@ describe('registerActions', () => {
       const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
       mockedDmClient.pickup.mockResolvedValueOnce({
         success: true,
-        item: { itemName: 'Health Potion', quantity: 2 },
+        item: { itemName: 'Health Potion', quantity: 2, quality: 'common' },
       });
       mockedDmClient.getPlayer.mockResolvedValueOnce({
         data: { name: 'Hero', x: 3, y: 4 },
@@ -1543,7 +1543,7 @@ describe('registerActions', () => {
       expect(postMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           channel: 'DM-U1',
-          text: 'You have picked up 2 × Health Potion',
+          text: 'You have picked up 2 × Common Health Potion. Check your `inventory` next.',
         }),
       );
       expect(postMessage).toHaveBeenCalledWith(
