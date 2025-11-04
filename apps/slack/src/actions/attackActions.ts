@@ -1,6 +1,6 @@
 import type { App, BlockAction } from '@slack/bolt';
 import type { KnownBlock } from '@slack/types';
-import { ATTACK_ACTIONS } from '../commands';
+import { ATTACK_ACTIONS, COMMANDS } from '../commands';
 import { dmClient } from '../dm-client';
 import { TargetType } from '../dm-types';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
@@ -14,6 +14,50 @@ import type { SlackBlockState } from './helpers';
 type SelectedTarget =
   | { kind: 'monster'; id: number; name: string }
   | { kind: 'player'; slackId: string; name: string };
+
+const buildAttackFailureMessage = (
+  rawMessage: string | undefined | null,
+  selection: SelectedTarget | null,
+): string => {
+  const fallback = rawMessage
+    ? `Attack failed: ${rawMessage}`
+    : 'Attack failed.';
+  if (!selection || selection.kind !== 'player') {
+    return fallback;
+  }
+
+  const message = (rawMessage ?? '').toLowerCase();
+  if (!message) {
+    return fallback;
+  }
+
+  const targetName = selection.name?.trim() || 'that player';
+
+  if (message.includes('not alive')) {
+    return `${targetName} is down right now. Wait for them to respawn before trying again.`;
+  }
+
+  if (
+    message.includes('no valid identifier') ||
+    message.includes('not found')
+  ) {
+    return `Couldn't find a character for ${targetName}. Ask them to check in with the bot using "/mud ${COMMANDS.LOOK}" or create one with "/mud ${COMMANDS.NEW} <name>".`;
+  }
+
+  return fallback;
+};
+
+const isMissingTargetCharacterMessage = (
+  rawMessage: string | undefined | null,
+): boolean => {
+  const message = rawMessage?.toLowerCase() ?? '';
+  if (!message) return false;
+  if (message.includes('target player not found')) return true;
+  if (message.includes('player not found')) return true;
+  if (message.includes('no valid identifier')) return true;
+  if (message.includes('no character')) return true;
+  return false;
+};
 
 const extractSelectedTarget = (
   values: SlackBlockState | undefined,
@@ -167,10 +211,40 @@ export const registerAttackActions = (app: App) => {
         });
 
         if (!attackResult.success) {
+          const failureText = buildAttackFailureMessage(
+            attackResult.message,
+            selected,
+          );
           await client.chat.postMessage({
             channel: channelId,
-            text: `Attack failed: ${attackResult.message}`,
+            text: failureText,
           });
+
+          if (
+            selected.kind === 'player' &&
+            selected.slackId !== userId &&
+            isMissingTargetCharacterMessage(attackResult.message)
+          ) {
+            try {
+              const dm = await client.conversations.open({
+                users: selected.slackId,
+              });
+              const dmChannelId =
+                typeof dm.channel?.id === 'string' ? dm.channel.id : undefined;
+              if (dmChannelId) {
+                const attackerMention = userId ? `<@${userId}>` : 'Someone';
+                await client.chat.postMessage({
+                  channel: dmChannelId,
+                  text: `${attackerMention} tried to attack you in *Mud*, but you don't have a character yet. Use "/mud ${COMMANDS.NEW} <name>" to jump in.`,
+                });
+              }
+            } catch (notifyError) {
+              console.warn(
+                'Failed to notify target about missing character',
+                notifyError,
+              );
+            }
+          }
           return;
         }
 

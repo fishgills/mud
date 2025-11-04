@@ -874,6 +874,66 @@ describe('registerActions', () => {
     );
   });
 
+  it('provides actionable guidance when the targeted player is missing', async () => {
+    const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+    const client: MockSlackClient = {
+      conversations: {
+        open: jest.fn().mockResolvedValue({
+          channel: { id: 'DM-U2' },
+        }) as ConversationsOpenMock,
+      },
+      chat: {
+        postMessage: jest
+          .fn()
+          .mockResolvedValue(undefined) as ChatPostMessageMock,
+        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
+      },
+    };
+
+    mockedDmClient.attack.mockResolvedValueOnce({
+      success: false,
+      message: 'Target player not found',
+      data: null,
+    });
+
+    await actionHandlers[ATTACK_ACTIONS.ATTACK_MONSTER]({
+      ack,
+      body: {
+        user: { id: 'U1' },
+        channel: { id: 'D1' },
+        state: {
+          values: {
+            attack_monster_selection_block: {
+              [ATTACK_ACTIONS.MONSTER_SELECT]: {
+                selected_option: {
+                  value: 'P:U2',
+                  text: { text: 'Player: Hero' },
+                },
+              },
+            },
+          },
+        },
+      },
+      client,
+    });
+
+    expect(client.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: `Couldn't find a character for Hero. Ask them to check in with the bot using "/mud ${COMMANDS.LOOK}" or create one with "/mud ${COMMANDS.NEW} <name>".`,
+      }),
+    );
+
+    expect(client.conversations.open).toHaveBeenCalledWith({ users: 'U2' });
+    expect(client.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: 'DM-U2',
+        text: expect.stringContaining(
+          "<@U1> tried to attack you in *Mud*, but you don't have a character yet.",
+        ),
+      }),
+    );
+  });
+
   it('handles missing combat data in successful attack', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     const client: MockSlackClient = {
