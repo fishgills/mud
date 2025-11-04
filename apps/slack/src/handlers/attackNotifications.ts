@@ -12,13 +12,13 @@ const normalizeTargetName = (name?: string): string =>
   name?.trim().length ? name.trim() : 'that player';
 
 export const buildMissingCharacterGuidance = (targetName: string): string =>
-  `Couldn't find a character for ${targetName}. Ask them to check in with the bot using "/mud ${COMMANDS.LOOK}" or create one with "/mud ${COMMANDS.NEW} <name>".`;
+  `Couldn't find a character for ${targetName}. Ask them to check in with the bot using "${COMMANDS.HELP}" or create one with "${COMMANDS.NEW} <name>".`;
 
 export const buildTargetAttackAttemptNotice = (
   attackerSlackId: string | undefined,
 ): string => {
   const attackerLabel = attackerSlackId ? `<@${attackerSlackId}>` : 'Someone';
-  return `${attackerLabel} tried to attack you in *Mud*, but you don't have a character yet. Use "/mud ${COMMANDS.NEW} <name>" to jump in.`;
+  return `${attackerLabel} tried to attack you in *Mud*, but you don't have a character yet. Use "${COMMANDS.NEW} <name>" to jump in.`;
 };
 
 export const isMissingTargetCharacterMessage = (

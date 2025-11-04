@@ -919,7 +919,7 @@ describe('registerActions', () => {
 
     expect(client.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: `Couldn't find a character for Hero. Ask them to check in with the bot using "/mud ${COMMANDS.LOOK}" or create one with "/mud ${COMMANDS.NEW} <name>".`,
+        text: `Couldn't find a character for Hero. Ask them to check in with the bot using "${COMMANDS.HELP}" or create one with "${COMMANDS.NEW} <name>".`,
       }),
     );
 
@@ -928,7 +928,7 @@ describe('registerActions', () => {
       expect.objectContaining({
         channel: 'DM-U2',
         text: expect.stringContaining(
-          "<@U1> tried to attack you in *Mud*, but you don't have a character yet.",
+          `<@U1> tried to attack you in *Mud*, but you don't have a character yet. Use "${COMMANDS.NEW} <name>"`,
         ),
       }),
     );
