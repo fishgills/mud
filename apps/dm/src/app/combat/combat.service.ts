@@ -320,6 +320,22 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
       return totals;
     }
 
+    const details: Array<{
+      playerItemId: number;
+      itemId: number | null;
+      name: string | null;
+      slot: string | undefined | null;
+      quality: ItemQualityType | null | undefined;
+      multiplier: number;
+      base: { attack: number; defense: number; health: number };
+      applied: {
+        attackBonus: number;
+        damageBonus: number;
+        armorBonus: number;
+        hpBonus: number;
+      };
+    }> = [];
+
     for (const record of items) {
       const item = record.item;
       if (!item) continue;
@@ -338,6 +354,13 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
       const baseDefense = item.defense ?? 0;
       const baseHealth = item.healthBonus ?? 0;
 
+      const applied = {
+        attackBonus: 0,
+        damageBonus: 0,
+        armorBonus: 0,
+        hpBonus: 0,
+      };
+
       if (normalizedSlot === 'weapon' && baseAttack > 0) {
         const scaledAttack = baseAttack * multiplier;
         const scaledToHit = baseAttack * multiplier * 0.5;
@@ -345,19 +368,49 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
           scaledToHit > 0 ? Math.max(1, Math.round(scaledToHit)) : 0;
         const damage =
           scaledAttack > 0 ? Math.max(1, Math.round(scaledAttack)) : 0;
-        if (toHit !== 0) totals.attackBonus += toHit;
-        if (damage !== 0) totals.damageBonus += damage;
+        if (toHit !== 0) {
+          totals.attackBonus += toHit;
+          applied.attackBonus = toHit;
+        }
+        if (damage !== 0) {
+          totals.damageBonus += damage;
+          applied.damageBonus = damage;
+        }
       }
 
       if (normalizedSlot !== 'weapon' && baseDefense > 0) {
         const defense = Math.round(baseDefense * multiplier);
-        if (defense !== 0) totals.armorBonus += defense;
+        if (defense !== 0) {
+          totals.armorBonus += defense;
+          applied.armorBonus = defense;
+        }
       }
 
       if (baseHealth > 0) {
         const health = Math.round(baseHealth * multiplier);
-        if (health !== 0) totals.hpBonus += health;
+        if (health !== 0) {
+          totals.hpBonus += health;
+          applied.hpBonus = health;
+        }
       }
+
+      details.push({
+        playerItemId: record.id,
+        itemId: item.id ?? null,
+        name: item.name ?? null,
+        slot:
+          normalizedSlot ?? (typeof item.slot === 'string' ? item.slot : null),
+        quality: record.quality ?? null,
+        multiplier: Number(multiplier.toFixed(2)),
+        base: { attack: baseAttack, defense: baseDefense, health: baseHealth },
+        applied,
+      });
+    }
+
+    if (details.length > 0) {
+      this.logger.debug(
+        `Equipment effects summary: ${JSON.stringify({ totals, details })}`,
+      );
     }
 
     return totals;
