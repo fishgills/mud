@@ -3,6 +3,11 @@ import { HandlerContext } from './types';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import { extractSlackId } from '../utils/clientId';
 import { PlayerCommandHandler } from './base';
+import {
+  buildAttackFailureMessage,
+  isMissingTargetCharacterMessage,
+  notifyTargetAboutMissingCharacter,
+} from './attackNotifications';
 
 export const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
 export const SELF_ATTACK_ERROR = "You can't attack yourself.";
@@ -133,6 +138,7 @@ export class AttackHandler extends PlayerCommandHandler {
     userId,
     say,
     text,
+    client,
   }: HandlerContext): Promise<void> {
     const start = Date.now();
     const metrics: {
@@ -207,7 +213,20 @@ export class AttackHandler extends PlayerCommandHandler {
         metrics.dmAttackMs = Date.now() - attackStart;
 
         if (!attackResult.success) {
-          await say({ text: `Attack failed: ${attackResult.message}` });
+          await say({
+            text: buildAttackFailureMessage(attackResult.message, {
+              targetKind: 'player',
+              targetName: `<@${targetSlackId}>`,
+            }),
+          });
+
+          if (isMissingTargetCharacterMessage(attackResult.message)) {
+            await notifyTargetAboutMissingCharacter(
+              client,
+              userId,
+              targetSlackId,
+            );
+          }
           perfDetails = {
             success: false,
             reason: 'dm-attack-failed',
