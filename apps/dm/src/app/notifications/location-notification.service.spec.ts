@@ -71,7 +71,9 @@ describe('LocationNotificationService', () => {
     expect(payload.type).toBe('player');
     expect(payload.recipients).toHaveLength(1);
     expect(payload.recipients[0].clientId).toBe('slack:U789');
-    expect(payload.recipients[0].message).toContain('arrives at (1, 1)');
+    expect(payload.recipients[0].message).toContain(
+      'arrives from the south-west',
+    );
   });
 
   it('notifies players when a monster moves in and out', async () => {
@@ -103,11 +105,11 @@ describe('LocationNotificationService', () => {
     const first = eventBridge.publishNotification.mock.calls[0][0];
     expect(first.type).toBe('monster');
     expect(first.recipients[0].clientId).toBe('slack:U555');
-    expect(first.recipients[0].message).toContain('leaves (5, -2)');
+    expect(first.recipients[0].message).toContain('leaves heading east');
 
     const second = eventBridge.publishNotification.mock.calls[1][0];
     expect(second.recipients[0].clientId).toBe('slack:U556');
-    expect(second.recipients[0].message).toContain('moves into (6, -2)');
+    expect(second.recipients[0].message).toContain('moves in from the west');
   });
 
   it('skips publishing when no players are present', async () => {

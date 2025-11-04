@@ -136,7 +136,7 @@ export class LocationNotificationService
       { x: event.fromX, y: event.fromY },
       {
         type: 'player',
-        message: `${event.player.name} leaves ${this.describeLocation(event.fromX, event.fromY)} heading toward ${this.describeLocation(event.toX, event.toY)}.`,
+        message: `${event.player.name} leaves ${this.describeHeading(event.fromX, event.fromY, event.toX, event.toY)}.`,
         excludePlayerIds: exclude,
       },
     );
@@ -146,7 +146,7 @@ export class LocationNotificationService
       { x: event.toX, y: event.toY },
       {
         type: 'player',
-        message: `${event.player.name} arrives at ${this.describeLocation(event.toX, event.toY)} from ${this.describeLocation(event.fromX, event.fromY)}.`,
+        message: `${event.player.name} arrives ${this.describeArrival(event.fromX, event.fromY, event.toX, event.toY)}.`,
         excludePlayerIds: exclude,
       },
     );
@@ -158,7 +158,7 @@ export class LocationNotificationService
       { x: event.x, y: event.y },
       {
         type: 'player',
-        message: `${event.player.name} appears at ${this.describeLocation(event.x, event.y)}.`,
+        message: `${event.player.name} appears nearby.`,
         excludePlayerIds: [event.player.id],
       },
     );
@@ -171,7 +171,7 @@ export class LocationNotificationService
       {
         type: 'player',
         priority: 'high',
-        message: `${event.player.name} respawns at ${this.describeLocation(event.x, event.y)}.`,
+        message: `${event.player.name} respawns nearby.`,
         excludePlayerIds: [event.player.id],
       },
     );
@@ -184,7 +184,7 @@ export class LocationNotificationService
       {
         type: 'player',
         priority: 'high',
-        message: `${event.player.name} falls at ${this.describeLocation(event.x, event.y)}.`,
+        message: `${event.player.name} falls nearby.`,
       },
     );
   }
@@ -196,7 +196,7 @@ export class LocationNotificationService
       {
         type: 'monster',
         priority: 'high',
-        message: `${event.monster.name} appears at ${this.describeLocation(event.x, event.y)}.`,
+        message: `${event.monster.name} appears nearby.`,
       },
     );
   }
@@ -211,7 +211,7 @@ export class LocationNotificationService
       { x: event.fromX, y: event.fromY },
       {
         type: 'monster',
-        message: `${event.monster.name} leaves ${this.describeLocation(event.fromX, event.fromY)} heading toward ${this.describeLocation(event.toX, event.toY)}.`,
+        message: `${event.monster.name} leaves ${this.describeHeading(event.fromX, event.fromY, event.toX, event.toY)}.`,
       },
     );
 
@@ -221,7 +221,7 @@ export class LocationNotificationService
       {
         type: 'monster',
         priority: 'high',
-        message: `${event.monster.name} moves into ${this.describeLocation(event.toX, event.toY)} from ${this.describeLocation(event.fromX, event.fromY)}.`,
+        message: `${event.monster.name} moves in ${this.describeArrival(event.fromX, event.fromY, event.toX, event.toY)}.`,
       },
     );
   }
@@ -232,7 +232,7 @@ export class LocationNotificationService
       { x: event.x, y: event.y },
       {
         type: 'monster',
-        message: `${event.monster.name} is defeated at ${this.describeLocation(event.x, event.y)}.`,
+        message: `${event.monster.name} is defeated nearby.`,
       },
     );
   }
@@ -261,7 +261,7 @@ export class LocationNotificationService
       { x: event.x, y: event.y },
       {
         type: 'world',
-        message: `Loot appears: ${summary} at ${this.describeLocation(event.x, event.y)}.`,
+        message: `Loot appears nearby: ${summary}.`,
       },
     );
   }
@@ -280,7 +280,7 @@ export class LocationNotificationService
       {
         type: 'monster',
         priority: 'high',
-        message: `${event.player.name} encounters ${monsterSummary} at ${this.describeLocation(event.x, event.y)}.`,
+        message: `${event.player.name} encounters ${monsterSummary} nearby.`,
         excludePlayerIds: [event.player.id],
       },
     );
@@ -295,7 +295,7 @@ export class LocationNotificationService
       {
         type: 'combat',
         priority: 'high',
-        message: `Combat erupts between ${event.attacker.name} and ${event.defender.name} at ${this.describeLocation(event.x, event.y)}.`,
+        message: `Combat erupts nearby between ${event.attacker.name} and ${event.defender.name}.`,
         excludePlayerIds: exclude,
       },
     );
@@ -310,7 +310,7 @@ export class LocationNotificationService
       {
         type: 'combat',
         priority: 'high',
-        message: `${event.attacker.name} hits ${event.defender.name} for ${event.damage} damage at ${this.describeLocation(event.x, event.y)}.`,
+        message: `${event.attacker.name} hits ${event.defender.name} for ${event.damage} damage nearby.`,
         excludePlayerIds: exclude,
       },
     );
@@ -324,7 +324,7 @@ export class LocationNotificationService
       { x: event.x, y: event.y },
       {
         type: 'combat',
-        message: `${event.attacker.name} misses ${event.defender.name} during combat at ${this.describeLocation(event.x, event.y)}.`,
+        message: `${event.attacker.name} misses ${event.defender.name} during combat nearby.`,
         excludePlayerIds: exclude,
       },
     );
@@ -339,7 +339,7 @@ export class LocationNotificationService
       {
         type: 'combat',
         priority: 'high',
-        message: `Combat ends at ${this.describeLocation(event.x, event.y)}. ${event.winner.name} defeats ${event.loser.name}.`,
+        message: `Combat ends nearby. ${event.winner.name} defeats ${event.loser.name}.`,
         excludePlayerIds: exclude,
       },
     );
@@ -489,5 +489,48 @@ export class LocationNotificationService
 
   private describeLocation(x: number, y: number): string {
     return `(${x}, ${y})`;
+  }
+
+  private describeHeading(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+  ): string {
+    const direction = this.getDirectionName(fromX, fromY, toX, toY);
+    return direction ? `heading ${direction}` : 'heading out';
+  }
+
+  private describeArrival(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+  ): string {
+    const direction = this.getDirectionName(toX, toY, fromX, fromY);
+    return direction ? `from the ${direction}` : 'from nearby';
+  }
+
+  private getDirectionName(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+  ): string | null {
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+
+    if (dx === 0 && dy === 0) {
+      return null;
+    }
+
+    const vertical = dy === 0 ? '' : dy > 0 ? 'north' : 'south';
+    const horizontal = dx === 0 ? '' : dx > 0 ? 'east' : 'west';
+
+    if (vertical && horizontal) {
+      return `${vertical}-${horizontal}`;
+    }
+
+    return vertical || horizontal || null;
   }
 }
