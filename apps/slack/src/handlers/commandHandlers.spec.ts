@@ -462,42 +462,15 @@ describe('deleteHandler', () => {
     });
   });
 
-  it('rejects deletions after creation phase', async () => {
+  it('deletes characters even when fully active', async () => {
     const say = makeSay();
     mockedDmClient.getPlayer.mockResolvedValueOnce({
       success: true,
       data: {
         name: 'Hero',
-        hp: 10,
-        level: 2,
-        xp: 5,
-      },
-    });
-
-    await deleteHandler.handle({
-      userId: 'U1',
-      text: '',
-      say,
-    } as HandlerContext);
-
-    expect(say).toHaveBeenCalledWith(
-      expect.objectContaining({
-        text: expect.stringContaining(
-          'Cannot delete character after creation is complete!',
-        ),
-      }),
-    );
-  });
-
-  it('deletes characters during creation phase', async () => {
-    const say = makeSay();
-    mockedDmClient.getPlayer.mockResolvedValueOnce({
-      success: true,
-      data: {
-        name: 'Hero',
-        hp: 1,
-        level: 1,
-        xp: 0,
+        hp: 25,
+        level: 7,
+        xp: 420,
       },
     });
     mockedDmClient.deletePlayer.mockResolvedValueOnce({ success: true });
@@ -513,7 +486,7 @@ describe('deleteHandler', () => {
     });
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: expect.stringContaining('has been successfully deleted'),
+        text: expect.stringContaining('vanishes into legend'),
       }),
     );
   });
@@ -524,9 +497,9 @@ describe('deleteHandler', () => {
       success: true,
       data: {
         name: 'Hero',
-        hp: 1,
-        level: 1,
-        xp: 0,
+        hp: 10,
+        level: 3,
+        xp: 12,
       },
     });
     mockedDmClient.deletePlayer.mockResolvedValueOnce({

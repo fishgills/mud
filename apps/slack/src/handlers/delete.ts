@@ -2,7 +2,8 @@ import { HandlerContext } from './types';
 import { COMMANDS } from '../commands';
 import { PlayerCommandHandler } from './base';
 
-export const deleteHandlerHelp = `Delete your character during creation with "delete". Example: Send "delete" to delete your character if it's still in creation phase (before completion).`;
+export const deleteHandlerHelp =
+  'Retire your character anytime with "delete". Example: Send "delete" whenever you want to start fresh.';
 
 export class DeleteHandler extends PlayerCommandHandler {
   constructor() {
@@ -22,24 +23,14 @@ export class DeleteHandler extends PlayerCommandHandler {
     }
 
     const player = playerResult.data;
-    const isInCreationPhase =
-      (player.hp ?? 0) <= 1 ||
-      ((player.level ?? 0) <= 1 && (player.xp ?? 0) === 0);
-
-    if (!isInCreationPhase) {
-      await say({
-        text: `Cannot delete character after creation is complete! Your character "${player.name}" has ${player.hp} HP, is level ${player.level}, and is already active in the game. Character deletion is only allowed during the creation phase.`,
-      });
-      return;
-    }
-
+    const playerName = player.name ?? 'your character';
     const deleteResult = await this.dm.deletePlayer({
       slackId: this.toClientId(userId),
     });
 
     if (deleteResult.success) {
       await say({
-        text: `✅ Character "${player.name}" has been successfully deleted during creation phase. You can create a new character with "new CharacterName"`,
+        text: `💨 ${playerName} vanishes into legend. Ready for round two? Try "new CharacterName" to forge a fresh hero!`,
       });
       return;
     }
