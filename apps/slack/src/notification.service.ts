@@ -97,6 +97,11 @@ export class NotificationService {
         });
         const slackUserId = this.extractSlackUserId(recipient.clientId);
 
+        console.debug('resolved slack identifiers:', {
+          clientId: recipient.clientId,
+          slackUserId,
+        });
+
         if (!slackUserId) {
           console.error(`Invalid clientId format: ${recipient.clientId}`);
           continue;
@@ -223,13 +228,23 @@ export class NotificationService {
     const trimmed = clientId.trim();
     if (!trimmed) return null;
 
-    if (trimmed.includes(':')) {
-      const [, id] = trimmed.split(':', 2);
-      return id && id.trim().length > 0 ? id.trim() : null;
+    const segments = trimmed
+      .split(':')
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    if (segments.length === 0) {
+      return null;
     }
 
-    // Accept raw Slack IDs (e.g., U123456) for backward compatibility
-    return trimmed;
+    if (segments[0] === 'slack' && segments.length > 1) {
+      const candidate = segments[segments.length - 1];
+      return candidate.length > 0 ? candidate : null;
+    }
+
+    // Accept raw Slack IDs (e.g., U123456) and non-prefixed identifiers for backward compatibility
+    const candidate = segments[segments.length - 1];
+    return candidate.length > 0 ? candidate : null;
   }
 
   private async resolveBotToken(
