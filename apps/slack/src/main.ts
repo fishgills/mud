@@ -7,13 +7,6 @@ import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
 import { NotificationService } from './notification.service';
 import { createLogger } from '@mud/logging';
 
-console.info(`Env production is: ${env.isProduction}`);
-console.debug(`This is a debug log entry to test log levels.`);
-console.warn(`This is a warning log entry to test log levels.`);
-console.error(`This is an error log entry to test log levels.`);
-console.info(`This is an info log entry to test log levels.`);
-console.log(`This is a log entry to test log levels.`);
-
 // Decode any env values that were accidentally base64-encoded so the app
 // always receives raw strings. We create `decodedEnv` from `env` and use it
 // throughout the app.
@@ -231,12 +224,12 @@ app.message(async ({ message, say, client, context }) => {
       commandLog.debug('Dispatching handler', { command: key, userId });
       // Minimal resolver: supports both <@U123> and @username formats from Slack
       const resolveUserId = async (nameOrMention: string) => {
-        console.log(`[RESOLVE-DEBUG] Input: "${nameOrMention}"`);
+        commandLog.debug('Resolving user ID', { input: nameOrMention });
         // Try <@U123> format first
-        let m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
+        const m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
         if (m) {
           const result = m[1];
-          console.log(`[RESOLVE-DEBUG] Matched ID format: ${result}`);
+          commandLog.debug('Matched ID format', { userId: result });
           return result;
         }
         // If not ID format, it might be a plain username like @CharliTest or CharliTest
@@ -246,11 +239,12 @@ app.message(async ({ message, say, client, context }) => {
           .trim()
           .match(/^@?([a-zA-Z0-9_.-]+)$/);
         if (usernameMatch) {
-          console.log(
-            `[RESOLVE-DEBUG] Got username format but can't resolve without API call: ${usernameMatch[1]}`,
+          commandLog.debug(
+            'Got username format but cannot resolve without API call',
+            { username: usernameMatch[1] },
           );
         }
-        console.log(`[RESOLVE-DEBUG] No match found`);
+        commandLog.debug('No user ID match found', { input: nameOrMention });
         return undefined;
       };
       await handler({
