@@ -142,9 +142,22 @@ if (globalAny.__mudLoggerInstance) {
     return { context, meta };
   };
 
+  // Format timestamp as local timezone (e.g., "2025-11-06 15:39:13")
+  const localTimestampFormat = winston.format((info) => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    info.timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    return info;
+  });
+
   const consoleFormat = combine(
     colorize(),
-    timestamp(),
+    localTimestampFormat(),
     errors({ stack: true }),
     splat(),
     printf((info) => {
@@ -159,7 +172,7 @@ if (globalAny.__mudLoggerInstance) {
   );
 
   const fileFormat = combine(
-    timestamp(),
+    localTimestampFormat(),
     errors({ stack: true }),
     splat(),
     printf((info) => {
@@ -175,7 +188,7 @@ if (globalAny.__mudLoggerInstance) {
 
   const transports: winston.transport[] = [
     new winston.transports.Console({
-      level: process.env.LOG_LEVEL || 'info',
+      level: process.env.LOG_LEVEL || 'debug',
       format: consoleFormat,
     }),
   ];
@@ -193,7 +206,7 @@ if (globalAny.__mudLoggerInstance) {
     const combinedLogPath = path.join(logDir, 'mud-combined.log');
     const combinedTransport = new winston.transports.File({
       filename: combinedLogPath,
-      level: process.env.LOG_LEVEL || 'info',
+      level: process.env.LOG_LEVEL || 'debug',
       maxsize: 50 * 1024 * 1024,
       maxFiles: 1,
       format: fileFormat,
@@ -221,12 +234,12 @@ if (globalAny.__mudLoggerInstance) {
   }
 
   sharedLogger = winston.createLogger({
-    level: process.env.LOG_LEVEL || 'info',
+    level: process.env.LOG_LEVEL || 'debug',
     defaultMeta: {
       service: serviceName,
       environment: process.env.NODE_ENV || 'development',
     },
-    format: combine(errors({ stack: true }), splat(), timestamp()),
+    format: combine(errors({ stack: true }), splat(), localTimestampFormat()),
     transports,
     exitOnError: false,
   });

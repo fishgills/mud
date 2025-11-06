@@ -7,6 +7,13 @@ import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
 import { NotificationService } from './notification.service';
 import { createLogger } from '@mud/logging';
 
+console.info(`Env production is: ${env.isProduction}`);
+console.debug(`This is a debug log entry to test log levels.`);
+console.warn(`This is a warning log entry to test log levels.`);
+console.error(`This is an error log entry to test log levels.`);
+console.info(`This is an info log entry to test log levels.`);
+console.log(`This is a log entry to test log levels.`);
+
 // Decode any env values that were accidentally base64-encoded so the app
 // always receives raw strings. We create `decodedEnv` from `env` and use it
 // throughout the app.

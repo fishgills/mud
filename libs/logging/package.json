@@ -17,6 +17,10 @@
     "./nest-winston-logger": {
       "types": "./dist/nest-winston-logger.d.ts",
       "default": "./dist/nest-winston-logger.js"
+    },
+    "./nest-winston-module": {
+      "types": "./dist/nest-winston-module.d.ts",
+      "default": "./dist/nest-winston-module.js"
     }
   },
   "scripts": {
@@ -24,6 +28,8 @@
     "check-types": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@nestjs/common": "^11.1.6",
+    "nest-winston": "^1.10.0",
     "tslib": "^2.3.0",
     "winston": "^3.13.1"
   }
