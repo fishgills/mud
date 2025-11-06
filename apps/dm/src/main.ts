@@ -1,7 +1,8 @@
 import '@mud/tracer/register';
 import './env';
 
-import { NestWinstonLogger, createLogger } from '@mud/logging';
+import { createLogger } from '@mud/logging';
+import { NestWinstonLogger } from '@mud/logging/nest';
 
 import { NestFactory } from '@nestjs/core';
 import { Request, Response, NextFunction } from 'express';

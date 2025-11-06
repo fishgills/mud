@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
-import { createWinstonModuleForRoot } from '@mud/logging';
+import { createWinstonModuleForRoot } from '@mud/logging/nest';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PlayerService } from './player/player.service';

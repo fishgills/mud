@@ -3,7 +3,8 @@ import './env';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { env } from './env';
-import { NestWinstonLogger, createLogger } from '@mud/logging';
+import { createLogger } from '@mud/logging';
+import { NestWinstonLogger } from '@mud/logging/nest';
 
 const bootstrapLogger = createLogger('world:bootstrap');
 
