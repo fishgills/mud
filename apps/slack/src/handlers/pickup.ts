@@ -74,7 +74,12 @@ export function buildItemSelectionMessage(items: Array<ItemRecord>) {
   };
 }
 
-export const pickupHandler = async ({ userId, say, text }: HandlerContext) => {
+export const pickupHandler = async ({
+  userId,
+  say,
+  text,
+  teamId,
+}: HandlerContext) => {
   const args = (text || '').trim().split(/\s+/).slice(1);
   const worldItemIdArg = args[0];
 
@@ -87,7 +92,10 @@ export const pickupHandler = async ({ userId, say, text }: HandlerContext) => {
     }
 
     try {
-      const res = await pickup({ slackId: toClientId(userId), worldItemId });
+      const res = await pickup({
+        slackId: toClientId(userId, teamId || ''),
+        worldItemId,
+      });
       if (res && res.success) {
         await say({ text: res.message ?? 'You picked up an item.' });
       } else {
@@ -117,7 +125,9 @@ export const pickupHandler = async ({ userId, say, text }: HandlerContext) => {
 
   // Selection flow: show dropdown of nearby items
   try {
-    const playerRes = await getPlayer({ slackId: toClientId(userId) });
+    const playerRes = await getPlayer({
+      slackId: toClientId(userId, teamId || ''),
+    });
     const player = playerRes.data;
     if (!player) {
       await say({ text: 'Could not find your player.' });
@@ -134,7 +144,9 @@ export const pickupHandler = async ({ userId, say, text }: HandlerContext) => {
     // Prefer items on entities if backend provides them; otherwise use look view
     let items: ItemRecord[] = entities.items ?? [];
     if (!items || items.length === 0) {
-      const look = await getLookView({ slackId: toClientId(userId) });
+      const look = await getLookView({
+        slackId: toClientId(userId, teamId || ''),
+      });
       // look.data is a JsonMap and may contain an items array; narrow via unknown cast
       items = (look?.data as unknown as { items?: ItemRecord[] })?.items ?? [];
     }

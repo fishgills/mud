@@ -85,7 +85,7 @@ beforeEach(() => {
     success: true,
     data: {
       id: '1',
-      slackId: toClientId('U1'),
+      slackId: toClientId('U1', 'T1'),
       name: 'Hero',
       hp: 1,
       maxHp: 10,
@@ -121,10 +121,11 @@ describe('attackHandler', () => {
       text: `${COMMANDS.ATTACK} <@U2>`,
       say,
       client: client as unknown as HandlerContext['client'],
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(mockedDmClient.attack).toHaveBeenCalledWith({
-      slackId: toClientId('U1'),
+      slackId: toClientId('U1', 'T1'),
       input: {
         targetType: TargetType.Player,
         targetSlackId: 'U2',
@@ -154,6 +155,7 @@ describe('attackHandler', () => {
       userId: 'U1',
       text: `${COMMANDS.ATTACK} @someone`,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
@@ -169,6 +171,7 @@ describe('attackHandler', () => {
       userId: 'U1',
       text: `${COMMANDS.ATTACK} <@U1>`,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: SELF_ATTACK_ERROR });
@@ -193,6 +196,7 @@ describe('attackHandler', () => {
       userId: 'U1',
       text: COMMANDS.ATTACK,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(mockedDmClient.attack).not.toHaveBeenCalled();
@@ -240,6 +244,7 @@ describe('attackHandler', () => {
       userId: 'U1',
       text: COMMANDS.ATTACK,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     const message = say.mock.calls[0][0] as {
@@ -275,6 +280,7 @@ describe('attackHandler', () => {
       userId: 'U1',
       text: COMMANDS.ATTACK,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
@@ -293,6 +299,7 @@ describe('attackHandler', () => {
       userId: 'U1',
       text: `${COMMANDS.ATTACK} <@U2>`,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'Attack failed: Out of range' });
@@ -306,6 +313,7 @@ describe('attackHandler', () => {
       userId: 'U1',
       text: COMMANDS.ATTACK,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'boom' });
@@ -320,6 +328,7 @@ describe('createHandler', () => {
       userId: 'U1',
       text: COMMANDS.NEW,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
@@ -352,10 +361,11 @@ describe('createHandler', () => {
       userId: 'U1',
       text: `${COMMANDS.NEW} Hero`,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(mockedDmClient.createPlayer).toHaveBeenCalledWith({
-      slackId: toClientId('U1'),
+      slackId: toClientId('U1', 'T1'),
       name: 'Hero',
     });
     expect(say).toHaveBeenLastCalledWith(
@@ -383,6 +393,7 @@ describe('createHandler', () => {
       userId: 'U1',
       text: `${COMMANDS.NEW} Hero`,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'You already have a character!' });
@@ -398,6 +409,7 @@ describe('createHandler', () => {
       userId: 'U1',
       text: `${COMMANDS.NEW} Hero`,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
@@ -415,6 +427,7 @@ describe('completeHandler', () => {
       userId: 'U1',
       text: '',
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
@@ -433,6 +446,7 @@ describe('completeHandler', () => {
       userId: 'U1',
       text: '',
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'Error: nope' });
@@ -446,6 +460,7 @@ describe('completeHandler', () => {
       userId: 'U1',
       text: '',
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'boom' });
@@ -464,6 +479,7 @@ describe('deleteHandler', () => {
       userId: 'U1',
       text: '',
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
@@ -488,10 +504,11 @@ describe('deleteHandler', () => {
       userId: 'U1',
       text: '',
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(mockedDmClient.deletePlayer).toHaveBeenCalledWith({
-      slackId: toClientId('U1'),
+      slackId: toClientId('U1', 'T1'),
     });
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -520,6 +537,7 @@ describe('deleteHandler', () => {
       userId: 'U1',
       text: '',
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
@@ -544,6 +562,7 @@ describe('deleteHandler', () => {
       userId: 'U1',
       text: '',
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'boom' });
@@ -622,7 +641,12 @@ describe('lookHandler', () => {
       },
     });
 
-    await lookHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
+    await lookHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
 
     expect(say).toHaveBeenNthCalledWith(1, { text: 'A vast plain' });
     // Unified occupant summary (players + monsters at location)
@@ -655,7 +679,7 @@ describe('lookHandler', () => {
       players: [
         {
           id: '1',
-          slackId: toClientId('U1'),
+          slackId: toClientId('U1', 'T1'),
           name: 'Hero',
           x: 0,
           y: 0,
@@ -690,7 +714,12 @@ describe('lookHandler', () => {
       },
     });
 
-    await lookHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
+    await lookHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
 
     // Should not post an occupants summary when only self is present
     expect(say).not.toHaveBeenCalledWith(
@@ -707,7 +736,12 @@ describe('lookHandler', () => {
       message: 'permission denied',
     });
 
-    await lookHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
+    await lookHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
       text: 'Failed to look: permission denied',
@@ -718,7 +752,12 @@ describe('lookHandler', () => {
     const say = makeSay();
     mockedDmClient.getLookView.mockRejectedValueOnce(new Error('boom'));
 
-    await lookHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
+    await lookHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'boom' });
   });
@@ -732,7 +771,12 @@ describe('mapHandler', () => {
       data: { x: 3, y: -4 },
     });
 
-    await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
+    await mapHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
 
     expect(mockedSendPngMap).toHaveBeenCalledWith(say, 3, -4, 8);
   });
@@ -766,7 +810,12 @@ describe('mapHandler', () => {
       monsters: [],
     });
 
-    await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
+    await mapHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -790,7 +839,7 @@ describe('mapHandler', () => {
       players: [
         {
           id: '1',
-          slackId: toClientId('U1'),
+          slackId: toClientId('U1', 'T1'),
           name: 'Hero',
           x: 5,
           y: 6,
@@ -809,7 +858,12 @@ describe('mapHandler', () => {
       monsters: [],
     });
 
-    await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
+    await mapHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
 
     // No occupants summary should be posted when only self is present
     expect(say).not.toHaveBeenCalledWith(
@@ -823,7 +877,12 @@ describe('mapHandler', () => {
     const say = makeSay();
     mockedDmClient.getPlayer.mockRejectedValueOnce(new Error('fail'));
 
-    await mapHandler.handle({ userId: 'U1', text: '', say } as HandlerContext);
+    await mapHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
       text: 'Failed to load map: fail',
@@ -839,6 +898,7 @@ describe('moveHandler', () => {
       userId: 'U1',
       text: 'stand still',
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
@@ -859,10 +919,11 @@ describe('moveHandler', () => {
       userId: 'U1',
       text: COMMANDS.NORTH,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(mockedDmClient.movePlayer).toHaveBeenCalledWith({
-      slackId: toClientId('U1'),
+      slackId: toClientId('U1', 'T1'),
       input: { direction: Direction.North },
     });
     expect(mockedSendPngMap).toHaveBeenCalledWith(say, 1, 2, 8);
@@ -899,10 +960,11 @@ describe('moveHandler', () => {
       userId: 'U1',
       text: 'move north 3',
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(mockedDmClient.movePlayer).toHaveBeenCalledWith({
-      slackId: toClientId('U1'),
+      slackId: toClientId('U1', 'T1'),
       input: { direction: Direction.North, distance: 3 },
     });
     expect(say).toHaveBeenCalledWith({
@@ -923,10 +985,11 @@ describe('moveHandler', () => {
       userId: 'U1',
       text: 'move 10 -5',
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(mockedDmClient.movePlayer).toHaveBeenCalledWith({
-      slackId: toClientId('U1'),
+      slackId: toClientId('U1', 'T1'),
       input: { x: 10, y: -5 },
     });
     expect(say).toHaveBeenCalledWith({
@@ -945,6 +1008,7 @@ describe('moveHandler', () => {
       userId: 'U1',
       text: COMMANDS.NORTH,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'Move failed: blocked' });
@@ -958,6 +1022,7 @@ describe('moveHandler', () => {
       userId: 'U1',
       text: COMMANDS.NORTH,
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'boom' });
@@ -981,6 +1046,7 @@ describe('rerollHandler', () => {
       userId: 'U1',
       text: '',
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
@@ -999,6 +1065,7 @@ describe('rerollHandler', () => {
       userId: 'U1',
       text: '',
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'Error: cooldown' });
@@ -1012,6 +1079,7 @@ describe('rerollHandler', () => {
       userId: 'U1',
       text: '',
       say,
+      teamId: 'T1',
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'boom' });

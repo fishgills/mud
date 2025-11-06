@@ -167,7 +167,7 @@ app.event('app_mention', async ({ event, say }) => {
 
 registerAppHome(app);
 
-app.message(async ({ message, say, client }) => {
+app.message(async ({ message, say, client, context }) => {
   // Only handle direct user messages (not message_changed, etc)
   if (
     message.type !== 'message' ||
@@ -182,6 +182,10 @@ app.message(async ({ message, say, client }) => {
       : '';
   const userId = 'user' in message ? message.user : undefined;
   if (!text || !userId) return;
+
+  // Extract workspace team ID for multi-workspace support
+  const teamId =
+    typeof context.teamId === 'string' ? context.teamId : undefined;
 
   // Dispatch to the first matching handler (case-insensitive)
   // Wrap say so handlers can send text, Block Kit, or upload a file
@@ -223,7 +227,14 @@ app.message(async ({ message, say, client }) => {
         const m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
         return m ? m[1] : undefined;
       };
-      await handler({ userId, say: sayVoid, text, resolveUserId, client });
+      await handler({
+        userId,
+        say: sayVoid,
+        text,
+        resolveUserId,
+        client,
+        teamId,
+      });
       return;
     }
   }

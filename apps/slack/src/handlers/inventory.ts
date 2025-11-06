@@ -314,10 +314,13 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
 export const inventoryHandler = async ({
   userId,
   say,
+  teamId,
 }: HandlerContext): Promise<void> => {
   const missingCharacterMessage = `You don't have a character yet! Use "${COMMANDS.NEW} YourName" to create one.`;
   try {
-    const response = await getPlayerItems({ slackId: toClientId(userId) });
+    const response = await getPlayerItems({
+      slackId: toClientId(userId, teamId || ''),
+    });
     if (!response.success || !response.data) {
       await say({
         text:

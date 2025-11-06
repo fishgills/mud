@@ -128,34 +128,51 @@ const sendHelpDetailViaDM = async (
 };
 
 export const registerHelpActions = (app: App) => {
-  app.action<BlockAction>(HELP_ACTIONS.LOOK, async ({ ack, body, client }) => {
-    await ack();
-    const userId = body.user?.id;
-    if (!userId) return;
-    await dispatchCommandViaDM(client, userId, COMMANDS.LOOK);
-  });
+  app.action<BlockAction>(
+    HELP_ACTIONS.LOOK,
+    async ({ ack, body, client, context }) => {
+      await ack();
+      const userId = body.user?.id;
+      const teamId =
+        typeof context.teamId === 'string' ? context.teamId : undefined;
+      if (!userId) return;
+      await dispatchCommandViaDM(client, userId, COMMANDS.LOOK, teamId);
+    },
+  );
 
-  app.action<BlockAction>(HELP_ACTIONS.STATS, async ({ ack, body, client }) => {
-    await ack();
-    const userId = body.user?.id;
-    if (!userId) return;
-    await dispatchCommandViaDM(client, userId, COMMANDS.STATS);
-  });
+  app.action<BlockAction>(
+    HELP_ACTIONS.STATS,
+    async ({ ack, body, client, context }) => {
+      await ack();
+      const userId = body.user?.id;
+      const teamId =
+        typeof context.teamId === 'string' ? context.teamId : undefined;
+      if (!userId) return;
+      await dispatchCommandViaDM(client, userId, COMMANDS.STATS, teamId);
+    },
+  );
 
-  app.action<BlockAction>(HELP_ACTIONS.MAP, async ({ ack, body, client }) => {
-    await ack();
-    const userId = body.user?.id;
-    if (!userId) return;
-    await dispatchCommandViaDM(client, userId, COMMANDS.MAP);
-  });
+  app.action<BlockAction>(
+    HELP_ACTIONS.MAP,
+    async ({ ack, body, client, context }) => {
+      await ack();
+      const userId = body.user?.id;
+      const teamId =
+        typeof context.teamId === 'string' ? context.teamId : undefined;
+      if (!userId) return;
+      await dispatchCommandViaDM(client, userId, COMMANDS.MAP, teamId);
+    },
+  );
 
   app.action<BlockAction>(
     HELP_ACTIONS.INVENTORY,
-    async ({ ack, body, client }) => {
+    async ({ ack, body, client, context }) => {
       await ack();
       const userId = body.user?.id;
+      const teamId =
+        typeof context.teamId === 'string' ? context.teamId : undefined;
       if (!userId) return;
-      await dispatchCommandViaDM(client, userId, COMMANDS.INVENTORY);
+      await dispatchCommandViaDM(client, userId, COMMANDS.INVENTORY, teamId);
     },
   );
 

@@ -1,10 +1,11 @@
 /**
  * Convert a Slack user ID to a client ID format
  * @param slackUserId The Slack user ID (e.g., "U123456")
- * @returns The client ID in format "slack:U123456"
+ * @param teamId Workspace team ID (e.g., "T123456")
+ * @returns The client ID in format "slack:T123456:U123456" (workspace-qualified)
  */
-export function toClientId(slackUserId: string): string {
-  return `slack:${slackUserId}`;
+export function toClientId(slackUserId: string, teamId?: string): string {
+  return `slack:${teamId || ''}:${slackUserId}`;
 }
 
 /**

@@ -6,6 +6,7 @@ export const dispatchCommandViaDM = async (
   client: WebClient,
   userId: string,
   command: string,
+  teamId?: string,
 ) => {
   const handler = getAllHandlers()[command];
   if (!handler) return;
@@ -13,5 +14,5 @@ export const dispatchCommandViaDM = async (
   const channel = dm.channel?.id;
   if (!channel) return;
   const say = buildSayHelper(client, channel);
-  await handler({ userId, text: command, say });
+  await handler({ userId, text: command, say, teamId });
 };

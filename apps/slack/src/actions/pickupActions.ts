@@ -57,10 +57,12 @@ export const registerPickupActions = (app: App) => {
 
   app.action<BlockAction>(
     PICKUP_ACTIONS.PICKUP,
-    async ({ ack, body, client }) => {
+    async ({ ack, body, client, context }) => {
       await ack();
 
       const userId = body.user?.id;
+      const teamId =
+        typeof context.teamId === 'string' ? context.teamId : undefined;
       const channelId =
         body.channel?.id ||
         (typeof body.container?.channel_id === 'string'
@@ -132,7 +134,7 @@ export const registerPickupActions = (app: App) => {
 
       try {
         const pickupResult = await dmClient.pickup({
-          slackId: toClientId(userId),
+          slackId: toClientId(userId, teamId),
           worldItemId,
         });
         if (!pickupResult || !pickupResult.success) {
@@ -180,7 +182,7 @@ export const registerPickupActions = (app: App) => {
         }
 
         const playerRes = await dmClient.getPlayer({
-          slackId: toClientId(userId),
+          slackId: toClientId(userId, teamId),
         });
         const player = playerRes.data;
         const playerName = player?.name ?? 'Someone';

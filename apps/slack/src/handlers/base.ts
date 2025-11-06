@@ -37,6 +37,7 @@ export abstract class BaseCommandHandler {
 
 export abstract class SafeCommandHandler extends BaseCommandHandler {
   protected readonly defaultErrorMessage: string;
+  protected teamId?: string;
 
   protected constructor(
     commands: CommandRegistration,
@@ -49,6 +50,7 @@ export abstract class SafeCommandHandler extends BaseCommandHandler {
   protected abstract perform(ctx: HandlerContext): Promise<void>;
 
   protected async execute(ctx: HandlerContext): Promise<void> {
+    this.teamId = ctx.teamId;
     try {
       await this.perform(ctx);
     } catch (error) {
@@ -70,7 +72,7 @@ export abstract class PlayerCommandHandler extends SafeCommandHandler {
   }
 
   protected toClientId(userId: string): string {
-    return toClientId(userId);
+    return toClientId(userId, this.teamId);
   }
 }
 

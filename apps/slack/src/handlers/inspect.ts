@@ -137,12 +137,16 @@ function buildInspectSelectionMessage(
 
 function normalizePlayers(
   players: LocationEntitiesResult['players'] = [],
-  includeSelfSlackId: string,
+  excludeSelfSlackId: string,
 ): InspectablePlayer[] {
   const list: InspectablePlayer[] = [];
   for (const record of players ?? []) {
     const slackId = extractSlackId(record);
     if (!slackId) {
+      continue;
+    }
+    // Exclude the current player from the list
+    if (slackId === excludeSelfSlackId) {
       continue;
     }
     list.push({
@@ -151,16 +155,6 @@ function normalizePlayers(
       slackId,
       clientId: record.clientId,
       isAlive: record.isAlive,
-    });
-  }
-
-  // Ensure the current player is included even if not in the location list yet.
-  if (!list.some((p) => p.slackId === includeSelfSlackId)) {
-    list.push({
-      name: 'You',
-      slackId: includeSelfSlackId,
-      id: undefined,
-      isAlive: true,
     });
   }
 
@@ -440,7 +434,12 @@ class InspectHandler extends PlayerCommandHandler {
     super(COMMANDS.INSPECT, 'Failed to inspect surroundings');
   }
 
-  protected async perform({ userId, say }: HandlerContext): Promise<void> {
+  protected async perform({
+    userId,
+    say,
+    text,
+    resolveUserId,
+  }: HandlerContext): Promise<void> {
     const clientId = this.toClientId(userId);
     const playerRes = await this.dm.getPlayer({ slackId: clientId });
     const player = playerRes.data;
@@ -450,6 +449,21 @@ class InspectHandler extends PlayerCommandHandler {
         text: playerRes.message ?? 'Could not find your character.',
       });
       return;
+    }
+
+    // Check if user wants to inspect a specific player by mention
+    const trimmedText = (text || '').trim();
+    if (trimmedText) {
+      const targetSlackId = await resolveUserId?.(trimmedText);
+      if (targetSlackId) {
+        // Directly inspect the mentioned player
+        await this.handlePlayerInspect(
+          undefined,
+          { user: { id: userId } } as BlockAction,
+          targetSlackId,
+        );
+        return;
+      }
     }
 
     const { x, y } = player;

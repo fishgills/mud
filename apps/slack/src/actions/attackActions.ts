@@ -99,10 +99,12 @@ export const registerAttackActions = (app: App) => {
 
   app.action<BlockAction>(
     ATTACK_ACTIONS.ATTACK_MONSTER,
-    async ({ ack, body, client }) => {
+    async ({ ack, body, client, context }) => {
       await ack();
 
       const userId = body.user?.id;
+      const teamId =
+        typeof context.teamId === 'string' ? context.teamId : undefined;
       const channelId =
         body.channel?.id ||
         (typeof body.container?.channel_id === 'string'
@@ -178,7 +180,7 @@ export const registerAttackActions = (app: App) => {
             };
 
         const attackResult = await dmClient.attack({
-          slackId: toClientId(userId),
+          slackId: toClientId(userId, teamId),
           input: attackInput,
         });
 

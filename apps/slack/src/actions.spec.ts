@@ -199,8 +199,9 @@ describe('registerActions', () => {
 
     await actionHandlers[HELP_ACTIONS.LOOK]({
       ack,
-      body: { user: { id: 'U123' } },
+      body: { user: { id: 'U123' }, team: { id: 'T1' } },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(ack).toHaveBeenCalled();
@@ -236,8 +237,9 @@ describe('registerActions', () => {
 
       await actionHandlers[id]({
         ack,
-        body: { user: { id: 'U99' } },
+        body: { user: { id: 'U99' }, team: { id: 'T1' } },
         client,
+        context: { teamId: 'T1' },
       });
 
       expect(client.conversations.open).toHaveBeenCalledWith({ users: 'U99' });
@@ -276,8 +278,9 @@ describe('registerActions', () => {
 
     await actionHandlers[MOVE_ACTIONS.NORTH]({
       ack,
-      body: { user: { id: 'U456' } },
+      body: { user: { id: 'U456' }, team: { id: 'T1' } },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(northHandler).toHaveBeenCalled();
@@ -306,6 +309,7 @@ describe('registerActions', () => {
       ack,
       body: { trigger_id: 'T1', user: { id: 'U777' } },
       client,
+      context: { teamId: 'T1' },
     });
     expect(viewsOpen).toHaveBeenCalledWith(
       expect.objectContaining({ trigger_id: 'T1' }),
@@ -316,6 +320,7 @@ describe('registerActions', () => {
       ack,
       body: { trigger_id: 'T2', user: { id: 'U888' } },
       client,
+      context: { teamId: 'T1' },
     });
     expect(client.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ channel: 'C3' }),
@@ -346,8 +351,13 @@ describe('registerActions', () => {
 
     await viewHandlers.create_character_view({
       ack,
-      body: { user: { id: 'U999' }, view: { state: { values: {} } } },
+      body: {
+        user: { id: 'U999' },
+        team: { id: 'T1' },
+        view: { state: { values: {} } },
+      },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(ack).toHaveBeenCalledWith(
@@ -374,6 +384,7 @@ describe('registerActions', () => {
         },
       },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(newHandler).toHaveBeenCalledWith(
@@ -418,6 +429,7 @@ describe('registerActions', () => {
       ack,
       body: {
         user: { id: 'U1' },
+        team: { id: 'T1' },
         container: { channel_id: 'D1' },
         message: {
           ts: '158456',
@@ -438,11 +450,12 @@ describe('registerActions', () => {
         },
       },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(ack).toHaveBeenCalled();
     expect(mockedDmClient.attack).toHaveBeenCalledWith({
-      slackId: toClientId('U1'),
+      slackId: toClientId('U1', 'T1'),
       input: {
         targetType: TargetType.Monster,
         targetId: 42,
@@ -500,6 +513,7 @@ describe('registerActions', () => {
       ack,
       body: {},
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(ack).toHaveBeenCalled();
@@ -526,6 +540,7 @@ describe('registerActions', () => {
       ack,
       body: {},
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(ack).toHaveBeenCalled();
@@ -548,8 +563,9 @@ describe('registerActions', () => {
 
     await actionHandlers[HELP_ACTIONS.LOOK]({
       ack,
-      body: { user: { id: 'U1' } },
+      body: { user: { id: 'U1' }, team: { id: 'T1' } },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(handler).not.toHaveBeenCalled();
@@ -576,8 +592,9 @@ describe('registerActions', () => {
 
     await actionHandlers[HELP_ACTIONS.LOOK]({
       ack,
-      body: { user: { id: 'U1' } },
+      body: { user: { id: 'U1' }, team: { id: 'T1' } },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(client.conversations.open).not.toHaveBeenCalled();
@@ -602,6 +619,7 @@ describe('registerActions', () => {
       ack,
       body: { trigger_id: 'T1' },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(viewsOpen).toHaveBeenCalled();
@@ -627,6 +645,7 @@ describe('registerActions', () => {
       ack,
       body: { trigger_id: 'T1', user: { id: 'U1' } },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(client.chat.postMessage).not.toHaveBeenCalled();
@@ -658,6 +677,7 @@ describe('registerActions', () => {
         },
       },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(newHandler).not.toHaveBeenCalled();
@@ -694,6 +714,7 @@ describe('registerActions', () => {
         },
       },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(client.conversations.open).not.toHaveBeenCalled();
@@ -726,6 +747,7 @@ describe('registerActions', () => {
         },
       },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(newHandler).not.toHaveBeenCalled();
@@ -751,6 +773,7 @@ describe('registerActions', () => {
       ack,
       body: {},
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(mockedDmClient.attack).not.toHaveBeenCalled();
@@ -780,6 +803,7 @@ describe('registerActions', () => {
         state: { values: {} },
       },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(mockedDmClient.attack).not.toHaveBeenCalled();
@@ -825,6 +849,7 @@ describe('registerActions', () => {
         },
       },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(mockedDmClient.attack).not.toHaveBeenCalled();
@@ -876,6 +901,7 @@ describe('registerActions', () => {
         },
       },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(client.chat.postMessage).toHaveBeenCalledWith(
@@ -926,6 +952,7 @@ describe('registerActions', () => {
         },
       },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(client.chat.postMessage).toHaveBeenCalledWith(
@@ -986,6 +1013,7 @@ describe('registerActions', () => {
         },
       },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(client.chat.postMessage).toHaveBeenCalledWith(
@@ -1032,6 +1060,7 @@ describe('registerActions', () => {
         },
       },
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(client.chat.postMessage).toHaveBeenCalledWith(
@@ -1067,22 +1096,25 @@ describe('registerActions', () => {
 
     await actionHandlers[HELP_ACTIONS.STATS]({
       ack,
-      body: { user: { id: 'U1' } },
+      body: { user: { id: 'U1' }, team: { id: 'T1' } },
       client,
+      context: { teamId: 'T1' },
     });
     expect(statsHandler).toHaveBeenCalled();
 
     await actionHandlers[HELP_ACTIONS.MAP]({
       ack,
-      body: { user: { id: 'U1' } },
+      body: { user: { id: 'U1' }, team: { id: 'T1' } },
       client,
+      context: { teamId: 'T1' },
     });
     expect(mapHandler).toHaveBeenCalled();
 
     await actionHandlers[HELP_ACTIONS.INVENTORY]({
       ack,
-      body: { user: { id: 'U1' } },
+      body: { user: { id: 'U1' }, team: { id: 'T1' } },
       client,
+      context: { teamId: 'T1' },
     });
     expect(inventoryHandler).toHaveBeenCalled();
   });
@@ -1112,22 +1144,25 @@ describe('registerActions', () => {
 
     await actionHandlers[MOVE_ACTIONS.SOUTH]({
       ack,
-      body: { user: { id: 'U1' } },
+      body: { user: { id: 'U1' }, team: { id: 'T1' } },
       client,
+      context: { teamId: 'T1' },
     });
     expect(southHandler).toHaveBeenCalled();
 
     await actionHandlers[MOVE_ACTIONS.WEST]({
       ack,
-      body: { user: { id: 'U1' } },
+      body: { user: { id: 'U1' }, team: { id: 'T1' } },
       client,
+      context: { teamId: 'T1' },
     });
     expect(westHandler).toHaveBeenCalled();
 
     await actionHandlers[MOVE_ACTIONS.EAST]({
       ack,
-      body: { user: { id: 'U1' } },
+      body: { user: { id: 'U1' }, team: { id: 'T1' } },
       client,
+      context: { teamId: 'T1' },
     });
     expect(eastHandler).toHaveBeenCalled();
   });
@@ -1152,6 +1187,7 @@ describe('registerActions', () => {
       ack,
       body: {},
       client,
+      context: { teamId: 'T1' },
     });
 
     expect(ack).toHaveBeenCalled();
@@ -1165,7 +1201,7 @@ describe('registerActions', () => {
       message: null,
       data: {
         id: '1',
-        slackId: toClientId('U1'),
+        slackId: toClientId('U1', 'T1'),
         name: 'Hero',
         hp: 18,
         maxHp: 18,
@@ -1199,11 +1235,12 @@ describe('registerActions', () => {
         message: { ts: '123' },
       },
       client,
+      context: { teamId: 'T1' },
       respond,
     });
 
     expect(mockedDmClient.spendSkillPoint).toHaveBeenCalledWith({
-      slackId: toClientId('U1'),
+      slackId: toClientId('U1', 'T1'),
       attribute: PlayerAttribute.Strength,
     });
     expect(client.chat.update).toHaveBeenCalledWith(
@@ -1241,11 +1278,12 @@ describe('registerActions', () => {
         message: { ts: '123' },
       },
       client,
+      context: { teamId: 'T1' },
       respond,
     });
 
     expect(mockedDmClient.spendSkillPoint).toHaveBeenCalledWith({
-      slackId: toClientId('U1'),
+      slackId: toClientId('U1', 'T1'),
       attribute: PlayerAttribute.Agility,
     });
     expect(client.chat.update).not.toHaveBeenCalled();
@@ -1281,6 +1319,7 @@ describe('registerActions', () => {
           ],
         },
         client,
+        context: { teamId: 'T1' },
       });
 
       expect(ack).toHaveBeenCalled();
@@ -1297,6 +1336,7 @@ describe('registerActions', () => {
       expect(JSON.parse(view.private_metadata)).toEqual({
         playerItemId: 7,
         userId: 'U1',
+        teamId: 'T1',
       });
 
       const slotBlock = view.blocks.find(
@@ -1344,6 +1384,7 @@ describe('registerActions', () => {
           actions: [{ value: JSON.stringify({ playerItemId: 5 }) }],
         },
         client,
+        context: { teamId: 'T1' },
       });
 
       expect(dmOpen).toHaveBeenCalledWith({ users: 'U1' });
@@ -1370,7 +1411,11 @@ describe('registerActions', () => {
       await viewHandlers.inventory_equip_view({
         ack,
         view: {
-          private_metadata: JSON.stringify({ playerItemId: 9, userId: 'U1' }),
+          private_metadata: JSON.stringify({
+            playerItemId: 9,
+            userId: 'U1',
+            teamId: 'T1',
+          }),
           state: {
             values: {
               slot_block: {
@@ -1382,10 +1427,11 @@ describe('registerActions', () => {
           },
         },
         client,
+        context: { teamId: 'T1' },
       });
 
       expect(mockedDmClient.equip).toHaveBeenCalledWith({
-        slackId: toClientId('U1'),
+        slackId: toClientId('U1', 'T1'),
         playerItemId: 9,
         slot: 'weapon',
       });
@@ -1416,10 +1462,11 @@ describe('registerActions', () => {
           actions: [{ value: '12' }],
         },
         client,
+        context: { teamId: 'T1' },
       });
 
       expect(mockedDmClient.drop).toHaveBeenCalledWith({
-        slackId: toClientId('U1'),
+        slackId: toClientId('U1', 'T1'),
         playerItemId: 12,
       });
       expect(postEphemeral).toHaveBeenCalledWith(
@@ -1453,6 +1500,7 @@ describe('registerActions', () => {
           actions: [{ value: '55' }],
         },
         client,
+        context: { teamId: 'T1' },
       });
 
       expect(postEphemeral).toHaveBeenCalledWith(
@@ -1530,6 +1578,7 @@ describe('registerActions', () => {
           },
         },
         client,
+        context: { teamId: 'T1' },
       });
 
       expect(update).toHaveBeenCalledWith(
@@ -1596,6 +1645,7 @@ describe('registerActions', () => {
           },
         },
         client,
+        context: { teamId: 'T1' },
       });
 
       const payload = update.mock.calls[0][0] as {
@@ -1653,6 +1703,7 @@ describe('registerActions', () => {
           },
         },
         client,
+        context: { teamId: 'T1' },
       });
 
       const payload = update.mock.calls[0][0] as {
@@ -1696,6 +1747,7 @@ describe('registerActions', () => {
           },
         },
         client,
+        context: { teamId: 'T1' },
       });
 
       const payload = update.mock.calls[0][0] as {

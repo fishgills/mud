@@ -5,7 +5,12 @@ import type { HandlerContext } from './types';
 import { toClientId } from '../utils/clientId';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 
-export const dropHandler = async ({ userId, say, text }: HandlerContext) => {
+export const dropHandler = async ({
+  userId,
+  say,
+  text,
+  teamId,
+}: HandlerContext) => {
   const args = (text || '').trim().split(/\s+/).slice(1);
   const playerItemIdArg = args[0];
   if (!playerItemIdArg) {
@@ -20,7 +25,10 @@ export const dropHandler = async ({ userId, say, text }: HandlerContext) => {
   }
 
   try {
-    const res = await drop({ slackId: toClientId(userId), playerItemId });
+    const res = await drop({
+      slackId: toClientId(userId, teamId || ''),
+      playerItemId,
+    });
     if (res && res.success) {
       await say({ text: res.message ?? `Dropped item ${playerItemId}.` });
     } else {
