@@ -1,4 +1,5 @@
 import type { App, BlockAction, ViewSubmitAction } from '@slack/bolt';
+import { PlayerSlot } from '@prisma/client';
 import { dmClient } from '../dm-client';
 import { mapErrCodeToFriendlyMessage } from '../handlers/errorUtils';
 import { toClientId } from '../utils/clientId';
@@ -32,10 +33,9 @@ export const registerInventoryActions = (app: App) => {
       if (!payload) return;
 
       const { playerItemId, allowedSlots = [] } = payload;
+      const defaultSlots = Object.values(PlayerSlot);
       const slotOptions = (
-        allowedSlots.length > 0
-          ? allowedSlots
-          : ['head', 'chest', 'arms', 'legs', 'weapon']
+        allowedSlots.length > 0 ? allowedSlots : defaultSlots
       ).map((slot) => ({
         text: {
           type: 'plain_text' as const,

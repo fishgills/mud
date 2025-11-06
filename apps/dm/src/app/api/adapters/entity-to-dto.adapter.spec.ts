@@ -1,3 +1,4 @@
+import { PlayerSlot } from '@prisma/client';
 import { EntityToDtoAdapter } from './entity-to-dto.adapter';
 
 describe('EntityToDtoAdapter', () => {
@@ -63,10 +64,10 @@ describe('EntityToDtoAdapter', () => {
       playerItems: [
         {
           equipped: true,
-          slot: 'head',
+          slot: PlayerSlot.head,
           itemId: '11',
           quality: 'Rare',
-          item: { slot: 'head' },
+          item: { slot: PlayerSlot.head },
         },
         {
           equipped: true,
@@ -76,10 +77,10 @@ describe('EntityToDtoAdapter', () => {
         },
         {
           equipped: true,
-          slot: 'chest',
+          slot: PlayerSlot.chest,
           itemId: '13',
           quality: 'Uncommon',
-          item: { slot: 'chest' },
+          item: { slot: PlayerSlot.chest },
         },
       ],
     } as any;
@@ -131,6 +132,7 @@ describe('EntityToDtoAdapter', () => {
   });
 });
 import { describe, it, expect } from '@jest/globals';
+import { PlayerSlot } from '@prisma/client';
 import { EntityToDtoAdapter } from './entity-to-dto.adapter';
 import type { Player } from '@prisma/client';
 
@@ -153,7 +155,7 @@ describe('EntityToDtoAdapter.playerEntityToDto', () => {
           equipped: true,
           slot: null,
           quality: 'Uncommon',
-          item: { id: 77, slot: 'chest', type: 'armor' },
+          item: { id: 77, slot: PlayerSlot.chest, type: 'armor' },
         },
       ],
     };

@@ -10,6 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import type { PlayerEntity } from '@mud/engine';
+import { PlayerSlot } from '@prisma/client';
 import type { PlayerItem, Item } from '@prisma/client';
 import { PlayerService } from '../../player/player.service';
 import { PlayerItemService } from '../../player/player-item.service';
@@ -607,7 +608,7 @@ export class PlayersController {
             allowedSlots.push(String(item.slot));
           } else if (item && item.type === 'weapon') {
             // fallback: weapons equip to weapon slot
-            allowedSlots.push('weapon');
+            allowedSlots.push(PlayerSlot.weapon);
           }
 
           return {
@@ -696,10 +697,9 @@ export class PlayersController {
       return { success: false, message: 'playerItemId and slot are required' };
     }
     // Validate slot against allowed player slots
-    const allowedSlots = ['head', 'chest', 'arms', 'legs', 'weapon'] as const;
     if (
       typeof slot !== 'string' ||
-      !(allowedSlots as readonly string[]).includes(slot)
+      !Object.values(PlayerSlot).includes(slot as PlayerSlot)
     ) {
       return { success: false, message: 'Invalid slot' };
     }
@@ -711,7 +711,7 @@ export class PlayersController {
       await this.playerItemService.equip(
         player.id,
         Number(playerItemId),
-        slot as import('@prisma/client').PlayerSlot,
+        slot as PlayerSlot,
       );
       return { success: true };
     } catch (error) {
