@@ -112,10 +112,7 @@ if (globalAny.__mudLoggerInstance) {
     const meta: Record<string, unknown> = {};
     for (const key of Reflect.ownKeys(info)) {
       if (typeof key === 'symbol') {
-        if (key === splatKey) {
-          continue;
-        }
-        meta[key.toString()] = (info as Record<PropertyKey, unknown>)[key];
+        // Skip all symbols - they're internal Winston metadata
         continue;
       }
 
@@ -126,7 +123,43 @@ if (globalAny.__mudLoggerInstance) {
         key === 'stack' ||
         key === 'context' ||
         key === 'label' ||
-        key === 'service'
+        key === 'service' ||
+        key === 'environment' ||
+        key === 'dd' // Exclude Datadog metrics
+      ) {
+        continue;
+      }
+
+      meta[key] = (info as Record<PropertyKey, unknown>)[key];
+    }
+
+    const context =
+      (info.context as string | undefined) ||
+      (info.label as string | undefined) ||
+      (info.service as string | undefined);
+
+    return { context, meta };
+  };
+
+  // Filter out Datadog and other non-essential metadata for file logs
+  const serializeMetaForFile = (info: winston.Logform.TransformableInfo) => {
+    const meta: Record<string, unknown> = {};
+    for (const key of Reflect.ownKeys(info)) {
+      if (typeof key === 'symbol') {
+        // Skip all symbols - they're internal Winston metadata
+        continue;
+      }
+
+      if (
+        key === 'level' ||
+        key === 'timestamp' ||
+        key === 'message' ||
+        key === 'stack' ||
+        key === 'context' ||
+        key === 'label' ||
+        key === 'service' ||
+        key === 'environment' ||
+        key === 'dd' // Exclude Datadog metrics
       ) {
         continue;
       }

@@ -24,6 +24,23 @@ function localTimestamp() {
 }
 
 /**
+ * Filter out Datadog and other non-essential metadata
+ */
+function filterMetadata() {
+  return winston.format((info) => {
+    // Remove Datadog metadata
+    delete info.dd;
+    delete info.environment;
+    // Remove internal Winston symbols
+    const symbols = Object.getOwnPropertySymbols(info);
+    for (const sym of symbols) {
+      delete info[sym as any];
+    }
+    return info;
+  })();
+}
+
+/**
  * Create a pre-configured WinstonModule for NestJS applications.
  * This handles transports, formatting, and log levels automatically.
  */
@@ -83,6 +100,7 @@ export function createWinstonModuleForRoot(options?: {
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.ms(),
+        filterMetadata(),
         nestWinstonModuleUtilities.format.nestLike(cleanServiceName, {
           colors: true,
           prettyPrint: true,
@@ -109,6 +127,7 @@ export function createWinstonModuleForRoot(options?: {
         maxFiles: 5,
         format: winston.format.combine(
           localTimestamp(),
+          filterMetadata(),
           winston.format.errors({ stack: true }),
           winston.format.json(),
         ),
@@ -126,6 +145,7 @@ export function createWinstonModuleForRoot(options?: {
         maxFiles: 1,
         format: winston.format.combine(
           localTimestamp(),
+          filterMetadata(),
           winston.format.errors({ stack: true }),
           winston.format.json(),
         ),
