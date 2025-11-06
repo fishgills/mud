@@ -468,10 +468,7 @@ describe('registerActions', () => {
         text: '⚔️ Combat initiated! Check your DMs for the results.',
       }),
     );
-    expect(client.conversations.open).toHaveBeenCalledWith({ users: 'U1' });
-    expect(client.chat.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'combat results' }),
-    );
+    // Combat messages are now delivered via the notification service (Redis), not directly via client
     expect(client.chat.update).toHaveBeenCalledWith(
       expect.objectContaining({ channel: 'D1', ts: '158456' }),
     );

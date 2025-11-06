@@ -15,7 +15,6 @@ import {
 } from '../handlers/attackNotifications';
 import { toClientId } from '../utils/clientId';
 import type { SlackBlockState } from './helpers';
-import { deliverCombatMessages } from '../handlers/combatMessaging';
 
 type SelectedTarget =
   | { kind: 'monster'; id: number; name: string }
@@ -221,7 +220,6 @@ export const registerAttackActions = (app: App) => {
           channel: channelId,
           text: '⚔️ Combat initiated! Check your DMs for the results.',
         });
-        await deliverCombatMessages(client, attackResult.data?.playerMessages);
       } catch (err) {
         const message = getUserFriendlyErrorMessage(err, 'Failed to attack');
         await client.chat.postMessage({ channel: channelId, text: message });
