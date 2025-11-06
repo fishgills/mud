@@ -23,6 +23,7 @@
     "@mud/constants": "*",
     "@mud/database": "*",
     "@mud/engine": "*",
+    "@mud/logging": "*",
     "@mud/redis-client": "*",
     "@mud/tracer": "*",
     "@nestjs/common": "^11.1.6",
