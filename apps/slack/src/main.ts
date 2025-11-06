@@ -5,6 +5,7 @@ import { env } from './env';
 import { getPrismaClient } from '@mud/database';
 import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
 import { NotificationService } from './notification.service';
+import { createLogger } from '@mud/logging';
 
 // Decode any env values that were accidentally base64-encoded so the app
 // always receives raw strings. We create `decodedEnv` from `env` and use it
@@ -38,35 +39,33 @@ const decodedEnv = Object.fromEntries(
   ]),
 ) as unknown as typeof env;
 
+const log = createLogger('slack:bootstrap');
+const installLog = createLogger('slack:install');
+const commandLog = createLogger('slack:commands');
+
 const installationStore = new PrismaInstallationStore({
   clientId: decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
   prismaTable: getPrismaClient().slackAppInstallation,
   onFetchInstallation: async (args) => {
-    console.log(
-      `Installation fetched: ${args.installation.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
-        args.installation.isEnterpriseInstall
-          ? args.installation.enterprise?.id
-          : args.installation.team?.id
-      }`,
-    );
+    installLog.info('Installation fetched', {
+      type: args.installation.isEnterpriseInstall ? 'enterprise' : 'team',
+      enterpriseId: args.installation.enterprise?.id,
+      teamId: args.installation.team?.id,
+    });
   },
   onStoreInstallation: async (args) => {
-    console.log(
-      `Installation stored: ${args.installation.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
-        args.installation.isEnterpriseInstall
-          ? args.installation.enterprise?.id
-          : args.installation.team?.id
-      }`,
-    );
+    installLog.info('Installation stored', {
+      type: args.installation.isEnterpriseInstall ? 'enterprise' : 'team',
+      enterpriseId: args.installation.enterprise?.id,
+      teamId: args.installation.team?.id,
+    });
   },
   onDeleteInstallation: async (args) => {
-    console.log(
-      `Installation deleted: ${args.query.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
-        args.query.isEnterpriseInstall
-          ? args.query.enterpriseId
-          : args.query.teamId
-      }`,
-    );
+    installLog.info('Installation deleted', {
+      type: args.query.isEnterpriseInstall ? 'enterprise' : 'team',
+      enterpriseId: args.query.enterpriseId,
+      teamId: args.query.teamId,
+    });
   },
 });
 
@@ -211,14 +210,14 @@ app.message(async ({ message, say, client }) => {
   const lowerText = text.toLowerCase();
   for (const [key, handler] of Object.entries(getAllHandlers())) {
     // Check if the message starts with the command or contains it as a whole word
-    console.log(`Checking handler for command: ${key}`);
+    commandLog.debug('Inspecting handler', { command: key, userId });
     if (
       lowerText === key.toLowerCase() ||
       lowerText.startsWith(key.toLowerCase() + ' ') ||
       lowerText.includes(' ' + key.toLowerCase() + ' ') ||
       lowerText.endsWith(' ' + key.toLowerCase())
     ) {
-      console.log(`Dispatching to handler for: ${key}`);
+      commandLog.debug('Dispatching handler', { command: key, userId });
       // Minimal resolver: supports <@U123> mentions already parsed by Slack. Advanced username lookup would require Web API users.list which we avoid here.
       const resolveUserId = async (nameOrMention: string) => {
         const m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
@@ -228,7 +227,7 @@ app.message(async ({ message, say, client }) => {
       return;
     }
   }
-  console.log(`No handler found for message: "${text}" from user ${userId}`);
+  commandLog.debug('No handler resolved', { userId, text });
 
   // Help message for unknown input
   await say(
@@ -262,9 +261,7 @@ registerActions(app);
 
 async function start() {
   await app.start(Number(decodedEnv.PORT ?? env.PORT));
-  console.log(
-    `⚡️ Slack MUD bot is running! 🚀 On http://localhost:${env.PORT}`,
-  );
+  log.info('Slack MUD bot ready', { port: env.PORT, host: '0.0.0.0' });
 
   // Start notification service to receive game events
   const notificationService = new NotificationService({

@@ -1,6 +1,7 @@
 import '@mud/tracer/register';
 
 import http from 'http';
+import { createLogger } from '@mud/logging';
 
 // Use global fetch in place of the removed @mud/gcp-auth helper
 const authorizedFetch = globalThis.fetch as typeof fetch;
@@ -18,6 +19,9 @@ const ACTIVITY_THRESHOLD_MINUTES = parseInt(
 
 // auth logger removed (was setAuthLogger) — not needed on GKE
 
+const log = createLogger('tick');
+const httpLog = createLogger('tick:http');
+
 async function hasActivePlayers(): Promise<boolean> {
   try {
     const url = new URL(`${DM_API_BASE_URL}/system/active-players`);
@@ -33,9 +37,10 @@ async function hasActivePlayers(): Promise<boolean> {
     });
     const text = await res.text();
     if (!res.ok) {
-      console.error(
-        `[tick] hasActivePlayers HTTP ${res.status}: ${text.slice(0, 500)}`,
-      );
+      log.error('Active player lookup failed', {
+        status: res.status,
+        body: text.slice(0, 500),
+      });
       return false;
     }
     const payload = JSON.parse(text) as {
@@ -45,10 +50,9 @@ async function hasActivePlayers(): Promise<boolean> {
     };
     return payload.active ?? false;
   } catch (err) {
-    console.error(
-      '[tick] Error checking active players:',
-      err instanceof Error ? err.message : err,
-    );
+    log.error('Error checking active players', {
+      error: err instanceof Error ? err.message : err,
+    });
     return false;
   }
 }
@@ -57,13 +61,13 @@ async function sendProcessTick() {
   // First check if there are any active players
   const hasActive = await hasActivePlayers();
   if (!hasActive) {
-    console.log(
-      `[tick] No active players in last ${ACTIVITY_THRESHOLD_MINUTES} minutes, skipping tick`,
-    );
+    log.info('No active players, skipping tick', {
+      activityThresholdMinutes: ACTIVITY_THRESHOLD_MINUTES,
+    });
     return;
   }
 
-  console.log('[tick] Active players detected, processing tick...');
+  log.info('Active players detected, processing tick');
   try {
     const res = await authorizedFetch(
       `${DM_API_BASE_URL}/system/process-tick`,
@@ -76,16 +80,18 @@ async function sendProcessTick() {
     );
     const text = await res.text();
     if (!res.ok) {
-      console.error(
-        `[tick] DM API HTTP ${res.status} ${res.statusText}: ${text.slice(0, 1000)}`,
-      );
+      log.error('DM processTick failed', {
+        status: res.status,
+        statusText: res.statusText,
+        body: text.slice(0, 1000),
+      });
       return;
     }
     let payload: unknown;
     try {
       payload = JSON.parse(text);
     } catch (e) {
-      console.error('[tick] Failed to parse DM response as JSON:', e);
+      log.error('Failed to parse DM response as JSON', { error: e });
       return;
     }
     const result = payload as {
@@ -94,28 +100,30 @@ async function sendProcessTick() {
       result?: Record<string, unknown>;
     };
     if (result.success) {
-      console.log(`[tick] DM processTick OK: ${result.message ?? 'success'}`);
-      console.log(`[tick] Result: ${JSON.stringify(result.result, null, 2)}`);
+      log.info('DM processTick succeeded', {
+        message: result.message ?? 'success',
+        result: result.result,
+      });
     } else {
-      console.warn(
-        `[tick] DM processTick returned failure: ${result?.message ?? 'unknown error'}`,
-      );
+      log.warn('DM processTick returned failure', {
+        message: result?.message ?? 'unknown error',
+      });
     }
   } catch (err) {
     if (err instanceof Error) {
-      console.error('[tick] Error calling DM processTick:', err.message);
+      log.error('Error calling DM processTick', { error: err.message });
     } else {
-      console.error('[tick] Error calling DM processTick:', err);
+      log.error('Error calling DM processTick', { error: err });
     }
   }
 }
 
 // Start loop and lightweight HTTP server for platform health/readiness checks
-console.log('[tick] service starting — targeting DM at', DM_API_BASE_URL);
-console.log(
-  `[tick] Tick interval: ${TICK_INTERVAL_MS}ms (${TICK_INTERVAL_MS / 60000} minutes)`,
-);
-console.log(`[tick] Activity threshold: ${ACTIVITY_THRESHOLD_MINUTES} minutes`);
+log.info('Tick service starting', {
+  dmBaseUrl: DM_API_BASE_URL,
+  tickIntervalMs: TICK_INTERVAL_MS,
+  activityThresholdMinutes: ACTIVITY_THRESHOLD_MINUTES,
+});
 // Kick one immediately on startup (optional)
 sendProcessTick().catch(() => void 0);
 // Then every configured interval
@@ -133,13 +141,15 @@ const server = http.createServer((req, res) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ ok: true }));
+    httpLog.debug('Health probe', { url: req.url, method: req.method });
     return;
   }
   res.statusCode = 404;
   res.end('Not Found');
+  httpLog.debug('Unhandled request', { url: req.url, method: req.method });
 });
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`[tick] HTTP health server listening on 0.0.0.0:${PORT}`);
+  log.info('HTTP health server listening', { port: PORT, host: '0.0.0.0' });
 });
 
 // Graceful shutdown
@@ -153,10 +163,10 @@ function cleanup(code?: number) {
 }
 
 process.on('SIGINT', () => {
-  console.log('[tick] received SIGINT — shutting down');
+  log.info('Received SIGINT, shutting down');
   cleanup(0);
 });
 process.on('SIGTERM', () => {
-  console.log('[tick] received SIGTERM — shutting down');
+  log.info('Received SIGTERM, shutting down');
   cleanup(0);
 });

@@ -1,15 +1,21 @@
 import '@mud/tracer/register';
 import './env';
 
-import { Logger } from '@nestjs/common';
+import { NestWinstonLogger, createLogger } from '@mud/logging';
 
 import { NestFactory } from '@nestjs/core';
 import { Request, Response, NextFunction } from 'express';
 import { AppModule } from './app/app.module';
 import { env } from './env';
 
+const bootstrapLogger = createLogger('dm:bootstrap');
+const httpLogger = createLogger('dm:http');
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    logger: new NestWinstonLogger('dm:nest'),
+  });
 
   // Add global request logging
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -24,25 +30,29 @@ async function bootstrap() {
       return next();
     }
 
-    const logger = new Logger('HTTP');
-    logger.log(`[DM-HTTP] ${req.method} ${req.url}`);
-    logger.log(`[DM-HTTP] Headers: ${JSON.stringify(req.headers)}`);
-    logger.log(`[DM-HTTP] User-Agent: ${userAgent || 'N/A'}`);
-    logger.log(
-      `[DM-HTTP] Authorization: ${req.headers.authorization ? 'Present' : 'Missing'}`,
-    );
-    logger.log(
-      `[DM-HTTP] Content-Type: ${req.headers['content-type'] || 'N/A'}`,
-    );
+    const started = Date.now();
+    res.on('finish', () => {
+      httpLogger.info('HTTP request completed', {
+        method: req.method,
+        url,
+        status: res.statusCode,
+        durationMs: Date.now() - started,
+        userAgent: userAgent || undefined,
+        hasAuthHeader: Boolean(req.headers.authorization),
+        contentType: req.headers['content-type'] || undefined,
+      });
+    });
     next();
   });
 
   // Use PORT from environment when provided by the hosting platform, default to 3000 locally
   const port = env.PORT;
   await app.listen(port, '0.0.0.0');
-  Logger.log(`🚀 Application is running on: http://0.0.0.0:${port}/`);
+  bootstrapLogger.info('Application started', { port, host: '0.0.0.0' });
 }
 bootstrap().catch((error) => {
-  Logger.error('Failed to bootstrap Dungeon Master service', error);
+  bootstrapLogger.error('Failed to bootstrap Dungeon Master service', {
+    error,
+  });
   process.exit(1);
 });
