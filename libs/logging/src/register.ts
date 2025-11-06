@@ -10,6 +10,33 @@ const globalAny = globalThis as typeof globalThis & {
 
 const splatKey = Symbol.for('splat');
 
+// Track last line-trim to avoid excessive I/O
+const lastTrimTime = new Map<string, number>();
+
+// Helper to trim file to max lines
+function trimFileToMaxLines(filename: string, maxLines: number) {
+  try {
+    if (fs.existsSync(filename)) {
+      const now = Date.now();
+      const lastTrim = lastTrimTime.get(filename) || 0;
+      // Only trim every 5 seconds to reduce I/O
+      if (now - lastTrim < 5000) {
+        return;
+      }
+      lastTrimTime.set(filename, now);
+
+      const content = fs.readFileSync(filename, 'utf-8');
+      const lines = content.split('\n');
+      if (lines.length > maxLines) {
+        const trimmed = lines.slice(-maxLines).join('\n');
+        fs.writeFileSync(filename, trimmed);
+      }
+    }
+  } catch {
+    // ignore errors in trimming
+  }
+}
+
 let sharedLogger: winston.Logger;
 
 if (globalAny.__mudLoggerInstance) {
@@ -163,15 +190,34 @@ if (globalAny.__mudLoggerInstance) {
         format: fileFormat,
       }),
     );
-    transports.push(
-      new winston.transports.File({
-        filename: path.join(logDir, 'mud-combined.log'),
-        level: process.env.LOG_LEVEL || 'info',
-        maxsize: 20 * 1024 * 1024,
-        maxFiles: 5,
-        format: fileFormat,
-      }),
-    );
+    const combinedLogPath = path.join(logDir, 'mud-combined.log');
+    const combinedTransport = new winston.transports.File({
+      filename: combinedLogPath,
+      level: process.env.LOG_LEVEL || 'info',
+      maxsize: 50 * 1024 * 1024,
+      maxFiles: 1,
+      format: fileFormat,
+    });
+    // Wrap the log method to trim file to 500 lines
+    const fileTransport = combinedTransport as unknown as {
+      log?: (
+        info: winston.Logform.TransformableInfo,
+        callback?: () => void,
+      ) => void;
+    };
+    const originalLog = fileTransport.log;
+    if (originalLog) {
+      fileTransport.log = function (
+        info: winston.Logform.TransformableInfo,
+        callback?: () => void,
+      ) {
+        originalLog.call(this, info, () => {
+          trimFileToMaxLines(combinedLogPath, 500);
+          callback?.();
+        });
+      };
+    }
+    transports.push(combinedTransport);
   }
 
   sharedLogger = winston.createLogger({

@@ -77,12 +77,12 @@ describe('EncounterService', () => {
       partyId: null,
     };
 
-    const createMockMonster = (id: number, agility: number) => ({
+    const createMockMonster = (id: number) => ({
       id,
       name: `Monster${id}`,
       type: 'goblin',
       position: { x: 10, y: 20 },
-      attributes: { strength: 8, agility, health: 10 },
+      attributes: { strength: 8, agility: 10, health: 10 },
       combat: { hp: 50, maxHp: 50, isAlive: true },
       biomeId: 1,
       spawnedAt: new Date(),
@@ -96,7 +96,7 @@ describe('EncounterService', () => {
         hp: 50,
         maxHp: 50,
         strength: 8,
-        agility,
+        agility: 10,
         health: 10,
         isAlive: true,
         createdAt: new Date().toISOString(),
@@ -127,7 +127,7 @@ describe('EncounterService', () => {
     });
 
     it('should emit monster:encounter event when monsters are present', async () => {
-      const monster = createMockMonster(1, 10);
+      const monster = createMockMonster(1);
       monsterService.getMonstersAtLocation.mockResolvedValue([
         monster as unknown,
       ]);
@@ -154,106 +154,14 @@ describe('EncounterService', () => {
       );
     });
 
-    it('should calculate attack chance correctly based on agility', async () => {
-      // Test with different agility values
-      const testCases = [
-        { agility: 5, expectedChance: 25 }, // 5 * 5 = 25%
-        { agility: 10, expectedChance: 50 }, // 10 * 5 = 50%
-        { agility: 15, expectedChance: 75 }, // 15 * 5 = 75%
-        { agility: 20, expectedChance: 95 }, // 20 * 5 = 100%, but capped at 95%
-      ];
-
-      for (const testCase of testCases) {
-        const chance = service['calculateAttackChance'](testCase.agility);
-        expect(chance).toBe(testCase.expectedChance);
-      }
-    });
-
-    it('should trigger combat when roll succeeds', async () => {
-      // Mock monster with high agility (guaranteed attack)
-      const monster = createMockMonster(1, 20); // 95% chance
-      monsterService.getMonstersAtLocation.mockResolvedValue([
-        monster as unknown as MonsterEntity,
-      ]);
-
-      // Mock Math.random to return 0 (0% - will be less than 95%)
-      jest.spyOn(Math, 'random').mockReturnValue(0);
-
-      const event: PlayerMoveEvent = {
-        eventType: 'player:move',
-        player: mockPlayer,
-        fromX: 5,
-        fromY: 15,
-        toX: 10,
-        toY: 20,
-        timestamp: new Date(),
-      };
-
-      await service['handlePlayerMove'](event);
-
-      const emitCalls = (EventBus.emit as jest.Mock).mock.calls;
-      const combatCall = emitCalls.find(
-        ([payload]) => payload.eventType === 'combat:initiate',
-      );
-
-      expect(combatCall).toBeDefined();
-      expect(combatCall?.[0]).toMatchObject({
-        eventType: 'combat:initiate',
-        attacker: expect.objectContaining({ id: 1, type: 'monster' }),
-        defender: expect.objectContaining({
-          id: 'slack:U123456',
-          type: 'player',
-        }),
-        metadata: expect.objectContaining({
-          source: 'encounter.service',
-          reason: 'monster-ambush',
-        }),
-      });
-
-      jest.spyOn(Math, 'random').mockRestore();
-    });
-
-    it('should not trigger combat when roll fails', async () => {
-      // Mock monster with low agility
-      const monster = createMockMonster(1, 5); // 25% chance
-      monsterService.getMonstersAtLocation.mockResolvedValue([
-        monster as unknown as MonsterEntity,
-      ]);
-
-      // Mock Math.random to return 0.99 (99% - will be greater than 25%)
-      jest.spyOn(Math, 'random').mockReturnValue(0.99);
-
-      const event: PlayerMoveEvent = {
-        eventType: 'player:move',
-        player: mockPlayer,
-        fromX: 5,
-        fromY: 15,
-        toX: 10,
-        toY: 20,
-        timestamp: new Date(),
-      };
-
-      await service['handlePlayerMove'](event);
-
-      const combatCalls = (EventBus.emit as jest.Mock).mock.calls.filter(
-        ([payload]) => payload.eventType === 'combat:initiate',
-      );
-      expect(combatCalls).toHaveLength(0);
-
-      jest.spyOn(Math, 'random').mockRestore();
-    });
-
-    it('should handle multiple monsters independently', async () => {
-      const monster1 = createMockMonster(1, 20); // 95% chance
-      const monster2 = createMockMonster(2, 20); // 95% chance
+    it('should emit monster:encounter for multiple monsters without triggering combat', async () => {
+      const monster1 = createMockMonster(1);
+      const monster2 = createMockMonster(2);
       monsterService.getMonstersAtLocation.mockResolvedValue([
         monster1 as unknown as MonsterEntity,
         monster2 as unknown as MonsterEntity,
       ]);
 
-      // Mock random to make both attack
-      jest.spyOn(Math, 'random').mockReturnValue(0);
-
       const event: PlayerMoveEvent = {
         eventType: 'player:move',
         player: mockPlayer,
@@ -266,58 +174,16 @@ describe('EncounterService', () => {
 
       await service['handlePlayerMove'](event);
 
+      // Should only emit monster:encounter event, never combat:initiate
+      const encounterCalls = (EventBus.emit as jest.Mock).mock.calls.filter(
+        ([payload]) => payload.eventType === 'monster:encounter',
+      );
       const combatCalls = (EventBus.emit as jest.Mock).mock.calls.filter(
         ([payload]) => payload.eventType === 'combat:initiate',
       );
-      expect(combatCalls).toHaveLength(2);
-      expect(combatCalls[0][0]).toMatchObject({
-        attacker: expect.objectContaining({ id: 1 }),
-        defender: expect.objectContaining({ id: 'slack:U123456' }),
-      });
-      expect(combatCalls[1][0]).toMatchObject({
-        attacker: expect.objectContaining({ id: 2 }),
-        defender: expect.objectContaining({ id: 'slack:U123456' }),
-      });
 
-      jest.spyOn(Math, 'random').mockRestore();
-    });
-
-    it('should skip combat if player has no slackId', async () => {
-      const playerWithoutSlack = {
-        ...mockPlayer,
-        slackId: null,
-        clientId: null,
-      };
-      const monster = createMockMonster(1, 20);
-      monsterService.getMonstersAtLocation.mockResolvedValue([
-        monster as unknown as MonsterEntity,
-      ]);
-      jest.spyOn(Math, 'random').mockReturnValue(0);
-
-      const event: PlayerMoveEvent = {
-        eventType: 'player:move',
-        player: playerWithoutSlack,
-        fromX: 5,
-        fromY: 15,
-        toX: 10,
-        toY: 20,
-        timestamp: new Date(),
-      };
-
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-
-      await service['handlePlayerMove'](event);
-
-      const combatCalls = (EventBus.emit as jest.Mock).mock.calls.filter(
-        ([payload]) => payload.eventType === 'combat:initiate',
-      );
+      expect(encounterCalls).toHaveLength(1);
       expect(combatCalls).toHaveLength(0);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('no combat identifier'),
-      );
-
-      consoleErrorSpy.mockRestore();
-      jest.spyOn(Math, 'random').mockRestore();
     });
 
     it('should handle errors gracefully', async () => {
@@ -340,7 +206,7 @@ describe('EncounterService', () => {
       await service['handlePlayerMove'](event);
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Error handling monster encounter:',
+        'Error handling monster encounter event:',
         expect.any(Error),
       );
 
