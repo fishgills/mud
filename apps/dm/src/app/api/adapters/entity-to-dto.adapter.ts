@@ -1,4 +1,5 @@
 import { PlayerEntity, MonsterEntity } from '@mud/engine';
+import { PlayerSlot } from '@prisma/client';
 import type { Player, PlayerEquipment } from '../dto/player.dto';
 import type { Monster } from '../dto/monster.dto';
 
@@ -213,7 +214,7 @@ export class EntityToDtoAdapter {
         const itemType = toStringOrUndefined(item?.type);
         if (!slot) {
           if (itemSlot) slot = itemSlot;
-          else if (itemType === 'weapon') slot = 'weapon';
+          else if (itemType === 'weapon') slot = PlayerSlot.weapon;
         }
 
         const itemId = toNumberOrNull(pi.itemId);
@@ -221,11 +222,11 @@ export class EntityToDtoAdapter {
         if (!slot || itemId === null) continue;
 
         const equipmentEntry = { id: itemId, quality };
-        if (slot === 'head') equipment.head = equipmentEntry;
-        else if (slot === 'chest') equipment.chest = equipmentEntry;
-        else if (slot === 'legs') equipment.legs = equipmentEntry;
-        else if (slot === 'arms') equipment.arms = equipmentEntry;
-        else if (slot === 'weapon') equipment.weapon = equipmentEntry;
+        if (slot === PlayerSlot.head) equipment.head = equipmentEntry;
+        else if (slot === PlayerSlot.chest) equipment.chest = equipmentEntry;
+        else if (slot === PlayerSlot.legs) equipment.legs = equipmentEntry;
+        else if (slot === PlayerSlot.arms) equipment.arms = equipmentEntry;
+        else if (slot === PlayerSlot.weapon) equipment.weapon = equipmentEntry;
       }
     }
 

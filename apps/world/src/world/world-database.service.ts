@@ -1,4 +1,5 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
+import { PlayerSlot } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Prisma } from '@prisma/client';
 import { BIOMES } from '../constants';
@@ -114,7 +115,7 @@ export class WorldDatabaseService {
         attack: 3,
         defense: 0,
         healthBonus: 0,
-        slot: 'weapon',
+        slot: PlayerSlot.weapon,
       },
       {
         name: 'Leather Armor',
@@ -124,7 +125,7 @@ export class WorldDatabaseService {
         attack: 0,
         defense: 2,
         healthBonus: 0,
-        slot: 'chest',
+        slot: PlayerSlot.chest,
       },
       {
         name: 'Health Potion',

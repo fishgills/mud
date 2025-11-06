@@ -73,6 +73,7 @@ import type { EventBridgeService } from '../../shared/event-bridge.service';
 import type { PlayerService } from '../player/player.service';
 import type { AiService } from '../../openai/ai.service';
 import type { CombatRound, DetailedCombatLog, CombatResult } from '../api';
+import { PlayerSlot } from '@prisma/client';
 import type { ItemQuality } from '@prisma/client';
 import { AttackOrigin } from '../api/dto/player-requests.dto';
 
@@ -436,7 +437,7 @@ describe('CombatService helpers', () => {
       itemId: 9001,
       quantity: 1,
       equipped: true,
-      slot: 'weapon',
+      slot: PlayerSlot.weapon,
       quality: 'Trash' as ItemQuality,
       createdAt: now,
       updatedAt: now,
@@ -449,7 +450,7 @@ describe('CombatService helpers', () => {
         attack: 1,
         defense: 0,
         healthBonus: 0,
-        slot: 'weapon',
+        slot: PlayerSlot.weapon,
         createdAt: now,
         updatedAt: now,
       },
@@ -493,7 +494,7 @@ describe('CombatService helpers', () => {
       equippedItems: [
         {
           name: 'Fine Longsword',
-          slot: 'weapon',
+          slot: PlayerSlot.weapon,
           quality: 'Fine' as ItemQuality,
         },
       ],
@@ -1175,7 +1176,7 @@ describe('CombatService', () => {
         itemId: 2001,
         quantity: 1,
         equipped: true,
-        slot: 'weapon',
+        slot: PlayerSlot.weapon,
         quality: weaponQuality,
         createdAt: now,
         updatedAt: now,
@@ -1188,7 +1189,7 @@ describe('CombatService', () => {
           attack: 5,
           defense: 0,
           healthBonus: 0,
-          slot: 'weapon',
+          slot: PlayerSlot.weapon,
           createdAt: now,
           updatedAt: now,
         },
@@ -1199,7 +1200,7 @@ describe('CombatService', () => {
         itemId: 2002,
         quantity: 1,
         equipped: true,
-        slot: 'chest',
+        slot: PlayerSlot.chest,
         quality: armorQuality,
         createdAt: now,
         updatedAt: now,
@@ -1212,7 +1213,7 @@ describe('CombatService', () => {
           attack: 0,
           defense: 3,
           healthBonus: 1,
-          slot: 'chest',
+          slot: PlayerSlot.chest,
           createdAt: now,
           updatedAt: now,
         },

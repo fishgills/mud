@@ -1,3 +1,4 @@
+import { PlayerSlot } from '@prisma/client';
 import { PlayerItemService } from './player-item.service';
 
 export class PlayerItemController {
@@ -20,18 +21,17 @@ export class PlayerItemController {
     body: { playerItemId: number; slot: string };
   }) {
     const playerId = Number(req.params.id);
-    const allowedSlots = ['head', 'chest', 'arms', 'legs', 'weapon'] as const;
     const slot = req.body.slot;
     if (
       typeof slot !== 'string' ||
-      !(allowedSlots as readonly string[]).includes(slot)
+      !Object.values(PlayerSlot).includes(slot as PlayerSlot)
     ) {
       throw new Error('Invalid slot');
     }
     return this.service.equip(
       playerId,
       req.body.playerItemId,
-      slot as import('@prisma/client').PlayerSlot,
+      slot as PlayerSlot,
     );
   }
 

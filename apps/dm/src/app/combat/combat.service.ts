@@ -9,6 +9,7 @@ import {
   CombatLog as PrismaCombatLog,
   ItemQuality,
 } from '@mud/database';
+import { PlayerSlot } from '@prisma/client';
 import type { Item, PlayerItem, ItemQualityType } from '@mud/database';
 import {
   MonsterFactory,
@@ -347,7 +348,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
         if (typeof item.slot === 'string') return item.slot;
         const type =
           typeof item.type === 'string' ? item.type.toLowerCase() : '';
-        if (type === 'weapon') return 'weapon';
+        if (type === 'weapon') return PlayerSlot.weapon;
         return undefined;
       })();
 
@@ -362,7 +363,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
         hpBonus: 0,
       };
 
-      if (normalizedSlot === 'weapon' && baseAttack > 0) {
+      if (normalizedSlot === PlayerSlot.weapon && baseAttack > 0) {
         const scaledAttack = baseAttack * multiplier;
         const scaledToHit = baseAttack * multiplier * 0.5;
         const toHit =
@@ -379,7 +380,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
-      if (normalizedSlot !== 'weapon' && baseDefense > 0) {
+      if (normalizedSlot !== PlayerSlot.weapon && baseDefense > 0) {
         const defense = Math.round(baseDefense * multiplier);
         if (defense !== 0) {
           totals.armorBonus += defense;

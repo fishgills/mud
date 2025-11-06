@@ -4,6 +4,7 @@
  */
 
 import { getPrismaClient, Player } from '@mud/database';
+import { PlayerSlot } from '@prisma/client';
 
 import { PlayerEntity, ClientType } from '../entities/player-entity.js';
 import { EventBus } from '../events/index.js';
@@ -543,16 +544,16 @@ export class PlayerFactory {
                 : undefined;
             if (!slot) {
               if (itemSlot) slot = itemSlot;
-              else if (itemType === 'weapon') slot = 'weapon';
+              else if (itemType === 'weapon') slot = PlayerSlot.weapon;
             }
 
             const itemId = pi?.itemId ?? null;
             if (!slot || itemId === null || itemId === undefined) continue;
-            if (slot === 'head') defaultEquip.head = Number(itemId);
-            else if (slot === 'chest') defaultEquip.chest = Number(itemId);
-            else if (slot === 'legs') defaultEquip.legs = Number(itemId);
-            else if (slot === 'arms') defaultEquip.arms = Number(itemId);
-            else if (slot === 'weapon') defaultEquip.weapon = Number(itemId);
+            if (slot === PlayerSlot.head) defaultEquip.head = Number(itemId);
+            else if (slot === PlayerSlot.chest) defaultEquip.chest = Number(itemId);
+            else if (slot === PlayerSlot.legs) defaultEquip.legs = Number(itemId);
+            else if (slot === PlayerSlot.arms) defaultEquip.arms = Number(itemId);
+            else if (slot === PlayerSlot.weapon) defaultEquip.weapon = Number(itemId);
           }
         }
         // No legacy column fallback: equipment is derived only from the

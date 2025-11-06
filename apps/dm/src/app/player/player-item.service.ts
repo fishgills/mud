@@ -54,7 +54,7 @@ export class PlayerItemService {
           allowedSlots.push(String(slotVal));
         } else if ((item as unknown as { type?: string }).type === 'weapon') {
           // fallback by type for legacy weapon items
-          allowedSlots.push('weapon');
+          allowedSlots.push(PlayerSlot.weapon);
         }
       }
 

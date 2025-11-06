@@ -70,7 +70,7 @@ describe('PlayerItemService.equip validations', () => {
   });
 
   it('equips a valid item into allowed slot', async () => {
-    const pi = { id: 1, playerId: 42, item: { slot: 'head' } };
+    const pi = { id: 1, playerId: 42, item: { slot: PlayerSlot.head } };
     mockTx.playerItem.findUnique.mockResolvedValueOnce(pi);
     mockTx.playerItem.updateMany.mockResolvedValueOnce({});
     mockTx.playerItem.update.mockResolvedValueOnce({});
@@ -78,12 +78,12 @@ describe('PlayerItemService.equip validations', () => {
     await expect(svc.equip(42, 1, PlayerSlot.head)).resolves.toBeUndefined();
 
     expect(mockTx.playerItem.updateMany).toHaveBeenCalledWith({
-      where: { playerId: 42, slot: 'head', equipped: true },
+      where: { playerId: 42, slot: PlayerSlot.head, equipped: true },
       data: { equipped: false, slot: null },
     });
     expect(mockTx.playerItem.update).toHaveBeenCalledWith({
       where: { id: 1 },
-      data: { equipped: true, slot: 'head' },
+      data: { equipped: true, slot: PlayerSlot.head },
     });
   });
 
@@ -98,18 +98,18 @@ describe('PlayerItemService.equip validations', () => {
 
     // Should unequip any existing weapon and clear its slot
     expect(mockTx.playerItem.updateMany).toHaveBeenCalledWith({
-      where: { playerId: 42, slot: 'weapon', equipped: true },
+      where: { playerId: 42, slot: PlayerSlot.weapon, equipped: true },
       data: { equipped: false, slot: null },
     });
     // Should equip the new weapon
     expect(mockTx.playerItem.update).toHaveBeenCalledWith({
       where: { id: 10 },
-      data: { equipped: true, slot: 'weapon' },
+      data: { equipped: true, slot: PlayerSlot.weapon },
     });
   });
 
   it('rejects when requesting an invalid slot name', async () => {
-    const pi = { id: 2, playerId: 43, item: { slot: 'chest' } };
+    const pi = { id: 2, playerId: 43, item: { slot: PlayerSlot.chest } };
     mockTx.playerItem.findUnique.mockResolvedValueOnce(pi);
 
     await expect(
