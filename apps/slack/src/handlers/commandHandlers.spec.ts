@@ -136,16 +136,9 @@ describe('attackHandler', () => {
     expect(say).toHaveBeenCalledWith({
       text: '⚔️ Combat initiated! Check your DMs for the results.',
     });
-    expect(client.conversations.open).toHaveBeenCalledWith({ users: 'U1' });
-    expect(client.conversations.open).toHaveBeenCalledWith({ users: 'U2' });
-    expect(client.chat.postMessage).toHaveBeenCalledWith({
-      channel: 'D1',
-      text: 'attacker wins',
-    });
-    expect(client.chat.postMessage).toHaveBeenCalledWith({
-      channel: 'D1',
-      text: 'defender loses',
-    });
+    // Combat messages are now delivered via the notification service (Redis), not directly via client
+    expect(client.conversations.open).not.toHaveBeenCalled();
+    expect(client.chat.postMessage).not.toHaveBeenCalled();
   });
 
   it('asks for a mention when username lacks slack id', async () => {

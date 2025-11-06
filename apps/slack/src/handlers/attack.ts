@@ -13,7 +13,6 @@ import {
   isMissingTargetCharacterMessage,
   notifyTargetAboutMissingCharacter,
 } from './attackNotifications';
-import { deliverCombatMessages } from './combatMessaging';
 
 export const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
 export const SELF_ATTACK_ERROR = "You can't attack yourself.";
@@ -257,7 +256,6 @@ export class AttackHandler extends PlayerCommandHandler {
         await say({
           text: '⚔️ Combat initiated! Check your DMs for the results.',
         });
-        await deliverCombatMessages(client, attackResult.data?.playerMessages);
         console.log(JSON.stringify(combat, null, 2));
         perfDetails = {
           success: true,
