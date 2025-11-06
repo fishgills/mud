@@ -21,6 +21,7 @@
     "@mud/constants": "*",
     "@mud/database": "*",
     "@mud/tracer": "*",
+    "@mud/logging": "*",
     "@nestjs/common": "^11.1.6",
     "@nestjs/core": "^11.1.6",
     "@nestjs/platform-express": "^11.1.6",
