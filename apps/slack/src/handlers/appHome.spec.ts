@@ -132,6 +132,7 @@ describe('registerAppHome', () => {
       event: { user: 'U123' },
       client: { views },
       logger,
+      context: { teamId: 'T1' },
     });
 
     expect(views.publish).toHaveBeenCalledWith(
@@ -171,6 +172,7 @@ describe('registerAppHome', () => {
       event: { user: 'U999' },
       client: { views },
       logger,
+      context: { teamId: 'T1' },
     });
 
     expect(logger.error).toHaveBeenCalledWith(

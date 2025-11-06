@@ -19,7 +19,6 @@ export interface TickResult {
   gameDay: number;
   monstersSpawned: number;
   monstersMoved: number;
-  combatEvents: number;
   weatherUpdated: boolean;
 }
 

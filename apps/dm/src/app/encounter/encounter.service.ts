@@ -13,7 +13,8 @@ export class EncounterService implements OnModuleInit {
   }
 
   /**
-   * Handle player movement and check for monster encounters
+   * Handle player movement and notify of nearby monsters
+   * Note: No automatic combat is triggered. Players must manually initiate attacks.
    */
   private async handlePlayerMove(event: PlayerMoveEvent): Promise<void> {
     const { player, toX, toY } = event;
@@ -26,7 +27,7 @@ export class EncounterService implements OnModuleInit {
       );
 
       if (monsters.length === 0) {
-        return; // No monsters, no encounter
+        return; // No monsters present
       }
 
       // Convert entities to JSON for event emission
@@ -52,7 +53,7 @@ export class EncounterService implements OnModuleInit {
         };
       });
 
-      // Emit monster:encounter event
+      // Emit monster:encounter event for notification purposes
       await EventBus.emit({
         eventType: 'monster:encounter',
         player,
@@ -61,81 +62,8 @@ export class EncounterService implements OnModuleInit {
         y: toY,
         timestamp: new Date(),
       });
-
-      // For each monster, calculate chance of attack based on agility
-      for (const monster of monsters) {
-        const attackChance = this.calculateAttackChance(
-          monster.attributes.agility,
-        );
-        const roll = Math.random() * 100;
-
-        const shouldAttack = roll < attackChance;
-        console.debug('Monster attack chance evaluated', {
-          monsterId: monster.id,
-          attackChance,
-          roll,
-          shouldAttack,
-        });
-
-        if (shouldAttack) {
-          console.debug('Monster attack condition met', {
-            monsterId: monster.id,
-          });
-          const playerIdentifier = this.resolvePlayerIdentifier(
-            player.clientId,
-          );
-          if (!playerIdentifier) {
-            console.error(
-              `Cannot trigger monster attack: Player ${player.name} (${player.id}) has no combat identifier`,
-            );
-            continue;
-          }
-
-          await EventBus.emit({
-            eventType: 'combat:initiate',
-            attacker: {
-              type: 'monster',
-              id: monster.id,
-              name: monster.name,
-            },
-            defender: {
-              type: 'player',
-              id: playerIdentifier,
-              name: player.name,
-            },
-            metadata: {
-              source: 'encounter.service',
-              reason: 'monster-ambush',
-            },
-            timestamp: new Date(),
-          });
-        }
-      }
     } catch (error) {
-      console.error('Error handling monster encounter:', error);
+      console.error('Error handling monster encounter event:', error);
     }
-  }
-
-  private resolvePlayerIdentifier(clientId?: string | null): string | null {
-    if (clientId && clientId.trim().length > 0) {
-      return clientId.trim();
-    }
-    return null;
-  }
-
-  /**
-   * Calculate the percentage chance a monster will attack based on its agility
-   * Higher agility = more likely to attack
-   * @param agility Monster's agility stat
-   * @returns Percentage chance (0-100)
-   */
-  private calculateAttackChance(agility: number): number {
-    // Base formula: agility * 5, capped at 95% to never be certain
-    // Examples:
-    // - agility 5 = 25% chance
-    // - agility 10 = 50% chance
-    // - agility 15 = 75% chance
-    // - agility 19+ = 95% chance (capped)
-    return Math.min(95, agility * 5);
   }
 }

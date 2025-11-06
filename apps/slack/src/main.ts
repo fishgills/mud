@@ -5,6 +5,14 @@ import { env } from './env';
 import { getPrismaClient } from '@mud/database';
 import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
 import { NotificationService } from './notification.service';
+import { createLogger } from '@mud/logging';
+
+console.info(`Env production is: ${env.isProduction}`);
+console.debug(`This is a debug log entry to test log levels.`);
+console.warn(`This is a warning log entry to test log levels.`);
+console.error(`This is an error log entry to test log levels.`);
+console.info(`This is an info log entry to test log levels.`);
+console.log(`This is a log entry to test log levels.`);
 
 // Decode any env values that were accidentally base64-encoded so the app
 // always receives raw strings. We create `decodedEnv` from `env` and use it
@@ -38,35 +46,33 @@ const decodedEnv = Object.fromEntries(
   ]),
 ) as unknown as typeof env;
 
+const log = createLogger('slack:bootstrap');
+const installLog = createLogger('slack:install');
+const commandLog = createLogger('slack:commands');
+
 const installationStore = new PrismaInstallationStore({
   clientId: decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
   prismaTable: getPrismaClient().slackAppInstallation,
   onFetchInstallation: async (args) => {
-    console.log(
-      `Installation fetched: ${args.installation.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
-        args.installation.isEnterpriseInstall
-          ? args.installation.enterprise?.id
-          : args.installation.team?.id
-      }`,
-    );
+    installLog.info('Installation fetched', {
+      type: args.installation.isEnterpriseInstall ? 'enterprise' : 'team',
+      enterpriseId: args.installation.enterprise?.id,
+      teamId: args.installation.team?.id,
+    });
   },
   onStoreInstallation: async (args) => {
-    console.log(
-      `Installation stored: ${args.installation.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
-        args.installation.isEnterpriseInstall
-          ? args.installation.enterprise?.id
-          : args.installation.team?.id
-      }`,
-    );
+    installLog.info('Installation stored', {
+      type: args.installation.isEnterpriseInstall ? 'enterprise' : 'team',
+      enterpriseId: args.installation.enterprise?.id,
+      teamId: args.installation.team?.id,
+    });
   },
   onDeleteInstallation: async (args) => {
-    console.log(
-      `Installation deleted: ${args.query.isEnterpriseInstall ? 'Enterprise' : 'Team'} ${
-        args.query.isEnterpriseInstall
-          ? args.query.enterpriseId
-          : args.query.teamId
-      }`,
-    );
+    installLog.info('Installation deleted', {
+      type: args.query.isEnterpriseInstall ? 'enterprise' : 'team',
+      enterpriseId: args.query.enterpriseId,
+      teamId: args.query.teamId,
+    });
   },
 });
 
@@ -168,7 +174,7 @@ app.event('app_mention', async ({ event, say }) => {
 
 registerAppHome(app);
 
-app.message(async ({ message, say, client }) => {
+app.message(async ({ message, say, client, context }) => {
   // Only handle direct user messages (not message_changed, etc)
   if (
     message.type !== 'message' ||
@@ -183,6 +189,10 @@ app.message(async ({ message, say, client }) => {
       : '';
   const userId = 'user' in message ? message.user : undefined;
   if (!text || !userId) return;
+
+  // Extract workspace team ID for multi-workspace support
+  const teamId =
+    typeof context.teamId === 'string' ? context.teamId : undefined;
 
   // Dispatch to the first matching handler (case-insensitive)
   // Wrap say so handlers can send text, Block Kit, or upload a file
@@ -211,24 +221,50 @@ app.message(async ({ message, say, client }) => {
   const lowerText = text.toLowerCase();
   for (const [key, handler] of Object.entries(getAllHandlers())) {
     // Check if the message starts with the command or contains it as a whole word
-    console.log(`Checking handler for command: ${key}`);
+    commandLog.debug('Inspecting handler', { command: key, userId });
     if (
       lowerText === key.toLowerCase() ||
       lowerText.startsWith(key.toLowerCase() + ' ') ||
       lowerText.includes(' ' + key.toLowerCase() + ' ') ||
       lowerText.endsWith(' ' + key.toLowerCase())
     ) {
-      console.log(`Dispatching to handler for: ${key}`);
-      // Minimal resolver: supports <@U123> mentions already parsed by Slack. Advanced username lookup would require Web API users.list which we avoid here.
+      commandLog.debug('Dispatching handler', { command: key, userId });
+      // Minimal resolver: supports both <@U123> and @username formats from Slack
       const resolveUserId = async (nameOrMention: string) => {
+        console.log(`[RESOLVE-DEBUG] Input: "${nameOrMention}"`);
+        // Try <@U123> format first
         const m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
-        return m ? m[1] : undefined;
+        if (m) {
+          const result = m[1];
+          console.log(`[RESOLVE-DEBUG] Matched ID format: ${result}`);
+          return result;
+        }
+        // If not ID format, it might be a plain username like @CharliTest or CharliTest
+        // For now, we can't resolve usernames without calling Slack's users.list API
+        // Just extract the username part if it looks like @username
+        const usernameMatch = nameOrMention
+          .trim()
+          .match(/^@?([a-zA-Z0-9_.-]+)$/);
+        if (usernameMatch) {
+          console.log(
+            `[RESOLVE-DEBUG] Got username format but can't resolve without API call: ${usernameMatch[1]}`,
+          );
+        }
+        console.log(`[RESOLVE-DEBUG] No match found`);
+        return undefined;
       };
-      await handler({ userId, say: sayVoid, text, resolveUserId, client });
+      await handler({
+        userId,
+        say: sayVoid,
+        text,
+        resolveUserId,
+        client,
+        teamId,
+      });
       return;
     }
   }
-  console.log(`No handler found for message: "${text}" from user ${userId}`);
+  commandLog.debug('No handler resolved', { userId, text });
 
   // Help message for unknown input
   await say(
@@ -262,9 +298,7 @@ registerActions(app);
 
 async function start() {
   await app.start(Number(decodedEnv.PORT ?? env.PORT));
-  console.log(
-    `⚡️ Slack MUD bot is running! 🚀 On http://localhost:${env.PORT}`,
-  );
+  log.info('Slack MUD bot ready', { port: env.PORT, host: '0.0.0.0' });
 
   // Start notification service to receive game events
   const notificationService = new NotificationService({

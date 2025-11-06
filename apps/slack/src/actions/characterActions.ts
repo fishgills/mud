@@ -51,7 +51,7 @@ export const registerCharacterActions = (app: App) => {
 
   app.view<ViewSubmitAction>(
     'create_character_view',
-    async ({ ack, body, client }) => {
+    async ({ ack, body, client, context }) => {
       const values = body.view.state?.values;
       const name = values?.create_name_block?.character_name?.value?.trim();
 
@@ -66,6 +66,8 @@ export const registerCharacterActions = (app: App) => {
       await ack();
 
       const userId = body.user?.id;
+      const teamId =
+        typeof context.teamId === 'string' ? context.teamId : undefined;
       if (!userId) return;
       const handler = getAllHandlers()[COMMANDS.NEW];
       if (!handler) return;
@@ -73,7 +75,7 @@ export const registerCharacterActions = (app: App) => {
       const channel = dm.channel?.id;
       if (!channel) return;
       const say = buildSayHelper(client, channel);
-      await handler({ userId, text: `${COMMANDS.NEW} ${name}`, say });
+      await handler({ userId, text: `${COMMANDS.NEW} ${name}`, say, teamId });
     },
   );
 };

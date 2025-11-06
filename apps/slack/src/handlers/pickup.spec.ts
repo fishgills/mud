@@ -130,6 +130,7 @@ describe('pickup actions', () => {
       ack,
       body: {
         user: { id: 'U1' },
+        team: { id: 'T1' },
         channel: { id: 'C1' },
         message: {
           ts: '123',
@@ -140,10 +141,11 @@ describe('pickup actions', () => {
         state: { values: stateValues },
       },
       client: mockClient as unknown,
+      context: { teamId: 'T1' },
     });
 
     expect(mockedDmClient.pickup).toHaveBeenCalledWith({
-      slackId: toClientId('U1'),
+      slackId: toClientId('U1', 'T1'),
       worldItemId: 101,
     });
 

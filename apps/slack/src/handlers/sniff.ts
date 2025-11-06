@@ -153,10 +153,10 @@ const appendSettlementInfo = (
   return `${message}${settlementFragment}`;
 };
 
-export const sniffHandler = async ({ userId, say }: HandlerContext) => {
+export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
   try {
     const response = await sniffNearestMonster({
-      slackId: toClientId(userId),
+      slackId: toClientId(userId, teamId || ''),
     });
 
     if (!response.success) {

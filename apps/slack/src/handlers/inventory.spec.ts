@@ -149,6 +149,7 @@ describe('inventory handler', () => {
     await inventoryHandler({
       userId: 'U1',
       text: COMMANDS.INVENTORY,
+      teamId: 'T1',
       say,
     } as unknown as Parameters<typeof inventoryHandler>[0]);
 
@@ -181,10 +182,11 @@ describe('inventory handler', () => {
     await inventoryHandler({
       userId: 'U1',
       text: COMMANDS.INVENTORY,
+      teamId: 'T1',
       say,
     } as unknown as Parameters<typeof inventoryHandler>[0]);
 
-    expect(mockedGetPlayer).toHaveBeenCalledWith({ slackId: 'slack:U1' });
+    expect(mockedGetPlayer).toHaveBeenCalledWith({ slackId: 'slack:T1:U1' });
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
         blocks: expect.any(Array),
@@ -199,6 +201,7 @@ describe('inventory handler', () => {
     await inventoryHandler({
       userId: 'U1',
       text: COMMANDS.INVENTORY,
+      teamId: 'T1',
       say,
     } as unknown as Parameters<typeof inventoryHandler>[0]);
 

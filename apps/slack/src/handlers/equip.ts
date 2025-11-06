@@ -5,7 +5,12 @@ import type { HandlerContext } from './types';
 import { toClientId } from '../utils/clientId';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 
-export const equipHandler = async ({ userId, say, text }: HandlerContext) => {
+export const equipHandler = async ({
+  userId,
+  say,
+  text,
+  teamId,
+}: HandlerContext) => {
   const args = (text || '').trim().split(/\s+/).slice(1);
   const playerItemIdArg = args[0];
   const slot = args[1];
@@ -22,7 +27,7 @@ export const equipHandler = async ({ userId, say, text }: HandlerContext) => {
 
   try {
     const res = await equip({
-      slackId: toClientId(userId),
+      slackId: toClientId(userId, teamId || ''),
       playerItemId,
       slot,
     });

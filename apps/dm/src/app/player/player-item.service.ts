@@ -75,7 +75,7 @@ export class PlayerItemService {
       // Unequip others in the same slot
       await tx.playerItem.updateMany({
         where: { playerId, slot, equipped: true },
-        data: { equipped: false },
+        data: { equipped: false, slot: null },
       });
 
       // Equip this item and set its slot

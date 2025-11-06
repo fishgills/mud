@@ -17,10 +17,12 @@ export const registerStatActions = (app: App) => {
   for (const [actionId, attribute] of Object.entries(actionToAttribute)) {
     app.action<BlockAction>(
       actionId,
-      async ({ ack, body, client, respond }) => {
+      async ({ ack, body, client, respond, context }) => {
         await ack();
 
         const userId = body.user?.id;
+        const teamId =
+          typeof context.teamId === 'string' ? context.teamId : undefined;
         const channelId =
           body.channel?.id ||
           (typeof body.container?.channel_id === 'string'
@@ -38,7 +40,7 @@ export const registerStatActions = (app: App) => {
 
         try {
           const result = await dmClient.spendSkillPoint({
-            slackId: toClientId(userId),
+            slackId: toClientId(userId, teamId),
             attribute,
           });
           if (!result.success || !result.data) {

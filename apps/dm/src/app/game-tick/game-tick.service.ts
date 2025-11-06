@@ -58,7 +58,6 @@ export class GameTickService {
 
     let monstersSpawned = 0;
     let monstersMoved = 0;
-    let combatEvents = 0;
     let weatherUpdated = false;
 
     // Configurable movement parameters for scalability
@@ -165,55 +164,7 @@ export class GameTickService {
       return undefined as unknown as void;
     });
 
-    // 3) Proximity combat checks only where players are located
-    for (const player of activePlayers) {
-      const monstersHere = await this.monsterService.getMonstersAtLocation(
-        player.position.x,
-        player.position.y,
-      );
-      if (!monstersHere.length) continue;
-      for (const monster of monstersHere) {
-        if (Math.random() >= 0.2) continue;
-        try {
-          const playerIdentifier = this.resolvePlayerIdentifier(player);
-          if (!playerIdentifier) {
-            this.logger.debug(
-              'Player has no clientId or slackId, skipping combat',
-            );
-            continue;
-          }
-          await EventBus.emit({
-            eventType: 'combat:initiate',
-            attacker: {
-              type: 'monster',
-              id: monster.id,
-              name: monster.name,
-            },
-            defender: {
-              type: 'player',
-              id: playerIdentifier,
-              name: player.name,
-            },
-            metadata: {
-              source: 'game-tick.service',
-              reason: 'proximity-aggro',
-            },
-            timestamp: new Date(),
-          });
-          combatEvents++;
-        } catch (error) {
-          this.logger.debug(
-            `Combat failed for monster=${monster.id} -> ${player.name}: ${
-              error instanceof Error ? error.message : 'Unknown error'
-            }`,
-          );
-        }
-      }
-    }
-
-    if (newTick % 10 === 0) {
-      await this.monsterService.cleanupDeadMonsters();
-    }
+    // 3) Cleanup dead monsters periodically
 
     if (newTick % 4 === 0) {
       const weatherChange = await this.updateWeather();
@@ -234,7 +185,6 @@ export class GameTickService {
       gameDay: newDay,
       monstersSpawned,
       monstersMoved,
-      combatEvents,
       weatherUpdated,
     };
   }

@@ -7,11 +7,13 @@ const registerMovementAction = (
   actionId: string,
   command: string,
 ) => {
-  app.action<BlockAction>(actionId, async ({ ack, body, client }) => {
+  app.action<BlockAction>(actionId, async ({ ack, body, client, context }) => {
     await ack();
     const userId = body.user?.id;
+    const teamId =
+      typeof context.teamId === 'string' ? context.teamId : undefined;
     if (!userId) return;
-    await dispatchCommandViaDM(client, userId, command);
+    await dispatchCommandViaDM(client, userId, command, teamId);
   });
 };
 

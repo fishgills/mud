@@ -269,21 +269,8 @@ export class LocationNotificationService
   private async handleMonsterEncounter(
     event: MonsterEncounterEvent,
   ): Promise<void> {
-    const monsterSummary =
-      event.monsters.length === 1
-        ? event.monsters[0].name
-        : `${event.monsters.length} monsters`;
-
-    await this.notifyPlayersAtLocation(
-      event,
-      { x: event.x, y: event.y },
-      {
-        type: 'monster',
-        priority: 'high',
-        message: `${event.player.name} encounters ${monsterSummary} nearby.`,
-        excludePlayerIds: [event.player.id],
-      },
-    );
+    console.log(`Encounter event received: ${JSON.stringify(event)}`);
+    return;
   }
 
   private async handleCombatStart(event: CombatStartEvent): Promise<void> {

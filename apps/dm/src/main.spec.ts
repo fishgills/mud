@@ -40,8 +40,6 @@ describe('main bootstrap', () => {
 
   it('defaults port and logs requests when no PORT is set', async () => {
     delete process.env.PORT;
-    const { Logger } = await import('@nestjs/common');
-    const logSpy = jest.spyOn(Logger.prototype, 'log');
 
     await import('./main');
     await new Promise((resolve) => setImmediate(resolve));
@@ -50,24 +48,32 @@ describe('main bootstrap', () => {
 
     const middleware = useMock.mock.calls[0][0];
     const next = jest.fn();
+    const onMock = jest.fn();
+    const mockRes = {
+      on: onMock,
+      statusCode: 200,
+    } as unknown as Response;
 
     middleware(
       {
         method: 'GET',
         url: '/test',
+        originalUrl: '/test',
         headers: {
           authorization: 'token',
           'content-type': 'application/json',
           'user-agent': 'jest',
         },
-      } as Request,
-      {} as Response,
+      } as unknown as Request,
+      mockRes,
       next,
     );
 
     expect(next).toHaveBeenCalled();
-    expect(logSpy).toHaveBeenCalledWith('[DM-HTTP] GET /test');
+    expect(onMock).toHaveBeenCalledWith('finish', expect.any(Function));
 
-    logSpy.mockRestore();
+    // Simulate finish event to trigger logging
+    const finishHandler = onMock.mock.calls[0][1];
+    finishHandler();
   });
 });

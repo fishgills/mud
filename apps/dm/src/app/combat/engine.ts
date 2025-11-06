@@ -150,6 +150,10 @@ export async function runCombat(
     const defenderAC = baseDefenderAC + (defender.armorBonus ?? 0);
     const hit = totalAttack >= defenderAC;
 
+    logger.debug(
+      `⚔️ Attack Roll: ${attackRoll} + Str mod: ${baseAttackModifier} + Equipment bonus: +${attacker.attackBonus ?? 0} = ${totalAttack} vs AC: ${baseDefenderAC} + Armor bonus: +${defender.armorBonus ?? 0} = ${defenderAC} [${hit ? 'HIT' : 'MISS'}]`,
+    );
+
     let damage = 0;
     let killed = false;
 
@@ -159,6 +163,9 @@ export async function runCombat(
       );
       const damageBonus = attacker.damageBonus ?? 0;
       damage = Math.max(1, baseDamage + damageBonus);
+      logger.debug(
+        `⚔️ ${attacker.name} hit! Base damage: ${baseDamage}, Weapon/Equipment bonus: +${damageBonus}, Total: ${damage}`,
+      );
       defender.hp = Math.max(0, defender.hp - damage);
       if (defender.hp <= 0) {
         defender.isAlive = false;

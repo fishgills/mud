@@ -17,9 +17,14 @@ interface PlayerStatus {
   playerName?: string;
 }
 
-const getPlayerStatus = async (userId: string): Promise<PlayerStatus> => {
+const getPlayerStatus = async (
+  userId: string,
+  teamId?: string,
+): Promise<PlayerStatus> => {
   try {
-    const result = await getPlayer({ slackId: toClientId(userId) });
+    const result = await getPlayer({
+      slackId: toClientId(userId, teamId || ''),
+    });
     if (result.success && result.data) {
       return {
         hasCharacter: true,
@@ -165,8 +170,9 @@ const buildActionButtons = (status: PlayerStatus): KnownBlock[] => {
 
 export const buildAppHomeBlocks = async (
   userId: string,
+  teamId?: string,
 ): Promise<KnownBlock[]> => {
-  const status = await getPlayerStatus(userId);
+  const status = await getPlayerStatus(userId, teamId);
   const helpBlocks = buildHelpBlocks();
   const actionButtons = buildActionButtons(status);
 
@@ -206,10 +212,12 @@ export const registerAppHome = (app: App) => {
   console.log('Registering app home event handler');
 
   // Handle app home opened event
-  app.event('app_home_opened', async ({ event, client, logger }) => {
+  app.event('app_home_opened', async ({ event, client, logger, context }) => {
     logger.info('App Home opened');
     try {
-      const blocks = await buildAppHomeBlocks(event.user);
+      const teamId =
+        typeof context.teamId === 'string' ? context.teamId : undefined;
+      const blocks = await buildAppHomeBlocks(event.user, teamId);
       await client.views.publish({
         user_id: event.user,
         view: {
@@ -224,8 +232,12 @@ export const registerAppHome = (app: App) => {
   });
 
   // Helper function to refresh app home
-  const refreshAppHome = async (userId: string, client: WebClient) => {
-    const blocks = await buildAppHomeBlocks(userId);
+  const refreshAppHome = async (
+    userId: string,
+    teamId: string | undefined,
+    client: WebClient,
+  ) => {
+    const blocks = await buildAppHomeBlocks(userId, teamId);
     await client.views.publish({
       user_id: userId,
       view: {
@@ -250,11 +262,12 @@ export const registerAppHome = (app: App) => {
   app.action('app_home_reroll', async ({ ack, body, client }) => {
     await ack();
     try {
+      const teamId = body.team?.id;
       const result = await rerollPlayerStats({
-        slackId: toClientId(body.user.id),
+        slackId: toClientId(body.user.id, teamId || ''),
       });
       if (result.success) {
-        await refreshAppHome(body.user.id, client);
+        await refreshAppHome(body.user.id, teamId, client);
         await client.chat.postMessage({
           channel: body.user.id,
           text: '🎲 Your stats have been rerolled! Check the Home tab to see your new stats.',
@@ -278,11 +291,12 @@ export const registerAppHome = (app: App) => {
   app.action('app_home_complete', async ({ ack, body, client }) => {
     await ack();
     try {
+      const teamId = body.team?.id;
       const result = await completePlayer({
-        slackId: toClientId(body.user.id),
+        slackId: toClientId(body.user.id, teamId || ''),
       });
       if (result.success) {
-        await refreshAppHome(body.user.id, client);
+        await refreshAppHome(body.user.id, teamId, client);
         await client.chat.postMessage({
           channel: body.user.id,
           text: '✅ Character creation complete! You can now move and attack.',
@@ -306,11 +320,12 @@ export const registerAppHome = (app: App) => {
   app.action('app_home_delete', async ({ ack, body, client }) => {
     await ack();
     try {
+      const teamId = body.team?.id;
       const result = await deletePlayer({
-        slackId: toClientId(body.user.id),
+        slackId: toClientId(body.user.id, teamId || ''),
       });
       if (result.success) {
-        await refreshAppHome(body.user.id, client);
+        await refreshAppHome(body.user.id, teamId, client);
         await client.chat.postMessage({
           channel: body.user.id,
           text: '🗑️ Your character has been deleted. Create a new one to start fresh!',

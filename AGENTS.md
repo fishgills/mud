@@ -15,3 +15,11 @@
 
 - Slack bot communication note:
   - All player-facing Slack communications are delivered via direct message (DM) with the bot. Commands that affect nearby players (for example, `pickup`) DM the acting player with detailed results and DM other players at the same x/y with a short, vague notification.
+
+## Debugging and Logs
+
+- **Unified log files**: When running services locally (`yarn serve`), all logs are written to `logs/` at the workspace root:
+  - `logs/mud-combined.log` - Unified log file with all service interactions (DM, Slack, World, Tick, Engine)
+  - `logs/mud-{service}-error.log` - Service-specific error logs (e.g., `mud-dm-error.log`, `mud-slack-error.log`)
+- Logs are cleared on startup for fresh session tracking, making them ideal for AI agent analysis
+- All services share the same logger instance via `@mud/logging` library, ensuring consistent formatting and output

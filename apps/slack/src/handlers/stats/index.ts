@@ -34,6 +34,7 @@ export const statsHandler = async ({
   say,
   text,
   resolveUserId,
+  teamId,
 }: HandlerContext) => {
   const missingCharacterMessage = `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`;
 
@@ -42,7 +43,7 @@ export const statsHandler = async ({
 
     if (target.isSelf) {
       const { player, message } = await fetchPlayerRecord(
-        { slackId: toClientId(userId) },
+        { slackId: toClientId(userId, teamId) },
         missingCharacterMessage,
       );
       await respondWithPlayer(say, player, message, missingCharacterMessage, {
@@ -58,7 +59,7 @@ export const statsHandler = async ({
         ? missingCharacterMessage
         : `I couldn't find a character for ${targetDescription}.`;
       const { player, message } = await fetchPlayerRecord(
-        { slackId: toClientId(target.slackId) },
+        { slackId: toClientId(target.slackId, teamId) },
         fallbackMessage,
       );
       await respondWithPlayer(say, player, message, fallbackMessage, {
@@ -74,7 +75,11 @@ export const statsHandler = async ({
       return;
     }
 
-    const self = await fetchPlayerWithLocation(userId, missingCharacterMessage);
+    const self = await fetchPlayerWithLocation(
+      userId,
+      missingCharacterMessage,
+      teamId,
+    );
     if (!self.player) {
       await say({ text: self.error ?? missingCharacterMessage });
       return;

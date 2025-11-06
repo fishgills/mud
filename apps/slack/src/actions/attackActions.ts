@@ -15,7 +15,6 @@ import {
 } from '../handlers/attackNotifications';
 import { toClientId } from '../utils/clientId';
 import type { SlackBlockState } from './helpers';
-import { deliverCombatMessages } from '../handlers/combatMessaging';
 
 type SelectedTarget =
   | { kind: 'monster'; id: number; name: string }
@@ -99,10 +98,12 @@ export const registerAttackActions = (app: App) => {
 
   app.action<BlockAction>(
     ATTACK_ACTIONS.ATTACK_MONSTER,
-    async ({ ack, body, client }) => {
+    async ({ ack, body, client, context }) => {
       await ack();
 
       const userId = body.user?.id;
+      const teamId =
+        typeof context.teamId === 'string' ? context.teamId : undefined;
       const channelId =
         body.channel?.id ||
         (typeof body.container?.channel_id === 'string'
@@ -178,7 +179,7 @@ export const registerAttackActions = (app: App) => {
             };
 
         const attackResult = await dmClient.attack({
-          slackId: toClientId(userId),
+          slackId: toClientId(userId, teamId),
           input: attackInput,
         });
 
@@ -219,7 +220,6 @@ export const registerAttackActions = (app: App) => {
           channel: channelId,
           text: '⚔️ Combat initiated! Check your DMs for the results.',
         });
-        await deliverCombatMessages(client, attackResult.data?.playerMessages);
       } catch (err) {
         const message = getUserFriendlyErrorMessage(err, 'Failed to attack');
         await client.chat.postMessage({ channel: channelId, text: message });

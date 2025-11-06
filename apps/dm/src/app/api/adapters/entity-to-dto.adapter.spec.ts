@@ -57,31 +57,37 @@ describe('EntityToDtoAdapter', () => {
     expect(dto.maxHp).toBe(0);
   });
 
-  test('maps equipped playerItems into equipment slots and falls back to equipment source', () => {
+  test('maps equipped playerItems into equipment slots', () => {
     const e = {
       id: 7,
       playerItems: [
-        { equipped: true, slot: 'head', itemId: '11', item: { slot: 'head' } },
-        { equipped: true, itemId: 12, item: { type: 'weapon' } },
+        {
+          equipped: true,
+          slot: 'head',
+          itemId: '11',
+          quality: 'Rare',
+          item: { slot: 'head' },
+        },
+        {
+          equipped: true,
+          itemId: 12,
+          quality: 'Common',
+          item: { type: 'weapon' },
+        },
         {
           equipped: true,
           slot: 'chest',
-          itemId: 'NaN',
+          itemId: '13',
+          quality: 'Uncommon',
           item: { slot: 'chest' },
         },
       ],
-      equipment: { chest: '22', legs: null },
     } as any;
 
     const dto = EntityToDtoAdapter.playerEntityToDto(e);
-    // head from playerItems (11)
-    expect(dto.equipment.head).toBe(11);
-    // weapon should be mapped to weapon id 12
-    expect(dto.equipment.weapon).toBe(12);
-    // chest playerItem had NaN itemId so fallback to equipment source '22'
-    expect(dto.equipment.chest).toBe(22);
-    // legs fallback was null -> remains null
-    expect(dto.equipment.legs).toBeNull();
+    expect(dto.equipment.head).toEqual({ id: 11, quality: 'Rare' });
+    expect(dto.equipment.weapon).toEqual({ id: 12, quality: 'Common' });
+    expect(dto.equipment.chest).toEqual({ id: 13, quality: 'Uncommon' });
   });
 
   test('toNumberOrNull and date parsing via monster mapping', () => {
@@ -146,12 +152,13 @@ describe('EntityToDtoAdapter.playerEntityToDto', () => {
           itemId: 77,
           equipped: true,
           slot: null,
+          quality: 'Uncommon',
           item: { id: 77, slot: 'chest', type: 'armor' },
         },
       ],
     };
 
     const dto = EntityToDtoAdapter.playerEntityToDto(raw as unknown as Player);
-    expect(dto.equipment?.chest).toBe(77);
+    expect(dto.equipment?.chest).toEqual({ id: 77, quality: 'Uncommon' });
   });
 });
