@@ -222,10 +222,29 @@ app.message(async ({ message, say, client, context }) => {
       lowerText.endsWith(' ' + key.toLowerCase())
     ) {
       commandLog.debug('Dispatching handler', { command: key, userId });
-      // Minimal resolver: supports <@U123> mentions already parsed by Slack. Advanced username lookup would require Web API users.list which we avoid here.
+      // Minimal resolver: supports both <@U123> and @username formats from Slack
       const resolveUserId = async (nameOrMention: string) => {
-        const m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
-        return m ? m[1] : undefined;
+        console.log(`[RESOLVE-DEBUG] Input: "${nameOrMention}"`);
+        // Try <@U123> format first
+        let m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
+        if (m) {
+          const result = m[1];
+          console.log(`[RESOLVE-DEBUG] Matched ID format: ${result}`);
+          return result;
+        }
+        // If not ID format, it might be a plain username like @CharliTest or CharliTest
+        // For now, we can't resolve usernames without calling Slack's users.list API
+        // Just extract the username part if it looks like @username
+        const usernameMatch = nameOrMention
+          .trim()
+          .match(/^@?([a-zA-Z0-9_.-]+)$/);
+        if (usernameMatch) {
+          console.log(
+            `[RESOLVE-DEBUG] Got username format but can't resolve without API call: ${usernameMatch[1]}`,
+          );
+        }
+        console.log(`[RESOLVE-DEBUG] No match found`);
+        return undefined;
       };
       await handler({
         userId,

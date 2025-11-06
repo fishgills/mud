@@ -441,7 +441,7 @@ class InspectHandler extends PlayerCommandHandler {
     resolveUserId,
   }: HandlerContext): Promise<void> {
     const clientId = this.toClientId(userId);
-    const playerRes = await this.dm.getPlayer({ slackId: clientId });
+    const playerRes = await this.dm.getPlayer({ clientId });
     const player = playerRes.data;
 
     if (!player) {
@@ -452,16 +452,38 @@ class InspectHandler extends PlayerCommandHandler {
     }
 
     // Check if user wants to inspect a specific player by mention
-    const trimmedText = (text || '').trim();
-    if (trimmedText) {
-      const targetSlackId = await resolveUserId?.(trimmedText);
+    // Extract text after "inspect" command (e.g., "inspect @John" → "@John" or "inspect <@U123>" → "<@U123>")
+    const fullText = (text || '').trim();
+    console.log(`[INSPECT-DEBUG] fullText: "${fullText}"`);
+    const inspectMatch = fullText.match(/^inspect\s+(.+)$/i);
+    console.log(
+      `[INSPECT-DEBUG] inspectMatch: ${inspectMatch ? 'found' : 'not found'}`,
+    );
+    if (inspectMatch) {
+      const targetMention = inspectMatch[1].trim();
+      console.log(`[INSPECT-DEBUG] targetMention: "${targetMention}"`);
+      const targetSlackId = await resolveUserId?.(targetMention);
+      console.log(
+        `[INSPECT-DEBUG] targetSlackId: ${targetSlackId ?? 'undefined'}`,
+      );
       if (targetSlackId) {
-        // Directly inspect the mentioned player
-        await this.handlePlayerInspect(
-          undefined,
-          { user: { id: userId } } as BlockAction,
-          targetSlackId,
+        console.log(
+          `[INSPECT-DEBUG] Resolving to direct inspect for ${targetSlackId}`,
         );
+        // Directly inspect the mentioned player - use simple DM-based approach
+        const targetClientId = this.toClientId(targetSlackId);
+        const targetRes = await this.dm.getPlayer({ clientId: targetClientId });
+        const target = targetRes.data;
+        if (!target) {
+          await say({
+            text: targetRes.message ?? 'I could not find that adventurer.',
+          });
+          return;
+        }
+
+        // Build and display the inspection result
+        const statsMessage = buildPlayerStatsMessage(target, { isSelf: false });
+        await say(statsMessage);
         return;
       }
     }
@@ -592,7 +614,7 @@ class InspectHandler extends PlayerCommandHandler {
     message?: string;
   }> {
     const clientId = this.toClientId(userId);
-    const res = await this.dm.getPlayer({ slackId: clientId });
+    const res = await this.dm.getPlayer({ clientId });
     return {
       player: res.data ?? null,
       message: res.message,
@@ -621,7 +643,7 @@ class InspectHandler extends PlayerCommandHandler {
     }
 
     const targetRes = await this.dm.getPlayer({
-      slackId: this.toClientId(targetSlackId),
+      clientId: this.toClientId(targetSlackId),
     });
     const target = targetRes.data;
     if (!target) {
