@@ -6,67 +6,8 @@
 import { getPrismaClient, Monster } from '@mud/database';
 import { MonsterEntity } from '../entities/monster-entity.js';
 import { EventBus } from '../events/index.js';
-
-export interface MonsterTemplate {
-  name: string;
-  type: string;
-  baseHp: number;
-  strength: number;
-  agility: number;
-  health: number;
-}
-
-// Default monster templates
-export const MONSTER_TEMPLATES: MonsterTemplate[] = [
-  {
-    name: 'Goblin',
-    type: 'humanoid',
-    baseHp: 20,
-    strength: 8,
-    agility: 12,
-    health: 8,
-  },
-  {
-    name: 'Wolf',
-    type: 'beast',
-    baseHp: 25,
-    strength: 12,
-    agility: 14,
-    health: 10,
-  },
-  {
-    name: 'Skeleton',
-    type: 'undead',
-    baseHp: 30,
-    strength: 10,
-    agility: 10,
-    health: 12,
-  },
-  {
-    name: 'Orc',
-    type: 'humanoid',
-    baseHp: 40,
-    strength: 14,
-    agility: 8,
-    health: 14,
-  },
-  {
-    name: 'Giant Spider',
-    type: 'beast',
-    baseHp: 35,
-    strength: 11,
-    agility: 15,
-    health: 11,
-  },
-  {
-    name: 'Troll',
-    type: 'giant',
-    baseHp: 60,
-    strength: 16,
-    agility: 6,
-    health: 16,
-  },
-];
+import { MONSTER_TEMPLATES } from './monster-templates.js';
+import type { MonsterTemplate } from './monster-templates.js';
 
 export interface CreateMonsterOptions {
   x: number;
@@ -288,3 +229,6 @@ export class MonsterFactory {
     );
   }
 }
+
+export { MONSTER_TEMPLATES } from './monster-templates.js';
+export type { MonsterTemplate } from './monster-templates.js';

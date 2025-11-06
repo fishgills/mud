@@ -668,7 +668,7 @@ resource "kubernetes_deployment" "tick" {
 
           env {
             name  = "TICK_INTERVAL_MS"
-            value = "600000"
+            value = "60000"
           }
 
           env {
