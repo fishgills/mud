@@ -23,12 +23,18 @@ export function buildItemSelectionMessage(items: Array<ItemRecord>) {
   const options = (items || []).map((it) => {
     const id = String(it.id ?? '');
     const name = it.itemName ?? `Item ${id}`;
+    const quality =
+      typeof it.quality === 'string' && it.quality ? ` (${it.quality})` : '';
     const qty =
       typeof it.quantity === 'number' && it.quantity > 1
         ? ` (x${it.quantity})`
         : '';
     return {
-      text: { type: 'plain_text' as const, text: `${name}${qty}`, emoji: true },
+      text: {
+        type: 'plain_text' as const,
+        text: `${name}${quality}${qty}`,
+        emoji: true,
+      },
       value: `W:${id}`,
     };
   });

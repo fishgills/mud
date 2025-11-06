@@ -150,25 +150,36 @@ const createBackpackItemBlocks = (
 };
 
 const formatSlotValue = (
-  value: number | null | undefined,
+  value: number | { id: number; quality: string } | null | undefined,
   bag?: ItemRecord[] | undefined,
 ): string => {
   if (value === null || value === undefined) {
     return '_Empty_';
   }
 
+  let itemId: number | undefined;
+  let quality: string | undefined;
+
+  if (typeof value === 'object' && value !== null && 'id' in value) {
+    itemId = value.id;
+    quality = value.quality;
+  } else if (typeof value === 'number') {
+    itemId = value;
+  }
+
+  if (!itemId) {
+    return 'Unknown Item';
+  }
+
   if (Array.isArray(bag)) {
-    const found = bag.find((b) => b.id === value || b.itemId === value);
+    const found = bag.find((b) => b.id === itemId || b.itemId === itemId);
     if (found) {
-      return found.itemName ?? 'Unknown Item';
+      const itemName = found.itemName ?? 'Unknown Item';
+      return quality ? `${itemName} (${quality})` : itemName;
     }
   }
 
-  if (typeof value === 'number') {
-    return `Item #${value}`;
-  }
-
-  return 'Unknown Item';
+  return quality ? `Item #${itemId} (${quality})` : `Item #${itemId}`;
 };
 
 const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
@@ -182,18 +193,29 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
   });
 
   const equippedEntries = EQUIPMENT_SLOTS.map(({ key, label }) => {
-    const equippedId = equipment[key];
+    const equippedValue = equipment[key];
     let item: ItemRecord | undefined;
+    let equippedId: number | null = null;
 
-    if (typeof equippedId === 'number') {
-      item = bagById.get(equippedId);
+    if (equippedValue) {
+      // New format: { id: number, quality: string }
+      if (typeof equippedValue === 'object' && 'id' in equippedValue) {
+        equippedId = equippedValue.id;
+      } else if (typeof equippedValue === 'number') {
+        // Legacy format: just a number
+        equippedId = equippedValue;
+      }
+
+      if (equippedId) {
+        item = bagById.get(equippedId);
+      }
     }
 
     if (!item) {
       item = bag.find((bagItem) => bagItem.slot === key && bagItem.equipped);
     }
 
-    return { key, label, item, fallback: formatSlotValue(equippedId, bag) };
+    return { key, label, item, fallback: formatSlotValue(equippedValue, bag) };
   });
 
   const equippedIds = new Set<number>();

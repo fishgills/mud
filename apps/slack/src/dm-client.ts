@@ -84,11 +84,11 @@ export interface PlayerRecord extends Record<string, unknown> {
   nearbyMonsters?: MonsterRecord[];
   nearbyPlayers?: PlayerRecord[];
   equipment?: {
-    head?: number | null;
-    chest?: number | null;
-    legs?: number | null;
-    arms?: number | null;
-    weapon?: number | null;
+    head?: { id: number; quality: string } | null;
+    chest?: { id: number; quality: string } | null;
+    legs?: { id: number; quality: string } | null;
+    arms?: { id: number; quality: string } | null;
+    weapon?: { id: number; quality: string } | null;
   };
 }
 

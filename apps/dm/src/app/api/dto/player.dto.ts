@@ -3,11 +3,11 @@ import type { Monster } from './monster.dto';
 import type { PlayerItemDto } from './player-item.dto';
 
 export interface PlayerEquipment {
-  head: number | null;
-  chest: number | null;
-  legs: number | null;
-  arms: number | null;
-  weapon: number | null;
+  head: { id: number; quality: string } | null;
+  chest: { id: number; quality: string } | null;
+  legs: { id: number; quality: string } | null;
+  arms: { id: number; quality: string } | null;
+  weapon: { id: number; quality: string } | null;
 }
 
 export interface Player {

@@ -186,12 +186,10 @@ export class EntityToDtoAdapter {
         ? null
         : toNumber(worldTileRaw);
 
-    const equipmentSource =
-      (raw.equipment as Record<string, unknown> | undefined) ?? {};
     const playerItems =
       (raw.playerItems as Array<Record<string, unknown>> | undefined) ?? [];
 
-    // Start with empty equipment slots
+    // Build equipment from equipped PlayerItems
     const equipment: PlayerEquipment = {
       head: null,
       chest: null,
@@ -200,7 +198,6 @@ export class EntityToDtoAdapter {
       weapon: null,
     };
 
-    // If playerItems relation is present, prefer equipped PlayerItem rows
     if (Array.isArray(playerItems)) {
       for (const pi of playerItems) {
         const isEquipped = toBoolean(pi.equipped ?? false, false);
@@ -220,22 +217,17 @@ export class EntityToDtoAdapter {
         }
 
         const itemId = toNumberOrNull(pi.itemId);
+        const quality = toStringOrUndefined(pi.quality) ?? 'Common';
         if (!slot || itemId === null) continue;
-        if (slot === 'head') equipment.head = itemId;
-        else if (slot === 'chest') equipment.chest = itemId;
-        else if (slot === 'legs') equipment.legs = itemId;
-        else if (slot === 'arms') equipment.arms = itemId;
-        else if (slot === 'weapon') equipment.weapon = itemId;
+
+        const equipmentEntry = { id: itemId, quality };
+        if (slot === 'head') equipment.head = equipmentEntry;
+        else if (slot === 'chest') equipment.chest = equipmentEntry;
+        else if (slot === 'legs') equipment.legs = equipmentEntry;
+        else if (slot === 'arms') equipment.arms = equipmentEntry;
+        else if (slot === 'weapon') equipment.weapon = equipmentEntry;
       }
     }
-
-    // Fallback to equipmentSource values if a slot is still empty
-    equipment.head = equipment.head ?? toNumberOrNull(equipmentSource.head);
-    equipment.chest = equipment.chest ?? toNumberOrNull(equipmentSource.chest);
-    equipment.legs = equipment.legs ?? toNumberOrNull(equipmentSource.legs);
-    equipment.arms = equipment.arms ?? toNumberOrNull(equipmentSource.arms);
-    equipment.weapon =
-      equipment.weapon ?? toNumberOrNull(equipmentSource.weapon);
 
     return {
       id: toNumber(raw.id, 0),

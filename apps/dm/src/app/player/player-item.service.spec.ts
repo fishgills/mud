@@ -77,9 +77,34 @@ describe('PlayerItemService.equip validations', () => {
 
     await expect(svc.equip(42, 1, PlayerSlot.head)).resolves.toBeUndefined();
 
+    expect(mockTx.playerItem.updateMany).toHaveBeenCalledWith({
+      where: { playerId: 42, slot: 'head', equipped: true },
+      data: { equipped: false, slot: null },
+    });
     expect(mockTx.playerItem.update).toHaveBeenCalledWith({
       where: { id: 1 },
       data: { equipped: true, slot: 'head' },
+    });
+  });
+
+  it('swaps item when equipping to an already-equipped slot', async () => {
+    // New weapon to equip
+    const newWeapon = { id: 10, playerId: 42, item: { type: 'weapon' } };
+    mockTx.playerItem.findUnique.mockResolvedValueOnce(newWeapon);
+    mockTx.playerItem.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockTx.playerItem.update.mockResolvedValueOnce({});
+
+    await expect(svc.equip(42, 10, PlayerSlot.weapon)).resolves.toBeUndefined();
+
+    // Should unequip any existing weapon and clear its slot
+    expect(mockTx.playerItem.updateMany).toHaveBeenCalledWith({
+      where: { playerId: 42, slot: 'weapon', equipped: true },
+      data: { equipped: false, slot: null },
+    });
+    // Should equip the new weapon
+    expect(mockTx.playerItem.update).toHaveBeenCalledWith({
+      where: { id: 10 },
+      data: { equipped: true, slot: 'weapon' },
     });
   });
 
