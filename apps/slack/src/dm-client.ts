@@ -98,6 +98,9 @@ export interface MonsterRecord extends Record<string, unknown> {
   type?: string;
   hp?: number;
   maxHp?: number;
+  strength?: number;
+  agility?: number;
+  health?: number;
   x?: number;
   y?: number;
   isAlive?: boolean;
@@ -116,6 +119,22 @@ export interface ItemRecord extends Record<string, unknown> {
   equipped?: boolean;
   allowedSlots?: string[];
   createdAt?: string;
+}
+
+export interface ItemDetails extends Record<string, unknown> {
+  id?: number;
+  name?: string;
+  type?: string;
+  description?: string;
+  value?: number;
+  attack?: number | null;
+  defense?: number | null;
+  healthBonus?: number | null;
+  slot?: string | null;
+}
+
+export interface ItemDetailsResponse extends SuccessResponse {
+  data?: ItemDetails;
 }
 
 export interface PlayerResponse extends SuccessResponse {
@@ -433,6 +452,15 @@ export async function drop(input: {
   });
 }
 
+export async function getItemDetails(
+  itemId: number,
+): Promise<ItemDetailsResponse> {
+  return dmRequest<ItemDetailsResponse>(
+    `/items/${encodeURIComponent(String(itemId))}`,
+    HttpMethod.GET,
+  );
+}
+
 export async function getLocationEntities(params: {
   x: number;
   y: number;
@@ -466,6 +494,7 @@ export const dmClient = {
   equip,
   unequip,
   drop,
+  getItemDetails,
 };
 
 type DirectionCode = 'n' | 's' | 'e' | 'w';

@@ -6,6 +6,7 @@ export const COMMANDS = {
   LOOK: 'look',
   LOOK_SHORT: 'l',
   ATTACK: 'attack',
+  INSPECT: 'inspect',
   STATS: 'stats',
   MAP: 'map',
   SNIFF: 'sniff',
@@ -63,6 +64,11 @@ export const MOVE_ACTIONS = {
 export const ATTACK_ACTIONS = {
   MONSTER_SELECT: 'attack_action_monster_select',
   ATTACK_MONSTER: 'attack_action_attack_monster',
+} as const;
+
+export const INSPECT_ACTIONS = {
+  TARGET_SELECT: 'inspect_action_target_select',
+  INSPECT_TARGET: 'inspect_action_inspect_target',
 } as const;
 
 export const PICKUP_ACTIONS = {

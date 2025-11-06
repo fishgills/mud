@@ -29,7 +29,6 @@ jest.mock('@mud/engine', () => {
         emit: jest.fn(async (ev: unknown) => {
           for (const h of [...listeners]) {
             // await in case handlers are async
-            // eslint-disable-next-line no-await-in-loop
             await (h as any)(ev);
           }
           return Promise.resolve();

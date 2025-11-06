@@ -22,7 +22,8 @@
         "GOOGLE_CLOUD_PROJECT",
         "GCP_REGION",
         "VERTEX_LOCATION",
-        "WORLD_RENDER_CACHE_TTL_MS"
+        "WORLD_RENDER_CACHE_TTL_MS",
+        "GOOGLE_CLOUD_REGION"
       ],
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
@@ -51,7 +52,13 @@
     },
     "lint": {
       "dependsOn": ["^generate"],
-      "cache": false
+      "cache": false,
+      "env": [
+        "REDIS_URL",
+        "SLACK_TEST_ID",
+        "SLACK_TEST_MESSAGE",
+        "GOOGLE_CLOUD_REGION"
+      ]
     },
     "test": {
       "dependsOn": ["^build", "^test"],

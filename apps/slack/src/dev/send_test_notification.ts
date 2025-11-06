@@ -12,6 +12,7 @@
  * Or set SLACK_TEST_ID and SLACK_TEST_MESSAGE environment variables.
  */
 
+import type { GameEvent } from '@mud/engine';
 import { RedisEventBridge } from '@mud/redis-client';
 
 // Don't import the full `env` validation here because that forces all Slack
@@ -45,8 +46,7 @@ async function main() {
   try {
     await bridge.connect();
 
-    // Build a minimal CombatEndEvent-shaped object as the associated event
-    const event = {
+    const levelUpEvent = {
       eventType: 'player:levelup',
       player: {
         id: 'player1',
@@ -54,12 +54,12 @@ async function main() {
       },
       newLevel: 2,
       skillPointsGained: 5,
-      timestamp: Date.now(),
-    } as any;
+      timestamp: new Date(),
+    } satisfies Record<string, unknown>;
 
     await bridge.publishNotification({
       type: 'player',
-      event: event,
+      event: levelUpEvent as unknown as GameEvent,
       recipients: [
         {
           clientType: 'slack',

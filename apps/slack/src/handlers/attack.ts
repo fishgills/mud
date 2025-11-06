@@ -4,6 +4,11 @@ import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import { extractSlackId } from '../utils/clientId';
 import { PlayerCommandHandler } from './base';
 import {
+  buildPlayerOption,
+  buildMonsterOption,
+  type SlackOption,
+} from './entitySelection';
+import {
   buildAttackFailureMessage,
   isMissingTargetCharacterMessage,
   notifyTargetAboutMissingCharacter,
@@ -35,24 +40,19 @@ export function buildTargetSelectionMessage(
   const anyMonsters = monsters.length > 0;
   const anyPlayers = players.length > 0;
 
-  const options = [
-    ...players.map((p) => ({
-      text: {
-        type: 'plain_text' as const,
-        text: `Player: ${p.name}`,
-        emoji: true,
-      },
-      value: `P:${p.slackId}`,
-    })),
-    ...monsters.map((m) => ({
-      text: {
-        type: 'plain_text' as const,
-        text: `Monster: ${m.name}`,
-        emoji: true,
-      },
-      value: `M:${m.id}`,
-    })),
-  ];
+  const options: SlackOption[] = [];
+  for (const player of players) {
+    const option = buildPlayerOption(player);
+    if (option) {
+      options.push(option);
+    }
+  }
+  for (const monster of monsters) {
+    const option = buildMonsterOption(monster);
+    if (option) {
+      options.push(option);
+    }
+  }
 
   const firstOption = options[0];
 

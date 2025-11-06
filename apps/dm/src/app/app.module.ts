@@ -13,6 +13,7 @@ import {
   PlayersController,
   MovementController,
   SystemController,
+  ItemController,
 } from './api/controllers';
 import { CoordinationService } from '../shared/coordination.service';
 import { EventBridgeService } from '../shared/event-bridge.service';
@@ -39,6 +40,7 @@ import { LootService } from './monster/loot.service';
     PlayersController,
     MovementController,
     SystemController,
+    ItemController,
   ],
   providers: [
     AppService,

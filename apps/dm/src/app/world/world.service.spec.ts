@@ -74,9 +74,9 @@ describe('WorldService (REST)', () => {
     // so the module-level `const authorizedFetch = globalThis.fetch` captures our mock.
     jest.resetModules();
     (globalThis as any).fetch = mockFetch;
-    // require the service after setting up the mock
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { WorldService } = require('./world.service');
+    // load the service after setting up the mock
+    const { WorldService } =
+      jest.requireActual<typeof import('./world.service')>('./world.service');
     return new WorldService();
   };
 
