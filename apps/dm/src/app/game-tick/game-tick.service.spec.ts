@@ -241,7 +241,7 @@ describe('GameTickService', () => {
 
     const result2 = await service.processTick();
     expect(result2.tick).toBe(4);
-    const weatherCalls = (EventBus.emit as jest.Mock).mock.calls.filter(
+    (EventBus.emit as jest.Mock).mock.calls.filter(
       ([event]) => event.eventType === 'world:weather:change',
     );
     // Weather may or may not update depending on random values

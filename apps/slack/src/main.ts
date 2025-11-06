@@ -233,7 +233,7 @@ app.message(async ({ message, say, client, context }) => {
       const resolveUserId = async (nameOrMention: string) => {
         console.log(`[RESOLVE-DEBUG] Input: "${nameOrMention}"`);
         // Try <@U123> format first
-        let m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
+        const m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
         if (m) {
           const result = m[1];
           console.log(`[RESOLVE-DEBUG] Matched ID format: ${result}`);
