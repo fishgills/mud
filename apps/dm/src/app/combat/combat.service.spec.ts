@@ -75,6 +75,7 @@ import type { PlayerService } from '../player/player.service';
 import type { AiService } from '../../openai/ai.service';
 import type { CombatRound, DetailedCombatLog, CombatResult } from '../api';
 import type { ItemQuality } from '@prisma/client';
+import { AttackOrigin } from '../api/dto/player-requests.dto';
 
 describe('CombatService (unit)', () => {
   const makePlayer = (overrides: any = {}) => ({
@@ -107,6 +108,11 @@ describe('CombatService (unit)', () => {
         player: makePlayer(),
         event: undefined,
       }),
+      restorePlayerHealth: jest
+        .fn()
+        .mockImplementation(async (slackId: string) =>
+          makePlayer({ clientId: slackId, slackId }),
+        ),
     };
     const aiService: any = { getText: jest.fn() };
     const eventBridge: any = { publishCombatNotifications: jest.fn() };
@@ -134,6 +140,11 @@ describe('CombatService (unit)', () => {
         player: makePlayer(),
         event: undefined,
       }),
+      restorePlayerHealth: jest
+        .fn()
+        .mockImplementation(async (slackId: string) =>
+          makePlayer({ clientId: slackId, slackId }),
+        ),
     };
     const aiService: any = { getText: jest.fn() };
     const eventBridge: any = { publishCombatNotifications: jest.fn() };
@@ -206,6 +217,11 @@ describe('CombatService (unit)', () => {
         player: makePlayer(),
         event: undefined,
       }),
+      restorePlayerHealth: jest
+        .fn()
+        .mockImplementation(async (slackId: string) =>
+          makePlayer({ clientId: slackId, slackId }),
+        ),
       updatePlayerStats: jest.fn().mockResolvedValue({
         level: playerA.level,
         skillPoints: 0,
@@ -328,6 +344,11 @@ const createHelperService = () => {
       player: createPlayer({ slackId, clientId: slackId }),
       event: undefined,
     })),
+    restorePlayerHealth: jest
+      .fn()
+      .mockImplementation(async (slackId: string) =>
+        createPlayer({ slackId, clientId: slackId }),
+      ),
   } as unknown as PlayerService;
 
   const aiService = {
@@ -660,6 +681,7 @@ type MockPlayerService = Pick<
   | 'getPlayerByClientId'
   | 'updatePlayerStats'
   | 'respawnPlayer'
+  | 'restorePlayerHealth'
   | 'getPlayersAtLocation'
 >;
 
@@ -682,6 +704,11 @@ describe('CombatService', () => {
         player: createPlayer({ slackId, clientId: slackId }),
         event: undefined,
       })),
+      restorePlayerHealth: jest
+        .fn()
+        .mockImplementation(async (slackId: string) =>
+          createPlayer({ slackId, clientId: slackId }),
+        ),
       getPlayersAtLocation: jest.fn().mockResolvedValue([]),
     } as jest.Mocked<MockPlayerService>;
 
@@ -810,8 +837,13 @@ describe('CombatService', () => {
       ]),
     );
 
-    const [combatLog, attackerCombatant, defenderCombatant] = applyResultsSpy
-      .mock.calls[0] as [DetailedCombatLog, Combatant, Combatant];
+    const [combatLog, attackerCombatant, defenderCombatant, applyOptions] =
+      applyResultsSpy.mock.calls[0] as [
+        DetailedCombatLog,
+        Combatant,
+        Combatant,
+        { attackOrigin?: AttackOrigin },
+      ];
 
     expect(combatLog).toMatchObject({
       winner: 'Attacker',
@@ -847,11 +879,10 @@ describe('CombatService', () => {
       attackerPlayer.level,
       defenderPlayer.level,
     );
-    expect(applyResultsSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ winner: 'Attacker', loser: 'Defender' }),
-      expect.objectContaining({ name: 'Attacker' }),
-      expect.objectContaining({ name: 'Defender' }),
+    expect(applyOptions).toEqual(
+      expect.objectContaining({ attackOrigin: AttackOrigin.TEXT_PVP }),
     );
+    expect(applyResultsSpy).toHaveBeenCalledTimes(1);
 
     const [attackerLogArg, attackerOptions] = narrativeSpy.mock.calls[0];
     const [defenderLogArg, defenderOptions] = narrativeSpy.mock.calls[1];
@@ -1353,16 +1384,33 @@ describe('CombatService', () => {
 
     const internals = getInternals();
 
+    const healedDefender = createPlayer({
+      ...defenderPlayer,
+      combat: {
+        hp: defenderPlayer.maxHp,
+        maxHp: defenderPlayer.maxHp,
+        isAlive: true,
+      },
+      hp: defenderPlayer.maxHp,
+      isAlive: true,
+    });
+
+    playerService.restorePlayerHealth
+      .mockResolvedValueOnce(healedDefender as unknown as PlayerEntity)
+      .mockResolvedValueOnce(leveledPlayer as unknown as PlayerEntity);
+
     await internals.applyCombatResults(
       combatLog,
       attackerCombatant,
       defenderCombatant,
+      { attackOrigin: AttackOrigin.TEXT_PVP },
     );
 
     expect(playerService.updatePlayerStats).toHaveBeenCalledWith(
       'attacker',
-      expect.objectContaining({ xp: 310, hp: 5 }),
+      expect.objectContaining({ xp: 310 }),
     );
+    expect(playerService.restorePlayerHealth).toHaveBeenCalledWith('attacker');
     expect(attackerCombatant.level).toBe(3);
     expect(attackerCombatant.maxHp).toBe(leveledPlayer.combat.maxHp);
     expect(attackerCombatant.hp).toBe(leveledPlayer.combat.hp);

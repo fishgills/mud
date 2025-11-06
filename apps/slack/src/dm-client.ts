@@ -1,6 +1,6 @@
 // Use the platform's global fetch implementation instead of the removed @mud/gcp-auth helper.
 const authorizedFetch = globalThis.fetch as typeof fetch;
-import { Direction, TargetType } from './dm-types';
+import { Direction, TargetType, AttackOrigin } from './dm-types';
 import { env } from './env';
 
 export type JsonMap = Record<string, unknown>;
@@ -141,6 +141,7 @@ export interface CombatResult {
     name: string;
     message: string;
     role: string;
+    blocks?: Array<Record<string, unknown>>;
   }>;
   perfBreakdown?: CombatPerformanceBreakdown;
 }
@@ -151,6 +152,7 @@ export interface AttackPerformanceStats {
   combatMs: number;
   targetResolutionMs?: number;
   combatBreakdown?: CombatPerformanceBreakdown;
+  attackOrigin?: AttackOrigin;
 }
 
 export interface CombatMessagePerformance {
@@ -255,6 +257,7 @@ export interface AttackInput {
   targetId?: number;
   targetSlackId?: string;
   ignoreLocation?: boolean;
+  attackOrigin?: AttackOrigin;
 }
 
 export interface AttackRequest {

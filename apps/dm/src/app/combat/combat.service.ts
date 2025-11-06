@@ -26,6 +26,7 @@ import type {
   CombatPerformanceBreakdown,
   CombatMessagePerformance,
 } from '../api';
+import { AttackOrigin } from '../api/dto/player-requests.dto';
 import { runCombat as engineRunCombat } from './engine';
 import { CombatMessenger } from './messages';
 import {
@@ -854,6 +855,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
     combatLog: DetailedCombatLog,
     combatant1: Combatant,
     combatant2: Combatant,
+    options: { attackOrigin?: AttackOrigin } = {},
   ): Promise<CombatResultEffects> {
     return resultsApplyCombatResults(
       combatLog,
@@ -862,6 +864,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
       this.playerService,
       this.prisma,
       this.logger,
+      options,
     );
   }
 
@@ -1006,7 +1009,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
     attackerType: 'player' | 'monster',
     defenderId: string | number,
     defenderType: 'player' | 'monster',
-    options: { ignoreLocation?: boolean } = {},
+    options: { ignoreLocation?: boolean; attackOrigin?: AttackOrigin } = {},
   ): Promise<CombatResult> {
     this.logger.log(
       `⚔️ Combat initiated: ${attackerType} ${attackerId} attacking ${defenderType} ${defenderId}`,
@@ -1073,6 +1076,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
         combatLog,
         attacker,
         defender,
+        { attackOrigin: options.attackOrigin },
       );
       perf.applyResultsMs = Date.now() - applyStart;
 
@@ -1185,6 +1189,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
           messagePrepMs: breakdown.messagePrepMs,
           notificationMs: breakdown.notificationMs,
           messageDetails: breakdown.messageDetails,
+          attackOrigin: options.attackOrigin,
         }),
       );
 
@@ -1208,6 +1213,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
           messagePrepMs: perf.messagePrepMs,
           notificationMs: perf.notificationMs,
           error: error instanceof Error ? error.message : String(error),
+          attackOrigin: options.attackOrigin,
         }),
       );
       throw error;
@@ -1220,8 +1226,12 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
   async playerAttackMonster(
     playerSlackId: string,
     monsterId: number,
+    options: { attackOrigin?: AttackOrigin } = {},
   ): Promise<CombatResult> {
-    return this.initiateCombat(playerSlackId, 'player', monsterId, 'monster');
+    const attackOrigin = options.attackOrigin ?? AttackOrigin.TEXT_PVE;
+    return this.initiateCombat(playerSlackId, 'player', monsterId, 'monster', {
+      attackOrigin,
+    });
   }
 
   /**
@@ -1262,13 +1272,15 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
     attackerSlackId: string,
     defenderSlackId: string,
     ignoreLocation = false,
+    options: { attackOrigin?: AttackOrigin } = {},
   ): Promise<CombatResult> {
+    const attackOrigin = options.attackOrigin ?? AttackOrigin.TEXT_PVP;
     return this.initiateCombat(
       attackerSlackId,
       'player',
       defenderSlackId,
       'player',
-      { ignoreLocation },
+      { ignoreLocation, attackOrigin },
     );
   }
 

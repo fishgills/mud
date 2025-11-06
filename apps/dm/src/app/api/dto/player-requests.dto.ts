@@ -3,6 +3,12 @@ export enum TargetType {
   MONSTER = 'monster',
 }
 
+export enum AttackOrigin {
+  TEXT_PVE = 'text-pve',
+  TEXT_PVP = 'text-pvp',
+  DROPDOWN_PVP = 'dropdown-pvp',
+}
+
 export enum Direction {
   NORTH = 'n',
   EAST = 'e',
@@ -50,6 +56,7 @@ export interface AttackRequest {
   targetId?: number;
   targetSlackId?: string;
   ignoreLocation?: boolean;
+  attackOrigin?: AttackOrigin;
 }
 
 export interface SpawnMonsterRequest {

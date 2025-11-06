@@ -32,7 +32,7 @@ import {
 } from './handlers/attack';
 import { ITEM_SELECTION_BLOCK_ID } from './handlers/pickup';
 import { dmClient } from './dm-client';
-import { PlayerAttribute, TargetType } from './dm-types';
+import { PlayerAttribute, TargetType, AttackOrigin } from './dm-types';
 import { toClientId } from './utils/clientId';
 
 const mockedDmClient = dmClient as unknown as {
@@ -408,6 +408,9 @@ describe('registerActions', () => {
         xpGained: 50,
         goldGained: 1,
         message: 'Hero strikes down the goblin.',
+        playerMessages: [
+          { slackId: 'U1', name: 'Hero', message: 'combat results' },
+        ],
       },
     });
 
@@ -440,13 +443,21 @@ describe('registerActions', () => {
     expect(ack).toHaveBeenCalled();
     expect(mockedDmClient.attack).toHaveBeenCalledWith({
       slackId: toClientId('U1'),
-      input: { targetType: TargetType.Monster, targetId: 42 },
+      input: {
+        targetType: TargetType.Monster,
+        targetId: 42,
+        attackOrigin: AttackOrigin.TextPve,
+      },
     });
     expect(client.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         channel: 'D1',
         text: '⚔️ Combat initiated! Check your DMs for the results.',
       }),
+    );
+    expect(client.conversations.open).toHaveBeenCalledWith({ users: 'U1' });
+    expect(client.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'combat results' }),
     );
     expect(client.chat.update).toHaveBeenCalledWith(
       expect.objectContaining({ channel: 'D1', ts: '158456' }),

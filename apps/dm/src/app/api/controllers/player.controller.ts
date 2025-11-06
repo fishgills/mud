@@ -34,7 +34,7 @@ import type {
   PlayerAttribute,
   PlayerStatsRequest,
 } from '../dto/player-requests.dto';
-import { TargetType } from '../dto/player-requests.dto';
+import { TargetType, AttackOrigin } from '../dto/player-requests.dto';
 
 interface StatsUpdatePayload {
   slackId: string;
@@ -402,11 +402,17 @@ export class PlayersController {
 
     const targetType = input.targetType;
     const ignoreLocationFlag = input.ignoreLocation === true;
+    const attackOrigin =
+      input.attackOrigin ??
+      (targetType === TargetType.MONSTER
+        ? AttackOrigin.TEXT_PVE
+        : AttackOrigin.TEXT_PVP);
     const perf: AttackPerformanceStats = {
       totalMs: 0,
       preCombatMs: 0,
       combatMs: 0,
     };
+    perf.attackOrigin = attackOrigin;
     let targetResolutionMs: number | undefined;
     let targetSlackId = input.targetSlackId ?? undefined;
     const targetId =
@@ -428,6 +434,7 @@ export class PlayersController {
         result = (await this.combatService.playerAttackMonster(
           slackId,
           input.targetId,
+          { attackOrigin },
         )) as CombatResult;
         perf.combatMs = Date.now() - combatStart;
       } else if (targetType === TargetType.PLAYER) {
@@ -464,6 +471,7 @@ export class PlayersController {
           slackId,
           targetSlackId,
           ignoreLocationFlag,
+          { attackOrigin },
         )) as CombatResult;
         perf.combatMs = Date.now() - combatStart;
       } else {
@@ -516,6 +524,7 @@ export class PlayersController {
             preCombatMs: perf.preCombatMs,
             combatMs: perf.combatMs,
             targetResolutionMs: perf.targetResolutionMs,
+            attackOrigin,
             error: success ? undefined : errorMessage,
           };
           this.logger.log(JSON.stringify(logPayload));

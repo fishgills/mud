@@ -17,7 +17,7 @@ jest.mock('./mapUtils', () => ({
   sendPngMap: jest.fn().mockResolvedValue(true),
 }));
 
-import { TargetType, Direction } from '../dm-types';
+import { TargetType, Direction, AttackOrigin } from '../dm-types';
 import { dmClient } from '../dm-client';
 import { sendPngMap } from './mapUtils';
 import { attackHandler, SELF_ATTACK_ERROR } from './attack';
@@ -129,13 +129,22 @@ describe('attackHandler', () => {
         targetType: TargetType.Player,
         targetSlackId: 'U2',
         ignoreLocation: true,
+        attackOrigin: AttackOrigin.TextPvp,
       },
     });
     expect(say).toHaveBeenCalledWith({
       text: '⚔️ Combat initiated! Check your DMs for the results.',
     });
-    // Defender notifications are handled by NotificationService; no direct DM here
-    expect(client.chat.postMessage).not.toHaveBeenCalled();
+    expect(client.conversations.open).toHaveBeenCalledWith({ users: 'U1' });
+    expect(client.conversations.open).toHaveBeenCalledWith({ users: 'U2' });
+    expect(client.chat.postMessage).toHaveBeenCalledWith({
+      channel: 'D1',
+      text: 'attacker wins',
+    });
+    expect(client.chat.postMessage).toHaveBeenCalledWith({
+      channel: 'D1',
+      text: 'defender loses',
+    });
   });
 
   it('asks for a mention when username lacks slack id', async () => {

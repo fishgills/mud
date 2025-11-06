@@ -8,6 +8,7 @@ jest.mock('@mud/engine', () => ({
 
 import { applyCombatResults } from './results';
 import { MonsterFactory } from '@mud/engine';
+import { AttackOrigin } from '../api/dto/player-requests.dto';
 
 describe('applyCombatResults', () => {
   afterEach(() => jest.resetAllMocks());
@@ -66,6 +67,11 @@ describe('applyCombatResults', () => {
         combat: { maxHp: 20, hp: 10 },
       }),
       respawnPlayer: jest.fn().mockResolvedValue({ player: null, event: null }),
+      restorePlayerHealth: jest.fn().mockResolvedValue({
+        combat: { maxHp: 20, hp: 20 },
+        level: 2,
+        position: { x: 0, y: 0 },
+      }),
     };
 
     const prisma: any = {
@@ -83,10 +89,15 @@ describe('applyCombatResults', () => {
       playerService,
       prisma,
       logger,
+      { attackOrigin: AttackOrigin.TEXT_PVE },
     );
 
     expect(playerService.getPlayer).toHaveBeenCalledWith('S1');
-    expect(playerService.updatePlayerStats).toHaveBeenCalled();
+    expect(playerService.updatePlayerStats).toHaveBeenCalledWith('S1', {
+      xp: 110,
+      gold: 8,
+    });
+    expect(playerService.restorePlayerHealth).toHaveBeenCalledWith('S1');
     expect(MonsterFactory.delete).toHaveBeenCalledWith(99, expect.any(Object));
     expect(prisma.combatLog.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.any(Object) }),
@@ -151,10 +162,17 @@ describe('applyCombatResults', () => {
         player: {
           id: 2,
           name: 'Other',
+          combat: { hp: 10, maxHp: 10, isAlive: true },
+          position: { x: 5, y: 5 },
         },
         event: {
           eventType: 'player:respawn',
         },
+      }),
+      restorePlayerHealth: jest.fn().mockResolvedValue({
+        combat: { maxHp: 8, hp: 8, isAlive: true },
+        level: 1,
+        position: { x: 1, y: 1 },
       }),
     };
 
@@ -170,15 +188,13 @@ describe('applyCombatResults', () => {
       playerService,
       prisma,
       logger,
+      { attackOrigin: AttackOrigin.DROPDOWN_PVP },
     );
 
-    expect(playerService.updatePlayerStats).toHaveBeenCalledWith(
-      'S2',
-      expect.objectContaining({ hp: 0 }),
-    );
     expect(playerService.respawnPlayer).toHaveBeenCalledWith('S2', {
       emitEvent: false,
     });
+    expect(playerService.restorePlayerHealth).toHaveBeenCalledWith('S1');
     expect(playerService.getPlayer).toHaveBeenCalledWith('S1');
     expect(prisma.combatLog.create).toHaveBeenCalled();
   });

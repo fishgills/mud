@@ -4,6 +4,7 @@ import type { PrismaClient } from '@prisma/client';
 import { Logger } from '@nestjs/common';
 import type { DetailedCombatLog } from '../api';
 import type { Combatant } from './types';
+import { AttackOrigin } from '../api/dto/player-requests.dto';
 
 export interface CombatResultEffects {
   playerRespawnEvents: PlayerRespawnEvent[];
@@ -16,34 +17,61 @@ export async function applyCombatResults(
   playerService: PlayerService,
   prisma: PrismaClient,
   logger: Logger,
+  options: { attackOrigin?: AttackOrigin } = {},
 ): Promise<CombatResultEffects> {
   logger.debug(`🔄 Applying combat results for combat ${combatLog.combatId}`);
 
   const winner = combatant1.name === combatLog.winner ? combatant1 : combatant2;
   const loser = combatant1.name === combatLog.loser ? combatant1 : combatant2;
 
+  const attackOrigin =
+    options.attackOrigin ??
+    (winner.type === 'monster' || loser.type === 'monster'
+      ? AttackOrigin.TEXT_PVE
+      : AttackOrigin.TEXT_PVP);
+
   const playerRespawnEvents: PlayerRespawnEvent[] = [];
 
   logger.debug(
-    `Winner: ${winner.name} (${winner.type}, ID: ${winner.id}), Loser: ${loser.name} (${loser.type}, ID: ${loser.id})`,
+    `Winner: ${winner.name} (${winner.type}, ID: ${winner.id}), Loser: ${loser.name} (${loser.type}, ID: ${loser.id}), origin=${attackOrigin}`,
   );
 
-  // Update loser's HP
-  logger.debug(`Updating loser ${loser.name} HP to ${loser.hp}...`);
   if (loser.type === 'player') {
-    if (!loser.slackId)
+    if (!loser.slackId) {
       throw new Error(`Player ${loser.name} missing slackId in combat results`);
-    await playerService.updatePlayerStats(loser.slackId, { hp: loser.hp });
-    if (!loser.isAlive) {
+    }
+
+    const shouldRespawn =
+      attackOrigin === AttackOrigin.TEXT_PVE ||
+      attackOrigin === AttackOrigin.DROPDOWN_PVP;
+
+    if (shouldRespawn) {
       logger.log(`🏥 Respawning defeated player ${loser.name}`);
-      const { event } = await playerService.respawnPlayer(loser.slackId, {
-        emitEvent: false,
-      });
+      const { player: respawnedPlayer, event } =
+        await playerService.respawnPlayer(loser.slackId, {
+          emitEvent: false,
+        });
       if (event) {
         playerRespawnEvents.push(event);
       }
+      loser.hp = respawnedPlayer.combat.hp;
+      loser.maxHp = respawnedPlayer.combat.maxHp;
+      loser.isAlive = respawnedPlayer.combat.isAlive;
+      loser.x = respawnedPlayer.position.x;
+      loser.y = respawnedPlayer.position.y;
+    } else {
+      logger.log(`🩹 Restoring defeated player ${loser.name} to full health`);
+      const healedLoser = await playerService.restorePlayerHealth(
+        loser.slackId,
+      );
+      loser.hp = healedLoser.combat.hp;
+      loser.maxHp = healedLoser.combat.maxHp;
+      loser.isAlive = healedLoser.combat.isAlive;
+      loser.x = healedLoser.position.x;
+      loser.y = healedLoser.position.y;
     }
   } else {
+    logger.debug(`Updating loser ${loser.name} HP to ${loser.hp}...`);
     if (!loser.isAlive) {
       await MonsterFactory.delete(loser.id, {
         killedBy: { type: winner.type, id: winner.id },
@@ -62,25 +90,24 @@ export async function applyCombatResults(
     }
   }
 
-  // Award XP to winner if they're a player
   if (winner.type === 'player') {
-    if (!winner.slackId)
+    if (!winner.slackId) {
       throw new Error(
         `Player ${winner.name} missing slackId in combat results`,
       );
+    }
     logger.debug(
       `Awarding ${combatLog.xpAwarded} XP to winner ${winner.name}...`,
     );
     const currentPlayer = await playerService.getPlayer(winner.slackId);
     const newXp = currentPlayer.xp + combatLog.xpAwarded;
     const goldAwarded = Math.max(0, combatLog.goldAwarded ?? 0);
-    const updatedStats: Partial<{ xp: number; hp: number; gold: number }> = {
+    const updatedStats: Partial<{ xp: number; gold: number }> = {
       xp: newXp,
-      hp: winner.hp,
     };
     let newGoldTotal = currentPlayer.gold;
     if (goldAwarded > 0) {
-      newGoldTotal = currentPlayer.gold + goldAwarded;
+      newGoldTotal += goldAwarded;
       updatedStats.gold = newGoldTotal;
     }
     const updatedPlayer = await playerService.updatePlayerStats(
@@ -109,6 +136,16 @@ export async function applyCombatResults(
         skillPointsAwarded,
       };
     }
+
+    const healedWinner = await playerService.restorePlayerHealth(
+      winner.slackId,
+    );
+    winner.level = healedWinner.level;
+    winner.maxHp = healedWinner.combat.maxHp;
+    winner.hp = healedWinner.combat.hp;
+    winner.isAlive = healedWinner.combat.isAlive;
+    winner.x = healedWinner.position.x;
+    winner.y = healedWinner.position.y;
   } else {
     logger.debug(`Winner ${winner.name} is a monster, no XP or gold awarded`);
   }

@@ -1,8 +1,8 @@
 import type { App, BlockAction } from '@slack/bolt';
 import type { KnownBlock } from '@slack/types';
 import { ATTACK_ACTIONS } from '../commands';
-import { dmClient } from '../dm-client';
-import { TargetType } from '../dm-types';
+import { dmClient, type AttackInput } from '../dm-client';
+import { AttackOrigin, TargetType } from '../dm-types';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
 import {
   MONSTER_SELECTION_BLOCK_ID,
@@ -15,6 +15,7 @@ import {
 } from '../handlers/attackNotifications';
 import { toClientId } from '../utils/clientId';
 import type { SlackBlockState } from './helpers';
+import { deliverCombatMessages } from '../handlers/combatMessaging';
 
 type SelectedTarget =
   | { kind: 'monster'; id: number; name: string }
@@ -153,6 +154,9 @@ export const registerAttackActions = (app: App) => {
 
       try {
         const isMonster = selected.kind === 'monster';
+        const attackOrigin = isMonster
+          ? AttackOrigin.TextPve
+          : AttackOrigin.DropdownPvp;
         if (!isMonster && selected.slackId === userId) {
           await client.chat.postMessage({
             channel: channelId,
@@ -161,14 +165,21 @@ export const registerAttackActions = (app: App) => {
           return;
         }
 
+        const attackInput: AttackInput = isMonster
+          ? {
+              targetType: TargetType.Monster,
+              targetId: selected.id,
+              attackOrigin,
+            }
+          : {
+              targetType: TargetType.Player,
+              targetSlackId: selected.slackId,
+              attackOrigin,
+            };
+
         const attackResult = await dmClient.attack({
           slackId: toClientId(userId),
-          input: isMonster
-            ? { targetType: TargetType.Monster, targetId: selected.id }
-            : {
-                targetType: TargetType.Player,
-                targetSlackId: selected.slackId,
-              },
+          input: attackInput,
         });
 
         if (!attackResult.success) {
@@ -208,6 +219,7 @@ export const registerAttackActions = (app: App) => {
           channel: channelId,
           text: '⚔️ Combat initiated! Check your DMs for the results.',
         });
+        await deliverCombatMessages(client, attackResult.data?.playerMessages);
       } catch (err) {
         const message = getUserFriendlyErrorMessage(err, 'Failed to attack');
         await client.chat.postMessage({ channel: channelId, text: message });

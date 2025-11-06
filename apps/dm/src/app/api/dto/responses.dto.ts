@@ -2,6 +2,7 @@ import type { Player } from './player.dto';
 import type { Monster } from './monster.dto';
 import type { CombatLog } from './combat-log.dto';
 import type { TileInfo } from './tile-info.dto';
+import type { AttackOrigin } from './player-requests.dto';
 
 export interface LocationInfo {
   location: TileInfo;
@@ -122,6 +123,7 @@ export interface CombatPlayerMessage {
   name: string;
   message: string;
   role: string;
+  blocks?: Array<Record<string, unknown>>;
 }
 
 export interface CombatMessagePerformance {
@@ -163,6 +165,7 @@ export interface AttackPerformanceStats {
   combatMs: number;
   targetResolutionMs?: number;
   combatBreakdown?: CombatPerformanceBreakdown;
+  attackOrigin?: AttackOrigin;
 }
 
 export interface CombatResponse extends SuccessResponse {

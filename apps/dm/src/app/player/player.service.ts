@@ -503,6 +503,14 @@ export class PlayerService {
     return player;
   }
 
+  async restorePlayerHealth(slackId: string): Promise<PlayerEntity> {
+    const player = await this.getPlayer(slackId);
+    player.combat.hp = player.combat.maxHp;
+    player.combat.isAlive = true;
+    await PlayerFactory.save(player);
+    return player;
+  }
+
   async respawnPlayer(
     slackId: string,
     options: { emitEvent?: boolean } = {},

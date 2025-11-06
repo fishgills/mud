@@ -1,4 +1,4 @@
-import { TargetType } from '../dm-types';
+import { AttackOrigin, TargetType } from '../dm-types';
 import { HandlerContext } from './types';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import { extractSlackId } from '../utils/clientId';
@@ -8,6 +8,7 @@ import {
   isMissingTargetCharacterMessage,
   notifyTargetAboutMissingCharacter,
 } from './attackNotifications';
+import { deliverCombatMessages } from './combatMessaging';
 
 export const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
 export const SELF_ATTACK_ERROR = "You can't attack yourself.";
@@ -147,12 +148,14 @@ export class AttackHandler extends PlayerCommandHandler {
       dmGetPlayerMs: number;
       dmGetLocationEntitiesMs: number;
       targetType?: string;
+      attackOrigin?: AttackOrigin;
     } = {
       branch: 'initial',
       dmAttackMs: 0,
       dmGetPlayerMs: 0,
       dmGetLocationEntitiesMs: 0,
       targetType: undefined,
+      attackOrigin: undefined,
     };
     let perfDetails: Record<string, unknown> = {};
     const clientId = this.toClientId(userId);
@@ -180,6 +183,7 @@ export class AttackHandler extends PlayerCommandHandler {
       if (mentionMatch || atNameMatch) {
         metrics.branch = 'direct-target';
         metrics.targetType = 'player';
+        metrics.attackOrigin = AttackOrigin.TextPvp;
 
         const targetSlackId = mentionMatch ? mentionMatch[1] : undefined;
         if (!targetSlackId) {
@@ -208,6 +212,7 @@ export class AttackHandler extends PlayerCommandHandler {
             targetType: TargetType.Player,
             targetSlackId,
             ignoreLocation: true,
+            attackOrigin: AttackOrigin.TextPvp,
           },
         });
         metrics.dmAttackMs = Date.now() - attackStart;
@@ -232,6 +237,7 @@ export class AttackHandler extends PlayerCommandHandler {
             reason: 'dm-attack-failed',
             dmMessage: attackResult.message,
             dmPerf: attackResult.perf,
+            attackOrigin: AttackOrigin.TextPvp,
           };
           return;
         }
@@ -243,6 +249,7 @@ export class AttackHandler extends PlayerCommandHandler {
             success: false,
             reason: 'missing-combat-data',
             dmPerf: attackResult.perf,
+            attackOrigin: AttackOrigin.TextPvp,
           };
           return;
         }
@@ -250,11 +257,13 @@ export class AttackHandler extends PlayerCommandHandler {
         await say({
           text: '⚔️ Combat initiated! Check your DMs for the results.',
         });
+        await deliverCombatMessages(client, attackResult.data?.playerMessages);
         console.log(JSON.stringify(combat, null, 2));
         perfDetails = {
           success: true,
           path: 'direct-target',
           dmPerf: attackResult.perf,
+          attackOrigin: AttackOrigin.TextPvp,
         };
         return;
       }
