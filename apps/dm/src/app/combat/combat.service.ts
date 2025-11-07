@@ -597,130 +597,6 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
   }
 
   // Generate a short, entertaining summary (2-3 sentences)
-  private async generateEntertainingSummary(
-    combatLog: DetailedCombatLog,
-    options: NarrativeOptions = {},
-  ): Promise<string> {
-    const roundsCompleted = Math.ceil(combatLog.rounds.length / 2);
-    const narrativeVoice = options.secondPersonName
-      ? `Speak directly to ${options.secondPersonName} as "you" and keep everyone else in third person.`
-      : 'Use third-person narration throughout.';
-
-    const locationLine = combatLog.location
-      ? `Location: (${combatLog.location.x}, ${combatLog.location.y}).`
-      : 'Location: unknown.';
-
-    const prompt = [
-      'Create a punchy, vivid two-sentence summary of a fantasy combat for a Slack message.',
-      'Avoid dice jargon and Slack markdown; keep language bold and accessible.',
-      narrativeVoice,
-      `Result: ${combatLog.winner} defeated ${combatLog.loser} after ${roundsCompleted} rounds.`,
-      `Opening move: ${combatLog.firstAttacker}; ${locationLine}`,
-    ].join('\n');
-
-    try {
-      const ai = await this.aiService.getText(prompt, {
-        timeoutMs: 2000,
-        maxTokens: 120,
-        model: 'gpt-4o-mini',
-      });
-      const text = (ai?.output_text || '').trim();
-      if (text) return text;
-    } catch {
-      // fallthrough
-    }
-    // Fallback: basic deterministic line
-    return `${combatLog.winner} defeats ${combatLog.loser} in a hard-fought battle.`;
-  }
-
-  private buildSummaryBlocks(summary: string): Array<Record<string, unknown>> {
-    return [
-      {
-        type: 'section',
-        text: { type: 'mrkdwn', text: summary },
-      },
-      {
-        type: 'actions',
-        elements: [
-          {
-            type: 'button',
-            action_id: 'combat_action_show_log',
-            text: { type: 'plain_text', text: 'View full combat log' },
-            style: 'primary',
-          },
-        ],
-      },
-    ];
-  }
-
-  private getParticipantRewards(
-    combatLog: DetailedCombatLog,
-    participantName: string,
-  ): { xp: number; gold: number } {
-    const isWinner = combatLog.winner === participantName;
-    return {
-      xp: isWinner ? combatLog.xpAwarded : 0,
-      gold: isWinner ? combatLog.goldAwarded : 0,
-    };
-  }
-
-  private appendRewards(
-    base: string,
-    rewards: { xp: number; gold: number },
-    levelUp?: {
-      previousLevel: number;
-      newLevel: number;
-      skillPointsAwarded: number;
-    },
-  ): string {
-    const rewardText = `${base}\n\nRewards: +${rewards.xp} XP, +${rewards.gold} gold.`;
-    if (!levelUp || levelUp.newLevel <= levelUp.previousLevel) {
-      return rewardText;
-    }
-
-    const skillPointSuffix = levelUp.skillPointsAwarded
-      ? ` Awarded +${levelUp.skillPointsAwarded} skill point${
-          levelUp.skillPointsAwarded === 1 ? '' : 's'
-        }.`
-      : '';
-
-    return (
-      rewardText +
-      `\n🎉 Level up! Reached level ${levelUp.newLevel}.${skillPointSuffix}`
-    );
-  }
-
-  private async buildParticipantMessage(
-    combatLog: DetailedCombatLog,
-    participant: Combatant,
-    role: 'attacker' | 'defender',
-    context: { attacker: Combatant; defender: Combatant },
-  ): Promise<CombatMessage | null> {
-    if (participant.type !== 'player' || !participant.slackId) {
-      return null;
-    }
-
-    const options: NarrativeOptions = {
-      secondPersonName: participant.name,
-      attackerCombatant: context.attacker,
-      defenderCombatant: context.defender,
-    };
-    const [narrative, summary] = await Promise.all([
-      this.generateCombatNarrative(combatLog, options),
-      this.generateEntertainingSummary(combatLog, options),
-    ]);
-    const rewards = this.getParticipantRewards(combatLog, participant.name);
-
-    return {
-      slackId: participant.slackId,
-      name: participant.name,
-      message: this.appendRewards(narrative, rewards, participant.levelUp),
-      role,
-      blocks: this.buildSummaryBlocks(
-        this.appendRewards(summary, rewards, participant.levelUp),
-      ),
-    };
-  }
 
   // Convert Player/Monster to Combatant interface
   private async playerToCombatant(identifier: string): Promise<Combatant> {
@@ -877,129 +753,10 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
     attacker: Combatant,
     defender: Combatant,
   ): Promise<{ messages: CombatMessage[]; perf: CombatMessagePerformance }> {
-    // Generate participant and observer messages using service-level
-    // helpers so unit tests can spy/mock `generateCombatNarrative` and
-    // `generateEntertainingSummary` on this service instance.
-    const start = Date.now();
-    const perf: CombatMessagePerformance = {
-      totalMs: 0,
-    } as CombatMessagePerformance;
-    const messages: CombatMessage[] = [];
-    const { x, y } = combatLog.location;
-
-    const measure = async <T>(
-      fn: () => Promise<T>,
-    ): Promise<{ value: T; duration: number }> => {
-      const s = Date.now();
-      const value = await fn();
-      return { value, duration: Date.now() - s };
-    };
-
-    const participantContext = { attacker, defender };
-
-    const attackerPromise = measure(() =>
-      this.buildParticipantMessage(
-        combatLog,
-        attacker,
-        'attacker',
-        participantContext,
-      ),
-    );
-
-    const defenderEligible =
-      defender.type === 'player' &&
-      !!defender.slackId &&
-      defender.slackId !== attacker.slackId;
-    const defenderPromise = defenderEligible
-      ? measure(() =>
-          this.buildParticipantMessage(
-            combatLog,
-            defender,
-            'defender',
-            participantContext,
-          ),
-        )
-      : undefined;
-
-    const observerLookupPromise = measure(() =>
-      this.playerService.getPlayersAtLocation(x, y, {
-        excludePlayerId: attacker.type === 'player' ? attacker.id : undefined,
-      }),
-    );
-    const observerNarrativePromise = measure(() =>
-      this.generateCombatNarrative(combatLog, {
-        attackerCombatant: attacker,
-        defenderCombatant: defender,
-      }),
-    );
-    const observerSummaryPromise = measure(() =>
-      this.generateEntertainingSummary(combatLog, {}),
-    );
-
-    const attackerResult = await attackerPromise;
-    const attackerMessage = attackerResult.value;
-    if (attackerMessage) {
-      perf.attackerMessageMs = attackerResult.duration;
-      messages.push(attackerMessage);
-    }
-
-    const defenderResult = defenderPromise ? await defenderPromise : undefined;
-    const defenderMessage = defenderResult?.value;
-    if (defenderMessage) {
-      perf.defenderMessageMs = defenderResult.duration;
-      messages.push(defenderMessage);
-    }
-
-    const observersResult = await observerLookupPromise;
-    perf.observerLookupMs = observersResult.duration;
-    const observers = observersResult.value as unknown as Array<
-      Record<string, unknown>
-    >;
-
-    const observerNarrativeResult = await observerNarrativePromise;
-    perf.observerNarrativeMs = observerNarrativeResult.duration;
-    const observerMessage = observerNarrativeResult.value;
-
-    const observerSummaryResult = await observerSummaryPromise;
-    perf.observerSummaryMs = observerSummaryResult.duration;
-    const observerSummary = observerSummaryResult.value;
-
-    for (const observer of observers) {
-      const obsId = observer.id as number | undefined;
-      if (
-        defender.type === 'player' &&
-        typeof obsId === 'number' &&
-        obsId === defender.id
-      )
-        continue;
-      const clientType = observer.clientType as string | undefined;
-      const clientId = observer.clientId as string | undefined;
-      const observerName = observer.name as string | undefined;
-      if (clientType === 'slack' && clientId) {
-        messages.push({
-          slackId: clientId,
-          name: observerName ?? 'Someone',
-          message: `📣 Combat nearby: ${observerMessage}`,
-          role: 'observer',
-          blocks: [
-            {
-              type: 'section',
-              text: {
-                type: 'mrkdwn',
-                text: `📣 Combat nearby: ${observerSummary}`,
-              },
-            },
-            { type: 'actions', elements: [] },
-          ],
-        });
-      }
-    }
-
-    perf.totalMs = Date.now() - start;
-    this.logger.debug(
-      `Generated ${messages.length} combat messages (${messages.filter((m) => m.role === 'observer').length} observers)`,
-    );
-    return { messages, perf };
+    // Ensure messenger is initialized
+    this.initMessenger();
+    // Delegate to CombatMessenger to avoid code duplication
+    return this.messenger.generateCombatMessages(combatLog, attacker, defender);
   }
 
   /**
@@ -1093,10 +850,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
       let notificationElapsed = 0;
       try {
         const notificationStart = Date.now();
-        // Only notify participants (attacker and defender). Observers do not receive summaries.
-        const participantMessages = messages.filter(
-          (m) => m.role === 'attacker' || m.role === 'defender',
-        );
+        // Send notifications to all players (participants and observers)
         await this.eventBridge.publishCombatNotifications(
           {
             eventType: 'combat:end',
@@ -1108,7 +862,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
             y: combatLog.location.y,
             timestamp: new Date(),
           },
-          participantMessages,
+          messages,
         );
         notificationElapsed = Date.now() - notificationStart;
       } finally {
