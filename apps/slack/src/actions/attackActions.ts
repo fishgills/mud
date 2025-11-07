@@ -216,10 +216,7 @@ export const registerAttackActions = (app: App) => {
           return;
         }
 
-        await client.chat.postMessage({
-          channel: channelId,
-          text: '⚔️ Combat initiated! Check your DMs for the results.',
-        });
+        // Removed direct initiation and DM delivery; event bus handles participant notifications
       } catch (err) {
         const message = getUserFriendlyErrorMessage(err, 'Failed to attack');
         await client.chat.postMessage({ channel: channelId, text: message });

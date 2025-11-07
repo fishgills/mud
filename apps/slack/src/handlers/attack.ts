@@ -1,5 +1,5 @@
 import { AttackOrigin, TargetType } from '../dm-types';
-import { HandlerContext } from './types';
+import { HandlerContext, type SayMessage } from './types';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import { extractSlackId } from '../utils/clientId';
 import { PlayerCommandHandler } from './base';
@@ -13,6 +13,7 @@ import {
   isMissingTargetCharacterMessage,
   notifyTargetAboutMissingCharacter,
 } from './attackNotifications';
+import type { WebClient } from '@slack/web-api';
 
 export const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
 export const SELF_ATTACK_ERROR = "You can't attack yourself.";
@@ -25,6 +26,13 @@ type AttackCombatResult = {
   xpGained: number;
   goldGained: number;
   message: string;
+  playerMessages?: Array<{
+    slackId: string;
+    name: string;
+    message: string;
+    role: string;
+    blocks?: Array<Record<string, unknown>>;
+  }>;
 };
 
 type NearbyMonster = { id: string; name: string };
@@ -127,6 +135,32 @@ export function buildCombatSummary(
   msg += `\nCombat lasted ${combat.roundsCompleted} rounds.\n`;
   msg += `\n${combat.message}`;
   return msg;
+}
+
+/**
+ * Handle successful attack - sends initiation message and delivers combat messages
+ */
+export async function handleSuccessfulAttack(
+  client: WebClient | undefined,
+  say: ((msg: SayMessage) => Promise<void>) | null,
+  channelId?: string,
+): Promise<void> {
+  const initMessage = {
+    text: '⚔️ Combat initiated! Check your DMs for the results.',
+  };
+
+  if (say) {
+    // Text-based attack (has say function)
+    await say(initMessage);
+  } else if (channelId && client) {
+    // Button-based attack (uses client directly)
+    await client.chat.postMessage({
+      channel: channelId,
+      ...initMessage,
+    });
+  }
+
+  // Combat messages are now delivered via the notification service (Redis), not directly via client
 }
 
 export class AttackHandler extends PlayerCommandHandler {
@@ -253,9 +287,9 @@ export class AttackHandler extends PlayerCommandHandler {
           return;
         }
 
-        await say({
-          text: '⚔️ Combat initiated! Check your DMs for the results.',
-        });
+        // Event bus will deliver combat resolution; no local summary
+        // (Removed direct initiation DM to unify delivery path)
+
         console.log(JSON.stringify(combat, null, 2));
         perfDetails = {
           success: true,

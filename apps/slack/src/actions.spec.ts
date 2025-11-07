@@ -462,12 +462,8 @@ describe('registerActions', () => {
         attackOrigin: AttackOrigin.TextPve,
       },
     });
-    expect(client.chat.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        channel: 'D1',
-        text: '⚔️ Combat initiated! Check your DMs for the results.',
-      }),
-    );
+    // No immediate DM; event bus handles participant notifications
+    expect(client.chat.postMessage).not.toHaveBeenCalled();
     // Combat messages are now delivered via the notification service (Redis), not directly via client
     expect(client.chat.update).toHaveBeenCalledWith(
       expect.objectContaining({ channel: 'D1', ts: '158456' }),

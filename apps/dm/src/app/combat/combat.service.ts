@@ -1093,6 +1093,10 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
       let notificationElapsed = 0;
       try {
         const notificationStart = Date.now();
+        // Only notify participants (attacker and defender). Observers do not receive summaries.
+        const participantMessages = messages.filter(
+          (m) => m.role === 'attacker' || m.role === 'defender',
+        );
         await this.eventBridge.publishCombatNotifications(
           {
             eventType: 'combat:end',
@@ -1104,7 +1108,7 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
             y: combatLog.location.y,
             timestamp: new Date(),
           },
-          messages,
+          participantMessages,
         );
         notificationElapsed = Date.now() - notificationStart;
       } finally {

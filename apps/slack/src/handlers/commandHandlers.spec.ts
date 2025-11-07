@@ -133,9 +133,8 @@ describe('attackHandler', () => {
         attackOrigin: AttackOrigin.TextPvp,
       },
     });
-    expect(say).toHaveBeenCalledWith({
-      text: '⚔️ Combat initiated! Check your DMs for the results.',
-    });
+    // No local initiation message; combat resolution sent via event bus notifications
+    expect(say).not.toHaveBeenCalled();
     // Combat messages are now delivered via the notification service (Redis), not directly via client
     expect(client.conversations.open).not.toHaveBeenCalled();
     expect(client.chat.postMessage).not.toHaveBeenCalled();
