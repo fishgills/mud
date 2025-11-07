@@ -202,28 +202,31 @@ export class LocationNotificationService
   }
 
   private async handleMonsterMove(event: MonsterMoveEvent): Promise<void> {
-    if (event.fromX === event.toX && event.fromY === event.toY) {
-      return;
-    }
-
-    await this.notifyPlayersAtLocation(
-      event,
-      { x: event.fromX, y: event.fromY },
-      {
-        type: 'monster',
-        message: `${event.monster.name} leaves ${this.describeHeading(event.fromX, event.fromY, event.toX, event.toY)}.`,
-      },
+    this.logger.verbose(
+      `Monster move event received: ${JSON.stringify(event)}`,
     );
+    // if (event.fromX === event.toX && event.fromY === event.toY) {
+    //   return;
+    // }
 
-    await this.notifyPlayersAtLocation(
-      event,
-      { x: event.toX, y: event.toY },
-      {
-        type: 'monster',
-        priority: 'high',
-        message: `${event.monster.name} moves in ${this.describeArrival(event.fromX, event.fromY, event.toX, event.toY)}.`,
-      },
-    );
+    // await this.notifyPlayersAtLocation(
+    //   event,
+    //   { x: event.fromX, y: event.fromY },
+    //   {
+    //     type: 'monster',
+    //     message: `${event.monster.name} leaves ${this.describeHeading(event.fromX, event.fromY, event.toX, event.toY)}.`,
+    //   },
+    // );
+
+    // await this.notifyPlayersAtLocation(
+    //   event,
+    //   { x: event.toX, y: event.toY },
+    //   {
+    //     type: 'monster',
+    //     priority: 'high',
+    //     message: `${event.monster.name} moves in ${this.describeArrival(event.fromX, event.fromY, event.toX, event.toY)}.`,
+    //   },
+    // );
   }
 
   private async handleMonsterDeath(event: MonsterDeathEvent): Promise<void> {
