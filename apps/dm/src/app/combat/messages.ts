@@ -117,9 +117,27 @@ export class CombatMessenger {
       options.secondPersonName,
     );
 
-    const attackLine = `${attackerLabel} attack: d20 ${round.attackRoll} ${this.formatModifier(
-      round.attackModifier,
-    )} = ${round.totalAttack} vs AC ${round.defenderAC} -> ${round.hit ? 'HIT' : 'MISS'}`;
+    // Build detailed attack calculation with equipment bonuses
+    let attackCalc = `d20 ${round.attackRoll}`;
+    if (round.baseAttackModifier !== undefined) {
+      attackCalc += ` ${this.formatModifier(round.baseAttackModifier)}`;
+    }
+    if (round.attackBonus && round.attackBonus > 0) {
+      attackCalc += ` ${this.formatModifier(round.attackBonus)}`;
+    }
+    attackCalc += ` = ${round.totalAttack}`;
+
+    // Build detailed AC calculation with armor bonuses
+    let acCalc = `${round.defenderAC}`;
+    if (
+      round.baseDefenderAC !== undefined &&
+      round.armorBonus !== undefined &&
+      round.armorBonus > 0
+    ) {
+      acCalc = `${round.baseDefenderAC} ${this.formatModifier(round.armorBonus)} = ${round.defenderAC}`;
+    }
+
+    const attackLine = `${attackerLabel} attack: ${attackCalc} vs AC ${acCalc} -> ${round.hit ? 'HIT' : 'MISS'}`;
 
     const defender =
       context.combatantsByName?.get(round.defenderName) ?? undefined;
@@ -131,9 +149,21 @@ export class CombatMessenger {
         ? `${hpAfter}/${defenderMaxHp}`
         : `${hpAfter}`;
 
-    const damageLine = round.hit
-      ? `Damage: ${round.damage} -> ${defenderLabel} HP ${hpSegment}${round.killed ? ' KO' : ''}`
-      : `Damage: 0 -> ${defenderLabel} HP ${hpSegment} (miss)`;
+    // Build detailed damage calculation with weapon/equipment bonuses
+    let damageLine: string;
+    if (round.hit) {
+      let damageCalc = `${round.damage}`;
+      if (
+        round.baseDamage !== undefined &&
+        round.damageBonus !== undefined &&
+        round.damageBonus > 0
+      ) {
+        damageCalc = `${round.baseDamage} ${this.formatModifier(round.damageBonus)} = ${round.damage}`;
+      }
+      damageLine = `Damage: ${damageCalc} -> ${defenderLabel} HP ${hpSegment}${round.killed ? ' KO' : ''}`;
+    } else {
+      damageLine = `Damage: 0 -> ${defenderLabel} HP ${hpSegment} (miss)`;
+    }
 
     return [attackLine, damageLine].join('\n');
   }

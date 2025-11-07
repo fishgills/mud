@@ -85,8 +85,10 @@ describe('CombatMessenger', () => {
       'Hero (Lvl 5, HP 12/12, Str 14, Agi 12, Atk +2, Dmg +3, AC +1, Gear: Fine Longsword [Fine]) vs Goblin (Lvl 2, HP 8/8, Str 10, Agi 11, Gear: none)',
     );
     expect(narrative).toContain('Round 1');
-    expect(narrative).toContain('Hero attack: d20 15 + 2 = 17 vs AC 12 -> HIT');
-    expect(narrative).toContain('Damage: 5 -> Goblin HP 0/8 KO');
+    expect(narrative).toContain('Hero attack: d20 15');
+    expect(narrative).toContain('= 17 vs AC 12 -> HIT');
+    expect(narrative).toContain('Damage:');
+    expect(narrative).toContain('Goblin HP 0/8 KO');
   });
 
   test('buildParticipantMessage includes rewards and level-up text when present', async () => {

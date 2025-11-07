@@ -88,6 +88,13 @@ export interface CombatRound {
   damage: number;
   defenderHpAfter: number;
   killed: boolean;
+  // Bonus breakdown for transparency
+  baseAttackModifier?: number;
+  attackBonus?: number;
+  baseDefenderAC?: number;
+  armorBonus?: number;
+  baseDamage?: number;
+  damageBonus?: number;
 }
 
 export interface InitiativeRoll {

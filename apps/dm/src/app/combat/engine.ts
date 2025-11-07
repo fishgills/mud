@@ -156,9 +156,10 @@ export async function runCombat(
 
     let damage = 0;
     let killed = false;
+    let baseDamage = 0;
 
     if (hit) {
-      const baseDamage = (overrides?.calculateDamage ?? useCalculateDamage)(
+      baseDamage = (overrides?.calculateDamage ?? useCalculateDamage)(
         attacker.strength,
       );
       const damageBonus = attacker.damageBonus ?? 0;
@@ -186,6 +187,13 @@ export async function runCombat(
       damage,
       defenderHpAfter: defender.hp,
       killed,
+      // Include bonus breakdown for player transparency
+      baseAttackModifier,
+      attackBonus: attacker.attackBonus ?? 0,
+      baseDefenderAC,
+      armorBonus: defender.armorBonus ?? 0,
+      baseDamage,
+      damageBonus: attacker.damageBonus ?? 0,
     });
 
     if (hit) {

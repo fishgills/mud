@@ -106,3 +106,4 @@ tsconfig.tsbuildinfo
 out
 test-output
 coverage
+report
