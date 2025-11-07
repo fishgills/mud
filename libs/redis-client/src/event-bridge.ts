@@ -235,7 +235,9 @@ export class RedisEventBridge {
   ): Promise<void> {
     const recipients: NotificationRecipient[] = messages.map((msg) => ({
       clientType: 'slack' as const,
-      clientId: msg.slackId,
+      clientId: msg.slackId.startsWith('slack:')
+        ? msg.slackId
+        : `slack:${msg.slackId}`,
       message: msg.message,
       role: msg.role,
       priority: msg.role === 'observer' ? 'normal' : 'high',
