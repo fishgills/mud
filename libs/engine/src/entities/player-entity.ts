@@ -36,6 +36,7 @@ export interface PlayerData {
   skillPoints: number;
   partyId?: number;
   equipment?: Partial<EquipmentSlots>;
+  isCreationComplete?: boolean;
 }
 
 export class PlayerEntity extends Character {
@@ -47,6 +48,7 @@ export class PlayerEntity extends Character {
   public skillPoints: number;
   public partyId?: number;
   public equipment: EquipmentSlots;
+  public isCreationComplete: boolean;
 
   constructor(data: PlayerData) {
     super(data.id, data.name, data.attributes, data.combat, data.position);
@@ -58,6 +60,7 @@ export class PlayerEntity extends Character {
     this.skillPoints = data.skillPoints;
     this.partyId = data.partyId;
     this.equipment = { ...createEmptyEquipment(), ...data.equipment };
+    this.isCreationComplete = data.isCreationComplete ?? false;
   }
 
   /**
@@ -160,6 +163,7 @@ export class PlayerEntity extends Character {
       skillPoints: this.skillPoints,
       partyId: this.partyId,
       equipment: this.equipment,
+      isCreationComplete: this.isCreationComplete,
     };
   }
 }

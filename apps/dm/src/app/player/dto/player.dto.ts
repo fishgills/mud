@@ -19,6 +19,7 @@ export interface PlayerStatsDto {
   xp?: number;
   gold?: number;
   level?: number;
+  completeCreation?: boolean;
 }
 
 export interface AttackDto {

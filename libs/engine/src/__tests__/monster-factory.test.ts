@@ -44,7 +44,7 @@ describe('MonsterFactory', () => {
     });
 
     expect(stored).toMatchObject({
-      name: 'Goblin',
+      name: 'Snail',
       biomeId: 3,
       x: 1,
       y: 2,

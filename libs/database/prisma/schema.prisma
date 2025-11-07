@@ -36,6 +36,7 @@ model Player {
   level        Int           @default(1)
   skillPoints  Int           @default(0)
   isAlive      Boolean       @default(true)
+  isCreationComplete Boolean @default(false) // Tracks if character creation is complete (no more rerolls/complete allowed)
   lastAction   DateTime      @default(now())
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt

@@ -258,6 +258,12 @@ export class PlayerService {
     const player = await this.getPlayer(slackId);
     const oldX = player.position.x;
     const oldY = player.position.y;
+
+    // Debug logging
+    this.logger.log(
+      `[MOVE-DEBUG] Player: ${player.name}, Current: (${oldX}, ${oldY}), MoveDto: ${JSON.stringify(moveDto)}`,
+    );
+
     let newX = player.position.x;
     let newY = player.position.y;
 
@@ -305,6 +311,10 @@ export class PlayerService {
         default:
           throw new Error('Invalid direction. Use n, s, e, w');
       }
+
+      this.logger.log(
+        `[MOVE-DEBUG] After direction calc: direction=${moveDto.direction}, distance=${requestedDistance}, newPos=(${newX}, ${newY})`,
+      );
     } else {
       throw new Error(
         'Invalid movement request. Provide a direction or coordinates.',
@@ -349,6 +359,16 @@ export class PlayerService {
   ): Promise<PlayerEntity> {
     const player = await this.getPlayer(slackId);
     const previousSkillPoints = player.skillPoints;
+
+    // Handle character creation completion
+    if (statsDto.completeCreation) {
+      if (player.isCreationComplete) {
+        throw new BadRequestException(
+          'Character creation is already complete.',
+        );
+      }
+      player.isCreationComplete = true;
+    }
 
     if (typeof statsDto.hp === 'number') {
       player.combat.hp = statsDto.hp;
@@ -450,6 +470,13 @@ export class PlayerService {
   async rerollPlayerStats(slackId: string): Promise<PlayerEntity> {
     const currentPlayer = await this.getPlayer(slackId);
 
+    // Prevent rerolling if character creation is already complete
+    if (currentPlayer.isCreationComplete) {
+      throw new BadRequestException(
+        'Character creation is complete. You cannot reroll anymore.',
+      );
+    }
+
     // Generate new random starting stats
     const { strength, agility, health, maxHp } = this.generateRandomStats();
 
@@ -459,13 +486,13 @@ export class PlayerService {
     currentPlayer.attributes.health = health;
     currentPlayer.combat.maxHp = maxHp;
 
-    // Only update HP if character is still in creation phase (HP <= 1)
-    if (currentPlayer.combat.hp <= 1) {
-      currentPlayer.combat.hp = maxHp;
-    }
+    // Set HP to new maxHp during reroll
+    currentPlayer.combat.hp = maxHp;
 
     await PlayerFactory.save(currentPlayer);
-    return currentPlayer;
+
+    // Reload from database to ensure consistent state
+    return this.getPlayer(slackId);
   }
 
   async healPlayer(slackId: string, amount: number): Promise<PlayerEntity> {
@@ -766,7 +793,7 @@ export class PlayerService {
     const agility = new DiceRoll('4d6k3').total;
     const health = new DiceRoll('4d6k3').total;
 
-    // Calculate max HP based on health attribute (existing formula)
+    // Calculate starting HP: 10 base + Vitality modifier
     const maxHp = 10 + this.getStatModifier(health);
 
     return { strength, agility, health, maxHp };

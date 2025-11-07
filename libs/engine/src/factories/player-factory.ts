@@ -455,6 +455,7 @@ export class PlayerFactory {
         level: entity.level,
         skillPoints: entity.skillPoints,
         isAlive: entity.combat.isAlive,
+        isCreationComplete: entity.isCreationComplete,
         // Equipment is managed via playerItems relations; do not persist
         // legacy item columns here.
       },
@@ -510,6 +511,7 @@ export class PlayerFactory {
       level: player.level,
       skillPoints: player.skillPoints,
       partyId: undefined, // TODO: Add when party system is implemented
+      isCreationComplete: player.isCreationComplete,
       // Build equipment from playerItems relation if present (preferred), otherwise empty slots
       equipment: ((): Record<string, number | null> => {
         const defaultEquip: Record<string, number | null> = {
@@ -550,10 +552,14 @@ export class PlayerFactory {
             const itemId = pi?.itemId ?? null;
             if (!slot || itemId === null || itemId === undefined) continue;
             if (slot === PlayerSlot.head) defaultEquip.head = Number(itemId);
-            else if (slot === PlayerSlot.chest) defaultEquip.chest = Number(itemId);
-            else if (slot === PlayerSlot.legs) defaultEquip.legs = Number(itemId);
-            else if (slot === PlayerSlot.arms) defaultEquip.arms = Number(itemId);
-            else if (slot === PlayerSlot.weapon) defaultEquip.weapon = Number(itemId);
+            else if (slot === PlayerSlot.chest)
+              defaultEquip.chest = Number(itemId);
+            else if (slot === PlayerSlot.legs)
+              defaultEquip.legs = Number(itemId);
+            else if (slot === PlayerSlot.arms)
+              defaultEquip.arms = Number(itemId);
+            else if (slot === PlayerSlot.weapon)
+              defaultEquip.weapon = Number(itemId);
           }
         }
         // No legacy column fallback: equipment is derived only from the
@@ -588,24 +594,27 @@ export class PlayerFactory {
     health: number;
     maxHp: number;
   } {
-    // Roll 3d6 for each stat (range: 3-18)
+    // Roll 4d6 drop lowest for each stat (D&D standard character generation)
     const rollStat = () => {
-      return (
-        Math.floor(Math.random() * 6) +
-        1 +
-        Math.floor(Math.random() * 6) +
-        1 +
-        Math.floor(Math.random() * 6) +
-        1
-      );
+      const rolls = [
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1,
+      ];
+      // Drop the lowest roll
+      const lowest = Math.min(...rolls);
+      const sum = rolls.reduce((a, b) => a + b, 0);
+      return sum - lowest;
     };
 
     const strength = rollStat();
     const agility = rollStat();
     const health = rollStat();
 
-    // Calculate starting HP: 10 base + (health * 2)
-    const maxHp = 10 + health * 2;
+    // Calculate starting HP: 10 base + Vitality modifier
+    const modifier = Math.floor((health - 10) / 2);
+    const maxHp = 10 + modifier;
 
     return { strength, agility, health, maxHp };
   }

@@ -251,6 +251,7 @@ export class EntityToDtoAdapter {
         combat.isAlive ?? raw.isAlive,
         hp > 0 || toBoolean(raw.isAlive, true),
       ),
+      isCreationComplete: toBoolean(raw.isCreationComplete, false),
       lastAction,
       createdAt,
       updatedAt,

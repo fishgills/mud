@@ -75,6 +75,7 @@ export interface PlayerRecord extends Record<string, unknown> {
   level?: number;
   skillPoints?: number;
   isAlive?: boolean;
+  isCreationComplete?: boolean;
   currentTile?: {
     x: number;
     y: number;
@@ -360,7 +361,7 @@ export async function completePlayer(
   return dmRequest<PlayerResponse>('/players/stats', HttpMethod.POST, {
     body: {
       slackId: input.slackId,
-      input: { hp: 10 },
+      input: { completeCreation: true },
     },
   });
 }

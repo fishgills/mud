@@ -28,6 +28,7 @@ export interface Player {
   level: number;
   skillPoints: number;
   isAlive: boolean;
+  isCreationComplete: boolean;
   lastAction?: Date;
   createdAt?: Date;
   updatedAt: Date;

@@ -66,7 +66,9 @@ describe('PlayerFactory', () => {
     });
 
     expect(entity).toBeInstanceOf(PlayerEntity);
-    expect(entity.combat.maxHp).toBe(16);
+    // With Math.random() = 0: rolls [1,1,1,1], drop lowest = 3, health = 3
+    // maxHp = 10 + Math.floor((3-10)/2) = 10 + (-4) = 6
+    expect(entity.combat.maxHp).toBe(6);
     expect(entity.equipment).toEqual({
       head: null,
       chest: null,
@@ -76,8 +78,8 @@ describe('PlayerFactory', () => {
     });
     expect(stored).toMatchObject({
       clientId: 'slack:U123',
-      hp: 16,
-      maxHp: 16,
+      hp: 6,
+      maxHp: 6,
       strength: 3,
       agility: 3,
       health: 3,
