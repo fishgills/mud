@@ -51,10 +51,22 @@ Players have three core attributes (like D&D warriors):
 
 Combat follows simplified D&D mechanics:
 
-- Damage = 1d6 + Strength modifier
-- Strength modifier = (Strength - 10) / 2
-- Dodge chance = (Agility - 10) \* 5% per point above 10
+- **Attack Roll**: d20 + Strength modifier + Equipment attack bonus vs AC
+- **Armor Class (AC)**: 10 + Agility modifier + Equipment armor bonus
+- **Damage**: Base damage (from Strength) + Equipment damage bonus
+- **Modifiers**: (Ability - 10) / 2 (rounded down)
 - Players gain XP for defeating monsters
+
+### Combat Transparency
+
+All combat logs now include detailed breakdowns:
+
+- Attack calculations show: dice roll + ability modifier + equipment bonus
+- AC calculations show: base AC + ability modifier + armor bonus
+- Damage calculations show: base damage + weapon/equipment bonus
+- Equipment effects are displayed in combatant metrics (Atk +X, Dmg +Y, AC +Z)
+
+Example: `Hero attack: d20 15 + 2 (Str) + 3 (Equipment) = 20 vs AC 10 + 1 (Agi) + 4 (Armor) = 15 -> HIT`
 
 ## Monster Types
 
