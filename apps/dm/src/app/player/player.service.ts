@@ -34,6 +34,44 @@ export class PlayerService {
 
   constructor(private readonly worldService: WorldService) {}
 
+  /**
+   * Get top players by level and XP, optionally filtered by team/workspace
+   */
+  async getTopPlayers(limit = 10, teamId?: string): Promise<PlayerEntity[]> {
+    const whereClause = teamId
+      ? {
+          clientId: {
+            contains: `:${teamId}:`,
+          },
+          isCreationComplete: true,
+        }
+      : {
+          isCreationComplete: true,
+        };
+
+    const players = await this.prisma.player.findMany({
+      where: whereClause,
+      orderBy: [{ level: 'desc' }, { xp: 'desc' }],
+      take: limit,
+    });
+
+    // Convert to PlayerEntity objects
+    const entities: PlayerEntity[] = [];
+    for (const player of players) {
+      if (player.clientId) {
+        const entity = await PlayerFactory.load(
+          player.clientId,
+          (player.clientType as ClientType) || 'slack',
+        );
+        if (entity) {
+          entities.push(entity);
+        }
+      }
+    }
+
+    return entities;
+  }
+
   // Returns the cumulative XP threshold required to reach the next level.
   // Uses a triangular progression that grows with level:
   // T(level) = base * (level * (level + 1) / 2)

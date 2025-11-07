@@ -93,6 +93,31 @@ export class PlayersController {
     };
   }
 
+  @Get('leaderboard')
+  async getLeaderboard(
+    @Query('limit') limit?: string,
+    @Query('teamId') teamId?: string,
+  ): Promise<{ success: boolean; data?: Player[] }> {
+    try {
+      const limitNum = limit ? parseInt(limit, 10) : 10;
+      const entities = await this.playerService.getTopPlayers(limitNum, teamId);
+      const players = await Promise.all(
+        entities.map((entity) =>
+          this.buildPlayerDto(entity, { includeDetails: false }),
+        ),
+      );
+      return {
+        success: true,
+        data: players,
+      };
+    } catch (err) {
+      this.logger.error('Failed to get leaderboard', err);
+      return {
+        success: false,
+      };
+    }
+  }
+
   @Get()
   async getPlayer(
     @Query('slackId') slackId?: string,

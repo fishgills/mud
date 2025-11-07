@@ -316,6 +316,18 @@ export async function getPlayer(params: {
   });
 }
 
+export async function getLeaderboard(params?: {
+  limit?: number;
+  teamId?: string;
+}): Promise<{ success: boolean; data?: PlayerRecord[] }> {
+  return dmRequest('/players/leaderboard', HttpMethod.GET, {
+    query: {
+      limit: params?.limit?.toString(),
+      teamId: params?.teamId,
+    },
+  });
+}
+
 export async function movePlayer(
   input: MovePlayerRequest,
 ): Promise<PlayerMoveResponse> {

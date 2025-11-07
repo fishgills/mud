@@ -8,6 +8,7 @@ import {
   rerollPlayerStats,
   completePlayer,
   deletePlayer,
+  getLeaderboard,
 } from '../dm-client';
 import { toClientId } from '../utils/clientId';
 
@@ -36,6 +37,98 @@ const getPlayerStatus = async (
     console.error('Failed to fetch player status:', err);
   }
   return { hasCharacter: false, isActive: false };
+};
+
+const buildLeaderboardBlocks = async (
+  teamId?: string,
+): Promise<KnownBlock[]> => {
+  try {
+    // Get workspace leaderboard
+    const workspaceResult = await getLeaderboard({ limit: 3, teamId });
+    const workspacePlayers = workspaceResult.data || [];
+
+    // Get global leaderboard
+    const globalResult = await getLeaderboard({ limit: 3 });
+    const globalPlayers = globalResult.data || [];
+
+    const blocks: KnownBlock[] = [
+      {
+        type: 'header',
+        text: {
+          type: 'plain_text',
+          text: '🏆 Leaderboards',
+          emoji: true,
+        },
+      },
+    ];
+
+    // Workspace leaderboard
+    if (workspacePlayers.length > 0) {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*🏅 Top Players in This Workspace*',
+        },
+      });
+
+      workspacePlayers.forEach((player, index) => {
+        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉';
+        blocks.push({
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `${medal} *${player.name}* - Level ${player.level} (${player.xp} XP)`,
+          },
+        });
+      });
+    } else {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*🏅 Top Players in This Workspace*\n_No players yet in this workspace_',
+        },
+      });
+    }
+
+    blocks.push({ type: 'divider' });
+
+    // Global leaderboard
+    if (globalPlayers.length > 0) {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*🌍 Top Players Across All Workspaces*',
+        },
+      });
+
+      globalPlayers.forEach((player, index) => {
+        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉';
+        blocks.push({
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `${medal} *${player.name}* - Level ${player.level} (${player.xp} XP)`,
+          },
+        });
+      });
+    }
+
+    return blocks;
+  } catch (err) {
+    console.error('Failed to build leaderboard blocks:', err);
+    return [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '🏆 *Leaderboards*\n_Unable to load leaderboards_',
+        },
+      },
+    ];
+  }
 };
 
 const buildActionButtons = (status: PlayerStatus): KnownBlock[] => {
@@ -175,6 +268,7 @@ export const buildAppHomeBlocks = async (
   const status = await getPlayerStatus(userId, teamId);
   const helpBlocks = buildHelpBlocks();
   const actionButtons = buildActionButtons(status);
+  const leaderboardBlocks = await buildLeaderboardBlocks(teamId);
 
   return [
     {
@@ -203,6 +297,8 @@ export const buildAppHomeBlocks = async (
     },
     { type: 'divider' },
     ...actionButtons,
+    { type: 'divider' },
+    ...leaderboardBlocks,
     { type: 'divider' },
     ...helpBlocks,
   ];

@@ -54,11 +54,11 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     fields: [
       {
         type: 'mrkdwn',
-        text: `*Character Setup*\n• \`${COMMANDS.NEW} Name\`\n• \`${COMMANDS.REROLL}\`\n• \`${COMMANDS.COMPLETE}\`\n• \`${COMMANDS.DELETE}\``,
+        text: `*Character Setup*\n• \`${COMMANDS.NEW} Name\` - Create character\n• \`${COMMANDS.REROLL}\` - Reroll stats\n• \`${COMMANDS.COMPLETE}\` - Finish creation\n• \`${COMMANDS.DELETE}\` - Delete character`,
       },
       {
         type: 'mrkdwn',
-        text: `*Explore & Fight*\n• \`${COMMANDS.NORTH}\`/\`${COMMANDS.SOUTH}\`/\`${COMMANDS.EAST}\`/\`${COMMANDS.WEST}\`\n• \`${COMMANDS.LOOK}\`\n• \`${COMMANDS.SNIFF}\`\n• \`${COMMANDS.ATTACK}\`\n• \`${COMMANDS.STATS}\``,
+        text: `*Movement*\n• \`${COMMANDS.NORTH}\`/\`${COMMANDS.UP}\` - Move north\n• \`${COMMANDS.SOUTH}\`/\`${COMMANDS.DOWN}\` - Move south\n• \`${COMMANDS.EAST}\`/\`${COMMANDS.RIGHT}\` - Move east\n• \`${COMMANDS.WEST}\`/\`${COMMANDS.LEFT}\` - Move west`,
       },
     ],
   },
@@ -67,11 +67,24 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     fields: [
       {
         type: 'mrkdwn',
-        text: `*Other*\n• \`${COMMANDS.MAP}\`\n• \`${COMMANDS.INVENTORY}\`\n• \`${COMMANDS.HELP}\``,
+        text: `*Exploration*\n• \`${COMMANDS.LOOK}\` or \`${COMMANDS.LOOK_SHORT}\` - Look around\n• \`${COMMANDS.SNIFF}\` - Detect nearby monsters\n• \`${COMMANDS.MAP}\` - View world map\n• \`${COMMANDS.INSPECT}\` - Inspect target`,
       },
       {
         type: 'mrkdwn',
-        text: `*Tips*\nDM me commands. Case-insensitive. Try \`${COMMANDS.LOOK}\` to inspect your tile.`,
+        text: `*Combat*\n• \`${COMMANDS.ATTACK}\` - Attack target\n• \`${COMMANDS.ATTACK} @player\` - Attack player\n• \`${COMMANDS.ATTACK} monster\` - Attack monster`,
+      },
+    ],
+  },
+  {
+    type: 'section',
+    fields: [
+      {
+        type: 'mrkdwn',
+        text: `*Inventory & Items*\n• \`${COMMANDS.INVENTORY}\` - View inventory\n• \`${COMMANDS.PICKUP}\` - Pick up items\n• \`${COMMANDS.EQUIP}\` - Equip item\n• \`${COMMANDS.DROP}\` - Drop item`,
+      },
+      {
+        type: 'mrkdwn',
+        text: `*Character Info*\n• \`${COMMANDS.STATS}\` - View your stats\n• \`${COMMANDS.HELP}\` - Show this help`,
       },
     ],
   },
