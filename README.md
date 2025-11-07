@@ -4,28 +4,47 @@ Mud is an AI-assisted multiplayer text adventure game built as a Turborepo monor
 
 ## Monorepo structure
 
-| Path              | Description                                                                                                                       |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/world`      | World generation and rendering service providing REST endpoints backed by Redis caching and Prisma.                               |
-| `apps/dm`         | \"Dungeon master\" API that drives game ticks, combat, and AI generated descriptions. Exposes REST endpoints consumed by clients. |
-| `apps/slack`      | Slack Bolt app that handles player commands, maps, and onboarding through Slack conversations.                                    |
-| `apps/tick`       | Lightweight worker that regularly calls the DM service to advance the world state.                                                |
-| `libs/database`   | Shared Prisma client and schema for PostgreSQL.                                                                                   |
-| `libs/engine`     | Shared engine primitives and the global EventBus used to coordinate gameplay across services.                                     |
-| `libs/gcp-auth`   | Helpers for authenticating service-to-service calls when targeting Google Cloud Run endpoints.                                    |
-| `infra/terraform` | Infrastructure-as-code definitions for deploying the services.                                                                    |
-| `scripts/`        | Deployment and operational scripts (database migrations, certificate automation, etc.).                                           |
+| Path                         | Description                                                                                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/world`                 | World generation and rendering service providing REST endpoints backed by Redis caching and Prisma.                               |
+| `apps/dm`                    | \"Dungeon master\" API that drives game ticks, combat, and AI generated descriptions. Exposes REST endpoints consumed by clients. |
+| `apps/slack`                 | Slack Bolt app that handles player commands, maps, and onboarding through Slack conversations.                                    |
+| `apps/tick`                  | Lightweight worker that regularly calls the DM service to advance the world state.                                                |
+| `libs/database`              | Shared Prisma client and schema for PostgreSQL.                                                                                   |
+| `libs/engine`                | Client-agnostic game engine with entity management (Players, Monsters, NPCs) and factory patterns.                                |
+| `libs/event-bus`             | Process-wide EventBus for event-driven communication within services.                                                             |
+| `libs/redis-client`          | Redis-based event bridge for cross-service pub/sub messaging and notifications.                                                   |
+| `libs/logging`               | Shared Winston-based logging library with NestJS integration.                                                                     |
+| `libs/constants`             | Shared constants and enumerations used across services.                                                                           |
+| `libs/api-contracts`         | Shared TypeScript types and interfaces for API contracts.                                                                         |
+| `libs/tracer`                | Datadog APM tracing integration for observability.                                                                                |
+| `libs/eslint-config`         | Shared ESLint configuration for consistent code style.                                                                            |
+| `libs/typescript-config`     | Shared TypeScript configuration base.                                                                                             |
+| `infra/terraform`            | Infrastructure-as-code definitions for GKE cluster, Cloud SQL, Redis, networking, and Kubernetes resources.                       |
+| `infra/terraform/kubernetes` | Kubernetes-specific Terraform resources (deployments, services, ingress, secrets).                                                |
+| `scripts/`                   | Deployment and operational scripts (database migrations, certificate automation, etc.).                                           |
 
 Additional service-specific docs live alongside each app (for example
 `apps/dm/SETUP.md`, `apps/dm/GAME_FLOW.md`, and `apps/world/TILE_OPERATIONS.md`).
 
-## Engine event bus
+## Event-driven architecture
 
-The `@mud/engine` package in `libs/engine` exposes a process-wide `EventBus` that all DM logic must use for communication. Modules within `apps/dm` emit game events (player movement, combat, notifications, etc.) through the bus instead of calling one another directly. This keeps features decoupled and lets services such as the Slack bot subscribe to the same events.
+The system uses a two-tier event architecture:
+
+### Process-wide EventBus (`@mud/event-bus`)
+
+The `@mud/event-bus` package provides a process-wide `EventBus` for communication within a service. Modules within `apps/dm` emit game events (player movement, combat, notifications, etc.) through the bus instead of calling one another directly. This keeps features decoupled.
 
 - Emit events with `EventBus.emit({ eventType, ...payload })` anywhere inside the DM service. Existing systems like `PlayerService`, `CombatService`, and encounter handling already follow this pattern.
 - Subscribe to events with `EventBus.on('player:move', handler)` or `EventBus.onAny(handler)` when building reactive components (for example, tile prefetch or AI behaviors).
-- Cross-service delivery is handled by `EventBridgeService` in `apps/dm`, which forwards every emitted event to Redis through the `@mud/redis-client` bridge. Other apps subscribe on Redis channels and get the same payloads.
+
+### Cross-service EventBridge (`@mud/redis-client`)
+
+For communication between services (DM ↔ Slack, DM ↔ World), the `EventBridgeService` in `apps/dm` forwards emitted events to Redis through the `@mud/redis-client` bridge. Other apps subscribe on Redis channels and receive the same payloads.
+
+- Channel-based routing: `notifications:slack`, `notifications:discord`
+- Notification types: combat, monster, player, world events
+- Multi-workspace support for Slack (clientId format: `"slack:TEAM_ID:USER_ID"`)
 
 When adding new DM features, always publish significant state changes through the EventBus so downstream listeners and external clients stay in sync.
 
@@ -85,9 +104,7 @@ All services rely on the following shared configuration:
 | `DM_API_BASE_URL` | Base URL of the DM REST API (local default `http://localhost:3000`). |
 | `PORT`            | HTTP port for the lightweight health server (default `3003`).        |
 
-The shared `@mud/gcp-auth` utilities still look for the `GCP_CLOUD_RUN` or
-`K_SERVICE` environment variables to mint Cloud Run identity tokens when calling those endpoints.
-When running on GKE, the helpers fall back to standard fetch behavior because internal traffic is unauthenticated.
+Services communicate using standard HTTP fetch calls. When running on GKE, internal service-to-service traffic is unauthenticated and uses Kubernetes DNS for service discovery.
 
 ## Getting started
 

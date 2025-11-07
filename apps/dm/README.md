@@ -82,11 +82,33 @@ Example: `Hero attack: d20 15 + 2 (Str) + 3 (Equipment) = 20 vs AC 10 + 1 (Agi) 
 - `WORLD_SERVICE_URL`: URL for the world service (default: http://localhost:3001/api)
 - `PORT`: Service port (default: 3000)
 
+## Deployment
+
+### Local Development
+
+```bash
+yarn serve  # Starts all services with hot reload
+```
+
+### Production (GKE)
+
+The DM service runs as a Kubernetes deployment on Google Kubernetes Engine. Infrastructure is managed via Terraform in `infra/terraform/`.
+
+- **Cluster**: `mud-${environment}` (managed by Terraform)
+- **Database**: Cloud SQL (PostgreSQL 15)
+- **Cache**: Memorystore (Redis)
+- **Container Registry**: Artifact Registry (`mud-services`)
+- **Secrets**: Stored in Secret Manager, synced to Kubernetes
+- **Ingress**: Shared GKE ingress with managed certificates
+
+See `docs/DEPLOYMENT.md` for full deployment documentation.
+
 ## Dependencies
 
 - Database library (`@mud/database`) for PostgreSQL access
 - World service for tile and biome information
 - Tick service for coordinated world updates
+- Redis event bus (`@mud/redis-client`) for cross-service notifications
 
 ## Example Usage
 
