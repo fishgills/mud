@@ -7,7 +7,6 @@ import {
 import { dmClient } from '../dm-client';
 import { PICKUP_ACTIONS, COMMANDS } from '../commands';
 import { ITEM_SELECTION_BLOCK_ID } from '../handlers/pickup';
-import { toClientId, extractSlackId } from '../utils/clientId';
 import type { SlackBlockState } from './helpers';
 import type { ItemRecord } from '../dm-client';
 
@@ -134,7 +133,8 @@ export const registerPickupActions = (app: App) => {
 
       try {
         const pickupResult = await dmClient.pickup({
-          slackId: toClientId(userId, teamId),
+          teamId,
+          userId,
           worldItemId,
         });
         if (!pickupResult || !pickupResult.success) {
@@ -182,7 +182,8 @@ export const registerPickupActions = (app: App) => {
         }
 
         const playerRes = await dmClient.getPlayer({
-          slackId: toClientId(userId, teamId),
+          teamId,
+          userId,
         });
         const player = playerRes.data;
         const playerName = player?.name ?? 'Someone';
@@ -191,9 +192,10 @@ export const registerPickupActions = (app: App) => {
         if (typeof x === 'number' && typeof y === 'number') {
           const loc = await dmClient.getLocationEntities({ x, y });
           for (const p of loc.players || []) {
-            const slack = extractSlackId(
-              p as unknown as Record<string, unknown>,
-            );
+            // Extract userId from slackId format "teamId:userId"
+            const slackId = (p as unknown as Record<string, unknown>).slackId;
+            const slack =
+              typeof slackId === 'string' ? slackId.split(':').pop() : null;
             if (!slack || slack === userId) continue;
             try {
               const dm = await client.conversations.open({ users: slack });

@@ -12,6 +12,7 @@ import type {
   CombatNarrative,
   NarrativeOptions,
 } from './types';
+import { LocationNotificationService } from '../notifications/location-notification.service';
 
 export class CombatMessenger {
   constructor(
@@ -315,8 +316,9 @@ export class CombatMessenger {
     participant: Combatant,
     role: 'attacker' | 'defender',
     context: { attacker: Combatant; defender: Combatant },
-  ) {
-    if (participant.type !== 'player' || !participant.slackId) return null;
+  ): Promise<CombatMessage | null> {
+    if (participant.type !== 'player' || !participant.slackUser?.teamId)
+      return null;
     const options: NarrativeOptions = {
       secondPersonName: participant.name,
       attackerCombatant: context.attacker,
@@ -328,7 +330,8 @@ export class CombatMessenger {
     ]);
     const rewards = this.getParticipantRewards(combatLog, participant.name);
     return {
-      slackId: participant.slackId,
+      teamId: participant.slackUser.teamId!,
+      userId: participant.slackUser.userId!,
       name: participant.name,
       message: this.appendRewards(narrative, rewards, participant.levelUp),
       role,
@@ -370,8 +373,8 @@ export class CombatMessenger {
     );
     const defenderEligible =
       defender.type === 'player' &&
-      !!defender.slackId &&
-      defender.slackId !== attacker.slackId;
+      !!defender.slackUser?.userId &&
+      defender.slackUser.userId !== attacker.slackUser?.userId;
     const defenderPromise = defenderEligible
       ? measure(() =>
           this.buildParticipantMessage(
@@ -413,11 +416,6 @@ export class CombatMessenger {
 
     const observersResult = await observerLookupPromise;
     perf.observerLookupMs = observersResult.duration;
-    // observersResult.value may be a concrete PlayerEntity[]; convert via
-    // unknown first to satisfy TypeScript when narrowing to a loose Record.
-    const observers = observersResult.value as unknown as Array<
-      Record<string, unknown>
-    >;
 
     const observerNarrativeResult = await observerNarrativePromise;
     perf.observerNarrativeMs = observerNarrativeResult.duration;
@@ -427,8 +425,9 @@ export class CombatMessenger {
     perf.observerSummaryMs = observerSummaryResult.duration;
     const observerSummary = observerSummaryResult.value;
 
-    for (const observer of observers) {
-      // guard runtime types from external playerService responses
+    for (const observer of observersResult.value) {
+      if (!LocationNotificationService.hasSlackUser(observer)) continue;
+
       const obsId = observer.id as number | undefined;
       if (
         defender.type === 'player' &&
@@ -436,20 +435,15 @@ export class CombatMessenger {
         obsId === defender.id
       )
         continue;
-      const clientType = observer.clientType as string | undefined;
-      const clientId = observer.clientId as string | undefined;
       const observerName = observer.name as string | undefined;
-      if (clientType === 'slack' && clientId) {
-        messages.push({
-          slackId: clientId,
-          name: observerName ?? 'Someone',
-          message: `📣 Combat nearby: ${observerMessage}`,
-          role: 'observer',
-          blocks: this.buildSummaryBlocks(
-            `📣 Combat nearby: ${observerSummary}`,
-          ),
-        });
-      }
+      messages.push({
+        teamId: observer.slackUser!.teamId,
+        userId: observer.slackUser!.userId,
+        name: observerName ?? 'Someone',
+        message: `📣 Combat nearby: ${observerMessage}`,
+        role: 'observer',
+        blocks: this.buildSummaryBlocks(`📣 Combat nearby: ${observerSummary}`),
+      });
     }
 
     perf.totalMs = Date.now() - start;

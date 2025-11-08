@@ -3,7 +3,6 @@ import { COMMANDS, MOVEMENT_COMMANDS } from '../commands';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { registerHandler } from './handlerRegistry';
 import { HandlerContext } from './types';
-import { toClientId } from '../utils/clientId';
 
 type CommandRegistration = string | string[];
 
@@ -69,10 +68,6 @@ export abstract class PlayerCommandHandler extends SafeCommandHandler {
     defaultErrorMessage: string,
   ) {
     super(commands, defaultErrorMessage);
-  }
-
-  protected toClientId(userId: string): string {
-    return toClientId(userId, this.teamId);
   }
 }
 

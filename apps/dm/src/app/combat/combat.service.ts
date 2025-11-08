@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   getPrismaClient,
   CombatLog as PrismaCombatLog,
@@ -11,12 +6,7 @@ import {
 } from '@mud/database';
 import { PlayerSlot } from '@prisma/client';
 import type { Item, PlayerItem, ItemQualityType } from '@mud/database';
-import {
-  MonsterFactory,
-  EventBus,
-  type CombatInitiateEvent,
-  type PlayerRespawnEvent,
-} from '@mud/engine';
+import { MonsterFactory, EventBus, type PlayerRespawnEvent } from '@mud/engine';
 import { PlayerService } from '../player/player.service';
 import { AiService } from '../../openai/ai.service';
 import { EventBridgeService } from '../../shared/event-bridge.service';
@@ -73,7 +63,8 @@ interface NarrativeOptions {
 }
 
 export interface CombatMessage {
-  slackId: string;
+  teamId: string;
+  userId: string;
   name: string;
   message: string;
   role: 'attacker' | 'defender' | 'observer';
@@ -93,7 +84,10 @@ export interface Combatant {
   isAlive: boolean;
   x: number;
   y: number;
-  slackId?: string; // Only for players
+  identifier?: {
+    teamId: string;
+    userId: string;
+  };
   levelUp?: {
     previousLevel: number;
     newLevel: number;
@@ -106,7 +100,7 @@ export interface Combatant {
 }
 
 @Injectable()
-export class CombatService implements OnModuleInit, OnModuleDestroy {
+export class CombatService {
   private readonly logger = new Logger(CombatService.name);
   private prisma = getPrismaClient();
   private messenger: CombatMessenger;
@@ -126,51 +120,6 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
         this.aiService,
         this.logger,
       );
-  }
-
-  onModuleInit(): void {
-    const unsubscribe = EventBus.on<CombatInitiateEvent>(
-      'combat:initiate',
-      (event) => this.handleCombatInitiate(event),
-    );
-    this.subscriptions.push(unsubscribe);
-  }
-
-  onModuleDestroy(): void {
-    while (this.subscriptions.length > 0) {
-      const unsubscribe = this.subscriptions.pop();
-      try {
-        unsubscribe?.();
-      } catch (error) {
-        this.logger.error('Failed to remove combat:initiate listener', error);
-      }
-    }
-  }
-
-  private async handleCombatInitiate(
-    event: CombatInitiateEvent,
-  ): Promise<void> {
-    try {
-      const options = event.metadata?.ignoreLocation
-        ? { ignoreLocation: true }
-        : {};
-      await this.initiateCombat(
-        event.attacker.id,
-        event.attacker.type,
-        event.defender.id,
-        event.defender.type,
-        options,
-      );
-    } catch (error) {
-      const source = event.metadata?.source ?? 'unknown-source';
-      const reason = event.metadata?.reason
-        ? ` reason=${event.metadata.reason}`
-        : '';
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Failed to process combat:initiate from ${source}${reason}: ${message}`,
-      );
-    }
   }
 
   // Roll 1d20
@@ -599,18 +548,17 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
   // Generate a short, entertaining summary (2-3 sentences)
 
   // Convert Player/Monster to Combatant interface
-  private async playerToCombatant(identifier: string): Promise<Combatant> {
+  private async playerToCombatant(
+    teamId: string,
+    userId: string,
+  ): Promise<Combatant> {
     let firstError: unknown;
-    let player = await this.playerService.getPlayer(identifier).catch((err) => {
-      firstError = err;
-      return null;
-    });
-
-    if (!player) {
-      player = await this.playerService
-        .getPlayerByClientId(identifier)
-        .catch(() => null);
-    }
+    const player = await this.playerService
+      .getPlayer(userId, teamId)
+      .catch((err) => {
+        firstError = err;
+        return null;
+      });
 
     if (!player) {
       if (firstError instanceof Error) {
@@ -622,25 +570,28 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
     const equippedItems = await this.getEquippedItems(player.id);
     const equipmentTotals = this.calculateEquipmentEffects(equippedItems);
 
-    const effectiveMaxHp = player.combat.maxHp + equipmentTotals.hpBonus;
+    const effectiveMaxHp = player.maxHp + equipmentTotals.hpBonus;
     const effectiveHp = Math.min(
       effectiveMaxHp,
-      player.combat.hp + equipmentTotals.hpBonus,
+      player.hp + equipmentTotals.hpBonus,
     );
 
     const combatant: Combatant = {
       id: player.id,
       name: player.name,
-      type: 'player' as const,
+      type: 'player',
       hp: effectiveHp,
       maxHp: effectiveMaxHp,
-      strength: player.attributes.strength,
-      agility: player.attributes.agility,
+      strength: player.strength,
+      agility: player.agility,
       level: player.level,
-      isAlive: player.combat.isAlive,
-      x: player.position.x,
-      y: player.position.y,
-      slackId: player.clientType === 'slack' ? player.clientId : undefined,
+      isAlive: player.isAlive,
+      x: player.x,
+      y: player.y,
+      identifier: {
+        teamId: teamId,
+        userId: userId,
+      },
     };
 
     if (equipmentTotals.attackBonus > 0) {
@@ -763,9 +714,19 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
    * Unified combat method - handles all combat scenarios (player vs player, player vs monster, monster vs player)
    */
   async initiateCombat(
-    attackerId: string | number,
+    attackerId:
+      | {
+          teamId: string;
+          userId: string;
+        }
+      | number,
     attackerType: 'player' | 'monster',
-    defenderId: string | number,
+    defenderId:
+      | {
+          teamId: string;
+          userId: string;
+        }
+      | number,
     defenderType: 'player' | 'monster',
     options: { ignoreLocation?: boolean; attackOrigin?: AttackOrigin } = {},
   ): Promise<CombatResult> {
@@ -791,14 +752,46 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const loadStart = Date.now();
-      attacker =
-        attackerType === 'player'
-          ? await this.playerToCombatant(attackerId as string)
-          : await this.monsterToCombatant(attackerId as number);
-      defender =
-        defenderType === 'player'
-          ? await this.playerToCombatant(defenderId as string)
-          : await this.monsterToCombatant(defenderId as number);
+      // Resolve attacker based on type with runtime checks to narrow the union type
+      {
+        let resolvedAttacker: Combatant;
+        if (attackerType === 'player') {
+          if (typeof attackerId === 'number') {
+            throw new Error('Invalid attacker id for player');
+          }
+          resolvedAttacker = await this.playerToCombatant(
+            attackerId.teamId,
+            attackerId.userId,
+          );
+        } else {
+          if (typeof attackerId !== 'number') {
+            throw new Error('Invalid attacker id for monster');
+          }
+          resolvedAttacker = await this.monsterToCombatant(attackerId);
+        }
+        attacker = resolvedAttacker;
+      }
+
+      // Resolve defender based on type with runtime checks to narrow the union type
+      {
+        let resolvedDefender: Combatant;
+        if (defenderType === 'player') {
+          if (typeof defenderId === 'number') {
+            throw new Error('Invalid defender id for player');
+          }
+          resolvedDefender = await this.playerToCombatant(
+            defenderId.teamId,
+            defenderId.userId,
+          );
+        } else {
+          if (typeof defenderId !== 'number') {
+            throw new Error('Invalid defender id for monster');
+          }
+          resolvedDefender = await this.monsterToCombatant(defenderId);
+        }
+        defender = resolvedDefender;
+      }
+
       perf.loadCombatantsMs = Date.now() - loadStart;
 
       this.logger.debug(
@@ -983,12 +976,15 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
    * Player attacks monster (wrapper for initiateCombat)
    */
   async playerAttackMonster(
-    playerSlackId: string,
+    player: {
+      teamId: string;
+      userId: string;
+    },
     monsterId: number,
     options: { attackOrigin?: AttackOrigin } = {},
   ): Promise<CombatResult> {
     const attackOrigin = options.attackOrigin ?? AttackOrigin.TEXT_PVE;
-    return this.initiateCombat(playerSlackId, 'player', monsterId, 'monster', {
+    return this.initiateCombat(player, 'player', monsterId, 'monster', {
       attackOrigin,
     });
   }
@@ -1001,9 +997,12 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
    */
   async monsterAttackPlayer(
     monsterId: number,
-    playerSlackId: string,
+    player: {
+      teamId: string;
+      userId: string;
+    },
   ): Promise<CombatResult> {
-    return this.initiateCombat(monsterId, 'monster', playerSlackId, 'player');
+    return this.initiateCombat(monsterId, 'monster', player, 'player');
   }
 
   private async dispatchRespawnEvents(
@@ -1024,23 +1023,23 @@ export class CombatService implements OnModuleInit, OnModuleDestroy {
   /**
    * Player attacks player (wrapper for initiateCombat)
    */
-  /**
-   * Player attacks player (wrapper for initiateCombat)
-   */
   async playerAttackPlayer(
-    attackerSlackId: string,
-    defenderSlackId: string,
+    attacker: {
+      teamId: string;
+      userId: string;
+    },
+    defender: {
+      teamId: string;
+      userId: string;
+    },
     ignoreLocation = false,
     options: { attackOrigin?: AttackOrigin } = {},
   ): Promise<CombatResult> {
     const attackOrigin = options.attackOrigin ?? AttackOrigin.TEXT_PVP;
-    return this.initiateCombat(
-      attackerSlackId,
-      'player',
-      defenderSlackId,
-      'player',
-      { ignoreLocation, attackOrigin },
-    );
+    return this.initiateCombat(attacker, 'player', defender, 'player', {
+      ignoreLocation,
+      attackOrigin,
+    });
   }
 
   async getCombatLogForLocation(

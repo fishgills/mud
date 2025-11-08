@@ -37,7 +37,8 @@ export class CreateHandler extends PlayerCommandHandler {
     }
 
     const input = {
-      slackId: this.toClientId(userId),
+      teamId: this.teamId,
+      userId,
       name,
     };
 

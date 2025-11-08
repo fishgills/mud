@@ -27,7 +27,6 @@ import {
 } from '@mud/redis-client';
 import { EventBridgeService } from '../../shared/event-bridge.service';
 import { PlayerService } from '../player/player.service';
-import type { PlayerEntity } from '@mud/engine';
 
 interface NotificationConfig {
   type: NotificationMessage['type'];
@@ -358,14 +357,24 @@ export class LocationNotificationService
           )
         : players;
 
-      const recipients = this.buildSlackRecipients(
-        filtered,
-        config.message,
-        config.priority,
-        config.blocks,
-      );
+      const recipients: NotificationRecipient[] = filtered.map((player) => {
+        if (!LocationNotificationService.hasSlackUser(player)) {
+          throw new Error(
+            `Player ${player.name} does not have a Slack user associated.`,
+          );
+        }
 
-      if (recipients.length === 0) {
+        return {
+          clientType: 'slack',
+          teamId: player.slackUser.teamId || '',
+          userId: player.slackUser.userId || '',
+          message: config.message,
+          priority: config.priority || 'normal',
+          blocks: config.blocks,
+        };
+      });
+
+      if (filtered.length === 0) {
         return;
       }
 
@@ -386,88 +395,6 @@ export class LocationNotificationService
     }
   }
 
-  private buildSlackRecipients(
-    players: PlayerEntity[],
-    message: string,
-    priority: NotificationRecipient['priority'] = 'normal',
-    blocks?: Array<Record<string, unknown>>,
-  ): NotificationRecipient[] {
-    const recipients = new Map<string, NotificationRecipient>();
-
-    for (const player of players) {
-      const slackId = this.extractSlackId(player);
-      if (!slackId) {
-        continue;
-      }
-
-      const clientId = `slack:${slackId}`;
-      if (recipients.has(clientId)) {
-        continue;
-      }
-
-      recipients.set(clientId, {
-        clientType: 'slack',
-        clientId,
-        message,
-        priority,
-        blocks,
-      });
-    }
-
-    return Array.from(recipients.values());
-  }
-
-  private extractSlackId(
-    source:
-      | PlayerEntity
-      | {
-          clientId?: string | null;
-          clientType?: string | null;
-          slackId?: string | null;
-        },
-  ): string | null {
-    if (!source) {
-      return null;
-    }
-
-    const clientType =
-      (source as PlayerEntity).clientType ??
-      (source as { clientType?: string | null }).clientType ??
-      null;
-    const directClientId =
-      (source as PlayerEntity).clientId ??
-      (source as { clientId?: string | null }).clientId ??
-      null;
-    const slackId = (source as { slackId?: string | null }).slackId ?? null;
-
-    if (clientType === 'slack' && directClientId) {
-      return this.normalizeSlackId(directClientId);
-    }
-
-    if (slackId) {
-      return this.normalizeSlackId(slackId);
-    }
-
-    if (directClientId) {
-      return this.normalizeSlackId(directClientId);
-    }
-
-    return null;
-  }
-
-  private normalizeSlackId(raw: string | null): string | null {
-    if (!raw) {
-      return null;
-    }
-
-    let value = raw.trim();
-    while (value.toLowerCase().startsWith('slack:')) {
-      value = value.slice('slack:'.length);
-    }
-
-    return value.length > 0 ? value : null;
-  }
-
   private extractPlayerIds(
     ...participants: Array<{ type: string; id: number | string }>
   ): number[] {
@@ -475,6 +402,20 @@ export class LocationNotificationService
       .filter((participant) => participant.type === 'player')
       .map((participant) => participant.id)
       .filter((id): id is number => typeof id === 'number');
+  }
+
+  // Type guard for players that include a slackUser relation.
+  public static hasSlackUser(
+    player: { name: string } & Record<string, unknown>,
+  ): player is { name: string; slackUser: { teamId: string; userId: string } } {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const slackUser = (player as any).slackUser;
+    return (
+      typeof slackUser === 'object' &&
+      slackUser !== null &&
+      typeof slackUser.teamId === 'string' &&
+      typeof slackUser.userId === 'string'
+    );
   }
 
   private describeLocation(x: number, y: number): string {

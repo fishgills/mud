@@ -5,14 +5,13 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { getPrismaClient } from '@mud/database';
 import {
-  PlayerFactory,
-  ClientType,
-  PlayerEntity,
-  EventBus,
-  type PlayerRespawnEvent,
-} from '@mud/engine';
+  getPrismaClient,
+  findPlayerBySlackUser,
+  Player,
+  Prisma,
+} from '@mud/database';
+import { EventBus, type PlayerRespawnEvent } from '@mud/engine';
 import {
   CreatePlayerDto,
   MovePlayerDto,
@@ -20,7 +19,6 @@ import {
 } from './dto/player.dto';
 import { WorldService } from '../world/world.service';
 import { isWaterBiome } from '../shared/biome.util';
-import { WORLD_CHUNK_SIZE } from '@mud/constants';
 import { DiceRoll } from '@dice-roller/rpg-dice-roller';
 
 @Injectable()
@@ -37,17 +35,14 @@ export class PlayerService {
   /**
    * Get top players by level and XP, optionally filtered by team/workspace
    */
-  async getTopPlayers(limit = 10, teamId?: string): Promise<PlayerEntity[]> {
+  async getTopPlayers(limit = 10, teamId?: string) {
     const whereClause = teamId
       ? {
-          clientId: {
-            contains: `:${teamId}:`,
+          slackUser: {
+            teamId: teamId,
           },
-          isCreationComplete: true,
         }
-      : {
-          isCreationComplete: true,
-        };
+      : {};
 
     const players = await this.prisma.player.findMany({
       where: whereClause,
@@ -55,21 +50,7 @@ export class PlayerService {
       take: limit,
     });
 
-    // Convert to PlayerEntity objects
-    const entities: PlayerEntity[] = [];
-    for (const player of players) {
-      if (player.clientId) {
-        const entity = await PlayerFactory.load(
-          player.clientId,
-          (player.clientType as ClientType) || 'slack',
-        );
-        if (entity) {
-          entities.push(entity);
-        }
-      }
-    }
-
-    return entities;
+    return players;
   }
 
   // Returns the cumulative XP threshold required to reach the next level.
@@ -91,192 +72,89 @@ export class PlayerService {
     return Math.max(1, roll.total + modifier);
   }
 
-  async createPlayer(createPlayerDto: CreatePlayerDto): Promise<PlayerEntity> {
-    const { slackId, clientId, clientType, name, x, y } = createPlayerDto;
+  async createPlayer(createPlayerDto: CreatePlayerDto): Promise<Player> {
+    const { teamId, userId, name, x, y } = createPlayerDto;
 
-    // Validate that we have either clientId or slackId
-    if (!clientId && !slackId) {
-      throw new BadRequestException(
-        'Either clientId or slackId must be provided',
-      );
+    // Validate that we have either userId or teamId
+    if (!userId || !teamId) {
+      throw new BadRequestException('Either userId or teamId must be provided');
     }
 
-    // Determine final clientId and clientType
-    let finalClientId: string;
-    let finalClientType: ClientType;
-
-    if (clientId) {
-      finalClientId = clientId;
-      finalClientType = (clientType || 'slack') as ClientType;
-    } else if (slackId) {
-      // Legacy format: just use slackId (PlayerFactory will handle prefixing)
-      finalClientId = slackId;
-      finalClientType = 'slack';
-    } else {
-      throw new BadRequestException(
-        'Either clientId or slackId must be provided',
-      );
-    }
-
-    // Check if player already exists - PlayerFactory.load handles both formats
-    const existing = await PlayerFactory.load(finalClientId, finalClientType);
+    const existing = await this.getPlayer(userId, teamId);
     if (existing) {
       throw new ConflictException('Player already exists');
     }
+
+    const stats = this.generateRandomStats();
 
     // Find a spawn position
     const spawnPosition = await this.findValidSpawnPosition(x, y);
 
     // Use PlayerFactory to create and return the player entity
-    const player = await PlayerFactory.create({
-      clientId: finalClientId,
-      clientType: finalClientType,
-      name,
-      x: spawnPosition.x,
-      y: spawnPosition.y,
-    });
 
+    const player = await this.prisma.player.create({
+      data: {
+        name,
+        x: spawnPosition.x ?? 0,
+        y: spawnPosition.y ?? 0,
+        hp: stats.maxHp,
+        maxHp: stats.maxHp,
+        strength: stats.strength,
+        agility: stats.agility,
+        health: stats.health,
+        level: 1,
+        skillPoints: 0,
+        gold: 0,
+        xp: 0,
+        isAlive: true,
+      },
+    });
+    await this.prisma.slackUser.create({
+      data: {
+        teamId,
+        userId,
+        playerId: player.id,
+      },
+    });
     // PlayerFactory already emits player:spawn event, no need to emit again
     this.logger.log(
-      `✅ Player created: ${player.name} at (${player.position.x}, ${player.position.y})`,
+      `✅ Player created: ${player.name} at (${player.x}, ${player.y}) for teamId=${teamId}, userId=${userId}`,
     );
 
     return player;
   }
 
-  /**
-   * Get player by Slack ID (legacy method - use getPlayerByClientId for new code)
-   */
-  async getPlayer(slackId: string): Promise<PlayerEntity> {
-    this.logger.log(`[DM-DB] Looking up player with slackId: ${slackId}`);
-    const entity = await PlayerFactory.load(slackId, 'slack');
-
-    if (!entity) {
-      this.logger.warn(`[DM-DB] Player not found for slackId: ${slackId}`);
-      throw new NotFoundException(`Player not found`);
-    }
-
-    this.logger.log(
-      `[DM-DB] Found player for slackId: ${slackId}, player ID: ${entity.id}, name: ${entity.name}`,
+  async getPlayer(userId: string, teamId: string): Promise<Player> {
+    this.logger.debug(
+      `Looking up player for userId=${userId}, teamId=${teamId}`,
     );
-    return entity;
-  }
-
-  async getPlayerByClientId(clientId: string): Promise<PlayerEntity> {
-    this.logger.log(`[DM-DB] Looking up player with clientId: ${clientId}`);
-
-    // Parse clientType from clientId format (e.g., "slack:U123")
-    const segments = clientId
-      .split(':')
-      .map((segment) => segment.trim())
-      .filter((segment) => segment.length > 0);
-
-    let clientType: ClientType = 'slack';
-    let actualId = clientId.trim();
-
-    if (segments.length === 1) {
-      actualId = segments[0];
-    } else if (segments.length > 1) {
-      const potentialType = segments[0];
-      const remaining = segments.slice(1).join(':');
-
-      const knownTypes: readonly ClientType[] = ['slack', 'discord', 'web'];
-
-      if (
-        remaining.length > 0 &&
-        knownTypes.includes(potentialType as ClientType)
-      ) {
-        clientType = potentialType as ClientType;
-        actualId = remaining;
-      } else {
-        actualId = segments.join(':');
-      }
-    }
-
-    const entity = await PlayerFactory.load(actualId, clientType);
-
-    if (!entity) {
-      this.logger.warn(`[DM-DB] Player not found for clientId: ${clientId}`);
-      throw new NotFoundException(`Player not found`);
-    }
-
-    this.logger.log(
-      `[DM-DB] Found player for clientId: ${clientId}, player ID: ${entity.id}, name: ${entity.name}`,
-    );
-    return entity;
-  }
-
-  async getPlayerByName(name: string): Promise<PlayerEntity> {
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      throw new BadRequestException('Player name is required');
-    }
-
-    this.logger.log(`[DM-DB] Looking up player with name: ${trimmedName}`);
-
-    try {
-      const player = await PlayerFactory.loadByName(trimmedName);
-
-      if (!player) {
-        this.logger.warn(`[DM-DB] Player not found for name: ${trimmedName}`);
-        throw new NotFoundException(`Player not found`);
-      }
-
-      this.logger.log(
-        `[DM-DB] Found player for name: ${trimmedName}, player ID: ${player.id}`,
+    const player = await findPlayerBySlackUser({ userId, teamId });
+    if (!player) {
+      this.logger.warn(
+        `Player not found for userId=${userId}, teamId=${teamId}`,
       );
-      return player;
-    } catch (error) {
-      // PlayerFactory throws error for ambiguous names
-      if (
-        error instanceof Error &&
-        error.message.includes('Multiple players')
-      ) {
-        this.logger.warn(
-          `[DM-DB] Multiple players found for name: ${trimmedName}`,
-        );
-        throw new BadRequestException(
-          `Multiple players found with the name "${trimmedName}". Please specify the player's Slack handle instead.`,
-        );
-      }
-      throw error;
+      throw new NotFoundException('Player not found');
     }
+    return player;
   }
 
-  async getPlayerByIdentifier({
-    slackId,
-    clientId,
-    name,
-  }: {
-    slackId?: string | null;
-    clientId?: string | null;
-    name?: string | null;
-  }): Promise<PlayerEntity> {
-    if (clientId) {
-      return this.getPlayerByClientId(clientId);
-    }
-    if (slackId) {
-      return this.getPlayer(slackId);
-    }
-    if (name) {
-      return this.getPlayerByName(name);
-    }
-
-    throw new BadRequestException(
-      'A client ID, Slack ID, or player name must be provided',
-    );
-  }
-
-  async getAllPlayers(): Promise<PlayerEntity[]> {
-    return PlayerFactory.loadAll();
+  async getAllPlayers(): Promise<Player[]> {
+    return this.prisma.player.findMany();
   }
 
   /**
    * Update the lastAction timestamp for a player (used for activity tracking)
-   * @param slackId The Slack ID of the player
+   * @param teamId The team ID of the player
    */
-  async updateLastAction(slackId: string): Promise<void> {
-    await PlayerFactory.updateLastAction(slackId, 'slack');
+  async updateLastAction(playerId: number): Promise<void> {
+    await this.prisma.player.update({
+      where: {
+        id: playerId,
+      },
+      data: {
+        lastAction: new Date(),
+      },
+    });
   }
 
   /**
@@ -285,26 +163,33 @@ export class PlayerService {
    * @returns true if any players have been active within the threshold
    */
   async hasActivePlayers(minutesThreshold: number = 30): Promise<boolean> {
-    const count = await PlayerFactory.countActivePlayers(minutesThreshold);
+    const count = await this.prisma.player.count({
+      where: {
+        lastAction: {
+          gte: new Date(Date.now() - minutesThreshold * 60 * 1000),
+        },
+      },
+    });
+
     return count > 0;
   }
 
   async movePlayer(
     slackId: string,
+    teamId: string,
     moveDto: MovePlayerDto,
-  ): Promise<PlayerEntity> {
-    const player = await this.getPlayer(slackId);
-    const oldX = player.position.x;
-    const oldY = player.position.y;
+  ): Promise<Player> {
+    const player = await this.getPlayer(slackId, teamId);
+    const oldX = player.x;
+    const oldY = player.y;
 
     // Debug logging
-    this.logger.log(
-      `[MOVE-DEBUG] Player: ${player.name}, Current: (${oldX}, ${oldY}), MoveDto: ${JSON.stringify(moveDto)}`,
+    this.logger.debug(
+      `Player: ${player.name}, Current: (${oldX}, ${oldY}), MoveDto: ${JSON.stringify(moveDto)}`,
     );
 
-    let newX = player.position.x;
-    let newY = player.position.y;
-
+    let newX = player.x;
+    let newY = player.y;
     const hasX = typeof moveDto.x === 'number';
     const hasY = typeof moveDto.y === 'number';
 
@@ -321,7 +206,7 @@ export class PlayerService {
       if (!Number.isInteger(requestedDistance) || requestedDistance < 1) {
         throw new Error('Distance must be a positive whole number.');
       }
-      const agility = player.attributes.agility ?? 0;
+      const agility = player.agility ?? 0;
       const maxDistance = Math.max(1, agility);
       if (requestedDistance > maxDistance) {
         const spaceLabel = maxDistance === 1 ? 'space' : 'spaces';
@@ -350,7 +235,7 @@ export class PlayerService {
           throw new Error('Invalid direction. Use n, s, e, w');
       }
 
-      this.logger.log(
+      this.logger.debug(
         `[MOVE-DEBUG] After direction calc: direction=${moveDto.direction}, distance=${requestedDistance}, newPos=(${newX}, ${newY})`,
       );
     } else {
@@ -368,9 +253,13 @@ export class PlayerService {
       );
     }
 
-    player.moveTo(newX, newY);
+    player.x = newX;
+    player.y = newY;
 
-    await PlayerFactory.save(player);
+    await this.prisma.player.update({
+      where: { id: player.id },
+      data: { x: newX, y: newY },
+    });
 
     // Emit player move event (need to load fresh database model for event)
     const dbPlayer = await this.prisma.player.findUnique({
@@ -392,10 +281,11 @@ export class PlayerService {
   }
 
   async updatePlayerStats(
-    slackId: string,
+    userId: string,
+    teamId: string,
     statsDto: PlayerStatsDto,
-  ): Promise<PlayerEntity> {
-    const player = await this.getPlayer(slackId);
+  ): Promise<Player> {
+    const player = await this.getPlayer(userId, teamId);
     const previousSkillPoints = player.skillPoints;
 
     // Handle character creation completion
@@ -409,7 +299,7 @@ export class PlayerService {
     }
 
     if (typeof statsDto.hp === 'number') {
-      player.combat.hp = statsDto.hp;
+      player.hp = statsDto.hp;
     }
 
     if (typeof statsDto.gold === 'number') {
@@ -432,12 +322,9 @@ export class PlayerService {
         levelsGained += 1;
         leveledUp = true;
 
-        const hpGain = this.calculateLevelUpHpGain(player.attributes.health);
-        player.combat.maxHp += hpGain;
-        player.combat.hp = Math.min(
-          player.combat.hp + hpGain,
-          player.combat.maxHp,
-        );
+        const hpGain = this.calculateLevelUpHpGain(player.health);
+        player.maxHp += hpGain;
+        player.hp = Math.min(player.hp + hpGain, player.maxHp);
 
         if (player.level % this.SKILL_POINT_INTERVAL === 0) {
           player.skillPoints += this.SKILL_POINTS_PER_INTERVAL;
@@ -445,11 +332,24 @@ export class PlayerService {
       }
     }
 
-    await PlayerFactory.save(player);
+    await this.prisma.player.update({
+      where: { id: player.id },
+      data: {
+        xp: player.xp,
+        level: player.level,
+        maxHp: player.maxHp,
+        hp: player.hp,
+        skillPoints: player.skillPoints,
+        isCreationComplete: player.isCreationComplete,
+        gold: player.gold,
+        agility: player.agility,
+        strength: player.strength,
+      },
+    });
 
     if (leveledUp) {
       this.logger.log(
-        `🎉 ${player.name} advanced ${levelsGained} level(s) to ${player.level}! Max HP is now ${player.combat.maxHp}.`,
+        `🎉 ${player.name} advanced ${levelsGained} level(s) to ${player.level}! Max HP is now ${player.maxHp}.`,
       );
 
       const dbPlayer = await this.prisma.player.findUnique({
@@ -476,26 +376,38 @@ export class PlayerService {
 
   async spendSkillPoint(
     slackId: string,
+    teamId: string,
     attribute: 'strength' | 'agility' | 'health',
-  ): Promise<PlayerEntity> {
-    const player = await this.getPlayer(slackId);
+  ): Promise<Player> {
+    const player = await this.getPlayer(slackId, teamId);
 
     if (player.skillPoints <= 0) {
       throw new Error('No skill points available.');
     }
 
-    // Use the entity's spendSkillPoint method
-    const success = player.spendSkillPoint(attribute);
-
-    if (!success) {
-      throw new Error(
-        `Cannot increase ${attribute} (max is 20 or no skill points).`,
-      );
+    if (player[attribute] >= 20) {
+      throw new Error(`Cannot increase ${attribute} beyond 20.`);
     }
 
-    await PlayerFactory.save(player);
+    player[attribute] += 1;
+    player.skillPoints -= 1;
 
-    const newAttributeValue = player.attributes[attribute];
+    if (attribute === 'health') {
+      player.maxHp = player.maxHp + this.calculateLevelUpHpGain(player.health);
+    }
+
+    await this.prisma.player.update({
+      where: { id: player.id },
+      data: {
+        strength: player.strength,
+        agility: player.agility,
+        health: player.health,
+        maxHp: player.maxHp,
+        skillPoints: player.skillPoints,
+      },
+    });
+
+    const newAttributeValue = player[attribute];
     const remainingSkillPoints = player.skillPoints;
 
     this.logger.log(
@@ -505,8 +417,8 @@ export class PlayerService {
     return player;
   }
 
-  async rerollPlayerStats(slackId: string): Promise<PlayerEntity> {
-    const currentPlayer = await this.getPlayer(slackId);
+  async rerollPlayerStats(slackId: string, teamId: string): Promise<Player> {
+    const currentPlayer = await this.getPlayer(slackId, teamId);
 
     // Prevent rerolling if character creation is already complete
     if (currentPlayer.isCreationComplete) {
@@ -519,35 +431,57 @@ export class PlayerService {
     const { strength, agility, health, maxHp } = this.generateRandomStats();
 
     // Update entity attributes
-    currentPlayer.attributes.strength = strength;
-    currentPlayer.attributes.agility = agility;
-    currentPlayer.attributes.health = health;
-    currentPlayer.combat.maxHp = maxHp;
+    currentPlayer.strength = strength;
+    currentPlayer.agility = agility;
+    currentPlayer.health = health;
+    currentPlayer.maxHp = maxHp;
 
     // Set HP to new maxHp during reroll
-    currentPlayer.combat.hp = maxHp;
+    currentPlayer.hp = maxHp;
 
-    await PlayerFactory.save(currentPlayer);
+    await this.prisma.player.update({
+      where: { id: currentPlayer.id },
+      data: {
+        strength,
+        agility,
+        health,
+        maxHp,
+        hp: maxHp,
+      },
+    });
 
-    // Reload from database to ensure consistent state
-    return this.getPlayer(slackId);
+    return this.getPlayer(slackId, teamId);
   }
 
-  async healPlayer(slackId: string, amount: number): Promise<PlayerEntity> {
-    const player = await this.getPlayer(slackId);
-    player.heal(amount);
-    await PlayerFactory.save(player);
+  async healPlayer(
+    slackId: string,
+    teamId: string,
+    amount: number,
+  ): Promise<Player> {
+    const player = await this.getPlayer(slackId, teamId);
+    player.hp = Math.min(player.hp + amount, player.maxHp);
+    await this.prisma.player.update({
+      where: { id: player.id },
+      data: { hp: player.hp },
+    });
     return player;
   }
 
-  async damagePlayer(slackId: string, damage: number): Promise<PlayerEntity> {
-    const player = await this.getPlayer(slackId);
-    const wasAlive = player.combat.isAlive;
-    player.takeDamage(damage);
-    await PlayerFactory.save(player);
+  async damagePlayer(
+    slackId: string,
+    teamId: string,
+    damage: number,
+  ): Promise<Player> {
+    const player = await this.getPlayer(slackId, teamId);
+    const wasAlive = player.isAlive;
+    player.hp = player.hp - damage;
+    await this.prisma.player.update({
+      where: { id: player.id },
+      data: { hp: player.hp },
+    });
 
     // Emit player death event if they died from this damage
-    if (wasAlive && !player.combat.isAlive) {
+    if (wasAlive && !player.isAlive) {
       const dbPlayer = await this.prisma.player.findUnique({
         where: { id: player.id },
       });
@@ -561,40 +495,49 @@ export class PlayerService {
         });
       }
       this.logger.log(
-        `💀 Player ${player.name} has died at (${player.position.x}, ${player.position.y})`,
+        `💀 Player ${player.name} has died at (${player.x}, ${player.y})`,
       );
     }
 
     return player;
   }
 
-  async restorePlayerHealth(slackId: string): Promise<PlayerEntity> {
-    const player = await this.getPlayer(slackId);
-    player.combat.hp = player.combat.maxHp;
-    player.combat.isAlive = true;
-    await PlayerFactory.save(player);
+  async restorePlayerHealth(slackId: string, teamId: string): Promise<Player> {
+    const player = await this.getPlayer(slackId, teamId);
+    player.hp = player.maxHp;
+    player.isAlive = true;
+    await this.prisma.player.update({
+      where: { id: player.id },
+      data: { hp: player.hp, isAlive: true },
+    });
     return player;
   }
 
-  async respawnPlayer(
-    slackId: string,
-    options: { emitEvent?: boolean } = {},
-  ): Promise<{ player: PlayerEntity; event: PlayerRespawnEvent | null }> {
-    const player = await this.getPlayer(slackId);
+  async respawnPlayer(userId: string, teamId: string): Promise<Player> {
+    const player = await this.getPlayer(userId, teamId);
 
     // Find a random spawn position
     const spawnPosition = await this.findValidSpawnPosition();
 
     // Reset player state
-    player.combat.hp = player.combat.maxHp;
-    player.combat.isAlive = true;
-    player.moveTo(spawnPosition.x, spawnPosition.y);
-
-    await PlayerFactory.save(player);
+    player.hp = player.maxHp;
+    player.isAlive = true;
+    await this.prisma.player.update({
+      where: { id: player.id },
+      data: {
+        hp: player.hp,
+        isAlive: true,
+        x: spawnPosition.x,
+        y: spawnPosition.y,
+      },
+    });
 
     // Emit player respawn event
     const dbPlayer = await this.prisma.player.findUnique({
       where: { id: player.id },
+      include: {
+        slackUser: true,
+      },
     });
     let respawnEvent: PlayerRespawnEvent | null = null;
     if (dbPlayer) {
@@ -605,34 +548,50 @@ export class PlayerService {
         y: spawnPosition.y,
         timestamp: new Date(),
       };
-      if (options.emitEvent !== false) {
-        await EventBus.emit(respawnEvent);
-      }
+      await EventBus.emit(respawnEvent);
     }
     this.logger.log(
       `🏥 Player ${player.name} respawned at (${spawnPosition.x}, ${spawnPosition.y})`,
     );
 
-    return { player, event: respawnEvent };
+    return player;
   }
 
-  async deletePlayer(slackId: string): Promise<PlayerEntity> {
-    const player = await this.getPlayer(slackId);
-    await PlayerFactory.delete(player.id);
-    return player;
+  async deletePlayer(teamId: string, userId: string): Promise<Player> {
+    const player = await this.prisma.slackUser.delete({
+      where: {
+        teamId_userId: {
+          teamId,
+          userId,
+        },
+      },
+      include: {
+        player: true,
+      },
+    });
+    return player.player;
   }
 
   async getPlayersAtLocation(
     x: number,
     y: number,
     options?: { excludePlayerId?: number; aliveOnly?: boolean },
-  ): Promise<PlayerEntity[]> {
-    return PlayerFactory.loadAtLocation(x, y, {
-      excludePlayerId: options?.excludePlayerId,
-      aliveOnly: options?.aliveOnly ?? true,
+  ): Promise<(Player & Prisma.SlackUserInclude)[]> {
+    const players = await this.prisma.player.findMany({
+      where: {
+        x,
+        y,
+        isAlive: options?.aliveOnly ?? true,
+        NOT: {
+          id: options?.excludePlayerId,
+        },
+      },
+      include: {
+        slackUser: true,
+      },
     });
+    return players;
   }
-
   /**
    * Get nearby players within a certain radius
    * @param currentX The current X coordinate of the player
@@ -643,26 +602,83 @@ export class PlayerService {
    * @returns An array of nearby players with their distance and direction
    */
   async getNearbyPlayers(
-    currentX: number,
-    currentY: number,
-    excludeSlackId?: string,
+    x: number,
+    y: number,
+    teamId: string,
+    userId: string,
     radius = Infinity,
     limit = 10,
   ): Promise<
     Array<{ distance: number; direction: string; x: number; y: number }>
   > {
-    const nearby = await PlayerFactory.loadNearby(currentX, currentY, {
-      radius,
-      limit,
-      excludeSlackId,
-      aliveOnly: true,
+    // const player = await this.getPlayer(userId, teamId);
+    const whereClause: {
+      isAlive?: boolean;
+      AND?: Array<Record<string, unknown>>;
+      x?: { gte: number; lte: number };
+      y?: { gte: number; lte: number };
+    } = {};
+
+    whereClause.isAlive = true;
+
+    // const normalizedExclude = normalizeSlackId(options.excludeSlackId);
+    // const variants = new Set<string>();
+    // if (normalizedExclude) {
+    //   variants.add(normalizedExclude);
+    //   variants.add(`slack:${normalizedExclude}`);
+    // }
+    // variants.add(options.excludeSlackId);
+
+    // const nots: Array<Record<string, unknown>> = Array.from(variants).map(
+    //   (v) => ({ clientId: v }),
+    // );
+    // if (normalizedExclude) {
+    //   nots.push({ clientId: { endsWith: `:${normalizedExclude}` } });
+    // }
+    // whereClause.AND = [{ clientType: 'slack' }, { NOT: nots }];
+
+    // Use bounding box if radius is finite
+    if (radius !== Infinity) {
+      whereClause.x = { gte: x - radius, lte: x + radius };
+      whereClause.y = { gte: y - radius, lte: y + radius };
+    }
+
+    const players = await this.prisma.player.findMany({
+      where: whereClause,
+      include: { playerItems: { include: { item: true } } },
     });
+
+    // Calculate distances and filter by actual radius
+    const nearby = players
+      .map((p) => {
+        const dx = p.x - x;
+        const dy = p.y - y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Calculate direction
+        let direction = '';
+        if (dy > 0) direction += 'north';
+        else if (dy < 0) direction += 'south';
+        if (dx > 0) direction += 'east';
+        else if (dx < 0) direction += 'west';
+
+        return {
+          player: p,
+          distance,
+          direction: direction || 'here',
+          x: p.x,
+          y: p.y,
+        };
+      })
+      .filter((p) => p.distance <= radius)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, limit);
 
     return nearby.map((item) => ({
       distance: Math.round(item.distance * 10) / 10,
       direction: item.direction,
-      x: item.player.position.x,
-      y: item.player.position.y,
+      x: item.player.x,
+      y: item.player.y,
     }));
   }
 
@@ -677,10 +693,14 @@ export class PlayerService {
     const SEARCH_RADIUS = 1000; // Maximum distance from origin to search
 
     // Get all existing alive players
-    const existingPlayers = await PlayerFactory.loadAll();
-    const alivePlayerPositions = existingPlayers
-      .filter((p) => p.combat.isAlive)
-      .map((p) => ({ x: p.position.x, y: p.position.y }));
+    const existingPlayers = await this.prisma.player.findMany({
+      where: { isAlive: true },
+    });
+
+    const alivePlayerPositions = existingPlayers.map((p) => ({
+      x: p.x,
+      y: p.y,
+    }));
 
     // If no existing players, use preferred position or origin
     if (alivePlayerPositions.length === 0) {
@@ -835,73 +855,6 @@ export class PlayerService {
     const maxHp = 10 + this.getStatModifier(health);
 
     return { strength, agility, health, maxHp };
-  }
-
-  private async findRespawnPositionNearPlayers(
-    respawningPlayerSlackId: string,
-  ): Promise<{ x: number; y: number }> {
-    const RESPAWN_DISTANCE = 100; // Distance from other players to respawn
-    const MAX_ATTEMPTS = 50;
-
-    // Get all living players except the one being respawned
-    const allPlayers = await PlayerFactory.loadAll();
-    const livingPlayers = allPlayers
-      .filter(
-        (p) =>
-          p.combat.isAlive &&
-          !(p.clientId === respawningPlayerSlackId && p.clientType === 'slack'),
-      )
-      .map((p) => ({ x: p.position.x, y: p.position.y }));
-
-    // If no other living players, use origin as fallback
-    if (livingPlayers.length === 0) {
-      return { x: 0, y: 0 };
-    }
-
-    // Choose a random living player as reference point
-    const referencePlayer =
-      livingPlayers[Math.floor(Math.random() * livingPlayers.length)];
-
-    // Try to find a position approximately 100 tiles away from the reference player
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      // Generate a random angle and use fixed distance of ~100 tiles
-      const angle = Math.random() * 2 * Math.PI;
-      const distance = RESPAWN_DISTANCE + Math.random() * 50 - 25; // 75-125 tiles away
-
-      const candidateX = Math.floor(
-        referencePlayer.x + Math.cos(angle) * distance,
-      );
-      const candidateY = Math.floor(
-        referencePlayer.y + Math.sin(angle) * distance,
-      );
-
-      // Check if this position is far enough from all living players
-      const isValidPosition = livingPlayers.every((player) => {
-        const distanceToPlayer = Math.sqrt(
-          Math.pow(candidateX - player.x, 2) +
-            Math.pow(candidateY - player.y, 2),
-        );
-        return distanceToPlayer >= WORLD_CHUNK_SIZE; // At least 50 tiles from any other player
-      });
-
-      if (isValidPosition) {
-        return { x: candidateX, y: candidateY };
-      }
-    }
-
-    // If we couldn't find a valid position, just place them near the reference player
-    // with some random offset
-    const fallbackAngle = Math.random() * 2 * Math.PI;
-    const fallbackDistance = RESPAWN_DISTANCE;
-
-    return {
-      x: Math.floor(
-        referencePlayer.x + Math.cos(fallbackAngle) * fallbackDistance,
-      ),
-      y: Math.floor(
-        referencePlayer.y + Math.sin(fallbackAngle) * fallbackDistance,
-      ),
-    };
   }
 
   calculateDistance(x1: number, y1: number, x2: number, y2: number): number {

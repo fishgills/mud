@@ -2,7 +2,6 @@ import { drop } from '../dm-client';
 import { COMMANDS } from '../commands';
 import { registerHandler } from './handlerRegistry';
 import type { HandlerContext } from './types';
-import { toClientId } from '../utils/clientId';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 
 export const dropHandler = async ({
@@ -26,7 +25,7 @@ export const dropHandler = async ({
 
   try {
     const res = await drop({
-      slackId: toClientId(userId, teamId || ''),
+      slackId: `${teamId}:${userId}`,
       playerItemId,
     });
     if (res && res.success) {

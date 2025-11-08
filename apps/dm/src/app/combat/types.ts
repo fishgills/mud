@@ -19,7 +19,8 @@ export interface NarrativeOptions {
 }
 
 export interface CombatMessage {
-  slackId: string;
+  teamId: string;
+  userId: string;
   name: string;
   message: string;
   role: 'attacker' | 'defender' | 'observer';
@@ -38,7 +39,10 @@ export interface Combatant {
   isAlive: boolean;
   x: number;
   y: number;
-  slackId?: string;
+  slackUser?: {
+    teamId: string;
+    userId: string;
+  };
   levelUp?: {
     previousLevel: number;
     newLevel: number;

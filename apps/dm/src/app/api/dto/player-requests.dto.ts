@@ -30,6 +30,8 @@ export enum ClientType {
 
 export interface CreatePlayerRequest {
   slackId?: string;
+  teamId?: string;
+  userId?: string;
   clientId?: string;
   clientType?: ClientType;
   name: string;
@@ -54,7 +56,8 @@ export interface PlayerStatsRequest {
 export interface AttackRequest {
   targetType: TargetType;
   targetId?: number;
-  targetSlackId?: string;
+  targetUserId?: string;
+  targetTeamId?: string;
   ignoreLocation?: boolean;
   attackOrigin?: AttackOrigin;
 }

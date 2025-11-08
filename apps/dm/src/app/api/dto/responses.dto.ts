@@ -125,7 +125,8 @@ export interface DetailedCombatLog {
 }
 
 export interface CombatPlayerMessage {
-  slackId: string;
+  teamId: string;
+  userId: string;
   name: string;
   message: string;
   role: string;

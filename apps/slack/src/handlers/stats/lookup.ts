@@ -1,5 +1,4 @@
 import { getPlayer, getLocationEntities } from '../../dm-client';
-import { toClientId } from '../../utils/clientId';
 import type { PlayerStatsSource, MonsterStatsSource } from './types';
 
 export interface PlayerLookupResult {
@@ -34,7 +33,7 @@ export async function fetchPlayerWithLocation(
   teamId?: string,
 ): Promise<PlayerWithLocationResult> {
   const self = await fetchPlayerRecord(
-    { slackId: toClientId(userId, teamId) },
+    { slackId: `${teamId}:${userId}` },
     selfMessage,
   );
   if (!self.player) {

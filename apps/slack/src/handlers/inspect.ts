@@ -5,6 +5,7 @@ import { getQualityBadge, formatQualityLabel } from '@mud/constants';
 import { COMMANDS, INSPECT_ACTIONS } from '../commands';
 import { PlayerCommandHandler } from './base';
 import type { HandlerContext } from './types';
+import { requireCharacter } from './characterUtils';
 import { extractSlackId } from '../utils/clientId';
 import {
   buildPlayerOption,
@@ -440,16 +441,9 @@ class InspectHandler extends PlayerCommandHandler {
     text,
     resolveUserId,
   }: HandlerContext): Promise<void> {
-    const clientId = this.toClientId(userId);
-    const playerRes = await this.dm.getPlayer({ clientId });
-    const player = playerRes.data;
-
-    if (!player) {
-      await say({
-        text: playerRes.message ?? 'Could not find your character.',
-      });
-      return;
-    }
+    if (!this.teamId) return;
+    const player = await requireCharacter(this.teamId, userId, say);
+    if (!player) return;
 
     // Check if user wants to inspect a specific player by mention
     // Extract text after "inspect" command (e.g., "inspect @John" → "@John" or "inspect <@U123>" → "<@U123>")
@@ -471,8 +465,10 @@ class InspectHandler extends PlayerCommandHandler {
           `[INSPECT-DEBUG] Resolving to direct inspect for ${targetSlackId}`,
         );
         // Directly inspect the mentioned player - use simple DM-based approach
-        const targetClientId = this.toClientId(targetSlackId);
-        const targetRes = await this.dm.getPlayer({ clientId: targetClientId });
+        const targetRes = await this.dm.getPlayer({
+          teamId: this.teamId,
+          userId: targetSlackId,
+        });
         const target = targetRes.data;
         if (!target) {
           await say({
@@ -498,7 +494,7 @@ class InspectHandler extends PlayerCommandHandler {
 
     let items = normalizeItems(entities.items as ItemRecord[] | undefined);
     if (!items.length) {
-      const look = await this.dm.getLookView({ slackId: clientId });
+      const look = await this.dm.getLookView({ teamId: this.teamId, userId });
       const lookItems = (look?.data as unknown as { items?: ItemRecord[] })
         ?.items;
       if (Array.isArray(lookItems)) {
@@ -613,8 +609,7 @@ class InspectHandler extends PlayerCommandHandler {
     player: PlayerRecord | null;
     message?: string;
   }> {
-    const clientId = this.toClientId(userId);
-    const res = await this.dm.getPlayer({ clientId });
+    const res = await this.dm.getPlayer({ teamId: this.teamId, userId });
     return {
       player: res.data ?? null,
       message: res.message,
@@ -643,7 +638,8 @@ class InspectHandler extends PlayerCommandHandler {
     }
 
     const targetRes = await this.dm.getPlayer({
-      clientId: this.toClientId(targetSlackId),
+      teamId: this.teamId,
+      userId: targetSlackId,
     });
     const target = targetRes.data;
     if (!target) {
@@ -744,7 +740,8 @@ class InspectHandler extends PlayerCommandHandler {
 
   private async loadInspectableItems(
     inspector: PlayerRecord,
-    inspectorClientId: string,
+    teamId: string,
+    userId: string,
   ): Promise<InspectableItem[]> {
     const items: InspectableItem[] = [];
     const { x, y } = inspector;
@@ -759,7 +756,7 @@ class InspectHandler extends PlayerCommandHandler {
       }
     }
 
-    const look = await this.dm.getLookView({ slackId: inspectorClientId });
+    const look = await this.dm.getLookView({ teamId, userId });
     const lookItems = (look?.data as { items?: ItemRecord[] } | undefined)
       ?.items;
     if (Array.isArray(lookItems)) {
@@ -793,7 +790,8 @@ class InspectHandler extends PlayerCommandHandler {
     const { worldId, itemId } = parseItemSelection(identifier);
     const nearbyItems = await this.loadInspectableItems(
       inspector,
-      this.toClientId(userId),
+      this.teamId ?? '',
+      userId,
     );
 
     const match = nearbyItems.find((item) => {

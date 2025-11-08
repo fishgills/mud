@@ -102,12 +102,13 @@ export class MoveHandler extends PlayerCommandHandler {
           : direction.toLowerCase();
     }
 
-    const clientId = this.toClientId(userId);
+    const clientId = `${this.teamId}:${userId}`;
 
     try {
       const tDmStart = Date.now();
       const result = await this.dm.movePlayer({
-        slackId: clientId,
+        teamId: this.teamId,
+        userId,
         input: direction
           ? {
               direction,

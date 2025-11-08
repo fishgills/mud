@@ -95,12 +95,12 @@ export class GameTickService {
 
     // 1) Spawn/maintain density only around active (alive) players
     const allPlayers = await this.playerService.getAllPlayers();
-    const activePlayers = allPlayers.filter((p) => p.combat.isAlive);
+    const activePlayers = allPlayers.filter((p) => p.isAlive);
     for (const player of activePlayers) {
       const { spawned, report } =
         await this.populationService.enforceDensityAround(
-          player.position.x,
-          player.position.y,
+          player.x,
+          player.y,
           12,
           6,
         );
@@ -115,7 +115,7 @@ export class GameTickService {
           .join(' | ');
         if (lines) {
           this.logger.debug(
-            `Density around (${player.position.x},${player.position.y}) -> ${lines}`,
+            `Density around (${player.x},${player.y}) -> ${lines}`,
           );
         }
       }
@@ -124,10 +124,10 @@ export class GameTickService {
     // 2) Move monsters near active players only, partitioned by ID and capped by budget
     const candidateById = new Map<number, { id: number }>();
     for (const p of activePlayers) {
-      const minX = p.position.x - ACTIVE_RADIUS;
-      const maxX = p.position.x + ACTIVE_RADIUS;
-      const minY = p.position.y - ACTIVE_RADIUS;
-      const maxY = p.position.y + ACTIVE_RADIUS;
+      const minX = p.x - ACTIVE_RADIUS;
+      const maxX = p.x + ACTIVE_RADIUS;
+      const minY = p.y - ACTIVE_RADIUS;
+      const maxY = p.y + ACTIVE_RADIUS;
       const nearby = await this.monsterService.getMonstersInBounds(
         minX,
         maxX,

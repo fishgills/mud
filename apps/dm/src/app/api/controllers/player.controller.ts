@@ -38,27 +38,32 @@ import type {
 import { TargetType, AttackOrigin } from '../dto/player-requests.dto';
 
 interface StatsUpdatePayload {
-  slackId: string;
+  teamId?: string;
+  userId?: string;
   input: PlayerStatsRequest;
 }
 
 interface AttributePayload {
-  slackId: string;
+  teamId?: string;
+  userId?: string;
   attribute: PlayerAttribute;
 }
 
 interface ValuePayload {
-  slackId: string;
+  teamId?: string;
+  userId?: string;
   amount: number;
 }
 
 interface DamagePayload {
-  slackId: string;
+  teamId?: string;
+  userId?: string;
   damage: number;
 }
 
 interface AttackPayload {
-  slackId: string;
+  teamId?: string;
+  userId?: string;
   input: AttackRequest;
 }
 
@@ -78,14 +83,21 @@ export class PlayersController {
   async createPlayer(
     @Body() input: CreatePlayerRequest,
   ): Promise<PlayerResponse> {
-    if (!input?.clientId && !input?.slackId) {
+    // Support separate teamId/userId in addition to existing slackId
+    const effectiveSlackId =
+      input.teamId && input.userId
+        ? `${input.teamId}:${input.userId}`
+        : input.slackId;
+
+    if (!input?.clientId && !effectiveSlackId) {
       return {
         success: false,
         message: 'Either clientId/clientType or slackId must be provided',
       };
     }
 
-    const entity = await this.playerService.createPlayer(input);
+    const createDto = { ...input, slackId: effectiveSlackId };
+    const entity = await this.playerService.createPlayer(createDto);
     const player = await this.buildPlayerDto(entity, { includeDetails: false });
     return {
       success: true,
@@ -120,46 +132,34 @@ export class PlayersController {
 
   @Get()
   async getPlayer(
-    @Query('slackId') slackId?: string,
-    @Query('clientId') clientId?: string,
-    @Query('name') name?: string,
+    @Query('teamId') teamId?: string,
+    @Query('userId') userId?: string,
   ): Promise<PlayerResponse> {
-    if (!slackId && !clientId && !name) {
-      return {
-        success: false,
-        message: 'A clientId, slackId, or player name must be provided',
-      };
+    // Support separate teamId/userId in addition to existing slackId
+
+    if (!userId) {
+      throw new BadRequestException('userId is required');
+    }
+    if (!teamId) {
+      throw new BadRequestException('teamId is required');
     }
 
-    const identifier = clientId
-      ? `clientId: ${clientId}`
-      : slackId
-        ? `slackId: ${slackId}`
-        : `name: ${name ?? 'unknown'}`;
-    this.logger.log(`[DM-AUTH] Received getPlayer request for ${identifier}`);
+    this.logger.log(
+      ` Received getPlayer request for teamId: ${teamId}, userId: ${userId} `,
+    );
     try {
       this.logger.log(
-        `[DM-AUTH] Calling playerService.getPlayer for ${identifier}`,
+        `Calling playerService.getPlayer for teamId: ${teamId}, userId: ${userId}`,
       );
-      const entity = await this.playerService.getPlayerByIdentifier({
-        slackId,
-        clientId,
-        name,
-      });
-      const player = await this.buildPlayerDto(entity, {
-        includeDetails: true,
-        includeNearby: true,
-      });
-      this.logger.log(
-        `[DM-AUTH] Successfully retrieved player for ${identifier}, player ID: ${player.id}`,
-      );
+      const player = await this.playerService.getPlayer(userId, teamId);
+
       return {
         success: true,
         data: player,
       };
     } catch (error) {
       this.logger.error(
-        `[DM-AUTH] Error getting player for ${identifier}`,
+        `Error getting player for teamId: ${teamId}, userId: ${userId}: ${error}`,
         error instanceof Error ? error.stack : error,
       );
       return {
@@ -171,8 +171,7 @@ export class PlayersController {
 
   @Get('all')
   async getAllPlayers(): Promise<Player[]> {
-    const players = await this.playerService.getAllPlayers();
-    return EntityToDtoAdapter.playerEntitiesToDto(players);
+    return this.playerService.getAllPlayers();
   }
 
   @Get('location')
@@ -185,25 +184,23 @@ export class PlayersController {
     if (Number.isNaN(x) || Number.isNaN(y)) {
       throw new BadRequestException('x and y query parameters must be numbers');
     }
-    const players = await this.playerService.getPlayersAtLocation(x, y);
-    return EntityToDtoAdapter.playerEntitiesToDto(players);
+    return this.playerService.getPlayersAtLocation(x, y);
   }
 
   @Post('stats')
-  async updatePlayerStats(
-    @Body() payload: StatsUpdatePayload,
-  ): Promise<PlayerResponse> {
-    if (!payload?.slackId) {
-      throw new BadRequestException('slackId is required');
+  async updatePlayerStats(@Body() payload: StatsUpdatePayload) {
+    if (!payload.teamId || !payload.userId) {
+      throw new BadRequestException('teamId and userId are required');
     }
     try {
       const player = await this.playerService.updatePlayerStats(
-        payload.slackId,
-        payload.input ?? {},
+        payload.teamId,
+        payload.userId,
+        payload.input,
       );
       return {
         success: true,
-        data: await this.buildPlayerDto(player, { includeDetails: false }),
+        data: player,
       };
     } catch (error) {
       return {
@@ -220,21 +217,23 @@ export class PlayersController {
   async spendSkillPoint(
     @Body() payload: AttributePayload,
   ): Promise<PlayerResponse> {
-    if (!payload?.slackId) {
-      throw new BadRequestException('slackId is required');
+    if (!payload.teamId || !payload.userId) {
+      throw new BadRequestException('teamId and userId are required');
     }
+
     if (!payload?.attribute) {
       throw new BadRequestException('attribute is required');
     }
 
     try {
       const player = await this.playerService.spendSkillPoint(
-        payload.slackId,
+        payload.teamId,
+        payload.userId,
         payload.attribute,
       );
       return {
         success: true,
-        data: await this.buildPlayerDto(player, { includeDetails: false }),
+        data: player,
       };
     } catch (error) {
       return {
@@ -249,18 +248,20 @@ export class PlayersController {
 
   @Post('reroll')
   async rerollPlayerStats(
-    @Body() payload: { slackId: string },
+    @Body() payload: { teamId?: string; userId?: string },
   ): Promise<PlayerResponse> {
-    if (!payload?.slackId) {
-      throw new BadRequestException('slackId is required');
+    if (!payload.teamId || !payload.userId) {
+      throw new BadRequestException('teamId and userId are required');
     }
+
     try {
       const player = await this.playerService.rerollPlayerStats(
-        payload.slackId,
+        payload.teamId,
+        payload.userId,
       );
       return {
         success: true,
-        data: await this.buildPlayerDto(player, { includeDetails: false }),
+        data: player,
       };
     } catch (error) {
       return {
@@ -275,20 +276,22 @@ export class PlayersController {
 
   @Post('heal')
   async healPlayer(@Body() payload: ValuePayload): Promise<PlayerResponse> {
-    if (!payload?.slackId) {
-      throw new BadRequestException('slackId is required');
+    if (!payload.teamId || !payload.userId) {
+      throw new BadRequestException('teamId and userId are required');
     }
+
     if (typeof payload.amount !== 'number') {
       throw new BadRequestException('amount must be a number');
     }
     try {
       const player = await this.playerService.healPlayer(
-        payload.slackId,
+        payload.teamId,
+        payload.userId,
         payload.amount,
       );
       return {
         success: true,
-        data: await this.buildPlayerDto(player, { includeDetails: false }),
+        data: player,
       };
     } catch (error) {
       return {
@@ -301,20 +304,22 @@ export class PlayersController {
 
   @Post('damage')
   async damagePlayer(@Body() payload: DamagePayload): Promise<PlayerResponse> {
-    if (!payload?.slackId) {
-      throw new BadRequestException('slackId is required');
+    if (!payload.teamId || !payload.userId) {
+      throw new BadRequestException('teamId and userId are required');
     }
+
     if (typeof payload.damage !== 'number') {
       throw new BadRequestException('damage must be a number');
     }
     try {
       const player = await this.playerService.damagePlayer(
-        payload.slackId,
+        payload.teamId,
+        payload.userId,
         payload.damage,
       );
       return {
         success: true,
-        data: await this.buildPlayerDto(player, { includeDetails: false }),
+        data: player,
       };
     } catch (error) {
       return {
@@ -326,17 +331,20 @@ export class PlayersController {
   }
 
   @Post('respawn')
-  async respawn(@Body() payload: { slackId: string }): Promise<PlayerResponse> {
-    if (!payload?.slackId) {
-      throw new BadRequestException('slackId is required');
+  async respawn(
+    @Body() payload: { teamId?: string; userId?: string },
+  ): Promise<PlayerResponse> {
+    if (!payload.teamId || !payload.userId) {
+      throw new BadRequestException('teamId and userId are required');
     }
     try {
-      const { player } = await this.playerService.respawnPlayer(
-        payload.slackId,
+      const player = await this.playerService.respawnPlayer(
+        payload.teamId,
+        payload.userId,
       );
       return {
         success: true,
-        data: await this.buildPlayerDto(player, { includeDetails: false }),
+        data: player,
         message: 'You have been resurrected at the starting location!',
       };
     } catch (error) {
@@ -347,18 +355,19 @@ export class PlayersController {
     }
   }
 
-  @Delete(':slackId')
+  @Delete(':teamId/:userId')
   async deletePlayer(
-    @Param('slackId') slackId: string,
+    @Param('userId') userId: string,
+    @Param('teamId') teamId: string,
   ): Promise<PlayerResponse> {
-    if (!slackId) {
-      throw new BadRequestException('slackId is required');
+    if (!teamId || !userId) {
+      throw new BadRequestException('teamId and userId are required');
     }
     try {
-      const player = await this.playerService.deletePlayer(slackId);
+      const player = await this.playerService.deletePlayer(teamId, userId);
       return {
         success: true,
-        data: await this.buildPlayerDto(player, { includeDetails: false }),
+        data: player,
         message: 'Player deleted successfully',
       };
     } catch (error) {
@@ -372,19 +381,16 @@ export class PlayersController {
 
   @Get('stats')
   async getPlayerStats(
-    @Query('slackId') slackId?: string,
-    @Query('name') name?: string,
+    @Query('teamId') teamId: string,
+    @Query('userId') userId: string,
   ): Promise<PlayerStats> {
-    const player = await this.playerService.getPlayerByIdentifier({
-      slackId,
-      name,
-    });
+    const player = await this.playerService.getPlayer(userId, teamId);
 
-    const strengthModifier = Math.floor((player.attributes.strength - 10) / 2);
-    const agilityModifier = Math.floor((player.attributes.agility - 10) / 2);
-    const healthModifier = Math.floor((player.attributes.health - 10) / 2);
+    const strengthModifier = Math.floor((player.strength - 10) / 2);
+    const agilityModifier = Math.floor((player.agility - 10) / 2);
+    const healthModifier = Math.floor((player.health - 10) / 2);
 
-    const dodgeChance = Math.max(0, (player.attributes.agility - 10) * 5);
+    const dodgeChance = Math.max(0, (player.agility - 10) * 5);
     const baseDamage = `1d6${strengthModifier >= 0 ? '+' : ''}${strengthModifier}`;
     const armorClass = 10 + agilityModifier;
 
@@ -396,12 +402,12 @@ export class PlayersController {
     const xpNeeded = Math.max(0, xpForNextLevel - player.xp);
 
     const recentCombat = await this.combatService.getCombatLogForLocation(
-      player.position.x,
-      player.position.y,
+      player.x,
+      player.y,
     );
 
     return {
-      player: await this.buildPlayerDto(player, { includeDetails: false }),
+      player: player,
       strengthModifier,
       agilityModifier,
       healthModifier,
@@ -418,9 +424,13 @@ export class PlayersController {
   @Post('attack')
   async attack(@Body() payload: AttackPayload): Promise<CombatResponse> {
     const start = Date.now();
-    const { slackId, input } = payload ?? {};
-    if (!slackId) {
-      throw new BadRequestException('slackId is required');
+    const { teamId, userId, input } = payload ?? {};
+
+    if (!userId) {
+      throw new BadRequestException('userId is required');
+    }
+    if (!teamId) {
+      throw new BadRequestException('teamId is required');
     }
     if (!input) {
       throw new BadRequestException('input is required');
@@ -440,10 +450,7 @@ export class PlayersController {
     };
     perf.attackOrigin = attackOrigin;
     let targetResolutionMs: number | undefined;
-    let targetSlackId = input.targetSlackId ?? undefined;
-    const targetId =
-      typeof input.targetId === 'number' ? input.targetId : undefined;
-    let success = false;
+
     let errorMessage: string | undefined;
 
     try {
@@ -458,53 +465,42 @@ export class PlayersController {
         const combatStart = Date.now();
         perf.preCombatMs = combatStart - start;
         result = (await this.combatService.playerAttackMonster(
-          slackId,
+          {
+            teamId,
+            userId,
+          },
           input.targetId,
           { attackOrigin },
         )) as CombatResult;
         perf.combatMs = Date.now() - combatStart;
       } else if (targetType === TargetType.PLAYER) {
-        let resolvedSlackId = targetSlackId;
-        if (!resolvedSlackId) {
-          if (typeof input.targetId === 'number') {
-            const resolutionStart = Date.now();
-            const allPlayers = await this.playerService.getAllPlayers();
-            targetResolutionMs = Date.now() - resolutionStart;
-            const targetPlayer = allPlayers.find(
-              (p) => p.id === input.targetId,
-            );
-            if (!targetPlayer) {
-              throw new BadRequestException('Target player not found');
-            }
-            resolvedSlackId = targetPlayer.clientId || undefined;
-          } else {
-            throw new BadRequestException(
-              'Must provide targetSlackId or targetId for player attacks',
-            );
-          }
-        }
-
-        targetSlackId = resolvedSlackId;
-        if (!targetSlackId) {
+        if (!input.targetUserId && typeof input.targetTeamId !== 'string') {
           throw new BadRequestException(
-            'Target player has no valid identifier',
+            'Must provide targetUserId or targetId for player attacks',
           );
         }
 
         const combatStart = Date.now();
         perf.preCombatMs = combatStart - start;
         result = (await this.combatService.playerAttackPlayer(
-          slackId,
-          targetSlackId,
+          {
+            teamId,
+            userId,
+          },
+          {
+            teamId: input.targetTeamId!,
+            userId: input.targetUserId!,
+          },
           ignoreLocationFlag,
-          { attackOrigin },
+          {
+            attackOrigin,
+          },
         )) as CombatResult;
         perf.combatMs = Date.now() - combatStart;
       } else {
         throw new BadRequestException('Invalid target type');
       }
 
-      success = true;
       perf.totalMs = Date.now() - start;
       if (typeof targetResolutionMs === 'number') {
         perf.targetResolutionMs = targetResolutionMs;
@@ -535,30 +531,6 @@ export class PlayersController {
       perf.totalMs = Date.now() - start;
       if (typeof targetResolutionMs === 'number') {
         perf.targetResolutionMs = targetResolutionMs;
-      }
-      if (slackId) {
-        try {
-          const logPayload = {
-            event: 'players.attack.perf',
-            slackId,
-            targetType,
-            targetSlackId,
-            targetId,
-            ignoreLocation: ignoreLocationFlag,
-            success,
-            totalMs: perf.totalMs,
-            preCombatMs: perf.preCombatMs,
-            combatMs: perf.combatMs,
-            targetResolutionMs: perf.targetResolutionMs,
-            attackOrigin,
-            error: success ? undefined : errorMessage,
-          };
-          this.logger.log(JSON.stringify(logPayload));
-        } catch (loggingError) {
-          this.logger.debug(
-            `Failed to emit attack perf log: ${loggingError instanceof Error ? loggingError.message : String(loggingError)}`,
-          );
-        }
       }
     }
   }
@@ -611,16 +583,14 @@ export class PlayersController {
 
   @Get('items')
   async getPlayerItems(
-    @Query('slackId') slackId?: string,
-    @Query('clientId') clientId?: string,
+    @Query('teamId') teamId: string,
+    @Query('userId') userId: string,
   ): Promise<PlayerResponse> {
     try {
-      const player = await this.playerService.getPlayerByIdentifier({
-        slackId,
-        clientId,
-      });
+      // If teamId and userId are provided, construct slackId format
 
-      const base = EntityToDtoAdapter.playerEntityToDto(player);
+      const player = await this.playerService.getPlayer(teamId, userId);
+
       // Fetch bag items
       const bagItems = await this.playerItemService.listBag(player.id);
 
@@ -657,7 +627,7 @@ export class PlayersController {
       return {
         success: true,
         data: {
-          ...base,
+          ...player,
           bag,
         },
       };
@@ -675,12 +645,12 @@ export class PlayersController {
   async pickup(
     @Body()
     payload: {
-      slackId?: string;
-      clientId?: string;
+      teamId: string;
+      userId: string;
       worldItemId?: number;
     },
   ) {
-    const { slackId, clientId, worldItemId } = payload ?? {};
+    const { worldItemId } = payload ?? {};
     if (
       !worldItemId ||
       (typeof worldItemId !== 'number' && isNaN(Number(worldItemId)))
@@ -689,10 +659,7 @@ export class PlayersController {
     }
 
     try {
-      const player = await this.playerService.getPlayerByIdentifier({
-        slackId,
-        clientId,
-      });
+      const player = await this.resolvePlayerFromPayload(payload);
       const created = await this.playerItemService.pickup(
         player.id,
         Number(worldItemId),
@@ -711,13 +678,13 @@ export class PlayersController {
   async equip(
     @Body()
     payload: {
-      slackId?: string;
-      clientId?: string;
+      teamId: string;
+      userId: string;
       playerItemId?: number;
       slot?: string;
     },
   ) {
-    const { slackId, clientId, playerItemId, slot } = payload ?? {};
+    const { playerItemId, slot } = payload ?? {};
     if (!playerItemId || !slot) {
       return { success: false, message: 'playerItemId and slot are required' };
     }
@@ -729,10 +696,7 @@ export class PlayersController {
       return { success: false, message: 'Invalid slot' };
     }
     try {
-      const player = await this.playerService.getPlayerByIdentifier({
-        slackId,
-        clientId,
-      });
+      const player = await this.resolvePlayerFromPayload(payload);
       await this.playerItemService.equip(
         player.id,
         Number(playerItemId),
@@ -752,20 +716,17 @@ export class PlayersController {
   async drop(
     @Body()
     payload: {
-      slackId?: string;
-      clientId?: string;
+      teamId: string;
+      userId: string;
       playerItemId?: number;
     },
   ) {
-    const { slackId, clientId, playerItemId } = payload ?? {};
+    const { playerItemId } = payload ?? {};
     if (!playerItemId) {
       return { success: false, message: 'playerItemId is required' };
     }
     try {
-      const player = await this.playerService.getPlayerByIdentifier({
-        slackId,
-        clientId,
-      });
+      const player = await this.resolvePlayerFromPayload(payload);
       const created = await this.playerItemService.drop(
         player.id,
         Number(playerItemId),
@@ -784,20 +745,17 @@ export class PlayersController {
   async unequip(
     @Body()
     payload: {
-      slackId?: string;
-      clientId?: string;
+      teamId: string;
+      userId: string;
       playerItemId?: number;
     },
   ) {
-    const { slackId, clientId, playerItemId } = payload ?? {};
+    const { playerItemId } = payload ?? {};
     if (!playerItemId) {
       return { success: false, message: 'playerItemId is required' };
     }
     try {
-      const player = await this.playerService.getPlayerByIdentifier({
-        slackId,
-        clientId,
-      });
+      const player = await this.resolvePlayerFromPayload(payload);
       await this.playerItemService.unequip(player.id, Number(playerItemId));
       return { success: true };
     } catch (error) {
@@ -807,6 +765,13 @@ export class PlayersController {
         code: error instanceof AppError ? error.code : undefined,
       };
     }
+  }
+
+  private async resolvePlayerFromPayload(payload: {
+    teamId: string;
+    userId: string;
+  }) {
+    return this.playerService.getPlayer(payload.userId, payload.teamId);
   }
 
   private async loadNearbyPlayers(center: Player): Promise<Player[]> {

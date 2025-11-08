@@ -2,7 +2,6 @@ import { equip } from '../dm-client';
 import { COMMANDS } from '../commands';
 import { registerHandler } from './handlerRegistry';
 import type { HandlerContext } from './types';
-import { toClientId } from '../utils/clientId';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 
 export const equipHandler = async ({
@@ -27,7 +26,7 @@ export const equipHandler = async ({
 
   try {
     const res = await equip({
-      slackId: toClientId(userId, teamId || ''),
+      slackId: `${teamId}:${userId}`,
       playerItemId,
       slot,
     });

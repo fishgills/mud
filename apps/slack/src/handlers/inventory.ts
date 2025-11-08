@@ -1,6 +1,7 @@
 import { COMMANDS } from '../commands';
 import { getPlayerItems, ItemRecord } from '../dm-client';
 import type { PlayerRecord } from '../dm-client';
+import { MISSING_CHARACTER_MESSAGE } from './characterUtils';
 import type { KnownBlock, Block, ActionsBlock, Button } from '@slack/types';
 // Use Prisma-generated enum for item qualities so the mapping follows the
 // canonical backend enum values.
@@ -11,7 +12,6 @@ type PlayerWithBag = PlayerRecord & { bag?: ItemRecord[] };
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { registerHandler } from './handlerRegistry';
 import type { HandlerContext, SayMessage } from './types';
-import { toClientId } from '../utils/clientId';
 
 type EquipmentSlotKey = PlayerSlot;
 
@@ -338,15 +338,15 @@ export const inventoryHandler = async ({
   say,
   teamId,
 }: HandlerContext): Promise<void> => {
-  const missingCharacterMessage = `You don't have a character yet! Use "${COMMANDS.NEW} YourName" to create one.`;
   try {
     const response = await getPlayerItems({
-      slackId: toClientId(userId, teamId || ''),
+      teamId,
+      userId,
     });
     if (!response.success || !response.data) {
       await say({
         text:
-          (response.message as string | undefined) ?? missingCharacterMessage,
+          (response.message as string | undefined) ?? MISSING_CHARACTER_MESSAGE,
       });
       return;
     }

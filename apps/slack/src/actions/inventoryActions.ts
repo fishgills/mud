@@ -2,7 +2,6 @@ import type { App, BlockAction, ViewSubmitAction } from '@slack/bolt';
 import { PlayerSlot } from '@prisma/client';
 import { dmClient } from '../dm-client';
 import { mapErrCodeToFriendlyMessage } from '../handlers/errorUtils';
-import { toClientId } from '../utils/clientId';
 import { getActionValue, getChannelIdFromBody, getTriggerId } from './helpers';
 
 export const registerInventoryActions = (app: App) => {
@@ -106,7 +105,8 @@ export const registerInventoryActions = (app: App) => {
 
       try {
         const res = await dmClient.equip({
-          slackId: toClientId(userId, teamId),
+          teamId,
+          userId,
           playerItemId: Number(playerItemId),
           slot,
         });
@@ -147,7 +147,8 @@ export const registerInventoryActions = (app: App) => {
       if (!userId || !value) return;
       try {
         const res = await dmClient.drop({
-          slackId: toClientId(userId, teamId),
+          teamId,
+          userId,
           playerItemId: Number(value),
         });
         const resCode = (res as unknown as { code?: string })?.code;
@@ -191,7 +192,8 @@ export const registerInventoryActions = (app: App) => {
       if (!userId || !value) return;
       try {
         const res = await dmClient.unequip({
-          slackId: toClientId(userId, teamId),
+          teamId,
+          userId,
           playerItemId: Number(value),
         });
         const resCode = (res as unknown as { code?: string })?.code;

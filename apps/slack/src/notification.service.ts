@@ -87,28 +87,24 @@ export class NotificationService {
 
     // Send message to each recipient
     for (const recipient of notification.recipients) {
+      if (recipient.clientType !== 'slack') {
+        console.debug(`Skipping non-slack recipient: ${recipient.clientType}`);
+        continue;
+      }
       try {
         console.debug('processing recipient:', {
-          clientId: recipient.clientId,
+          teamId: recipient.teamId,
+          userId: recipient.userId,
           role: recipient.role || 'participant',
           priority: recipient.priority || 'normal',
           hasBlocks:
             Array.isArray(recipient.blocks) && recipient.blocks.length > 0,
         });
-        const slackUserId = this.extractSlackUserId(recipient.clientId);
-
-        console.debug('resolved slack identifiers:', {
-          clientId: recipient.clientId,
-          slackUserId,
-        });
-
-        if (!slackUserId) {
-          console.error(`Invalid clientId format: ${recipient.clientId}`);
-          continue;
-        }
 
         // Open DM channel with user
-        console.debug(`opening DM with ${slackUserId}`);
+        console.debug(
+          `opening DM with ${recipient.teamId}:${recipient.userId}`,
+        );
         // Resolve bot credentials for the slack user so we can call the
         // Web API with the correct bot token for that user's workspace.
         // Resolve bot credentials for the slack user. In tests or local runs
@@ -117,24 +113,24 @@ export class NotificationService {
         // those situations, fall back to the globally configured
         // SLACK_BOT_TOKEN from env when a user-scoped bot token isn't found.
         const { token: botToken, fromFallback } = await this.resolveBotToken(
-          slackUserId,
-          recipient.clientId,
+          recipient.teamId,
+          recipient.userId,
         );
         if (!botToken) {
           console.error(
-            `No bot credentials or fallback SLACK_BOT_TOKEN available for user ${slackUserId}`,
+            `No bot credentials or fallback SLACK_BOT_TOKEN available for user ${recipient.userId} in team ${recipient.teamId}; cannot send notification`,
           );
           continue;
         }
 
         if (fromFallback) {
           console.debug(
-            `Using fallback bot token for notifications to ${slackUserId}`,
+            `Using fallback bot token for notifications to ${recipient.userId} in team ${recipient.teamId}`,
           );
         }
 
         const web = this.getOrCreateWebClient(botToken);
-        const dm = await web.conversations.open({ users: slackUserId });
+        const dm = await web.conversations.open({ users: recipient.userId });
 
         // Log DM open response shape minimally
         try {
@@ -149,7 +145,9 @@ export class NotificationService {
 
         const channelId = dm.channel?.id;
         if (!channelId) {
-          console.error(`Could not open DM with user ${slackUserId}`);
+          console.error(
+            `Could not open DM with user ${recipient.userId} in team ${recipient.teamId}; no channel ID returned from Slack API`,
+          );
           continue;
         }
 
@@ -208,48 +206,22 @@ export class NotificationService {
         }
 
         console.log(
-          `✅ Sent ${notification.type} notification to ${slackUserId} (${recipient.role || 'participant'})`,
+          `✅ Sent ${notification.type} notification to ${recipient.teamId}:${recipient.userId} (${recipient.role || 'participant'})`,
         );
       } catch (error) {
         // Provide stack-aware debug for errors
         // Log error object for debugging; stringify may fail on circulars so pass as-is
         console.error(
-          `Error sending notification to ${recipient.clientId}:`,
+          `Error sending notification to ${recipient.teamId}:${recipient.userId}`,
           JSON.stringify(error, null, 2),
         );
       }
     }
   }
 
-  private extractSlackUserId(
-    clientId: string | null | undefined,
-  ): string | null {
-    if (!clientId) return null;
-    const trimmed = clientId.trim();
-    if (!trimmed) return null;
-
-    const segments = trimmed
-      .split(':')
-      .map((segment) => segment.trim())
-      .filter(Boolean);
-
-    if (segments.length === 0) {
-      return null;
-    }
-
-    if (segments[0] === 'slack' && segments.length > 1) {
-      const candidate = segments[segments.length - 1];
-      return candidate.length > 0 ? candidate : null;
-    }
-
-    // Accept raw Slack IDs (e.g., U123456) and non-prefixed identifiers for backward compatibility
-    const candidate = segments[segments.length - 1];
-    return candidate.length > 0 ? candidate : null;
-  }
-
   private async resolveBotToken(
-    slackUserId: string,
-    rawClientId: string | null | undefined,
+    teamId: string | null,
+    userId: string | null,
   ): Promise<{
     token: string | null;
     fromFallback: boolean;
@@ -263,9 +235,8 @@ export class NotificationService {
     }
 
     try {
-      const teamId = this.extractSlackTeamId(rawClientId);
       const query = {
-        userId: slackUserId,
+        userId,
         teamId: teamId ?? undefined,
         enterpriseId: undefined,
         isEnterpriseInstall: false,
@@ -276,30 +247,16 @@ export class NotificationService {
         return { token, fromFallback: false };
       }
       console.warn(
-        `Installation for ${slackUserId} did not include a bot or user token; falling back to env token`,
+        `Installation for ${userId} in team ${teamId} did not include a bot or user token; falling back to env token`,
       );
     } catch (error) {
       console.warn(
-        `Failed to fetch installation for ${slackUserId}; falling back to env token`,
+        `Failed to fetch installation for ${userId} in team ${teamId}; falling back to env token`,
         error,
       );
     }
 
     return { token: fallback, fromFallback: true };
-  }
-
-  private extractSlackTeamId(
-    clientId: string | null | undefined,
-  ): string | null {
-    if (!clientId) return null;
-    const segments = clientId
-      .split(':')
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (segments.length === 3 && segments[0] === 'slack') {
-      return segments[1] || null;
-    }
-    return null;
   }
 
   private getOrCreateWebClient(token: string): WebClient {

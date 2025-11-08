@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { EventBus, type PlayerRespawnEvent } from '@mud/engine';
 import { EventBridgeService } from '../../shared/event-bridge.service';
+import { LocationNotificationService } from '../notifications/location-notification.service';
 
 @Injectable()
 export class PlayerNotificationService
@@ -36,10 +37,9 @@ export class PlayerNotificationService
   }
 
   private async handlePlayerRespawn(event: PlayerRespawnEvent): Promise<void> {
-    const slackId = this.resolveSlackUserId(event.player);
-    if (!slackId) {
+    if (!LocationNotificationService.hasSlackUser(event.player)) {
       this.logger.warn(
-        `Received player:respawn for player ${event.player.id} without a Slack ID`,
+        `Received player:respawn for player ${event.player.id} without a Slack user`,
       );
       return;
     }
@@ -50,7 +50,8 @@ export class PlayerNotificationService
     await this.eventBridge.publishPlayerNotification(event, [
       {
         clientType: 'slack',
-        clientId: `slack:${slackId}`,
+        teamId: event.player.slackUser.teamId,
+        userId: event.player.slackUser.userId,
         message,
         priority: 'high',
         blocks: [
@@ -75,7 +76,7 @@ export class PlayerNotificationService
     ]);
 
     this.logger.debug(
-      `Sent respawn notification to ${slackId} for location ${locationText}`,
+      `Sent respawn notification to ${event.player.slackUser.teamId}:${event.player.slackUser.userId} for location ${locationText}`,
     );
   }
 

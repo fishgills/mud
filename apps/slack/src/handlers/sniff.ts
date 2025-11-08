@@ -4,7 +4,6 @@ import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS } from '../commands';
-import { toClientId } from '../utils/clientId';
 
 export const sniffHandlerHelp = `Sniff out the nearest monster within range of your agility. Example: Send "${COMMANDS.SNIFF}".`;
 
@@ -156,7 +155,7 @@ const appendSettlementInfo = (
 export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
   try {
     const response = await sniffNearestMonster({
-      slackId: toClientId(userId, teamId || ''),
+      slackId: `${teamId}:${userId}`,
     });
 
     if (!response.success) {

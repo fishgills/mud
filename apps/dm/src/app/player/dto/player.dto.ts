@@ -1,7 +1,6 @@
 export interface CreatePlayerDto {
-  slackId?: string; // Deprecated: use clientId and clientType
-  clientId?: string;
-  clientType?: 'slack' | 'discord' | 'web';
+  userId?: string;
+  teamId?: string;
   name: string;
   x?: number;
   y?: number;

@@ -235,45 +235,33 @@ export class MovementController {
 
   @Get('sniff')
   async sniffNearestMonster(
-    @Query('slackId') slackId?: string,
-    @Query('clientId') clientId?: string,
+    @Query('teamId') teamId: string,
+    @Query('userId') userId: string,
   ): Promise<SniffResponse> {
-    if (!clientId && !slackId) {
-      throw new BadRequestException(
-        'Either clientId or slackId must be provided',
-      );
-    }
-
     try {
-      const player = await this.playerService.getPlayerByIdentifier({
-        clientId,
-        slackId,
-      });
+      const player = await this.playerService.getPlayer(userId, teamId);
 
-      if (slackId) {
-        this.playerService.updateLastAction(slackId).catch(() => {
+      if (player) {
+        this.playerService.updateLastAction(player.id).catch(() => {
           /* ignore activity errors */
         });
       }
 
-      const agility = player.attributes.agility ?? 0;
+      const agility = player.agility ?? 0;
       const detectionRadius = Math.max(1, agility);
 
       const [center, nearest] = await Promise.all([
-        this.worldService.getTileInfoWithNearby(
-          player.position.x,
-          player.position.y,
-        ),
+        this.worldService.getTileInfoWithNearby(player.x, player.y),
         this.monsterService.findNearestMonsterWithinRadius(
-          player.position.x,
-          player.position.y,
+          player.x,
+          player.y,
           detectionRadius,
         ),
       ]);
 
       const settlementInfo = this.resolveNearestSettlement(
-        player.position.x,
-        player.position.y,
+        player.x,
+        player.y,
         center.nearbySettlements,
         center.currentSettlement,
       );
@@ -281,7 +269,7 @@ export class MovementController {
 
       if (!resolvedSettlement) {
         const deterministic = await this.worldService
-          .findNearestSettlement(player.position.x, player.position.y, {
+          .findNearestSettlement(player.x, player.y, {
             maxRadius: Math.max(detectionRadius * 2, WORLD_CHUNK_SIZE * 2),
           })
           .catch(() => null);
@@ -346,8 +334,8 @@ export class MovementController {
       }
 
       const direction = calculateDirection(
-        player.position.x,
-        player.position.y,
+        player.x,
+        player.y,
         nearest.monster.position.x,
         nearest.monster.position.y,
       );
@@ -389,41 +377,33 @@ export class MovementController {
   async movePlayer(
     @Body()
     input: {
-      slackId?: string;
-      clientId?: string;
+      userId: string;
+      teamId: string;
       move: MovePlayerRequest;
     },
   ): Promise<PlayerMoveResponse> {
-    const playerIdentifier = input?.clientId || input?.slackId;
-    if (!playerIdentifier) {
-      throw new BadRequestException(
-        'Either clientId or slackId must be provided',
-      );
+    if (!input.userId || !input.teamId) {
+      throw new BadRequestException('userId and teamId are required');
     }
+
     if (!input?.move) {
       throw new BadRequestException('move payload is required');
     }
 
     try {
       const player = await this.playerService.movePlayer(
-        playerIdentifier,
+        input.teamId,
+        input.userId,
         input.move,
       );
       const [monsters, playersAtLocation] = await Promise.all([
-        this.monsterService.getMonstersAtLocation(
-          player.position.x,
-          player.position.y,
-        ),
-        this.playerService.getPlayersAtLocation(
-          player.position.x,
-          player.position.y,
-          { excludePlayerId: player.id },
-        ),
+        this.monsterService.getMonstersAtLocation(player.x, player.y),
+        this.playerService.getPlayersAtLocation(player.x, player.y, {
+          excludePlayerId: player.id,
+        }),
       ]);
 
-      this.logger.debug(
-        `Moved to (${player.position.x}, ${player.position.y})`,
-      );
+      this.logger.debug(`Moved ${player.name} to (${player.x}, ${player.y})`);
       return {
         success: true,
         player: EntityToDtoAdapter.playerEntityToDto(player),
@@ -434,7 +414,7 @@ export class MovementController {
       };
     } catch (error) {
       const fallbackPlayer = await this.playerService
-        .getPlayer(playerIdentifier)
+        .getPlayer(input.userId, input.teamId)
         .catch(() => null);
 
       if (!fallbackPlayer) {
@@ -447,7 +427,7 @@ export class MovementController {
         success: false,
         message:
           error instanceof Error ? error.message : 'Failed to move player',
-        player: EntityToDtoAdapter.playerEntityToDto(fallbackPlayer),
+        player: fallbackPlayer,
         monsters: [],
         playersAtLocation: [],
       };
@@ -456,20 +436,17 @@ export class MovementController {
 
   @Get('look')
   async getLookView(
-    @Query('slackId') slackId?: string,
-    @Query('clientId') clientId?: string,
+    @Query('teamId') teamId: string,
+    @Query('userId') userId: string,
   ): Promise<LookViewResponse> {
-    const playerIdentifier = clientId || slackId;
-    if (!playerIdentifier) {
-      throw new BadRequestException(
-        'Either clientId or slackId must be provided',
-      );
+    if (!userId || !teamId) {
+      throw new BadRequestException('userId and teamId are required');
     }
 
     try {
       const aiProvider = env.DM_USE_VERTEX_AI ? 'vertex' : 'openai';
       this.logger.debug(
-        `getLookView start identifier=${playerIdentifier} provider=${aiProvider}`,
+        `getLookView start teamId=${teamId} userId=${userId} provider=${aiProvider}`,
       );
       const t0 = Date.now();
       const timing: TimingMetrics = {
@@ -488,15 +465,15 @@ export class MovementController {
       };
 
       const tPlayerStart = Date.now();
-      const player = await this.playerService.getPlayer(playerIdentifier);
-      this.playerService.updateLastAction(playerIdentifier).catch(() => {
+      const player = await this.playerService.getPlayer(userId, teamId);
+      this.playerService.updateLastAction(player.id).catch(() => {
         /* ignore */
       });
       timing.tPlayerMs = Date.now() - tPlayerStart;
 
       const tCenterNearbyStart = Date.now();
       const centerWithNearbyPromise = this.worldService
-        .getTileInfoWithNearby(player.position.x, player.position.y)
+        .getTileInfoWithNearby(player.x, player.y)
         .then((d) => {
           timing.tGetCenterNearbyMs = Date.now() - tCenterNearbyStart;
           return d;
@@ -506,10 +483,10 @@ export class MovementController {
       const peakScanUpperBound = 18;
       const tExtPrefetchStart = Date.now();
       const extTilesPrefetchPromise = this.worldService.getTilesInBounds(
-        player.position.x - peakScanUpperBound,
-        player.position.x + peakScanUpperBound,
-        player.position.y - peakScanUpperBound,
-        player.position.y + peakScanUpperBound,
+        player.x - peakScanUpperBound,
+        player.x + peakScanUpperBound,
+        player.y - peakScanUpperBound,
+        player.y + peakScanUpperBound,
       );
 
       const centerWithNearby = await centerWithNearbyPromise;
@@ -535,8 +512,8 @@ export class MovementController {
           };
         }
         return {
-          x: player.position.x,
-          y: player.position.y,
+          x: player.x,
+          y: player.y,
           biomeName: 'grassland',
           description: '',
           height: 0.5,
@@ -549,7 +526,7 @@ export class MovementController {
         this.visibilityService.calculateVisibilityRadius(centerTile);
 
       const { tiles, extTiles } = await this.visibilityService.processTileData(
-        { x: player.position.x, y: player.position.y },
+        { x: player.x, y: player.y },
         visibilityRadius,
         timing,
         {
@@ -559,34 +536,35 @@ export class MovementController {
       );
 
       const visiblePeaks = this.peakService.processVisiblePeaks(
-        { x: player.position.x, y: player.position.y },
+        { x: player.x, y: player.y },
         visibilityRadius,
         extTiles,
         timing,
       );
 
       const biomeSummary = this.biomeService.generateBiomeSummary(
-        { x: player.position.x, y: player.position.y },
+        { x: player.x, y: player.y },
         tiles,
         timing,
       );
 
       const nearbyPlayersPromise = this.playerService.getNearbyPlayers(
-        player.position.x,
-        player.position.y,
-        slackId,
+        player.x,
+        player.y,
+        teamId,
+        userId,
       );
       const visibleSettlements =
         this.settlementService.processVisibleSettlements(
-          { x: player.position.x, y: player.position.y },
+          { x: player.x, y: player.y },
           visibilityRadius,
           centerWithNearby,
           timing,
         );
 
       const monstersPromise = this.monsterService.getMonstersAtLocation(
-        player.position.x,
-        player.position.y,
+        player.x,
+        player.y,
       );
 
       const currentSettlement: Settlement | null =
@@ -629,7 +607,7 @@ export class MovementController {
 
       try {
         const worldItems = await prisma.worldItem.findMany({
-          where: { x: player.position.x, y: player.position.y },
+          where: { x: player.x, y: player.y },
           include: { item: true },
         });
         items = worldItems.map((wi) => ({
@@ -664,12 +642,11 @@ export class MovementController {
 
       const totalMs = Date.now() - t0;
       this.logger.debug(
-        `getLookView perf slackId=${slackId} totalMs=${totalMs} playerMs=${timing.tPlayerMs} getCenterMs=${timing.tGetCenterMs} getCenterNearbyMs=${timing.tGetCenterNearbyMs} boundsTilesMs=${timing.tBoundsTilesMs} filterTilesMs=${timing.tFilterTilesMs} extBoundsMs=${timing.tExtBoundsMs} peaksSortMs=${timing.tPeaksSortMs} biomeSummaryMs=${timing.tBiomeSummaryMs} settlementsFilterMs=${timing.tSettlementsFilterMs} aiMs=${timing.tAiMs} tiles=${timing.tilesCount} peaks=${timing.peaksCount}`,
+        `getLookView perf teamId=${teamId} userId=${userId} totalMs=${totalMs} playerMs=${timing.tPlayerMs} getCenterMs=${timing.tGetCenterMs} getCenterNearbyMs=${timing.tGetCenterNearbyMs} boundsTilesMs=${timing.tBoundsTilesMs} filterTilesMs=${timing.tFilterTilesMs} extBoundsMs=${timing.tExtBoundsMs} peaksSortMs=${timing.tPeaksSortMs} biomeSummaryMs=${timing.tBiomeSummaryMs} settlementsFilterMs=${timing.tSettlementsFilterMs} aiMs=${timing.tAiMs} tiles=${timing.tilesCount} peaks=${timing.peaksCount}`,
       );
       try {
         const perfPayload = {
           event: 'getLookView.perf',
-          slackId,
           provider: aiProvider,
           totalMs,
           playerMs: timing.tPlayerMs,

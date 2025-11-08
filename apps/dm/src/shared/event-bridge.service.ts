@@ -56,7 +56,8 @@ export class EventBridgeService implements OnModuleInit, OnModuleDestroy {
   async publishCombatNotifications(
     event: GameEvent,
     messages: Array<{
-      slackId: string;
+      teamId: string;
+      userId: string;
       name: string;
       message: string;
       role: 'attacker' | 'defender' | 'observer';

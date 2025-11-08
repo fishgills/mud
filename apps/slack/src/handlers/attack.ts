@@ -3,6 +3,7 @@ import { HandlerContext, type SayMessage } from './types';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import { extractSlackId } from '../utils/clientId';
 import { PlayerCommandHandler } from './base';
+import { requireCharacter } from './characterUtils';
 import {
   buildPlayerOption,
   buildMonsterOption,
@@ -191,7 +192,6 @@ export class AttackHandler extends PlayerCommandHandler {
       attackOrigin: undefined,
     };
     let perfDetails: Record<string, unknown> = {};
-    const clientId = this.toClientId(userId);
     const emitPerf = () => {
       try {
         const payload = {
@@ -240,7 +240,8 @@ export class AttackHandler extends PlayerCommandHandler {
 
         const attackStart = Date.now();
         const attackResult = await this.dm.attack({
-          slackId: clientId,
+          teamId: this.teamId,
+          userId,
           input: {
             targetType: TargetType.Player,
             targetSlackId,
@@ -304,14 +305,10 @@ export class AttackHandler extends PlayerCommandHandler {
       metrics.targetType = undefined;
 
       const playerLookupStart = Date.now();
-      const playerResult = await this.dm.getPlayer({
-        slackId: clientId,
-      });
+      const player = await requireCharacter(this.teamId!, userId, say);
       metrics.dmGetPlayerMs = Date.now() - playerLookupStart;
 
-      const player = playerResult.data;
       if (!player) {
-        await say({ text: 'Could not find your player.' });
         perfDetails = {
           success: false,
           reason: 'player-not-found',

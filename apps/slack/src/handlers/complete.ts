@@ -10,17 +10,18 @@ export class CompleteHandler extends PlayerCommandHandler {
   }
 
   protected async perform({ userId, say }: HandlerContext): Promise<void> {
-    const result = await this.dm.completePlayer({
-      slackId: this.toClientId(userId),
+    const response = await this.dm.completePlayer({
+      teamId: this.teamId,
+      userId,
     });
-    if (result.success) {
+    if (response.success) {
       await say({
         text: `✅ Character creation complete! You can now move and attack.`,
       });
       return;
     }
 
-    await say({ text: `Error: ${result.message}` });
+    await say({ text: `Error: ${response.message}` });
   }
 }
 

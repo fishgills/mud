@@ -37,38 +37,54 @@ export async function applyCombatResults(
   );
 
   if (loser.type === 'player') {
-    if (!loser.slackId) {
-      throw new Error(`Player ${loser.name} missing slackId in combat results`);
+    if (!loser.slackUser?.teamId || !loser.slackUser?.userId) {
+      throw new Error(
+        `Player ${loser.name} missing Slack user/team ID in combat results`,
+      );
     }
 
     const shouldRespawn =
       attackOrigin === AttackOrigin.TEXT_PVE ||
       attackOrigin === AttackOrigin.DROPDOWN_PVP;
+    const loserPlayer = await prisma.player.findFirst({
+      where: {
+        id: loser.id,
+      },
+      include: {
+        slackUser: true,
+      },
+    });
 
+    const slackUserId = loserPlayer?.slackUser?.userId;
+    const slackTeamId = loserPlayer?.slackUser?.teamId;
+    if (!slackUserId || !slackTeamId) {
+      throw new Error(
+        `Missing Slack user/team ID for player ${loser.name} during respawn`,
+      );
+    }
     if (shouldRespawn) {
       logger.log(`🏥 Respawning defeated player ${loser.name}`);
-      const { player: respawnedPlayer, event } =
-        await playerService.respawnPlayer(loser.slackId, {
-          emitEvent: false,
-        });
-      if (event) {
-        playerRespawnEvents.push(event);
-      }
-      loser.hp = respawnedPlayer.combat.hp;
-      loser.maxHp = respawnedPlayer.combat.maxHp;
-      loser.isAlive = respawnedPlayer.combat.isAlive;
-      loser.x = respawnedPlayer.position.x;
-      loser.y = respawnedPlayer.position.y;
+
+      const respawnedPlayer = await playerService.respawnPlayer(
+        slackUserId,
+        slackTeamId,
+      );
+      loser.hp = respawnedPlayer.hp;
+      loser.maxHp = respawnedPlayer.maxHp;
+      loser.isAlive = respawnedPlayer.isAlive;
+      loser.x = respawnedPlayer.x;
+      loser.y = respawnedPlayer.y;
     } else {
       logger.log(`🩹 Restoring defeated player ${loser.name} to full health`);
       const healedLoser = await playerService.restorePlayerHealth(
-        loser.slackId,
+        slackUserId,
+        slackTeamId,
       );
-      loser.hp = healedLoser.combat.hp;
-      loser.maxHp = healedLoser.combat.maxHp;
-      loser.isAlive = healedLoser.combat.isAlive;
-      loser.x = healedLoser.position.x;
-      loser.y = healedLoser.position.y;
+      loser.hp = healedLoser.hp;
+      loser.maxHp = healedLoser.maxHp;
+      loser.isAlive = healedLoser.isAlive;
+      loser.x = healedLoser.x;
+      loser.y = healedLoser.y;
     }
   } else {
     logger.debug(`Updating loser ${loser.name} HP to ${loser.hp}...`);
@@ -91,15 +107,29 @@ export async function applyCombatResults(
   }
 
   if (winner.type === 'player') {
-    if (!winner.slackId) {
+    const winnerPlayer = await prisma.player.findFirst({
+      where: {
+        id: winner.id,
+      },
+      include: {
+        slackUser: true,
+      },
+    });
+    if (!winnerPlayer?.slackUser?.userId || !winnerPlayer?.slackUser?.teamId) {
       throw new Error(
-        `Player ${winner.name} missing slackId in combat results`,
+        `Missing Slack user/team ID for player ${winner.name} in combat results`,
       );
     }
+    const slackUserId = winnerPlayer.slackUser.userId;
+    const slackTeamId = winnerPlayer.slackUser.teamId;
+
     logger.debug(
       `Awarding ${combatLog.xpAwarded} XP to winner ${winner.name}...`,
     );
-    const currentPlayer = await playerService.getPlayer(winner.slackId);
+    const currentPlayer = await playerService.getPlayer(
+      slackUserId,
+      slackTeamId,
+    );
     const newXp = currentPlayer.xp + combatLog.xpAwarded;
     const goldAwarded = Math.max(0, combatLog.goldAwarded ?? 0);
     const updatedStats: Partial<{ xp: number; gold: number }> = {
@@ -111,7 +141,8 @@ export async function applyCombatResults(
       updatedStats.gold = newGoldTotal;
     }
     const updatedPlayer = await playerService.updatePlayerStats(
-      winner.slackId,
+      slackUserId,
+      slackTeamId,
       updatedStats,
     );
     logger.log(
@@ -128,8 +159,8 @@ export async function applyCombatResults(
         updatedPlayer.skillPoints - currentPlayer.skillPoints,
       );
       winner.level = updatedPlayer.level;
-      winner.maxHp = updatedPlayer.combat.maxHp;
-      winner.hp = updatedPlayer.combat.hp;
+      winner.maxHp = updatedPlayer.maxHp;
+      winner.hp = updatedPlayer.hp;
       winner.levelUp = {
         previousLevel: currentPlayer.level,
         newLevel: updatedPlayer.level,
@@ -138,14 +169,15 @@ export async function applyCombatResults(
     }
 
     const healedWinner = await playerService.restorePlayerHealth(
-      winner.slackId,
+      slackUserId,
+      slackTeamId,
     );
     winner.level = healedWinner.level;
-    winner.maxHp = healedWinner.combat.maxHp;
-    winner.hp = healedWinner.combat.hp;
-    winner.isAlive = healedWinner.combat.isAlive;
-    winner.x = healedWinner.position.x;
-    winner.y = healedWinner.position.y;
+    winner.maxHp = healedWinner.maxHp;
+    winner.hp = healedWinner.hp;
+    winner.isAlive = healedWinner.isAlive;
+    winner.x = healedWinner.x;
+    winner.y = healedWinner.y;
   } else {
     logger.debug(`Winner ${winner.name} is a monster, no XP or gold awarded`);
   }

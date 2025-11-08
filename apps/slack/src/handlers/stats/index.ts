@@ -10,7 +10,7 @@ import {
 } from './lookup';
 import { resolveTarget } from './target';
 import { PlayerStatsSource } from './types';
-import { toClientId } from '../../utils/clientId';
+import { MISSING_CHARACTER_MESSAGE } from '../characterUtils';
 
 export const statsHandlerHelp = `Show stats with "${COMMANDS.STATS}". Example: Send "${COMMANDS.STATS}" for yourself, "${COMMANDS.STATS} Alice" to inspect another adventurer, or "${COMMANDS.STATS} Goblin" to scout a nearby monster.`;
 
@@ -36,17 +36,15 @@ export const statsHandler = async ({
   resolveUserId,
   teamId,
 }: HandlerContext) => {
-  const missingCharacterMessage = `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`;
-
   try {
     const target = await resolveTarget(text, userId, resolveUserId);
 
     if (target.isSelf) {
       const { player, message } = await fetchPlayerRecord(
-        { slackId: toClientId(userId, teamId) },
-        missingCharacterMessage,
+        { slackId: `${teamId}:${userId}` },
+        MISSING_CHARACTER_MESSAGE,
       );
-      await respondWithPlayer(say, player, message, missingCharacterMessage, {
+      await respondWithPlayer(say, player, message, MISSING_CHARACTER_MESSAGE, {
         isSelf: true,
       });
       return;
@@ -56,10 +54,10 @@ export const statsHandler = async ({
       const isSelfLookup = target.slackId === userId;
       const targetDescription = `<@${target.slackId}>`;
       const fallbackMessage = isSelfLookup
-        ? missingCharacterMessage
+        ? MISSING_CHARACTER_MESSAGE
         : `I couldn't find a character for ${targetDescription}.`;
       const { player, message } = await fetchPlayerRecord(
-        { slackId: toClientId(target.slackId, teamId) },
+        { slackId: `${teamId}:${target.slackId}` },
         fallbackMessage,
       );
       await respondWithPlayer(say, player, message, fallbackMessage, {
@@ -77,11 +75,11 @@ export const statsHandler = async ({
 
     const self = await fetchPlayerWithLocation(
       userId,
-      missingCharacterMessage,
+      MISSING_CHARACTER_MESSAGE,
       teamId,
     );
     if (!self.player) {
-      await say({ text: self.error ?? missingCharacterMessage });
+      await say({ text: self.error ?? MISSING_CHARACTER_MESSAGE });
       return;
     }
 

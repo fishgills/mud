@@ -5,7 +5,6 @@ import { dmClient } from '../dm-client';
 import { PlayerAttribute } from '../dm-types';
 import { buildPlayerStatsMessage } from '../handlers/stats/format';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
-import { toClientId } from '../utils/clientId';
 
 const actionToAttribute: Record<string, PlayerAttribute> = {
   [STAT_ACTIONS.INCREASE_STRENGTH]: PlayerAttribute.Strength,
@@ -40,7 +39,8 @@ export const registerStatActions = (app: App) => {
 
         try {
           const result = await dmClient.spendSkillPoint({
-            slackId: toClientId(userId, teamId),
+            teamId,
+            userId,
             attribute,
           });
           if (!result.success || !result.data) {

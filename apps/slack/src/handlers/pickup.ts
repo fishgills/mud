@@ -8,7 +8,6 @@ import {
 import { COMMANDS, PICKUP_ACTIONS } from '../commands';
 import { registerHandler } from './handlerRegistry';
 import type { HandlerContext } from './types';
-import { toClientId } from '../utils/clientId';
 import {
   getUserFriendlyErrorMessage,
   mapErrCodeToFriendlyMessage,
@@ -99,7 +98,7 @@ export const pickupHandler = async ({
 
     try {
       const res = await pickup({
-        slackId: toClientId(userId, teamId || ''),
+        slackId: `${teamId}:${userId}`,
         worldItemId,
       });
       if (res && res.success) {
@@ -132,7 +131,7 @@ export const pickupHandler = async ({
   // Selection flow: show dropdown of nearby items
   try {
     const playerRes = await getPlayer({
-      slackId: toClientId(userId, teamId || ''),
+      slackId: `${teamId}:${userId}`,
     });
     const player = playerRes.data;
     if (!player) {
@@ -151,7 +150,7 @@ export const pickupHandler = async ({
     let items: ItemRecord[] = entities.items ?? [];
     if (!items || items.length === 0) {
       const look = await getLookView({
-        slackId: toClientId(userId, teamId || ''),
+        slackId: `${teamId}:${userId}`,
       });
       // look.data is a JsonMap and may contain an items array; narrow via unknown cast
       items = (look?.data as unknown as { items?: ItemRecord[] })?.items ?? [];

@@ -268,6 +268,8 @@ export interface MovePlayerInput {
 
 export interface MovePlayerRequest {
   slackId?: string;
+  teamId?: string;
+  userId?: string;
   clientId?: string;
   input: MovePlayerInput;
 }
@@ -281,17 +283,23 @@ export interface AttackInput {
 }
 
 export interface AttackRequest {
-  slackId: string;
+  slackId?: string;
+  teamId?: string;
+  userId?: string;
   input: AttackInput;
 }
 
 export interface SpendSkillPointRequest {
-  slackId: string;
+  slackId?: string;
+  teamId?: string;
+  userId?: string;
   attribute: string;
 }
 
 export interface SimpleIdentifierRequest {
-  slackId: string;
+  slackId?: string;
+  teamId?: string;
+  userId?: string;
 }
 
 export async function createPlayer(
@@ -304,12 +312,16 @@ export async function createPlayer(
 
 export async function getPlayer(params: {
   slackId?: string;
+  teamId?: string;
+  userId?: string;
   clientId?: string;
   name?: string;
 }): Promise<PlayerResponse> {
   return dmRequest<PlayerResponse>('/players', HttpMethod.GET, {
     query: {
       slackId: params.slackId,
+      teamId: params.teamId,
+      userId: params.userId,
       clientId: params.clientId,
       name: params.name,
     },
@@ -335,6 +347,8 @@ export async function movePlayer(
   return dmRequest<PlayerMoveResponse>('/movement/move', HttpMethod.POST, {
     body: {
       slackId: input.slackId,
+      teamId: input.teamId,
+      userId: input.userId,
       clientId: input.clientId,
       move: moveBody,
     },
@@ -373,6 +387,8 @@ export async function completePlayer(
   return dmRequest<PlayerResponse>('/players/stats', HttpMethod.POST, {
     body: {
       slackId: input.slackId,
+      teamId: input.teamId,
+      userId: input.userId,
       input: { completeCreation: true },
     },
   });
@@ -381,19 +397,32 @@ export async function completePlayer(
 export async function deletePlayer(
   input: SimpleIdentifierRequest,
 ): Promise<PlayerResponse> {
+  const effectiveSlackId =
+    input.teamId && input.userId
+      ? `${input.teamId}:${input.userId}`
+      : input.slackId;
+
+  if (!effectiveSlackId) {
+    throw new Error('slackId or teamId+userId is required');
+  }
+
   return dmRequest<PlayerResponse>(
-    `/players/${encodeURIComponent(input.slackId)}`,
+    `/players/${encodeURIComponent(effectiveSlackId)}`,
     HttpMethod.DELETE,
   );
 }
 
 export async function sniffNearestMonster(params: {
   slackId?: string;
+  teamId?: string;
+  userId?: string;
   clientId?: string;
 }): Promise<SniffResponse> {
   return dmRequest<SniffResponse>('/movement/sniff', HttpMethod.GET, {
     query: {
       slackId: params.slackId,
+      teamId: params.teamId,
+      userId: params.userId,
       clientId: params.clientId,
     },
   });
@@ -401,27 +430,40 @@ export async function sniffNearestMonster(params: {
 
 export async function getLookView(params: {
   slackId?: string;
+  teamId?: string;
+  userId?: string;
   clientId?: string;
 }): Promise<LookViewResponse> {
   return dmRequest<LookViewResponse>('/movement/look', HttpMethod.GET, {
     query: {
       slackId: params.slackId,
+      teamId: params.teamId,
+      userId: params.userId,
       clientId: params.clientId,
     },
   });
 }
 
 export async function getPlayerItems(params: {
+  teamId?: string;
+  userId?: string;
   slackId?: string;
   clientId?: string;
 }): Promise<PlayerResponse> {
   return dmRequest<PlayerResponse>('/players/items', HttpMethod.GET, {
-    query: { slackId: params.slackId, clientId: params.clientId },
+    query: {
+      teamId: params.teamId,
+      userId: params.userId,
+      slackId: params.slackId,
+      clientId: params.clientId,
+    },
   });
 }
 
 export async function pickup(input: {
   slackId?: string;
+  teamId?: string;
+  userId?: string;
   clientId?: string;
   worldItemId?: number;
 }): Promise<SuccessResponse & { item?: ItemRecord; data?: unknown }> {
@@ -436,6 +478,8 @@ export async function pickup(input: {
 
 export async function equip(input: {
   slackId?: string;
+  teamId?: string;
+  userId?: string;
   clientId?: string;
   playerItemId?: number;
   slot?: string;
@@ -447,6 +491,8 @@ export async function equip(input: {
 
 export async function unequip(input: {
   slackId?: string;
+  teamId?: string;
+  userId?: string;
   clientId?: string;
   playerItemId?: number;
 }): Promise<SuccessResponse> {
@@ -457,6 +503,8 @@ export async function unequip(input: {
 
 export async function drop(input: {
   slackId?: string;
+  teamId?: string;
+  userId?: string;
   clientId?: string;
   playerItemId?: number;
 }): Promise<SuccessResponse> {

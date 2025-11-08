@@ -2,7 +2,7 @@
  * Game event types following RanvierMUD's event-driven pattern
  */
 
-import { Player, Monster } from '@mud/database';
+import { Player, Monster, Prisma } from '@mud/database';
 
 export interface BaseGameEvent {
   timestamp: Date;
@@ -37,7 +37,7 @@ export interface PlayerDeathEvent extends BaseGameEvent {
 
 export interface PlayerRespawnEvent extends BaseGameEvent {
   eventType: 'player:respawn';
-  player: Player;
+  player: Player & Prisma.SlackUserInclude;
   x: number;
   y: number;
 }

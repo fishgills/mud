@@ -20,16 +20,25 @@ export interface NotificationMessage {
   event: GameEvent;
 }
 
-export interface NotificationRecipient {
-  clientType: 'slack' | 'discord' | 'web';
-  clientId: string; // e.g., "slack:U123456" or "discord:987654"
-  message: string;
-  role?: 'attacker' | 'defender' | 'observer';
-  priority?: 'high' | 'normal' | 'low';
-  // Optional Block Kit payload for richer clients (e.g., Slack)
-  // Typed loosely to avoid coupling this package to Slack types
-  blocks?: Array<Record<string, unknown>>;
-}
+export type NotificationRecipient =
+  | {
+      clientType: 'slack';
+      teamId: string;
+      userId: string;
+      message: string;
+      role?: 'attacker' | 'defender' | 'observer';
+      priority?: 'high' | 'normal' | 'low';
+      blocks?: Array<Record<string, unknown>>;
+    }
+  | {
+      clientType: 'discord' | 'web';
+      teamId: undefined;
+      userId: string; // e.g., "discord:987654"
+      message: string;
+      role?: 'attacker' | 'defender' | 'observer';
+      priority?: 'high' | 'normal' | 'low';
+      blocks?: Array<Record<string, unknown>>;
+    };
 
 /**
  * Redis Event Bridge - publishes game events to Redis for cross-service communication
@@ -226,18 +235,18 @@ export class RedisEventBridge {
   async publishCombatNotifications(
     event: GameEvent,
     messages: Array<{
-      slackId: string;
       name: string;
       message: string;
+      teamId: string;
+      userId: string;
       role: 'attacker' | 'defender' | 'observer';
       blocks?: Array<Record<string, unknown>>;
     }>,
   ): Promise<void> {
     const recipients: NotificationRecipient[] = messages.map((msg) => ({
       clientType: 'slack' as const,
-      clientId: msg.slackId.startsWith('slack:')
-        ? msg.slackId
-        : `slack:${msg.slackId}`,
+      teamId: msg.teamId,
+      userId: msg.userId,
       message: msg.message,
       role: msg.role,
       priority: msg.role === 'observer' ? 'normal' : 'high',

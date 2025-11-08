@@ -13,7 +13,6 @@ import {
   isMissingTargetCharacterMessage,
   notifyTargetAboutMissingCharacter,
 } from '../handlers/attackNotifications';
-import { toClientId } from '../utils/clientId';
 import type { SlackBlockState } from './helpers';
 
 type SelectedTarget =
@@ -179,7 +178,8 @@ export const registerAttackActions = (app: App) => {
             };
 
         const attackResult = await dmClient.attack({
-          slackId: toClientId(userId, teamId),
+          teamId,
+          userId,
           input: attackInput,
         });
 

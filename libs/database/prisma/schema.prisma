@@ -21,8 +21,6 @@ model GameState {
 
 model Player {
   id           Int           @id @default(autoincrement())
-  clientId     String?       @unique // New: Full client ID (e.g., "slack:U123", "discord:456")
-  clientType   String?       @default("slack") // New: Client type ("slack", "discord", "web")
   name         String
   x            Int // X coordinate
   y            Int // Y coordinate
@@ -46,6 +44,22 @@ model Player {
   partyId      Int?
   partyMembers PartyMember[]
   playerItems  PlayerItem[]
+  slackUser    SlackUser?
+  // Future: discordUsers DiscordUser[], webUsers WebUser[], etc.
+}
+
+model SlackUser {
+  id          Int      @id @default(autoincrement())
+  teamId      String   // Slack workspace/team ID (e.g., "TB1QW3SQHU")
+  userId      String   // Slack user ID (e.g., "UB389SP46")
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId    Int      @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
 }
 
 model WorldSeed {
