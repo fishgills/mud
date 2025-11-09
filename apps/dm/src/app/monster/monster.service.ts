@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { getPrismaClient, type Monster } from '@mud/database';
-import { MonsterFactory, MonsterEntity, EventBus } from '@mud/engine';
+import { getPrismaClient, Monster } from '@mud/database';
+import { EventBus } from '@mud/engine';
 import { WorldService } from '../world/world.service';
-import { getMonsterTemplate, pickTypeForBiome } from './monster.types';
+import {
+  getMonsterTemplate,
+  MONSTER_TEMPLATES,
+  pickTypeForBiome,
+} from './monster.types';
 import { isWaterBiome } from '../shared/biome.util';
 
 @Injectable()
@@ -14,29 +18,33 @@ export class MonsterService {
   async spawnMonster(
     x: number,
     y: number,
-    biomeId: number,
-  ): Promise<MonsterEntity> {
+    biomeIdentifier: number,
+  ): Promise<Monster> {
     const tile = await this.worldService.getTileInfo(x, y);
     if (isWaterBiome(tile.biomeName)) {
       throw new Error('Cannot spawn monsters in water.');
     }
 
-    const resolvedBiomeId = tile.biomeId ?? biomeId;
+    const biomeId = tile.biomeId ?? biomeIdentifier;
 
-    // Use MonsterFactory to create and return the monster entity
-    return MonsterFactory.create({
-      x,
-      y,
-      biomeId: resolvedBiomeId,
+    // Use provided template or pick a random one
+    const monsterTemplate =
+      MONSTER_TEMPLATES[Math.floor(Math.random() * MONSTER_TEMPLATES.length)];
+
+    return this.createMonster(x, y, biomeId, monsterTemplate);
+  }
+
+  async getAllMonsters(): Promise<Monster[]> {
+    return this.prisma.monster.findMany();
+  }
+
+  async getMonstersAtLocation(x: number, y: number): Promise<Monster[]> {
+    return this.prisma.monster.findMany({
+      where: {
+        x,
+        y,
+      },
     });
-  }
-
-  async getAllMonsters(): Promise<MonsterEntity[]> {
-    return MonsterFactory.loadAll();
-  }
-
-  async getMonstersAtLocation(x: number, y: number): Promise<MonsterEntity[]> {
-    return MonsterFactory.loadAtLocation(x, y);
   }
 
   async getMonstersInBounds(
@@ -44,15 +52,26 @@ export class MonsterService {
     maxX: number,
     minY: number,
     maxY: number,
-  ): Promise<MonsterEntity[]> {
-    return MonsterFactory.loadInBounds(minX, maxX, minY, maxY);
+  ): Promise<Monster[]> {
+    return this.prisma.monster.findMany({
+      where: {
+        x: {
+          gte: minX,
+          lte: maxX,
+        },
+        y: {
+          gte: minY,
+          lte: maxY,
+        },
+      },
+    });
   }
 
   async findNearestMonsterWithinRadius(
     x: number,
     y: number,
     radius: number,
-  ): Promise<{ monster: MonsterEntity; distance: number } | null> {
+  ): Promise<{ monster: Monster; distance: number } | null> {
     if (!Number.isFinite(radius) || radius <= 0) {
       return null;
     }
@@ -65,11 +84,11 @@ export class MonsterService {
       y + searchRadius,
     );
 
-    let closest: { monster: MonsterEntity; distance: number } | null = null;
+    let closest: { monster: Monster; distance: number } | null = null;
 
     for (const monster of monsters) {
-      const dx = monster.position.x - x;
-      const dy = monster.position.y - y;
+      const dx = monster.x - x;
+      const dy = monster.y - y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       if (distance > radius) {
         continue;
@@ -82,15 +101,17 @@ export class MonsterService {
     return closest;
   }
 
-  async moveMonster(monsterId: number): Promise<MonsterEntity> {
-    const entity = await MonsterFactory.load(monsterId);
+  async moveMonster(monsterId: number): Promise<Monster> {
+    const entity = await this.prisma.monster.findUnique({
+      where: { id: monsterId },
+    });
 
     if (!entity) {
       throw new Error('Monster not found or not alive');
     }
 
-    const fromX = entity.position.x;
-    const fromY = entity.position.y;
+    const fromX = entity.x;
+    const fromY = entity.y;
     // Random movement (50% chance to move)
     const directions = [
       { dx: 0, dy: -1 }, // North
@@ -100,19 +121,26 @@ export class MonsterService {
     ];
 
     const direction = directions[Math.floor(Math.random() * directions.length)];
-    const newX = entity.position.x + direction.dx;
-    const newY = entity.position.y + direction.dy;
+    const newX = entity.x + direction.dx;
+    const newY = entity.y + direction.dy;
 
     const targetTile = await this.worldService.getTileInfo(newX, newY);
     if (isWaterBiome(targetTile.biomeName)) {
       // Just update last move timestamp
       entity.lastMove = new Date();
-      await MonsterFactory.save(entity);
+      await this.prisma.monster.update({
+        where: { id: entity.id },
+        data: { lastMove: entity.lastMove },
+      });
     } else {
       // Move to new position
-      entity.moveTo(newX, newY);
+      entity.x = newX;
+      entity.y = newY;
       entity.lastMove = new Date();
-      await MonsterFactory.save(entity);
+      await this.prisma.monster.update({
+        where: { id: entity.id },
+        data: entity,
+      });
 
       const dbMonster = await this.prisma.monster.findUnique({
         where: { id: entity.id },
@@ -134,22 +162,31 @@ export class MonsterService {
     return entity;
   }
 
-  async damageMonster(
-    monsterId: number,
-    damage: number,
-  ): Promise<MonsterEntity> {
-    const entity = await MonsterFactory.load(monsterId);
+  async damageMonster(monsterId: number, damage: number): Promise<Monster> {
+    const entity = await this.prisma.monster.findUnique({
+      where: { id: monsterId },
+    });
 
     if (!entity) {
       throw new Error('Monster not found or not alive');
     }
 
     // Use entity's takeDamage method
-    const wasAlive = entity.combat.isAlive;
-    entity.takeDamage(damage);
-    await MonsterFactory.save(entity);
+    const wasAlive = entity.isAlive;
 
-    if (wasAlive && !entity.combat.isAlive) {
+    const actualDamage = Math.max(0, damage);
+    entity.hp = Math.max(0, entity.hp - actualDamage);
+
+    if (entity.hp === 0) {
+      entity.isAlive = false;
+    }
+
+    await this.prisma.monster.update({
+      where: { id: entity.id },
+      data: entity,
+    });
+
+    if (wasAlive && !entity.isAlive) {
       const dbMonster = await this.prisma.monster.findUnique({
         where: { id: entity.id },
       });
@@ -158,14 +195,14 @@ export class MonsterService {
         id: entity.id,
         name: entity.name,
         type: entity.type,
-        hp: entity.combat.hp,
-        maxHp: entity.combat.maxHp,
-        strength: entity.attributes.strength,
-        agility: entity.attributes.agility,
-        health: entity.attributes.health,
-        x: entity.position.x,
-        y: entity.position.y,
-        isAlive: entity.combat.isAlive,
+        hp: entity.hp,
+        maxHp: entity.maxHp,
+        strength: entity.strength,
+        agility: entity.agility,
+        health: entity.health,
+        x: entity.x,
+        y: entity.y,
+        isAlive: entity.isAlive,
         lastMove: entity.lastMove,
         spawnedAt: entity.spawnedAt,
         biomeId: entity.biomeId,
@@ -189,10 +226,12 @@ export class MonsterService {
     // Remove monsters that have been dead for more than 1 hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
-    await MonsterFactory.deleteMany({
-      isAlive: false,
-      updatedAt: {
-        lt: oneHourAgo,
+    await this.prisma.monster.deleteMany({
+      where: {
+        isAlive: false,
+        updatedAt: {
+          lt: oneHourAgo,
+        },
       },
     });
   }
@@ -202,8 +241,8 @@ export class MonsterService {
     centerY: number,
     radius = 5,
     constraints?: { avoidSettlementsWithin?: number; maxGroupSize?: number },
-  ): Promise<MonsterEntity[]> {
-    const monsters: MonsterEntity[] = [];
+  ): Promise<Monster[]> {
+    const monsters: Monster[] = [];
     const groupCap = constraints?.maxGroupSize ?? 3;
     const spawnCount = Math.max(
       1,
@@ -252,16 +291,52 @@ export class MonsterService {
     y: number,
     biomeId: number,
     type: string,
-  ): Promise<MonsterEntity> {
+  ): Promise<Monster> {
     // Get template matching type from centralized table
     const template = getMonsterTemplate(type);
 
-    // Use MonsterFactory with specific template
-    return MonsterFactory.create({
+    return this.createMonster(x, y, biomeId, template);
+  }
+
+  private async createMonster(
+    x: number,
+    y: number,
+    biomeId: number,
+    monsterTemplate: (typeof MONSTER_TEMPLATES)[0],
+  ): Promise<Monster> {
+    // Add variance to stats (±2)
+    const variance = () => Math.floor(Math.random() * 5) - 2;
+
+    const strength = Math.max(1, monsterTemplate.strength + variance());
+    const agility = Math.max(1, monsterTemplate.agility + variance());
+    const health = Math.max(1, monsterTemplate.health + variance());
+    const maxHp = monsterTemplate.baseHp + health * 2;
+
+    const monster = await this.prisma.monster.create({
+      data: {
+        name: monsterTemplate.name,
+        type: monsterTemplate.type,
+        hp: maxHp,
+        maxHp,
+        strength,
+        agility,
+        health,
+        x,
+        y,
+        biomeId: biomeId,
+        isAlive: true,
+      },
+    });
+
+    // Emit spawn event
+    await EventBus.emit({
+      eventType: 'monster:spawn',
+      monster,
       x,
       y,
-      biomeId,
-      template,
+      timestamp: new Date(),
     });
+
+    return monster;
   }
 }

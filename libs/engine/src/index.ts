@@ -9,8 +9,5 @@ export * from './events/index.js';
 // Entities
 export * from './entities/index.js';
 
-// Factories
-export * from './factories/index.js';
-
 // Behaviors
 export * from './behaviors/index.js';

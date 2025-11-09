@@ -336,8 +336,8 @@ export class MovementController {
       const direction = calculateDirection(
         player.x,
         player.y,
-        nearest.monster.position.x,
-        nearest.monster.position.y,
+        nearest.monster.x,
+        nearest.monster.y,
       );
       const distanceDescriptor = this.describeDistance(nearest.distance);
       const directionFragment = direction ? ` to the ${direction}` : '';
@@ -354,8 +354,8 @@ export class MovementController {
           detectionRadius,
           monsterName: nearest.monster.name,
           direction,
-          monsterX: nearest.monster.position.x,
-          monsterY: nearest.monster.position.y,
+          monsterX: nearest.monster.x,
+          monsterY: nearest.monster.y,
           proximity: distanceDescriptor.proximity,
           distanceLabel: distanceDescriptor.label,
           ...settlementData,

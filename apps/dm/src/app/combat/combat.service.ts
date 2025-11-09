@@ -6,7 +6,7 @@ import {
 } from '@mud/database';
 import { PlayerSlot } from '@prisma/client';
 import type { Item, PlayerItem, ItemQualityType } from '@mud/database';
-import { MonsterFactory, EventBus, type PlayerRespawnEvent } from '@mud/engine';
+import { EventBus, type PlayerRespawnEvent } from '@mud/engine';
 import { PlayerService } from '../player/player.service';
 import { AiService } from '../../openai/ai.service';
 import { EventBridgeService } from '../../shared/event-bridge.service';
@@ -636,22 +636,24 @@ export class CombatService {
   }
 
   private async monsterToCombatant(monsterId: number): Promise<Combatant> {
-    const monster = await MonsterFactory.load(monsterId);
-    if (!monster || !monster.combat.isAlive) {
+    const monster = await this.prisma.monster.findUnique({
+      where: { id: monsterId },
+    });
+    if (!monster || !monster.isAlive) {
       throw new Error('Monster not found or already dead');
     }
     const combatant = {
       id: monster.id,
       name: monster.name,
       type: 'monster' as const,
-      hp: monster.combat.hp,
-      maxHp: monster.combat.maxHp,
-      strength: monster.attributes.strength,
-      agility: monster.attributes.agility,
+      hp: monster.hp,
+      maxHp: monster.maxHp,
+      strength: monster.strength,
+      agility: monster.agility,
       level: 1, // Default to level 1 for monsters
-      isAlive: monster.combat.isAlive,
-      x: monster.position.x,
-      y: monster.position.y,
+      isAlive: monster.isAlive,
+      x: monster.x,
+      y: monster.y,
     };
     this.logger.debug(
       `Monster combatant: ${combatant.name} (Str:${combatant.strength}, Agi:${combatant.agility}, HP:${combatant.hp}/${combatant.maxHp}, Lvl:${combatant.level})`,

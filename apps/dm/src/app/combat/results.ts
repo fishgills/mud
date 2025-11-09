@@ -1,4 +1,4 @@
-import { MonsterFactory, type PlayerRespawnEvent } from '@mud/engine';
+import { EventBus, type PlayerRespawnEvent } from '@mud/engine';
 import type { PlayerService } from '../player/player.service';
 import type { PrismaClient } from '@prisma/client';
 import { Logger } from '@nestjs/common';
@@ -89,16 +89,32 @@ export async function applyCombatResults(
   } else {
     logger.debug(`Updating loser ${loser.name} HP to ${loser.hp}...`);
     if (!loser.isAlive) {
-      await MonsterFactory.delete(loser.id, {
-        killedBy: { type: winner.type, id: winner.id },
+      const monster = await prisma.monster.delete({
+        where: { id: loser.id },
+      });
+      await EventBus.emit({
+        eventType: 'monster:death',
+        monster,
+        killedBy: {
+          type: winner.type,
+          id: winner.id,
+        },
+        x: monster.x,
+        y: monster.y,
+        timestamp: new Date(),
       });
       logger.log(`🗑️ Removed defeated monster ${loser.name} from the world`);
     } else {
-      const monsterEntity = await MonsterFactory.load(loser.id);
+      const monsterEntity = await prisma.monster.findUnique({
+        where: { id: loser.id },
+      });
       if (monsterEntity) {
-        monsterEntity.combat.hp = loser.hp;
-        monsterEntity.combat.isAlive = loser.isAlive;
-        await MonsterFactory.save(monsterEntity);
+        monsterEntity.hp = loser.hp;
+        monsterEntity.isAlive = loser.isAlive;
+        await prisma.monster.update({
+          where: { id: monsterEntity.id },
+          data: monsterEntity,
+        });
         logger.debug(
           `Monster ${loser.name} updated: HP=${loser.hp}, alive=${loser.isAlive}`,
         );

@@ -32,20 +32,19 @@ export class EncounterService implements OnModuleInit {
 
       // Convert entities to JSON for event emission
       const monsterData: Monster[] = monsters.map((m) => {
-        const json = m.toJSON();
         return {
           id: m.id,
           name: m.name,
-          x: m.position.x,
-          y: m.position.y,
-          hp: m.combat.hp,
-          maxHp: m.combat.maxHp,
-          strength: m.attributes.strength,
-          agility: m.attributes.agility,
-          health: m.attributes.health,
-          isAlive: m.combat.isAlive,
-          createdAt: new Date(json.createdAt as string),
-          updatedAt: new Date(json.updatedAt as string),
+          x: m.x,
+          y: m.y,
+          hp: m.hp,
+          maxHp: m.maxHp,
+          strength: m.strength,
+          agility: m.agility,
+          health: m.health,
+          isAlive: m.isAlive,
+          createdAt: m.createdAt,
+          updatedAt: m.updatedAt,
           type: m.type,
           lastMove: m.lastMove,
           spawnedAt: m.spawnedAt,
