@@ -14,7 +14,7 @@ export interface PlayerWithLocationResult {
 }
 
 export async function fetchPlayerRecord(
-  variables: { slackId?: string; clientId?: string; name?: string },
+  variables: { teamId: string; userId: string },
   defaultMessage: string,
 ): Promise<PlayerLookupResult> {
   const result = await getPlayer(variables);
@@ -30,12 +30,9 @@ export async function fetchPlayerRecord(
 export async function fetchPlayerWithLocation(
   userId: string,
   selfMessage: string,
-  teamId?: string,
+  teamId: string,
 ): Promise<PlayerWithLocationResult> {
-  const self = await fetchPlayerRecord(
-    { slackId: `${teamId}:${userId}` },
-    selfMessage,
-  );
+  const self = await fetchPlayerRecord({ teamId, userId }, selfMessage);
   if (!self.player) {
     return { error: self.message ?? selfMessage };
   }

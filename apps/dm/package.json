@@ -22,7 +22,6 @@
     "@google-cloud/vertexai": "^1.10.0",
     "@mud/constants": "*",
     "@mud/database": "*",
-    "@mud/engine": "*",
     "@mud/logging": "*",
     "@mud/redis-client": "*",
     "@mud/tracer": "*",
