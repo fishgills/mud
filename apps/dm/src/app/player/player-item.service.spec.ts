@@ -1,6 +1,6 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '@mud/database';
 import { PlayerItemService } from './player-item.service';
-import { PlayerSlot } from '@prisma/client';
+import { PlayerSlot } from '@mud/database';
 import { ErrCodes } from '../errors/app-error';
 
 jest.mock('crypto', () => ({

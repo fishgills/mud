@@ -4,9 +4,9 @@ import {
   CombatLog as PrismaCombatLog,
   ItemQuality,
 } from '@mud/database';
-import { PlayerSlot } from '@prisma/client';
+import { PlayerSlot } from '@mud/database';
 import type { Item, PlayerItem, ItemQualityType } from '@mud/database';
-import { EventBus, type PlayerRespawnEvent } from '@mud/engine';
+import { EventBus, type PlayerRespawnEvent } from '../../shared/event-bus';
 import { PlayerService } from '../player/player.service';
 import { AiService } from '../../openai/ai.service';
 import { EventBridgeService } from '../../shared/event-bridge.service';

@@ -1,5 +1,5 @@
 import { MonsterService } from './monster.service';
-import { EventBus } from '@mud/engine';
+import { EventBus } from '../../shared/event-bus';
 
 const monsters: Record<string, unknown>[] = [];
 

@@ -30,6 +30,7 @@ export type {
   CombatLog,
   Item,
   PlayerItem,
+  WorldItem,
 } from '@prisma/client';
 
 export type { ItemQuality as ItemQualityType } from '@prisma/client';

@@ -1,2 +1,2 @@
-export * from './game-events.js';
-export * from './event-bus.js';
+// Game events and EventBus have been moved to apps/dm/src/shared/event-bus
+// Engine now focuses on game entities and factories

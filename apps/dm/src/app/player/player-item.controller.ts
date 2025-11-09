@@ -1,4 +1,4 @@
-import { PlayerSlot } from '@prisma/client';
+import { PlayerSlot } from '@mud/database';
 import { PlayerItemService } from './player-item.service';
 
 export class PlayerItemController {

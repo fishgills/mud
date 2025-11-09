@@ -1,5 +1,5 @@
 import type { App, BlockAction, ViewSubmitAction } from '@slack/bolt';
-import { PlayerSlot } from '@prisma/client';
+import { PlayerSlot } from '@mud/database';
 import { dmClient } from '../dm-client';
 import { mapErrCodeToFriendlyMessage } from '../handlers/errorUtils';
 import { getActionValue, getChannelIdFromBody, getTriggerId } from './helpers';

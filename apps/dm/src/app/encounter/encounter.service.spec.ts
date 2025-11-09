@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EncounterService } from './encounter.service';
 import { MonsterService } from '../monster/monster.service';
-import { EventBus } from '@mud/engine';
-import type { PlayerMoveEvent, MonsterEntity } from '@mud/engine';
+import { EventBus } from '../../shared/event-bus';
+import type { PlayerMoveEvent } from '../../shared/event-bus';
+import type { MonsterEntity } from '@mud/engine';
 
 // Mock database package
 jest.mock('@mud/database', () => ({

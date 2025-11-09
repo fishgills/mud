@@ -1,4 +1,4 @@
-import { ItemQuality, PrismaClient, Item } from '@prisma/client';
+import { ItemQuality, PrismaClient, Item } from '@mud/database';
 
 export class LootGenerator {
   private prisma?: PrismaClient;

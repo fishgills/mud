@@ -3,8 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { getPrismaClient } from '@mud/database';
 import { AppError, ErrCodes } from '../errors/app-error';
-import type { Prisma, Item, PlayerItem, WorldItem } from '@prisma/client';
-import { PlayerSlot } from '@prisma/client';
+import type { Prisma, Item, PlayerItem, WorldItem } from '@mud/database';
+import { PlayerSlot } from '@mud/database';
 
 @Injectable()
 export class PlayerItemService {

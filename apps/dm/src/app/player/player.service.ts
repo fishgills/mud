@@ -11,7 +11,7 @@ import {
   Player,
   Prisma,
 } from '@mud/database';
-import { EventBus, type PlayerRespawnEvent } from '@mud/engine';
+import { EventBus, type PlayerRespawnEvent } from '../../shared/event-bus';
 import {
   CreatePlayerDto,
   MovePlayerDto,

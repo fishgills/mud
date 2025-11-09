@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { getPrismaClient } from '@mud/database';
-import { EventBus } from '@mud/engine';
+import { EventBus } from '../../shared/event-bus';
 import { PlayerService } from '../player/player.service';
 import { PopulationService } from '../monster/population.service';
 import type { TickResult } from '../api';

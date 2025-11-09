@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { EventBus } from '@mud/engine';
+import { EventBus } from '../../shared/event-bus';
 import type { DetailedCombatLog, CombatRound } from '../api';
 import type { Combatant } from './types';
 

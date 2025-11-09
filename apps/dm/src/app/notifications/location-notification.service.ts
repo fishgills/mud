@@ -4,8 +4,8 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
+import { EventBus } from '../../shared/event-bus';
 import {
-  EventBus,
   type GameEvent,
   type PlayerMoveEvent,
   type PlayerSpawnEvent,
@@ -20,7 +20,7 @@ import {
   type CombatHitEvent,
   type CombatMissEvent,
   type CombatEndEvent,
-} from '@mud/engine';
+} from '../../shared/event-bus';
 import {
   type NotificationMessage,
   type NotificationRecipient,

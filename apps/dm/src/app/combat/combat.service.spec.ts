@@ -67,14 +67,16 @@ jest.mock('@mud/engine', () => {
 });
 
 import { CombatService, Combatant } from './combat.service';
-import { MonsterFactory, EventBus } from '@mud/engine';
-import type { PlayerEntity, CombatInitiateEvent } from '@mud/engine';
+import { MonsterFactory } from '@mud/engine';
+import { EventBus } from '../../shared/event-bus';
+import type { CombatInitiateEvent } from '../../shared/event-bus';
+import type { PlayerEntity } from '@mud/engine';
 import type { EventBridgeService } from '../../shared/event-bridge.service';
 import type { PlayerService } from '../player/player.service';
 import type { AiService } from '../../openai/ai.service';
 import type { CombatRound, DetailedCombatLog, CombatResult } from '../api';
-import { PlayerSlot } from '@prisma/client';
-import type { ItemQuality } from '@prisma/client';
+import { PlayerSlot } from '@mud/database';
+import type { ItemQuality } from '@mud/database';
 import { AttackOrigin } from '../api/dto/player-requests.dto';
 
 describe('CombatService (unit)', () => {

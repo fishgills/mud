@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { EventBus, type PlayerMoveEvent } from '@mud/engine';
+import { EventBus, type PlayerMoveEvent } from '../../shared/event-bus';
 import type { Monster } from '@mud/database';
 import { MonsterService } from '../monster/monster.service';
 

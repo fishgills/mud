@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EventBus } from '../../shared/event-bus';
 import {
-  EventBus,
   type PlayerMoveEvent,
   type PlayerSpawnEvent,
   type PlayerRespawnEvent,
-} from '@mud/engine';
+} from '../../shared/event-bus';
 import { WorldService } from '../world/world.service';
 
 /**

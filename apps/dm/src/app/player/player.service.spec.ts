@@ -5,7 +5,8 @@ import {
   MovePlayerRequest,
   PlayerStatsRequest,
 } from '../api/dto/player-requests.dto';
-import { EventBus, PlayerFactory } from '@mud/engine';
+import { EventBus } from '../../shared/event-bus';
+import { PlayerFactory } from '@mud/engine';
 
 const players: Record<string, unknown>[] = [];
 

@@ -5,7 +5,7 @@ import { MISSING_CHARACTER_MESSAGE } from './characterUtils';
 import type { KnownBlock, Block, ActionsBlock, Button } from '@slack/types';
 // Use Prisma-generated enum for item qualities so the mapping follows the
 // canonical backend enum values.
-import { ItemQuality, PlayerSlot } from '@prisma/client';
+import { ItemQuality, PlayerSlot } from '@mud/database';
 import { getQualityBadge, formatQualityLabel } from '@mud/constants';
 
 type PlayerWithBag = PlayerRecord & { bag?: ItemRecord[] };

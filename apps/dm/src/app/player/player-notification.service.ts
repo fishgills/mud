@@ -4,7 +4,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { EventBus, type PlayerRespawnEvent } from '@mud/engine';
+import { EventBus, type PlayerRespawnEvent } from '../../shared/event-bus';
 import { EventBridgeService } from '../../shared/event-bridge.service';
 import { LocationNotificationService } from '../notifications/location-notification.service';
 

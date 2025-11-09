@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { getPrismaClient, Monster } from '@mud/database';
-import { EventBus } from '@mud/engine';
+import { EventBus } from '../../shared/event-bus';
 import { WorldService } from '../world/world.service';
 import {
   getMonsterTemplate,

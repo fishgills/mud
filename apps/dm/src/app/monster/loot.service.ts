@@ -1,7 +1,7 @@
-import { EventBus } from '@mud/engine';
+import { EventBus } from '../../shared/event-bus';
 import { Logger } from '@nestjs/common';
 import { LootGenerator } from './loot-generator';
-import { PrismaClient, WorldItem } from '@prisma/client';
+import { PrismaClient, WorldItem } from '@mud/database';
 import { Injectable } from '@nestjs/common';
 
 type MonsterDeathEvent = {

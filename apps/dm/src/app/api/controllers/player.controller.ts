@@ -9,8 +9,8 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { PlayerSlot } from '@prisma/client';
-import type { PlayerItem, Item, Player } from '@prisma/client';
+import { PlayerSlot } from '@mud/database';
+import type { PlayerItem, Item, Player } from '@mud/database';
 import { PlayerService } from '../../player/player.service';
 import { PlayerItemService } from '../../player/player-item.service';
 import { MonsterService } from '../../monster/monster.service';

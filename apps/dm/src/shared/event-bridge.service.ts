@@ -12,7 +12,7 @@ import {
   type NotificationRecipient,
   type NotificationMessage,
 } from '@mud/redis-client';
-import { EventBus, GameEvent } from '@mud/engine';
+import { EventBus, GameEvent } from './event-bus';
 import { env } from '../env';
 
 @Injectable()

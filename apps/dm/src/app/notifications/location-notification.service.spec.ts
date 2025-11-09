@@ -5,7 +5,7 @@ import type {
   MonsterMoveEvent,
   MonsterSpawnEvent,
   CombatHitEvent,
-} from '@mud/engine';
+} from '../../shared/event-bus';
 import type { PlayerEntity } from '@mud/engine';
 import type { PlayerService } from '../player/player.service';
 import type { EventBridgeService } from '../../shared/event-bridge.service';

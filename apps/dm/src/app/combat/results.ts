@@ -1,6 +1,6 @@
-import { EventBus, type PlayerRespawnEvent } from '@mud/engine';
+import { EventBus, type PlayerRespawnEvent } from '../../shared/event-bus';
 import type { PlayerService } from '../player/player.service';
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@mud/database';
 import { Logger } from '@nestjs/common';
 import type { DetailedCombatLog } from '../api';
 import type { Combatant } from './types';

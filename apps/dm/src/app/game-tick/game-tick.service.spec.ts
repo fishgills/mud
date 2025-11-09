@@ -21,7 +21,7 @@ import { GameTickService } from './game-tick.service';
 import type { PlayerService } from '../player/player.service';
 import type { PopulationService } from '../monster/population.service';
 import type { MonsterService } from '../monster/monster.service';
-import { EventBus } from '@mud/engine';
+import { EventBus } from '../../shared/event-bus';
 
 jest.mock('@mud/engine', () => ({
   EventBus: {

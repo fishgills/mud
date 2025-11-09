@@ -3,5 +3,7 @@
  * Inspired by RanvierMUD's event-driven architecture
  */
 
-// Events
-export * from './events/index.js';
+// Note: GameEvent types and EventBus have been moved to @mud/redis-client and apps/dm/src/shared/event-bus
+
+// Placeholder export to keep this a valid module
+export {};

@@ -6,7 +6,7 @@
  */
 
 import { createClient, RedisClientType } from 'redis';
-import type { GameEvent } from '@mud/engine';
+import type { GameEvent } from './game-events.js';
 
 export interface EventBridgeConfig {
   redisUrl: string;
