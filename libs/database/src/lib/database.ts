@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma, ItemQuality } from '@prisma/client';
+import { PrismaClient, Prisma, ItemQuality, PlayerSlot } from '@prisma/client';
 
 // Singleton pattern for Prisma client
 let prisma: PrismaClient | undefined;
@@ -17,7 +17,7 @@ export async function disconnectPrisma(): Promise<void> {
 }
 
 // Re-export PrismaClient class and types from Prisma for convenience
-export { PrismaClient, Prisma, ItemQuality };
+export { PrismaClient, Prisma, ItemQuality, PlayerSlot };
 
 export type {
   Player,
@@ -33,3 +33,8 @@ export type {
 } from '@prisma/client';
 
 export type { ItemQuality as ItemQualityType } from '@prisma/client';
+
+// Equipment slots mapping
+export type PlayerEquipment = {
+  [K in PlayerSlot]: { id: number; quality: string } | null;
+};

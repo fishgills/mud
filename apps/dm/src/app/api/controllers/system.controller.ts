@@ -9,7 +9,6 @@ import {
 import { MonsterService } from '../../monster/monster.service';
 import { GameTickService } from '../../game-tick/game-tick.service';
 import { PlayerService } from '../../player/player.service';
-import type { Monster } from '../dto/monster.dto';
 import type {
   GameStateResponse,
   MonsterResponse,
@@ -18,7 +17,7 @@ import type {
   HealthCheck,
 } from '../dto/responses.dto';
 import type { SpawnMonsterRequest } from '../dto/player-requests.dto';
-import { EntityToDtoAdapter } from '../adapters/entity-to-dto.adapter';
+import { Monster } from '@mud/database';
 
 @Controller('system')
 export class SystemController {
@@ -107,12 +106,10 @@ export class SystemController {
       if (Number.isNaN(x) || Number.isNaN(y)) {
         throw new BadRequestException('x and y must be numeric when provided');
       }
-      const monsters = await this.monsterService.getMonstersAtLocation(x, y);
-      return EntityToDtoAdapter.monsterEntitiesToDto(monsters);
+      return await this.monsterService.getMonstersAtLocation(x, y);
     }
 
-    const monsters = await this.monsterService.getAllMonsters();
-    return EntityToDtoAdapter.monsterEntitiesToDto(monsters);
+    return await this.monsterService.getAllMonsters();
   }
 
   @Post('monsters')
@@ -137,7 +134,7 @@ export class SystemController {
 
       return {
         success: true,
-        data: EntityToDtoAdapter.monsterEntityToDto(monster),
+        data: monster,
         message: `Spawned ${monster.name} at (${input.x}, ${input.y})`,
       };
     } catch (error) {

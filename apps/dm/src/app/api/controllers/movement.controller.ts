@@ -29,7 +29,6 @@ import {
   DescriptionService,
   ResponseService,
 } from '../services';
-import { EntityToDtoAdapter } from '../adapters/entity-to-dto.adapter';
 import { getPrismaClient } from '@mud/database';
 import { calculateDirection } from '../../shared/direction.util';
 import { env } from '../../../env';
@@ -634,7 +633,7 @@ export class MovementController {
         currentSettlement,
         description,
         nearbyPlayers,
-        EntityToDtoAdapter.monsterEntitiesToDto(monsters),
+        monsters,
         items,
       );
 

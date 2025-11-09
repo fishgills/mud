@@ -1,14 +1,7 @@
 import type { TileInfo } from './tile-info.dto';
 import type { Monster } from './monster.dto';
 import type { PlayerItemDto } from './player-item.dto';
-
-export interface PlayerEquipment {
-  head: { id: number; quality: string } | null;
-  chest: { id: number; quality: string } | null;
-  legs: { id: number; quality: string } | null;
-  arms: { id: number; quality: string } | null;
-  weapon: { id: number; quality: string } | null;
-}
+import type { PlayerEquipment } from '@mud/database';
 
 export interface Player {
   id: number;
