@@ -1,59 +1,10 @@
-import { PlayerEntity, MonsterEntity } from '@mud/engine';
+import { MonsterEntity } from '@mud/engine';
 import { PlayerSlot } from '@prisma/client';
 import type { Player, PlayerEquipment } from '../dto/player.dto';
 import type { Monster } from '../dto/monster.dto';
 
-type PlayerLike =
-  | PlayerEntity
-  | Player
-  | (Partial<Player> & Record<string, unknown>);
+type PlayerLike = Player | (Partial<Player> & Record<string, unknown>);
 type MonsterLike = MonsterEntity | (Partial<Monster> & Record<string, unknown>);
-
-const KNOWN_CLIENT_TYPES = new Set(['slack', 'discord', 'web']);
-
-const isClientType = (value: unknown): value is string => {
-  return typeof value === 'string' && KNOWN_CLIENT_TYPES.has(value);
-};
-
-const parseClientIdentifier = (
-  value: string | undefined,
-): { type?: string; id?: string } => {
-  if (!value) {
-    return {};
-  }
-
-  const segments = value
-    .split(':')
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 0);
-
-  if (segments.length === 0) {
-    return {};
-  }
-
-  if (segments.length === 1) {
-    return { id: segments[0] };
-  }
-
-  return {
-    type: segments[0],
-    id: segments[segments.length - 1],
-  };
-};
-
-const normalizeSlackId = (value: string | undefined): string | undefined => {
-  if (!value) {
-    return undefined;
-  }
-
-  let raw = value.trim();
-  const prefix = 'slack:';
-  while (raw.startsWith(prefix)) {
-    raw = raw.slice(prefix.length);
-  }
-
-  return raw.length > 0 ? raw : undefined;
-};
 
 const toNumber = (value: unknown, fallback = 0): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -109,54 +60,6 @@ const toStringOrUndefined = (value: unknown): string | undefined => {
   return undefined;
 };
 
-const resolveClientIdentity = (
-  entity: Record<string, unknown>,
-): {
-  clientType: string;
-  clientId: string;
-  slackId: string | null;
-} => {
-  const rawClientId = toStringOrUndefined(entity.clientId);
-  const rawClientType = toStringOrUndefined(entity.clientType);
-  const rawSlackId = toStringOrUndefined(entity.slackId);
-
-  let clientType = rawClientType;
-  let platformId = rawClientId;
-
-  const parsedClient = parseClientIdentifier(rawClientId);
-  if (parsedClient.id) {
-    platformId = parsedClient.id;
-  }
-  if (!clientType && parsedClient.type && isClientType(parsedClient.type)) {
-    clientType = parsedClient.type;
-  }
-
-  const normalizedSlackId = normalizeSlackId(rawSlackId);
-
-  if (!platformId && normalizedSlackId) {
-    platformId = normalizedSlackId;
-  }
-
-  if (!clientType) {
-    clientType = normalizedSlackId ? 'slack' : 'web';
-  }
-
-  if (!platformId) {
-    platformId = 'unknown';
-  }
-
-  const slackId =
-    clientType === 'slack'
-      ? (normalizedSlackId ?? platformId)
-      : (normalizedSlackId ?? null);
-
-  return {
-    clientType,
-    clientId: platformId,
-    slackId,
-  };
-};
-
 export class EntityToDtoAdapter {
   /**
    * Convert PlayerEntity to a serializable DTO
@@ -168,8 +71,6 @@ export class EntityToDtoAdapter {
     const combat = (raw.combat as Record<string, unknown> | undefined) ?? {};
     const attributes =
       (raw.attributes as Record<string, unknown> | undefined) ?? {};
-
-    const { clientType, clientId, slackId } = resolveClientIdentity(raw);
 
     const hp = toNumber(combat.hp ?? raw.hp, 0);
     const maxHp = toNumber(
@@ -232,9 +133,6 @@ export class EntityToDtoAdapter {
 
     return {
       id: toNumber(raw.id, 0),
-      clientId: `${clientType}:${clientId}`,
-      clientType,
-      slackId,
       name: toStringOrUndefined(raw.name) ?? 'Unknown Adventurer',
       x: toNumber(position.x ?? raw.x, 0),
       y: toNumber(position.y ?? raw.y, 0),

@@ -15,7 +15,7 @@ export class PlayerItemService {
   // List bag items (not including equipped items unless requested)
   async listBag(
     playerId: number,
-  ): Promise<Array<PlayerItem & { item: Item | null }>> {
+  ): Promise<Array<PlayerItem & Prisma.ItemInclude>> {
     return this.prisma.playerItem.findMany({
       where: { playerId },
       include: { item: true },

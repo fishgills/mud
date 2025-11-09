@@ -1,8 +1,7 @@
-import type { Player } from './player.dto';
-import type { Monster } from './monster.dto';
 import type { CombatLog } from './combat-log.dto';
 import type { TileInfo } from './tile-info.dto';
 import type { AttackOrigin } from './player-requests.dto';
+import { Monster, Player } from '@mud/database';
 
 export interface LocationInfo {
   location: TileInfo;

@@ -12,9 +12,6 @@ export interface PlayerEquipment {
 
 export interface Player {
   id: number;
-  slackId?: string | null;
-  clientId?: string | null;
-  clientType?: string | null;
   name: string;
   x: number;
   y: number;

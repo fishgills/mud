@@ -9,18 +9,14 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import type { PlayerEntity } from '@mud/engine';
 import { PlayerSlot } from '@prisma/client';
-import type { PlayerItem, Item } from '@prisma/client';
+import type { PlayerItem, Item, Player } from '@prisma/client';
 import { PlayerService } from '../../player/player.service';
 import { PlayerItemService } from '../../player/player-item.service';
 import { MonsterService } from '../../monster/monster.service';
 import { CombatService } from '../../combat/combat.service';
 import { WorldService } from '../../world/world.service';
-import { EntityToDtoAdapter } from '../adapters/entity-to-dto.adapter';
 import { AppError } from '../../errors/app-error';
-import type { Player } from '../dto/player.dto';
-import type { Monster } from '../dto/monster.dto';
 import type { CombatLog } from '../dto/combat-log.dto';
 import type {
   PlayerResponse,
@@ -98,7 +94,7 @@ export class PlayersController {
 
     const createDto = { ...input, slackId: effectiveSlackId };
     const entity = await this.playerService.createPlayer(createDto);
-    const player = await this.buildPlayerDto(entity, { includeDetails: false });
+    const player = entity;
     return {
       success: true,
       data: player,
@@ -113,14 +109,9 @@ export class PlayersController {
     try {
       const limitNum = limit ? parseInt(limit, 10) : 10;
       const entities = await this.playerService.getTopPlayers(limitNum, teamId);
-      const players = await Promise.all(
-        entities.map((entity) =>
-          this.buildPlayerDto(entity, { includeDetails: false }),
-        ),
-      );
       return {
         success: true,
-        data: players,
+        data: entities,
       };
     } catch (err) {
       this.logger.error('Failed to get leaderboard', err);
@@ -535,57 +526,11 @@ export class PlayersController {
     }
   }
 
-  private async buildPlayerDto(
-    entity: PlayerEntity | Player,
-    options: { includeDetails?: boolean; includeNearby?: boolean } = {},
-  ): Promise<Player> {
-    const { includeDetails = true, includeNearby = false } = options;
-    const base = EntityToDtoAdapter.playerEntityToDto(entity);
-
-    if (!includeDetails && !includeNearby) {
-      return base;
-    }
-
-    const [currentTile, nearbyMonsters, nearbyPlayers] = await Promise.all([
-      includeDetails
-        ? this.worldService
-            .getTileInfo(base.x, base.y)
-            .then((tile) => ({
-              x: tile.x,
-              y: tile.y,
-              biomeName: tile.biomeName,
-              description: tile.description ?? undefined,
-              height: tile.height,
-              temperature: tile.temperature,
-              moisture: tile.moisture,
-            }))
-            .catch(() => undefined)
-        : Promise.resolve(undefined),
-      includeNearby
-        ? this.monsterService
-            .getMonstersAtLocation(base.x, base.y)
-            .then((monsters) =>
-              EntityToDtoAdapter.monsterEntitiesToDto(monsters ?? []),
-            )
-        : Promise.resolve<Monster[] | undefined>(undefined),
-      includeNearby
-        ? this.loadNearbyPlayers(base).catch(() => [])
-        : Promise.resolve<Player[] | undefined>(undefined),
-    ]);
-
-    return {
-      ...base,
-      currentTile,
-      nearbyMonsters: nearbyMonsters ?? base.nearbyMonsters,
-      nearbyPlayers: nearbyPlayers ?? base.nearbyPlayers,
-    };
-  }
-
   @Get('items')
   async getPlayerItems(
     @Query('teamId') teamId: string,
     @Query('userId') userId: string,
-  ): Promise<PlayerResponse> {
+  ) {
     try {
       // If teamId and userId are provided, construct slackId format
 
@@ -772,23 +717,5 @@ export class PlayersController {
     userId: string;
   }) {
     return this.playerService.getPlayer(payload.userId, payload.teamId);
-  }
-
-  private async loadNearbyPlayers(center: Player): Promise<Player[]> {
-    const results: Player[] = [];
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        if (dx === 0 && dy === 0) continue;
-        const playersAtLocation = await this.playerService.getPlayersAtLocation(
-          center.x + dx,
-          center.y + dy,
-          { excludePlayerId: center.id },
-        );
-        results.push(
-          ...EntityToDtoAdapter.playerEntitiesToDto(playersAtLocation ?? []),
-        );
-      }
-    }
-    return results;
   }
 }

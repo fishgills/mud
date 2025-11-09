@@ -406,11 +406,9 @@ export class MovementController {
       this.logger.debug(`Moved ${player.name} to (${player.x}, ${player.y})`);
       return {
         success: true,
-        player: EntityToDtoAdapter.playerEntityToDto(player),
-        monsters: EntityToDtoAdapter.monsterEntitiesToDto(monsters ?? []),
-        playersAtLocation: EntityToDtoAdapter.playerEntitiesToDto(
-          playersAtLocation ?? [],
-        ),
+        player,
+        monsters: monsters ?? [],
+        playersAtLocation: playersAtLocation ?? [],
       };
     } catch (error) {
       const fallbackPlayer = await this.playerService
