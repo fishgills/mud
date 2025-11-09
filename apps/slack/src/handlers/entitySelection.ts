@@ -4,6 +4,32 @@
 
 import type { NearbyMonster, NearbyPlayer, NearbyItem } from './locationUtils';
 
+export const PLAYER_SELECTION_PREFIX = 'P:';
+
+export function encodePlayerSelection(teamId: string, userId: string): string {
+  return `${PLAYER_SELECTION_PREFIX}${teamId}:${userId}`;
+}
+
+export function decodePlayerSelection(
+  value: string,
+): { teamId: string; userId: string } | null {
+  if (!value.startsWith(PLAYER_SELECTION_PREFIX)) {
+    return null;
+  }
+  const rest = value.slice(PLAYER_SELECTION_PREFIX.length);
+  const parts = rest.split(':');
+  if (parts.length === 2) {
+    const [teamId, userId] = parts;
+    if (teamId && userId) {
+      return { teamId, userId };
+    }
+  } else if (parts.length === 1 && parts[0]) {
+    // Backwards compatibility: values that only contained userId
+    return { teamId: '', userId: parts[0] };
+  }
+  return null;
+}
+
 export type SlackOption = {
   text: {
     type: 'plain_text';
@@ -14,8 +40,12 @@ export type SlackOption = {
 };
 
 export function buildPlayerOption(player: NearbyPlayer): SlackOption | null {
-  const slackId = typeof player.slackId === 'string' ? player.slackId : null;
-  if (!slackId) {
+  const userId = typeof player.userId === 'string' ? player.userId : null;
+  const teamId = typeof player.teamId === 'string' ? player.teamId : null;
+  if (!userId) {
+    return null;
+  }
+  if (!teamId) {
     return null;
   }
 
@@ -26,7 +56,7 @@ export function buildPlayerOption(player: NearbyPlayer): SlackOption | null {
       text: `Player: ${name}`,
       emoji: true,
     },
-    value: `P:${slackId}`,
+    value: encodePlayerSelection(teamId, userId),
   } as const;
 }
 

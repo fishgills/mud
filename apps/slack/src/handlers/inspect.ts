@@ -6,11 +6,12 @@ import { COMMANDS, INSPECT_ACTIONS } from '../commands';
 import { PlayerCommandHandler } from './base';
 import type { HandlerContext } from './types';
 import { requireCharacter } from './characterUtils';
-import { extractSlackId } from '../utils/clientId';
 import {
   buildPlayerOption,
   buildMonsterOption,
   buildItemOption,
+  decodePlayerSelection,
+  PLAYER_SELECTION_PREFIX,
 } from './entitySelection';
 import type { SlackOption } from './entitySelection';
 import type {
@@ -29,7 +30,7 @@ import type { NearbyPlayer, NearbyMonster, NearbyItem } from './locationUtils';
 
 export const INSPECT_SELECTION_BLOCK_ID = 'inspect_selection_block';
 
-type InspectablePlayer = NearbyPlayer & { slackId: string };
+type InspectablePlayer = NearbyPlayer & { userId: string; teamId: string };
 
 type InspectableMonster = NearbyMonster & { id: number | string };
 
@@ -138,23 +139,33 @@ function buildInspectSelectionMessage(
 
 function normalizePlayers(
   players: LocationEntitiesResult['players'] = [],
-  excludeSelfSlackId: string,
+  excludeSelfUserId: string,
+  excludeTeamId: string,
 ): InspectablePlayer[] {
   const list: InspectablePlayer[] = [];
   for (const record of players ?? []) {
-    const slackId = extractSlackId(record);
-    if (!slackId) {
+    const playerSlackUser = (
+      record as {
+        slackUser?: { userId: string; teamId: string };
+      }
+    ).slackUser;
+    const userId = playerSlackUser?.userId;
+    const teamId = playerSlackUser?.teamId;
+    if (!userId) {
+      continue;
+    }
+    if (!teamId) {
       continue;
     }
     // Exclude the current player from the list
-    if (slackId === excludeSelfSlackId) {
+    if (userId === excludeSelfUserId && teamId === excludeTeamId) {
       continue;
     }
     list.push({
       id: record.id ?? undefined,
       name: record.name ?? 'Unknown Adventurer',
-      slackId,
-      clientId: record.clientId,
+      userId,
+      teamId,
       isAlive: record.isAlive,
     });
   }
@@ -502,7 +513,7 @@ class InspectHandler extends PlayerCommandHandler {
       }
     }
 
-    const players = normalizePlayers(entities.players, userId);
+    const players = normalizePlayers(entities.players, userId, this.teamId!);
     const monsters = normalizeMonsters(entities.monsters);
 
     const { message, optionCount } = buildInspectSelectionMessage(
@@ -609,7 +620,7 @@ class InspectHandler extends PlayerCommandHandler {
     player: PlayerRecord | null;
     message?: string;
   }> {
-    const res = await this.dm.getPlayer({ teamId: this.teamId, userId });
+    const res = await this.dm.getPlayer({ teamId: this.teamId!, userId });
     return {
       player: res.data ?? null,
       message: res.message,
@@ -619,7 +630,7 @@ class InspectHandler extends PlayerCommandHandler {
   private async handlePlayerInspect(
     client: WebClient | undefined,
     body: BlockAction,
-    targetSlackId: string,
+    selection: { userId: string; teamId: string },
   ): Promise<void> {
     const userId = body.user?.id;
     if (!userId) {
@@ -638,11 +649,11 @@ class InspectHandler extends PlayerCommandHandler {
     }
 
     const targetRes = await this.dm.getPlayer({
-      teamId: this.teamId,
-      userId: targetSlackId,
+      teamId: selection.teamId || this.teamId!,
+      userId: selection.userId,
     });
-    const target = targetRes.data;
-    if (!target) {
+    const targetRecord = targetRes.data;
+    if (!targetRecord) {
       await this.respondFailure(
         client,
         body,
@@ -651,12 +662,17 @@ class InspectHandler extends PlayerCommandHandler {
       return;
     }
 
-    const statsMessage = buildPlayerStatsMessage(target as PlayerStatsSource, {
-      isSelf: targetSlackId === userId,
-    });
-    const odds = estimateCombatOdds(inspector, target);
+    const statsMessage = buildPlayerStatsMessage(
+      targetRecord as PlayerStatsSource,
+      {
+        isSelf:
+          selection.userId === userId &&
+          (selection.teamId || this.teamId) === this.teamId,
+      },
+    );
+    const odds = estimateCombatOdds(inspector, targetRecord);
     const attackerName = inspector.name ?? 'You';
-    const defenderName = target.name ?? 'Unknown Adventurer';
+    const defenderName = targetRecord.name ?? 'Unknown Adventurer';
     const blocks = [
       ...toKnownBlocks(statsMessage.blocks),
       ...buildOddsBlocks(attackerName, defenderName, odds),
@@ -845,15 +861,24 @@ class InspectHandler extends PlayerCommandHandler {
       return;
     }
 
-    const [type, identifier] = targetValue.split(':', 2);
-    if (!type || !identifier) {
-      await this.respondFailure(client, body, 'Invalid inspection target.');
-      return;
-    }
-
     try {
-      if (type === 'P') {
-        await this.handlePlayerInspect(client, body, identifier);
+      if (targetValue.startsWith(PLAYER_SELECTION_PREFIX)) {
+        const decoded = decodePlayerSelection(targetValue);
+        if (!decoded) {
+          await this.respondFailure(
+            client,
+            body,
+            'Invalid player selection to inspect.',
+          );
+          return;
+        }
+        await this.handlePlayerInspect(client, body, decoded);
+        return;
+      }
+
+      const [type, identifier] = targetValue.split(':', 2);
+      if (!type || !identifier) {
+        await this.respondFailure(client, body, 'Invalid inspection target.');
         return;
       }
 

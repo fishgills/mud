@@ -2,6 +2,7 @@ import {
   buildLocationBlocks,
   formatLocationMessage,
   sanitizeDescription,
+  sendOccupantsSummary,
 } from './locationUtils';
 
 const hasContextElements = (
@@ -101,5 +102,33 @@ describe('buildLocationBlocks', () => {
     );
 
     expect(debugBlock).toBeUndefined();
+  });
+});
+
+describe('sendOccupantsSummary', () => {
+  it('omits the current Slack user when slackUser relation is present', async () => {
+    const say = jest.fn();
+    await sendOccupantsSummary(
+      say,
+      [
+        {
+          id: 1,
+          name: 'Self Player',
+          slackUser: { userId: 'U1', teamId: 'T1' },
+        } as unknown as any,
+        {
+          id: 2,
+          name: 'Other Player',
+          slackUser: { userId: 'U2', teamId: 'T1' },
+        } as unknown as any,
+      ],
+      [],
+      { currentSlackUserId: 'U1', currentSlackTeamId: 'T1' },
+    );
+
+    expect(say).toHaveBeenCalledTimes(1);
+    const [{ text }] = say.mock.calls[0];
+    expect(text).toContain('Other Player');
+    expect(text).not.toContain('Self Player');
   });
 });

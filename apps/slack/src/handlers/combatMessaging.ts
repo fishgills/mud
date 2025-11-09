@@ -15,12 +15,19 @@ export const deliverCombatMessages = async (
   const delivered = new Set<string>();
 
   for (const entry of messages) {
-    const slackId = entry?.slackId;
+    // Construct slackId from userId/teamId if available, otherwise use existing slackId
+    const slackId =
+      entry?.slackId ||
+      (entry?.userId && entry?.teamId
+        ? `${entry.teamId}:${entry.userId}`
+        : undefined);
+
     if (!slackId || delivered.has(slackId)) continue;
     delivered.add(slackId);
 
     try {
-      const dm = await client.conversations.open({ users: slackId });
+      if (!entry?.userId) continue;
+      const dm = await client.conversations.open({ users: entry.userId });
       const channelId =
         typeof dm.channel?.id === 'string' ? dm.channel.id : undefined;
       if (!channelId) continue;

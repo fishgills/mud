@@ -26,7 +26,8 @@ export const equipHandler = async ({
 
   try {
     const res = await equip({
-      slackId: `${teamId}:${userId}`,
+      teamId,
+      userId,
       playerItemId,
       slot,
     });

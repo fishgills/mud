@@ -20,11 +20,33 @@ const severityOrder: LogLevel[] = [
   'verbose',
 ];
 
+const envLevelToNestLevels = (level: string): LogLevel[] => {
+  const normalized = level.toLowerCase();
+  switch (normalized) {
+    case 'error':
+      return ['fatal', 'error'];
+    case 'warn':
+      return ['fatal', 'error', 'warn'];
+    case 'info':
+    case 'log':
+      return ['fatal', 'error', 'warn', 'log'];
+    case 'debug':
+      return ['fatal', 'error', 'warn', 'log', 'debug'];
+    case 'verbose':
+    case 'silly':
+      return ['fatal', 'error', 'warn', 'log', 'debug', 'verbose'];
+    default:
+      return ['fatal', 'error', 'warn', 'log', 'debug'];
+  }
+};
+
 export class NestWinstonLogger implements LoggerService {
   private readonly base: winston.Logger;
 
   constructor(private readonly defaultContext?: string) {
     this.base = defaultContext ? createLogger(defaultContext) : logger;
+    const envLevels = envLevelToNestLevels(process.env.LOG_LEVEL || 'debug');
+    this.setLogLevels?.(envLevels);
   }
 
   log(message: unknown, context?: string) {

@@ -16,12 +16,14 @@ export const registerStatActions = (app: App) => {
   for (const [actionId, attribute] of Object.entries(actionToAttribute)) {
     app.action<BlockAction>(
       actionId,
-      async ({ ack, body, client, respond, context }) => {
+      async ({ ack, body, client, respond }) => {
         await ack();
 
         const userId = body.user?.id;
-        const teamId =
-          typeof context.teamId === 'string' ? context.teamId : undefined;
+        const teamId = body.team?.id;
+        if(!teamId || !userId) {
+          throw new Error('Missing teamId or userId in action payload');
+        }
         const channelId =
           body.channel?.id ||
           (typeof body.container?.channel_id === 'string'

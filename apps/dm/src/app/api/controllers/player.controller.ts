@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PlayerSlot } from '@mud/database';
 import type { PlayerItem, Item, Player } from '@mud/database';
+import { Prisma } from '@mud/database';
 import { PlayerService } from '../../player/player.service';
 import { PlayerItemService } from '../../player/player-item.service';
 import { MonsterService } from '../../monster/monster.service';
@@ -79,20 +80,16 @@ export class PlayersController {
   async createPlayer(
     @Body() input: CreatePlayerRequest,
   ): Promise<PlayerResponse> {
-    // Support separate teamId/userId in addition to existing slackId
-    const effectiveSlackId =
-      input.teamId && input.userId
-        ? `${input.teamId}:${input.userId}`
-        : input.slackId;
-
-    if (!input?.clientId && !effectiveSlackId) {
+    const teamId = input.teamId;
+    const userId = input.userId;
+    if (!userId || !teamId) {
       return {
         success: false,
-        message: 'Either clientId/clientType or slackId must be provided',
+        message: 'teamId and userId are required',
       };
     }
 
-    const createDto = { ...input, slackId: effectiveSlackId };
+    const createDto = { ...input, teamId, userId };
     const entity = await this.playerService.createPlayer(createDto);
     const player = entity;
     return {
@@ -126,8 +123,6 @@ export class PlayersController {
     @Query('teamId') teamId?: string,
     @Query('userId') userId?: string,
   ): Promise<PlayerResponse> {
-    // Support separate teamId/userId in addition to existing slackId
-
     if (!userId) {
       throw new BadRequestException('userId is required');
     }
@@ -142,7 +137,7 @@ export class PlayersController {
       this.logger.log(
         `Calling playerService.getPlayer for teamId: ${teamId}, userId: ${userId}`,
       );
-      const player = await this.playerService.getPlayer(userId, teamId);
+      const player = await this.playerService.getPlayer(teamId, userId);
 
       return {
         success: true,
@@ -169,7 +164,7 @@ export class PlayersController {
   async getPlayersAtLocation(
     @Query('x') rawX: string,
     @Query('y') rawY: string,
-  ): Promise<Player[]> {
+  ): Promise<(Player & Prisma.SlackUserInclude)[]> {
     const x = Number.parseInt(rawX, 10);
     const y = Number.parseInt(rawY, 10);
     if (Number.isNaN(x) || Number.isNaN(y)) {
@@ -375,7 +370,7 @@ export class PlayersController {
     @Query('teamId') teamId: string,
     @Query('userId') userId: string,
   ): Promise<PlayerStats> {
-    const player = await this.playerService.getPlayer(userId, teamId);
+    const player = await this.playerService.getPlayer(teamId, userId);
 
     const strengthModifier = Math.floor((player.strength - 10) / 2);
     const agilityModifier = Math.floor((player.agility - 10) / 2);
@@ -532,8 +527,6 @@ export class PlayersController {
     @Query('userId') userId: string,
   ) {
     try {
-      // If teamId and userId are provided, construct slackId format
-
       const player = await this.playerService.getPlayer(teamId, userId);
 
       // Fetch bag items
@@ -716,6 +709,6 @@ export class PlayersController {
     teamId: string;
     userId: string;
   }) {
-    return this.playerService.getPlayer(payload.userId, payload.teamId);
+    return this.playerService.getPlayer(payload.teamId, payload.userId);
   }
 }

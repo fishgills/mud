@@ -54,21 +54,21 @@ const installationStore = new PrismaInstallationStore({
   clientId: decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
   prismaTable: getPrismaClient().slackAppInstallation,
   onFetchInstallation: async (args) => {
-    installLog.info('Installation fetched', {
+    installLog.debug('Installation fetched', {
       type: args.installation.isEnterpriseInstall ? 'enterprise' : 'team',
       enterpriseId: args.installation.enterprise?.id,
       teamId: args.installation.team?.id,
     });
   },
   onStoreInstallation: async (args) => {
-    installLog.info('Installation stored', {
+    installLog.debug('Installation stored', {
       type: args.installation.isEnterpriseInstall ? 'enterprise' : 'team',
       enterpriseId: args.installation.enterprise?.id,
       teamId: args.installation.team?.id,
     });
   },
   onDeleteInstallation: async (args) => {
-    installLog.info('Installation deleted', {
+    installLog.debug('Installation deleted', {
       type: args.query.isEnterpriseInstall ? 'enterprise' : 'team',
       enterpriseId: args.query.enterpriseId,
       teamId: args.query.teamId,
@@ -221,7 +221,7 @@ app.message(async ({ message, say, client, context }) => {
   const lowerText = text.toLowerCase();
   for (const [key, handler] of Object.entries(getAllHandlers())) {
     // Check if the message starts with the command or contains it as a whole word
-    commandLog.debug('Inspecting handler', { command: key, userId });
+    commandLog.debug('Inspecting handler', { command: key, userId, teamId });
     if (
       lowerText === key.toLowerCase() ||
       lowerText.startsWith(key.toLowerCase() + ' ') ||
@@ -259,7 +259,7 @@ app.message(async ({ message, say, client, context }) => {
         text,
         resolveUserId,
         client,
-        teamId,
+        teamId: teamId!,
       });
       return;
     }

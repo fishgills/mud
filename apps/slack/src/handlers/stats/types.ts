@@ -1,31 +1,10 @@
-export interface PlayerStatsSource {
-  id?: number;
-  slackId?: string;
-  name?: string;
-  x?: number;
-  y?: number;
-  hp?: number;
-  maxHp?: number;
-  strength?: number;
-  agility?: number;
-  health?: number;
-  gold?: number;
-  xp?: number;
-  level?: number;
-  skillPoints?: number;
-  isAlive?: boolean;
-}
+import type { Player, Monster } from '@mud/database';
 
-export interface MonsterStatsSource {
-  id?: number;
-  name?: string;
-  type?: string;
-  hp?: number;
-  maxHp?: number;
-  x?: number;
-  y?: number;
-  isAlive?: boolean;
-  strength?: number;
-  agility?: number;
-  health?: number;
-}
+// PlayerStatsSource extends Player with optional slackUser relation
+// for Slack-specific operations like determining if viewing own stats
+export type PlayerStatsSource = Player & {
+  slackUser?: { id: number; teamId: string; userId: string } | null;
+};
+
+// Use Prisma types directly - MonsterStatsSource is now just an alias to Monster
+export type MonsterStatsSource = Monster;

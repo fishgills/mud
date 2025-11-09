@@ -1,7 +1,6 @@
 import { AttackOrigin, TargetType } from '../dm-types';
 import { HandlerContext, type SayMessage } from './types';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
-import { extractSlackId } from '../utils/clientId';
 import { PlayerCommandHandler } from './base';
 import { requireCharacter } from './characterUtils';
 import {
@@ -37,7 +36,7 @@ type AttackCombatResult = {
 };
 
 type NearbyMonster = { id: string; name: string };
-type NearbyPlayer = { slackId: string; name: string };
+type NearbyPlayer = { userId: string; teamId: string; name: string };
 
 export function buildTargetSelectionMessage(
   monsters: NearbyMonster[],
@@ -240,11 +239,12 @@ export class AttackHandler extends PlayerCommandHandler {
 
         const attackStart = Date.now();
         const attackResult = await this.dm.attack({
-          teamId: this.teamId,
+          teamId: this.teamId!,
           userId,
           input: {
             targetType: TargetType.Player,
-            targetSlackId,
+            targetUserId: targetSlackId,
+            targetTeamId: this.teamId!,
             ignoreLocation: true,
             attackOrigin: AttackOrigin.TextPvp,
           },
@@ -338,12 +338,20 @@ export class AttackHandler extends PlayerCommandHandler {
       );
       const playersHere: NearbyPlayer[] = (entities.players || [])
         .map((p) => {
-          const slackId = extractSlackId(p);
-          if (!slackId || slackId === userId) {
+          const playerSlackUser = (
+            p as { slackUser?: { userId?: string; teamId?: string } }
+          ).slackUser;
+          const targetUserId = playerSlackUser?.userId;
+          const targetTeamId = playerSlackUser?.teamId;
+          if (!targetUserId || !targetTeamId) {
+            return null;
+          }
+          if (targetUserId === userId && targetTeamId === this.teamId) {
             return null;
           }
           return {
-            slackId,
+            userId: targetUserId,
+            teamId: targetTeamId,
             name: p.name ?? 'Unknown Adventurer',
           };
         })

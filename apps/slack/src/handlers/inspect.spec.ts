@@ -131,7 +131,7 @@ describe('inspectHandler.handleInspectAction', () => {
       success: true,
     } as never);
 
-    const body = buildActionBody('P:U456');
+    const body = buildActionBody('P:T1:U456');
     const client = mockClient();
 
     await inspectHandler.handleInspectAction({

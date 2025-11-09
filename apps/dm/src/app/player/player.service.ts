@@ -80,7 +80,15 @@ export class PlayerService {
       throw new BadRequestException('Either userId or teamId must be provided');
     }
 
-    const existing = await this.getPlayer(userId, teamId);
+    // Check if player already exists (without throwing)
+    let existing: Player | undefined;
+    try {
+      existing = await this.getPlayer(userId, teamId);
+    } catch (err) {
+      // Player doesn't exist yet, which is expected for new players
+      existing = undefined;
+    }
+
     if (existing) {
       throw new ConflictException('Player already exists');
     }
@@ -124,14 +132,14 @@ export class PlayerService {
     return player;
   }
 
-  async getPlayer(userId: string, teamId: string): Promise<Player> {
+  async getPlayer(teamId: string, userId: string): Promise<Player> {
     this.logger.debug(
-      `Looking up player for userId=${userId}, teamId=${teamId}`,
+      `Looking up player for teamId=${teamId}, userId=${userId}`,
     );
     const player = await findPlayerBySlackUser({ userId, teamId });
     if (!player) {
       this.logger.warn(
-        `Player not found for userId=${userId}, teamId=${teamId}`,
+        `Player not found for teamId=${teamId}, userId=${userId}`,
       );
       throw new NotFoundException('Player not found');
     }
@@ -175,11 +183,11 @@ export class PlayerService {
   }
 
   async movePlayer(
-    slackId: string,
     teamId: string,
+    userId: string,
     moveDto: MovePlayerDto,
   ): Promise<Player> {
-    const player = await this.getPlayer(slackId, teamId);
+    const player = await this.getPlayer(teamId, userId);
     const oldX = player.x;
     const oldY = player.y;
 
@@ -281,11 +289,11 @@ export class PlayerService {
   }
 
   async updatePlayerStats(
-    userId: string,
     teamId: string,
+    userId: string,
     statsDto: PlayerStatsDto,
   ): Promise<Player> {
-    const player = await this.getPlayer(userId, teamId);
+    const player = await this.getPlayer(teamId, userId);
     const previousSkillPoints = player.skillPoints;
 
     // Handle character creation completion
@@ -375,11 +383,11 @@ export class PlayerService {
   }
 
   async spendSkillPoint(
-    slackId: string,
     teamId: string,
+    userId: string,
     attribute: 'strength' | 'agility' | 'health',
   ): Promise<Player> {
-    const player = await this.getPlayer(slackId, teamId);
+    const player = await this.getPlayer(teamId, userId);
 
     if (player.skillPoints <= 0) {
       throw new Error('No skill points available.');
@@ -417,8 +425,8 @@ export class PlayerService {
     return player;
   }
 
-  async rerollPlayerStats(slackId: string, teamId: string): Promise<Player> {
-    const currentPlayer = await this.getPlayer(slackId, teamId);
+  async rerollPlayerStats(teamId: string, userId: string): Promise<Player> {
+    const currentPlayer = await this.getPlayer(teamId, userId);
 
     // Prevent rerolling if character creation is already complete
     if (currentPlayer.isCreationComplete) {
@@ -450,15 +458,15 @@ export class PlayerService {
       },
     });
 
-    return this.getPlayer(slackId, teamId);
+    return this.getPlayer(teamId, userId);
   }
 
   async healPlayer(
-    slackId: string,
     teamId: string,
+    userId: string,
     amount: number,
   ): Promise<Player> {
-    const player = await this.getPlayer(slackId, teamId);
+    const player = await this.getPlayer(teamId, userId);
     player.hp = Math.min(player.hp + amount, player.maxHp);
     await this.prisma.player.update({
       where: { id: player.id },
@@ -468,11 +476,11 @@ export class PlayerService {
   }
 
   async damagePlayer(
-    slackId: string,
     teamId: string,
+    userId: string,
     damage: number,
   ): Promise<Player> {
-    const player = await this.getPlayer(slackId, teamId);
+    const player = await this.getPlayer(teamId, userId);
     const wasAlive = player.isAlive;
     player.hp = player.hp - damage;
     await this.prisma.player.update({
@@ -502,8 +510,8 @@ export class PlayerService {
     return player;
   }
 
-  async restorePlayerHealth(slackId: string, teamId: string): Promise<Player> {
-    const player = await this.getPlayer(slackId, teamId);
+  async restorePlayerHealth(teamId: string, userId: string): Promise<Player> {
+    const player = await this.getPlayer(teamId, userId);
     player.hp = player.maxHp;
     player.isAlive = true;
     await this.prisma.player.update({
@@ -513,8 +521,8 @@ export class PlayerService {
     return player;
   }
 
-  async respawnPlayer(userId: string, teamId: string): Promise<Player> {
-    const player = await this.getPlayer(userId, teamId);
+  async respawnPlayer(teamId: string, userId: string): Promise<Player> {
+    const player = await this.getPlayer(teamId, userId);
 
     // Find a random spawn position
     const spawnPosition = await this.findValidSpawnPosition();

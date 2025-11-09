@@ -62,6 +62,9 @@ if (globalAny.__mudLoggerInstance) {
     .replace(/[^a-z0-9-_]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
+  const runningInKubernetes = Boolean(process.env.KUBERNETES_SERVICE_HOST);
+  const resolvedLogLevel = process.env.LOG_LEVEL || 'debug';
+
   // Use a shared logs directory at the workspace root (mud/logs) instead of per-service
   let logDir: string;
   if (process.env.LOG_DIR) {
@@ -97,7 +100,7 @@ if (globalAny.__mudLoggerInstance) {
       }
       // Only clear the shared combined log if this is the first service (to avoid race conditions)
       // We detect this by checking if the file already exists and has content
-      if (!fs.existsSync(combinedLogPath)) {
+      if (!runningInKubernetes && !fs.existsSync(combinedLogPath)) {
         fs.writeFileSync(combinedLogPath, '');
       }
     } catch {
@@ -221,7 +224,7 @@ if (globalAny.__mudLoggerInstance) {
 
   const transports: winston.transport[] = [
     new winston.transports.Console({
-      level: process.env.LOG_LEVEL || 'debug',
+      level: resolvedLogLevel,
       format: consoleFormat,
     }),
   ];
@@ -236,38 +239,40 @@ if (globalAny.__mudLoggerInstance) {
         format: fileFormat,
       }),
     );
-    const combinedLogPath = path.join(logDir, 'mud-combined.log');
-    const combinedTransport = new winston.transports.File({
-      filename: combinedLogPath,
-      level: process.env.LOG_LEVEL || 'debug',
-      maxsize: 50 * 1024 * 1024,
-      maxFiles: 1,
-      format: fileFormat,
-    });
-    // Wrap the log method to trim file to 500 lines
-    const fileTransport = combinedTransport as unknown as {
-      log?: (
-        info: winston.Logform.TransformableInfo,
-        callback?: () => void,
-      ) => void;
-    };
-    const originalLog = fileTransport.log;
-    if (originalLog) {
-      fileTransport.log = function (
-        info: winston.Logform.TransformableInfo,
-        callback?: () => void,
-      ) {
-        originalLog.call(this, info, () => {
-          trimFileToMaxLines(combinedLogPath, 500);
-          callback?.();
-        });
+    if (!runningInKubernetes) {
+      const combinedLogPath = path.join(logDir, 'mud-combined.log');
+      const combinedTransport = new winston.transports.File({
+        filename: combinedLogPath,
+        level: resolvedLogLevel,
+        maxsize: 50 * 1024 * 1024,
+        maxFiles: 1,
+        format: fileFormat,
+      });
+      // Wrap the log method to trim file to 500 lines
+      const fileTransport = combinedTransport as unknown as {
+        log?: (
+          info: winston.Logform.TransformableInfo,
+          callback?: () => void,
+        ) => void;
       };
+      const originalLog = fileTransport.log;
+      if (originalLog) {
+        fileTransport.log = function (
+          info: winston.Logform.TransformableInfo,
+          callback?: () => void,
+        ) {
+          originalLog.call(this, info, () => {
+            trimFileToMaxLines(combinedLogPath, 500);
+            callback?.();
+          });
+        };
+      }
+      transports.push(combinedTransport);
     }
-    transports.push(combinedTransport);
   }
 
   sharedLogger = winston.createLogger({
-    level: process.env.LOG_LEVEL || 'debug',
+    level: resolvedLogLevel,
     defaultMeta: {
       service: serviceName,
       environment: process.env.NODE_ENV || 'development',

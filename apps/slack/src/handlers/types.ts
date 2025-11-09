@@ -19,5 +19,5 @@ export type HandlerContext = {
   resolveUserId?: (nameOrMention: string) => Promise<string | undefined>;
   client?: WebClient;
   // Slack workspace team ID for multi-workspace support
-  teamId?: string;
+  teamId: string;
 };

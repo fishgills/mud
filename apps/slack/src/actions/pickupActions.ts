@@ -56,12 +56,14 @@ export const registerPickupActions = (app: App) => {
 
   app.action<BlockAction>(
     PICKUP_ACTIONS.PICKUP,
-    async ({ ack, body, client, context }) => {
+    async ({ ack, body, client }) => {
       await ack();
 
       const userId = body.user?.id;
-      const teamId =
-        typeof context.teamId === 'string' ? context.teamId : undefined;
+      const teamId = body.team?.id;
+      if (!teamId || !userId) {
+        throw new Error('Missing teamId or userId in action payload');
+      }
       const channelId =
         body.channel?.id ||
         (typeof body.container?.channel_id === 'string'

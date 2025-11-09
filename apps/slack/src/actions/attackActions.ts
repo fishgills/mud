@@ -13,14 +13,19 @@ import {
   isMissingTargetCharacterMessage,
   notifyTargetAboutMissingCharacter,
 } from '../handlers/attackNotifications';
+import {
+  decodePlayerSelection,
+  PLAYER_SELECTION_PREFIX,
+} from '../handlers/entitySelection';
 import type { SlackBlockState } from './helpers';
 
 type SelectedTarget =
   | { kind: 'monster'; id: number; name: string }
-  | { kind: 'player'; slackId: string; name: string };
+  | { kind: 'player'; userId: string; teamId: string; name: string };
 
 const extractSelectedTarget = (
   values: SlackBlockState | undefined,
+  fallbackTeamId?: string,
 ): SelectedTarget | null => {
   if (!values) return null;
 
@@ -44,12 +49,13 @@ const extractSelectedTarget = (
       }
     }
 
-    if (raw.startsWith('P:')) {
-      const slackId = raw.slice(2);
-      if (slackId) {
+    if (raw.startsWith(PLAYER_SELECTION_PREFIX)) {
+      const decoded = decodePlayerSelection(raw);
+      if (decoded?.userId) {
         return {
           kind: 'player',
-          slackId,
+          userId: decoded.userId,
+          teamId: decoded.teamId || fallbackTeamId || '',
           name: text.replace(/^Player:\s*/i, '') || 'the player',
         };
       }
@@ -97,12 +103,14 @@ export const registerAttackActions = (app: App) => {
 
   app.action<BlockAction>(
     ATTACK_ACTIONS.ATTACK_MONSTER,
-    async ({ ack, body, client, context }) => {
+    async ({ ack, body, client }) => {
       await ack();
 
       const userId = body.user?.id;
-      const teamId =
-        typeof context.teamId === 'string' ? context.teamId : undefined;
+      const teamId = body.team?.id;
+      if (!teamId || !userId) {
+        throw new Error('Missing teamId or userId in action payload');
+      }
       const channelId =
         body.channel?.id ||
         (typeof body.container?.channel_id === 'string'
@@ -121,6 +129,7 @@ export const registerAttackActions = (app: App) => {
 
       const selected = extractSelectedTarget(
         body.state?.values as SlackBlockState | undefined,
+        teamId,
       );
 
       if (!selected) {
@@ -157,7 +166,11 @@ export const registerAttackActions = (app: App) => {
         const attackOrigin = isMonster
           ? AttackOrigin.TextPve
           : AttackOrigin.DropdownPvp;
-        if (!isMonster && selected.slackId === userId) {
+        if (
+          !isMonster &&
+          selected.userId === userId &&
+          selected.teamId === teamId
+        ) {
           await client.chat.postMessage({
             channel: channelId,
             text: SELF_ATTACK_ERROR,
@@ -173,7 +186,8 @@ export const registerAttackActions = (app: App) => {
             }
           : {
               targetType: TargetType.Player,
-              targetSlackId: selected.slackId,
+              targetUserId: selected.userId,
+              targetTeamId: selected.teamId || teamId,
               attackOrigin,
             };
 
@@ -195,13 +209,13 @@ export const registerAttackActions = (app: App) => {
 
           if (
             selected.kind === 'player' &&
-            selected.slackId !== userId &&
+            (selected.userId !== userId || selected.teamId !== teamId) &&
             isMissingTargetCharacterMessage(attackResult.message)
           ) {
             await notifyTargetAboutMissingCharacter(
               client,
               userId,
-              selected.slackId,
+              selected.userId,
             );
           }
           return;

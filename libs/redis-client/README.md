@@ -10,23 +10,14 @@ Provides pub/sub messaging for game events and notifications:
 
 - **Channel-based routing**: Messages published to client-specific channels (e.g., `notifications:slack`, `notifications:discord`)
 - **Notification types**: Combat, monster, player, world events
-- **Multi-workspace support**: Handles multiple Slack workspaces via clientId format `"slack:TEAM_ID:USER_ID"`
+- **Multi-workspace support**: Handles multiple Slack workspaces
 - **Combat notifications**: Includes detailed message blocks with combat log buttons
 
 ### Key Methods
 
 - `publishNotification()` - Publish notification to appropriate client channel
-- `publishCombatNotifications()` - Helper for combat-specific messages with proper clientId formatting
+- `publishCombatNotifications()` - Helper for combat-specific messages with proper formatting
 - `subscribeToNotifications()` - Subscribe to client-specific notification channel
-
-### Client ID Format
-
-For Slack notifications, clientId must include the full format:
-
-- ✅ Correct: `"slack:TB1QW3SQH:UB389SP46"` (includes prefix)
-- ❌ Wrong: `"TB1QW3SQH:UB389SP46"` (missing prefix)
-
-The prefix is required for multi-workspace Slack bot installation lookup.
 
 ## Building
 

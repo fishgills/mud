@@ -29,10 +29,8 @@ export enum ClientType {
 }
 
 export interface CreatePlayerRequest {
-  slackId?: string;
   teamId?: string;
   userId?: string;
-  clientId?: string;
   clientType?: ClientType;
   name: string;
   x?: number;

@@ -1,4 +1,14 @@
-import { PrismaClient, Prisma, ItemQuality, PlayerSlot } from '@prisma/client';
+import {
+  PrismaClient,
+  Prisma,
+  ItemQuality,
+  PlayerSlot,
+  type Player,
+  type SlackUser,
+  type Monster,
+  type Item,
+  type WorldItem,
+} from '@prisma/client';
 
 // Singleton pattern for Prisma client
 let prisma: PrismaClient | undefined;
@@ -31,6 +41,7 @@ export type {
   Item,
   PlayerItem,
   WorldItem,
+  SlackUser,
 } from '@prisma/client';
 
 export type { ItemQuality as ItemQualityType } from '@prisma/client';
@@ -38,4 +49,19 @@ export type { ItemQuality as ItemQualityType } from '@prisma/client';
 // Equipment slots mapping
 export type PlayerEquipment = {
   [K in PlayerSlot]: { id: number; quality: string } | null;
+};
+
+// Common type aliases for cross-service usage
+export type PlayerWithSlackUser = Player & {
+  slackUser?: SlackUser | null;
+};
+
+export type MonsterWithStats = Monster;
+
+export type ItemWithQuality = Item & {
+  quality?: ItemQuality;
+};
+
+export type WorldItemWithDetails = WorldItem & {
+  item?: Item | null;
 };

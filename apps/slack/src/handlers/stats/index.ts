@@ -41,7 +41,7 @@ export const statsHandler = async ({
 
     if (target.isSelf) {
       const { player, message } = await fetchPlayerRecord(
-        { slackId: `${teamId}:${userId}` },
+        { teamId, userId },
         MISSING_CHARACTER_MESSAGE,
       );
       await respondWithPlayer(say, player, message, MISSING_CHARACTER_MESSAGE, {
@@ -57,7 +57,7 @@ export const statsHandler = async ({
         ? MISSING_CHARACTER_MESSAGE
         : `I couldn't find a character for ${targetDescription}.`;
       const { player, message } = await fetchPlayerRecord(
-        { slackId: `${teamId}:${target.slackId}` },
+        { teamId, userId: target.slackId },
         fallbackMessage,
       );
       await respondWithPlayer(say, player, message, fallbackMessage, {
@@ -94,7 +94,7 @@ export const statsHandler = async ({
       if (matchingPlayers.length === 1) {
         await say(
           buildPlayerStatsMessage(matchingPlayers[0], {
-            isSelf: matchingPlayers[0].slackId === userId,
+            isSelf: matchingPlayers[0].slackUser?.userId === userId,
           }),
         );
         return;
@@ -113,12 +113,9 @@ export const statsHandler = async ({
     }
 
     const fallbackMessage = `I couldn't find a character named ${target.cleanedTarget}.`;
-    const { player, message } = await fetchPlayerRecord(
-      { name: target.cleanedTarget },
-      fallbackMessage,
-    );
-    await respondWithPlayer(say, player, message, fallbackMessage, {
-      isSelf: player?.slackId === userId,
+    // Multiple or zero matches found - show the result counts
+    await say({
+      text: fallbackMessage,
     });
   } catch (err: unknown) {
     console.error('Error fetching player stats:', err);

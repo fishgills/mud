@@ -102,12 +102,10 @@ export class MoveHandler extends PlayerCommandHandler {
           : direction.toLowerCase();
     }
 
-    const clientId = `${this.teamId}:${userId}`;
-
     try {
       const tDmStart = Date.now();
       const result = await this.dm.movePlayer({
-        teamId: this.teamId,
+        teamId: this.teamId!,
         userId,
         input: direction
           ? {
@@ -153,7 +151,7 @@ export class MoveHandler extends PlayerCommandHandler {
         result.monsters,
         {
           currentSlackUserId: userId,
-          currentClientId: clientId,
+          currentSlackTeamId: this.teamId,
         },
       );
       pngMs = Date.now() - tPngStart;

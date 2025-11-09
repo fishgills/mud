@@ -75,7 +75,12 @@ export const registerCharacterActions = (app: App) => {
       const channel = dm.channel?.id;
       if (!channel) return;
       const say = buildSayHelper(client, channel);
-      await handler({ userId, text: `${COMMANDS.NEW} ${name}`, say, teamId });
+      await handler({
+        userId,
+        text: `${COMMANDS.NEW} ${name}`,
+        say,
+        teamId: teamId!,
+      });
     },
   );
 };

@@ -33,7 +33,9 @@ import {
 import { ITEM_SELECTION_BLOCK_ID } from './handlers/pickup';
 import { dmClient } from './dm-client';
 import { PlayerAttribute, TargetType, AttackOrigin } from './dm-types';
-import { toClientId } from './utils/clientId';
+
+const toClientId = (userId: string, teamId: string): string =>
+  `${teamId}:${userId}`;
 
 const mockedDmClient = dmClient as unknown as {
   attack: jest.Mock;
@@ -833,7 +835,7 @@ describe('registerActions', () => {
             attack_monster_selection_block: {
               [ATTACK_ACTIONS.MONSTER_SELECT]: {
                 selected_option: {
-                  value: 'P:U1',
+                  value: 'P:T1:U1',
                   text: { text: 'Player: Hero' },
                 },
               },
@@ -936,7 +938,7 @@ describe('registerActions', () => {
             attack_monster_selection_block: {
               [ATTACK_ACTIONS.MONSTER_SELECT]: {
                 selected_option: {
-                  value: 'P:U2',
+                  value: 'P:T1:U2',
                   text: { text: 'Player: Hero' },
                 },
               },

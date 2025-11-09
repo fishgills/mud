@@ -244,13 +244,4 @@ export class GameTickService {
       weather,
     };
   }
-
-  private resolvePlayerIdentifier(player: {
-    clientId?: string;
-    clientType?: string;
-  }): string | undefined {
-    const { clientId } = player ?? {};
-    const normalized = clientId?.trim();
-    return normalized && normalized.length > 0 ? normalized : undefined;
-  }
 }

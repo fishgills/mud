@@ -26,8 +26,6 @@
 
 ### Common Issues
 
-- **Combat notifications not appearing in Slack**: Check that `clientId` format includes "slack:" prefix (e.g., "slack:TEAM_ID:USER_ID"). The Slack bot's installation lookup requires the full format for multi-workspace support.
-- **PlayerEntity clientId format**: The engine layer normalizes clientId by removing the "slack:" prefix for internal use (e.g., "TB1QW3SQH:UB389SP46"). When publishing to event bus, the prefix must be re-added for Slack notifications.
 - **Event bus routing**: DM publishes notifications with type='combat' to channel `notifications:slack`. Slack bot subscribes to this channel and processes all notification types.
 
 ## Infrastructure

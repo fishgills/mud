@@ -12,7 +12,7 @@ export class DeleteHandler extends PlayerCommandHandler {
 
   protected async perform({ userId, say }: HandlerContext): Promise<void> {
     const playerResult = await this.dm.getPlayer({
-      teamId: this.teamId,
+      teamId: this.teamId!,
       userId,
     });
 
@@ -26,7 +26,7 @@ export class DeleteHandler extends PlayerCommandHandler {
     const player = playerResult.data;
     const playerName = player.name ?? 'your character';
     const deleteResult = await this.dm.deletePlayer({
-      teamId: this.teamId,
+      teamId: this.teamId!,
       userId,
     });
 

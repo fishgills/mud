@@ -135,58 +135,59 @@ export const registerInventoryActions = (app: App) => {
     },
   );
 
-  app.action<BlockAction>(
-    'inventory_drop',
-    async ({ ack, body, client, context }) => {
-      await ack();
-      const userId = body.user?.id;
-      const teamId =
-        typeof context.teamId === 'string' ? context.teamId : undefined;
-      const value = getActionValue(body);
-      const channelId = getChannelIdFromBody(body);
-      if (!userId || !value) return;
-      try {
-        const res = await dmClient.drop({
-          teamId,
-          userId,
-          playerItemId: Number(value),
+  app.action<BlockAction>('inventory_drop', async ({ ack, body, client }) => {
+    await ack();
+    const userId = body.user?.id;
+    const teamId = body.team?.id;
+    if (!teamId || !userId) {
+      throw new Error('Missing teamId or userId in action payload');
+    }
+    const value = getActionValue(body);
+    const channelId = getChannelIdFromBody(body);
+    if (!userId || !value) return;
+    try {
+      const res = await dmClient.drop({
+        teamId,
+        userId,
+        playerItemId: Number(value),
+      });
+      const resCode = (res as unknown as { code?: string })?.code;
+      const friendly = mapErrCodeToFriendlyMessage(resCode);
+      const text = res.success
+        ? `Dropped item ${value}.`
+        : (friendly ?? `Failed to drop: ${res.message ?? 'Unknown error'}`);
+      if (channelId) {
+        await client.chat.postEphemeral({
+          channel: channelId,
+          user: userId,
+          text,
         });
-        const resCode = (res as unknown as { code?: string })?.code;
-        const friendly = mapErrCodeToFriendlyMessage(resCode);
-        const text = res.success
-          ? `Dropped item ${value}.`
-          : (friendly ?? `Failed to drop: ${res.message ?? 'Unknown error'}`);
-        if (channelId) {
-          await client.chat.postEphemeral({
-            channel: channelId,
-            user: userId,
-            text,
-          });
-        } else {
-          const dm = await client.conversations.open({ users: userId });
-          const channel = dm.channel?.id;
-          if (channel) await client.chat.postMessage({ channel, text });
-        }
-      } catch (error) {
-        console.warn('inventory_drop failed', error);
-        if (channelId) {
-          await client.chat.postEphemeral({
-            channel: channelId,
-            user: userId,
-            text: 'Failed to drop item',
-          });
-        }
+      } else {
+        const dm = await client.conversations.open({ users: userId });
+        const channel = dm.channel?.id;
+        if (channel) await client.chat.postMessage({ channel, text });
       }
-    },
-  );
+    } catch (error) {
+      console.warn('inventory_drop failed', error);
+      if (channelId) {
+        await client.chat.postEphemeral({
+          channel: channelId,
+          user: userId,
+          text: 'Failed to drop item',
+        });
+      }
+    }
+  });
 
   app.action<BlockAction>(
     'inventory_unequip',
-    async ({ ack, body, client, context }) => {
+    async ({ ack, body, client }) => {
       await ack();
       const userId = body.user?.id;
-      const teamId =
-        typeof context.teamId === 'string' ? context.teamId : undefined;
+      const teamId = body.team?.id;
+      if (!teamId || !userId) {
+        throw new Error('Missing teamId or userId in action payload');
+      }
       const value = getActionValue(body);
       const channelId = getChannelIdFromBody(body);
       if (!userId || !value) return;

@@ -11,7 +11,7 @@ export class CompleteHandler extends PlayerCommandHandler {
 
   protected async perform({ userId, say }: HandlerContext): Promise<void> {
     const response = await this.dm.completePlayer({
-      teamId: this.teamId,
+      teamId: this.teamId!,
       userId,
     });
     if (response.success) {

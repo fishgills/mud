@@ -155,7 +155,8 @@ const appendSettlementInfo = (
 export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
   try {
     const response = await sniffNearestMonster({
-      slackId: `${teamId}:${userId}`,
+      teamId,
+      userId,
     });
 
     if (!response.success) {

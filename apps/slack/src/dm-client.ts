@@ -1,7 +1,13 @@
-// Use the platform's global fetch implementation instead of the removed @mud/gcp-auth helper.
-const authorizedFetch = globalThis.fetch as typeof fetch;
 import { Direction, TargetType, AttackOrigin } from './dm-types';
 import { env } from './env';
+import type {
+  Player,
+  Monster,
+  WorldItem,
+  Item,
+  PlayerItem,
+  Prisma,
+} from '@mud/database';
 
 export type JsonMap = Record<string, unknown>;
 type JsonBody = JsonMap | unknown;
@@ -33,7 +39,7 @@ async function dmRequest<T>(
     }
   }
 
-  const response = await authorizedFetch(url.toString(), {
+  const response = await fetch(url.toString(), {
     method,
     headers: {
       accept: 'application/json',
@@ -58,81 +64,61 @@ export interface SuccessResponse {
   code?: string;
 }
 
-export interface PlayerRecord extends Record<string, unknown> {
-  id?: number;
-
-  clientId?: string;
-  name?: string;
-  x?: number;
-  y?: number;
-  hp?: number;
-  maxHp?: number;
-  strength?: number;
-  agility?: number;
-  health?: number;
-  gold?: number;
-  xp?: number;
-  level?: number;
-  skillPoints?: number;
-  isAlive?: boolean;
-  isCreationComplete?: boolean;
-  currentTile?: {
-    x: number;
-    y: number;
-    biomeName: string;
-    description?: string | null;
+// Extended Player type with API-specific fields
+export type PlayerRecord = Player &
+  Prisma.SlackUserInclude & {
+    // Additional slack-specific fields if needed
+    isCreationComplete?: boolean;
+    currentTile?: {
+      x: number;
+      y: number;
+      biomeName: string;
+      description?: string | null;
+    };
+    nearbyMonsters?: MonsterRecord[];
+    nearbyPlayers?: PlayerRecord[];
+    equipment?: {
+      head?: { id: number; quality: string } | null;
+      chest?: { id: number; quality: string } | null;
+      legs?: { id: number; quality: string } | null;
+      arms?: { id: number; quality: string } | null;
+      weapon?: { id: number; quality: string } | null;
+    };
   };
-  nearbyMonsters?: MonsterRecord[];
-  nearbyPlayers?: PlayerRecord[];
-  equipment?: {
-    head?: { id: number; quality: string } | null;
-    chest?: { id: number; quality: string } | null;
-    legs?: { id: number; quality: string } | null;
-    arms?: { id: number; quality: string } | null;
-    weapon?: { id: number; quality: string } | null;
-  };
-}
 
-export interface MonsterRecord extends Record<string, unknown> {
-  id?: number;
-  name?: string;
-  type?: string;
-  hp?: number;
-  maxHp?: number;
-  strength?: number;
-  agility?: number;
-  health?: number;
-  x?: number;
-  y?: number;
-  isAlive?: boolean;
-}
+// Use Monster directly from Prisma
+export type MonsterRecord = Monster;
 
-export interface ItemRecord extends Record<string, unknown> {
-  id?: number; // world item id
-  itemId?: number;
-  itemName?: string | null;
-  quantity?: number | null;
-  quality?: string | null;
-  x?: number;
-  y?: number;
-  playerId?: number;
-  slot?: string | null;
-  equipped?: boolean;
-  allowedSlots?: string[];
-  createdAt?: string;
-}
+// ItemRecord supports both PlayerItem (inventory) and WorldItem (world items)
+// This type is flexible to work with both API responses
+export type ItemRecord =
+  | (WorldItem & {
+      // Include item details from relation if available
+      item?: Item | null;
+      // Convenience properties for display
+      itemName?: string | null;
+      name?: string; // from item.name when item relation is loaded
+      allowedSlots?: string[];
+      // PlayerItem-specific fields when used as inventory item
+      slot?: string | null;
+      equipped?: boolean;
+    })
+  | (PlayerItem & {
+      // Include item details when available
+      item?: Item | null;
+      itemName?: string | null;
+      name?: string; // convenience mapping
+      allowedSlots?: string[];
+    });
 
-export interface ItemDetails extends Record<string, unknown> {
-  id?: number;
-  name?: string;
-  type?: string;
-  description?: string;
+// Extended Item type for detailed item information
+export type ItemDetails = Item & {
   value?: number;
   attack?: number | null;
   defense?: number | null;
   healthBonus?: number | null;
   slot?: string | null;
-}
+};
 
 export interface ItemDetailsResponse extends SuccessResponse {
   data?: ItemDetails;
@@ -160,6 +146,8 @@ export interface CombatResult {
     name: string;
     message: string;
     role: string;
+    userId?: string;
+    teamId?: string;
     blocks?: Array<Record<string, unknown>>;
   }>;
   perfBreakdown?: CombatPerformanceBreakdown;
@@ -253,7 +241,8 @@ export interface LocationEntitiesResult {
 }
 
 export interface CreatePlayerRequest {
-  clientId?: string;
+  teamId?: string;
+  userId?: string;
   name: string;
 }
 
@@ -267,13 +256,14 @@ export interface MovePlayerInput {
 export interface MovePlayerRequest {
   teamId: string;
   userId: string;
-  clientId?: string;
   input: MovePlayerInput;
 }
 
 export interface AttackInput {
   targetType: TargetType;
   targetId?: number;
+  targetUserId?: string;
+  targetTeamId?: string;
   ignoreLocation?: boolean;
   attackOrigin?: AttackOrigin;
 }
@@ -317,7 +307,7 @@ export async function getPlayer(params: {
 
 export async function getLeaderboard(params?: {
   limit?: number;
-  teamId: string;
+  teamId?: string;
 }): Promise<{ success: boolean; data?: PlayerRecord[] }> {
   return dmRequest('/players/leaderboard', HttpMethod.GET, {
     query: {
@@ -335,7 +325,6 @@ export async function movePlayer(
     body: {
       teamId: input.teamId,
       userId: input.userId,
-      clientId: input.clientId,
       move: moveBody,
     },
   });
@@ -391,13 +380,11 @@ export async function deletePlayer(
 export async function sniffNearestMonster(params: {
   teamId: string;
   userId: string;
-  clientId?: string;
 }): Promise<SniffResponse> {
   return dmRequest<SniffResponse>('/movement/sniff', HttpMethod.GET, {
     query: {
       teamId: params.teamId,
       userId: params.userId,
-      clientId: params.clientId,
     },
   });
 }
@@ -405,13 +392,11 @@ export async function sniffNearestMonster(params: {
 export async function getLookView(params: {
   teamId: string;
   userId: string;
-  clientId?: string;
 }): Promise<LookViewResponse> {
   return dmRequest<LookViewResponse>('/movement/look', HttpMethod.GET, {
     query: {
       teamId: params.teamId,
       userId: params.userId,
-      clientId: params.clientId,
     },
   });
 }
@@ -419,14 +404,11 @@ export async function getLookView(params: {
 export async function getPlayerItems(params: {
   teamId: string;
   userId: string;
-
-  clientId?: string;
 }): Promise<PlayerResponse> {
   return dmRequest<PlayerResponse>('/players/items', HttpMethod.GET, {
     query: {
       teamId: params.teamId,
       userId: params.userId,
-      clientId: params.clientId,
     },
   });
 }
@@ -434,7 +416,6 @@ export async function getPlayerItems(params: {
 export async function pickup(input: {
   teamId: string;
   userId: string;
-  clientId?: string;
   worldItemId?: number;
 }): Promise<SuccessResponse & { item?: ItemRecord; data?: unknown }> {
   return dmRequest<SuccessResponse & { item?: ItemRecord; data?: unknown }>(
@@ -449,7 +430,6 @@ export async function pickup(input: {
 export async function equip(input: {
   teamId: string;
   userId: string;
-  clientId?: string;
   playerItemId?: number;
   slot?: string;
 }): Promise<SuccessResponse> {
@@ -461,7 +441,6 @@ export async function equip(input: {
 export async function unequip(input: {
   teamId: string;
   userId: string;
-  clientId?: string;
   playerItemId?: number;
 }): Promise<SuccessResponse> {
   return dmRequest<SuccessResponse>('/players/unequip', HttpMethod.POST, {
@@ -472,7 +451,6 @@ export async function unequip(input: {
 export async function drop(input: {
   teamId: string;
   userId: string;
-  clientId?: string;
   playerItemId?: number;
 }): Promise<SuccessResponse> {
   return dmRequest<SuccessResponse>('/players/drop', HttpMethod.POST, {

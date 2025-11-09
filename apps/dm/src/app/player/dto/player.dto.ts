@@ -1,27 +1,30 @@
-export interface CreatePlayerDto {
+// Use Prisma types directly for DTOs to maintain single source of truth
+import { Prisma } from '@mud/database';
+
+export type CreatePlayerDto = {
   userId?: string;
   teamId?: string;
   name: string;
   x?: number;
   y?: number;
-}
+};
 
-export interface MovePlayerDto {
+export type MovePlayerDto = {
   direction?: string;
   distance?: number;
   x?: number;
   y?: number;
-}
+};
 
-export interface PlayerStatsDto {
+export type PlayerStatsDto = {
   hp?: number;
   xp?: number;
   gold?: number;
   level?: number;
   completeCreation?: boolean;
-}
+};
 
-export interface AttackDto {
+export type AttackDto = {
   targetType: 'player' | 'monster';
   targetId: number;
-}
+};

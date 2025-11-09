@@ -164,7 +164,6 @@ export function sanitizeDescription(text: string): string {
 }
 
 // --- Centralized occupants rendering helpers ---
-import { extractSlackId, resolveSlackUserId } from '../utils/clientId';
 import type { MonsterRecord, PlayerRecord } from '../dm-client';
 
 type DmClient = (typeof import('../dm-client'))['dmClient'];
@@ -182,8 +181,8 @@ const getDmClient = async (): Promise<DmClient> => {
 export type NearbyPlayer = {
   id?: string | number;
   name: string;
-  slackId?: string | null;
-  clientId?: string | null;
+  userId?: string | null;
+  teamId?: string | null;
   isAlive?: boolean | null;
 };
 
@@ -323,7 +322,7 @@ export function buildOccupantsSummary(
 // Fetch current-tile occupants and return the standard summary text
 type OccupantFilterOptions = {
   currentSlackUserId?: string;
-  currentClientId?: string;
+  currentSlackTeamId?: string;
 };
 
 export async function getOccupantsSummaryAt(
@@ -363,21 +362,43 @@ export async function sendOccupantsSummary(
 }
 
 function toNearbyPlayer(record: NearbyPlayer | PlayerRecord): NearbyPlayer {
-  const id = record.id ?? null;
+  const rawId = (record as { id?: number | string | null }).id;
+  const id =
+    typeof rawId === 'number' || typeof rawId === 'string' ? rawId : undefined;
   const name =
     typeof record.name === 'string' && record.name.length
       ? record.name
       : 'Unknown Adventurer';
-  const slackId = extractSlackId(record) ?? null;
-  const clientId = typeof record.clientId === 'string' ? record.clientId : null;
+
+  const slackUser = (
+    record as {
+      slackUser?: { userId?: string | null; teamId?: string | null } | null;
+      userId?: string | null;
+      teamId?: string | null;
+    }
+  ).slackUser;
+  const slackUserId =
+    slackUser && typeof slackUser.userId === 'string' ? slackUser.userId : null;
+  const slackTeamId =
+    slackUser && typeof slackUser.teamId === 'string' ? slackUser.teamId : null;
+
+  const directUserIdCandidate = (record as { userId?: unknown }).userId;
+  const directTeamIdCandidate = (record as { teamId?: unknown }).teamId;
+  const directUserId =
+    typeof directUserIdCandidate === 'string' ? directUserIdCandidate : null;
+  const directTeamId =
+    typeof directTeamIdCandidate === 'string' ? directTeamIdCandidate : null;
+
+  const userId = slackUserId ?? directUserId ?? null;
+  const teamId = slackTeamId ?? directTeamId ?? null;
   const isAliveValue =
     typeof record.isAlive === 'boolean' ? record.isAlive : null;
 
   return {
-    id: id ?? undefined,
+    id,
     name,
-    slackId,
-    clientId,
+    userId,
+    teamId,
     isAlive: isAliveValue,
   };
 }
@@ -408,21 +429,18 @@ function shouldIncludePlayer(
     return true;
   }
 
-  const { currentSlackUserId, currentClientId } = opts;
+  const { currentSlackUserId, currentSlackTeamId } = opts;
 
-  if (currentSlackUserId && player.slackId === currentSlackUserId) {
+  // Include player if we're not filtering or if they don't match the current player
+  if (currentSlackUserId && currentSlackTeamId) {
+    if (
+      player.userId === currentSlackUserId &&
+      player.teamId === currentSlackTeamId
+    ) {
+      return false;
+    }
+  } else if (currentSlackUserId && player.userId === currentSlackUserId) {
     return false;
-  }
-
-  if (currentClientId) {
-    if (player.clientId === currentClientId) {
-      return false;
-    }
-
-    const normalizedSlackId = resolveSlackUserId(currentClientId);
-    if (normalizedSlackId && player.slackId === normalizedSlackId) {
-      return false;
-    }
   }
 
   return true;

@@ -44,7 +44,7 @@ For communication between services (DM ↔ Slack, DM ↔ World), the `EventBridg
 
 - Channel-based routing: `notifications:slack`, `notifications:discord`
 - Notification types: combat, monster, player, world events
-- Multi-workspace support for Slack (clientId format: `"slack:TEAM_ID:USER_ID"`)
+- Multi-workspace support for Slack
 
 When adding new DM features, always publish significant state changes through the EventBus so downstream listeners and external clients stay in sync.
 

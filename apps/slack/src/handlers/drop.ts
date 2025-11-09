@@ -25,7 +25,8 @@ export const dropHandler = async ({
 
   try {
     const res = await drop({
-      slackId: `${teamId}:${userId}`,
+      teamId,
+      userId,
       playerItemId,
     });
     if (res && res.success) {

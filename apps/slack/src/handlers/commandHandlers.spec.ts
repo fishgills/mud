@@ -30,7 +30,9 @@ import { moveHandler } from './move';
 import { rerollHandler } from './reroll';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import type { HandlerContext, SayMessage } from './types';
-import { toClientId } from '../utils/clientId';
+
+const toClientId = (userId: string, teamId: string): string =>
+  `${teamId}:${userId}`;
 
 const mockedDmClient = dmClient as unknown as {
   attack: jest.Mock;
@@ -226,8 +228,16 @@ describe('attackHandler', () => {
     });
     mockedDmClient.getLocationEntities.mockResolvedValueOnce({
       players: [
-        { id: '1', slackId: 'U1', name: 'Hero' },
-        { id: '2', slackId: 'slack:U2', name: 'Friend' },
+        {
+          id: '1',
+          name: 'Hero',
+          slackUser: { userId: 'U1', teamId: 'T1' },
+        },
+        {
+          id: '2',
+          name: 'Friend',
+          slackUser: { userId: 'U2', teamId: 'T1' },
+        },
       ],
       monsters: [],
     });
@@ -253,8 +263,8 @@ describe('attackHandler', () => {
     ) as { options?: Array<{ value?: string }> } | undefined;
     const optionValues = select?.options?.map((option) => option.value);
 
-    expect(optionValues).toContain('P:U2');
-    expect(optionValues).not.toContain('P:U1');
+    expect(optionValues).toContain('P:T1:U2');
+    expect(optionValues).not.toContain('P:T1:U1');
   });
 
   it('informs the user when no monsters or players are nearby', async () => {

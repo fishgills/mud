@@ -141,8 +141,7 @@ export const registerAppHome = (app: App) => {
   app.event('app_home_opened', async ({ event, client, logger, context }) => {
     logger.info('App Home opened');
     try {
-      const teamId =
-        typeof context.teamId === 'string' ? context.teamId : undefined;
+      const teamId = context.teamId;
       const blocks = await buildAppHomeBlocks(teamId);
       await client.views.publish({
         user_id: event.user,

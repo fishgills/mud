@@ -2,7 +2,6 @@ import type { WorldTile } from './world-tile.dto';
 
 export interface Player {
   id: number;
-  slackId: string;
   name: string;
   x: number;
   y: number;

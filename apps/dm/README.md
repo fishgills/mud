@@ -21,14 +21,6 @@ The DM (Dungeon Master) service manages the core game mechanics for the text-bas
 - `POST /api/dm/tick` - Process game world tick (called by tick service)
 - `GET /api/dm/game-state` - Get current game state (time, weather)
 
-### Player Management
-
-- `POST /api/dm/player` - Create a new player
-- `GET /api/dm/player/:slackId` - Get player info with location data
-- `POST /api/dm/player/:slackId/move` - Move player (body: `{direction: "n|s|e|w"}`)
-- `POST /api/dm/player/:slackId/attack` - Attack target (body: `{targetType: "player|monster", targetId: number}`)
-- `POST /api/dm/player/:slackId/respawn` - Respawn dead player
-
 ### World Information
 
 - `GET /api/dm/location/:x/:y` - Get complete location info (players, monsters, combat log)

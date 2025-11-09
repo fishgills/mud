@@ -238,7 +238,7 @@ export class MovementController {
     @Query('userId') userId: string,
   ): Promise<SniffResponse> {
     try {
-      const player = await this.playerService.getPlayer(userId, teamId);
+      const player = await this.playerService.getPlayer(teamId, userId);
 
       if (player) {
         this.playerService.updateLastAction(player.id).catch(() => {
@@ -462,7 +462,7 @@ export class MovementController {
       };
 
       const tPlayerStart = Date.now();
-      const player = await this.playerService.getPlayer(userId, teamId);
+      const player = await this.playerService.getPlayer(teamId, userId);
       this.playerService.updateLastAction(player.id).catch(() => {
         /* ignore */
       });

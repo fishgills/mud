@@ -14,5 +14,5 @@ export const dispatchCommandViaDM = async (
   const channel = dm.channel?.id;
   if (!channel) return;
   const say = buildSayHelper(client, channel);
-  await handler({ userId, text: command, say, teamId });
+  await handler({ userId, text: command, say, teamId: teamId! });
 };
