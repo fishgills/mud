@@ -14,9 +14,6 @@ import {
   notifyTargetAboutMissingCharacter,
 } from './attackNotifications';
 import type { WebClient } from '@slack/web-api';
-import { createLogger } from '@mud/logging';
-
-const attackLog = createLogger('slack:handlers:attack');
 
 export const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
 export const SELF_ATTACK_ERROR = "You can't attack yourself.";
@@ -177,7 +174,6 @@ export class AttackHandler extends PlayerCommandHandler {
     text,
     client,
   }: HandlerContext): Promise<void> {
-    const start = Date.now();
     const metrics: {
       branch: string;
       dmAttackMs: number;
@@ -193,204 +189,125 @@ export class AttackHandler extends PlayerCommandHandler {
       targetType: undefined,
       attackOrigin: undefined,
     };
-    let perfDetails: Record<string, unknown> = {};
-    const emitPerf = () => {
-      try {
-        const payload = {
-          event: 'slack.attack.perf',
-          slackUserId: userId,
-          totalMs: Date.now() - start,
-          ...metrics,
-          ...perfDetails,
-        };
-        attackLog.debug(payload, 'slack.attack.perf');
-      } catch (error) {
-        void error;
-      }
-    };
 
-    try {
-      const parts = text.trim().split(/\s+/);
-      const maybeTarget = parts.length > 1 ? parts.slice(1).join(' ') : '';
-      const mentionMatch = maybeTarget.match(/^<@([A-Z0-9]+)>$/i);
-      const atNameMatch = maybeTarget.match(/^@([A-Za-z0-9._-]+)$/);
+    const parts = text.trim().split(/\s+/);
+    const maybeTarget = parts.length > 1 ? parts.slice(1).join(' ') : '';
+    const mentionMatch = maybeTarget.match(/^<@([A-Z0-9]+)>$/i);
+    const atNameMatch = maybeTarget.match(/^@([A-Za-z0-9._-]+)$/);
 
-      if (mentionMatch || atNameMatch) {
-        metrics.branch = 'direct-target';
-        metrics.targetType = 'player';
-        metrics.attackOrigin = AttackOrigin.TextPvp;
+    if (mentionMatch || atNameMatch) {
+      metrics.branch = 'direct-target';
+      metrics.targetType = 'player';
+      metrics.attackOrigin = AttackOrigin.TextPvp;
 
-        const targetSlackId = mentionMatch ? mentionMatch[1] : undefined;
-        if (!targetSlackId) {
-          await say({
-            text: 'Please mention the user like "attack @username" so I can identify them.',
-          });
-          perfDetails = {
-            success: false,
-            reason: 'missing-target-slack-id',
-          };
-          return;
-        }
-        if (targetSlackId === userId) {
-          await say({ text: SELF_ATTACK_ERROR });
-          perfDetails = {
-            success: false,
-            reason: 'self-target',
-          };
-          return;
-        }
-
-        const attackStart = Date.now();
-        const attackResult = await this.dm.attack({
-          teamId: this.teamId!,
-          userId,
-          input: {
-            targetType: TargetType.Player,
-            targetUserId: targetSlackId,
-            targetTeamId: this.teamId!,
-            ignoreLocation: true,
-            attackOrigin: AttackOrigin.TextPvp,
-          },
+      const targetSlackId = mentionMatch ? mentionMatch[1] : undefined;
+      if (!targetSlackId) {
+        await say({
+          text: 'Please mention the user like "attack @username" so I can identify them.',
         });
-        metrics.dmAttackMs = Date.now() - attackStart;
+        return;
+      }
+      if (targetSlackId === userId) {
+        await say({ text: SELF_ATTACK_ERROR });
+        return;
+      }
 
-        if (!attackResult.success) {
-          await say({
-            text: buildAttackFailureMessage(attackResult.message, {
-              targetKind: 'player',
-              targetName: `<@${targetSlackId}>`,
-            }),
-          });
-
-          if (isMissingTargetCharacterMessage(attackResult.message)) {
-            await notifyTargetAboutMissingCharacter(
-              client,
-              userId,
-              targetSlackId,
-            );
-          }
-          perfDetails = {
-            success: false,
-            reason: 'dm-attack-failed',
-            dmMessage: attackResult.message,
-            dmPerf: attackResult.perf,
-            attackOrigin: AttackOrigin.TextPvp,
-          };
-          return;
-        }
-
-        const combat = attackResult.data as AttackCombatResult | undefined;
-        if (!combat) {
-          await say({ text: 'Attack succeeded but no combat data returned.' });
-          perfDetails = {
-            success: false,
-            reason: 'missing-combat-data',
-            dmPerf: attackResult.perf,
-            attackOrigin: AttackOrigin.TextPvp,
-          };
-          return;
-        }
-
-        // Event bus will deliver combat resolution; no local summary
-        // (Removed direct initiation DM to unify delivery path)
-
-        attackLog.debug(
-          { combat },
-          'Combat result payload',
-        );
-        perfDetails = {
-          success: true,
-          path: 'direct-target',
-          dmPerf: attackResult.perf,
+      const attackStart = Date.now();
+      const attackResult = await this.dm.attack({
+        teamId: this.teamId!,
+        userId,
+        input: {
+          targetType: TargetType.Player,
+          targetUserId: targetSlackId,
+          targetTeamId: this.teamId!,
+          ignoreLocation: true,
           attackOrigin: AttackOrigin.TextPvp,
-        };
+        },
+      });
+      metrics.dmAttackMs = Date.now() - attackStart;
+
+      if (!attackResult.success) {
+        await say({
+          text: buildAttackFailureMessage(attackResult.message, {
+            targetKind: 'player',
+            targetName: `<@${targetSlackId}>`,
+          }),
+        });
+
+        if (isMissingTargetCharacterMessage(attackResult.message)) {
+          await notifyTargetAboutMissingCharacter(
+            client,
+            userId,
+            targetSlackId,
+          );
+        }
         return;
       }
 
-      metrics.branch = 'selection';
-      metrics.targetType = undefined;
-
-      const playerLookupStart = Date.now();
-      const player = await requireCharacter(this.teamId!, userId, say);
-      metrics.dmGetPlayerMs = Date.now() - playerLookupStart;
-
-      if (!player) {
-        perfDetails = {
-          success: false,
-          reason: 'player-not-found',
-        };
+      const combat = attackResult.data as AttackCombatResult | undefined;
+      if (!combat) {
+        await say({ text: 'Attack succeeded but no combat data returned.' });
         return;
       }
 
-      const { x, y } = player;
-      if (typeof x !== 'number' || typeof y !== 'number') {
-        await say({ text: 'Unable to determine your current location.' });
-        perfDetails = {
-          success: false,
-          reason: 'missing-location',
-        };
-        return;
-      }
-
-      const entitiesStart = Date.now();
-      const entities = await this.dm.getLocationEntities({ x, y });
-      metrics.dmGetLocationEntitiesMs = Date.now() - entitiesStart;
-
-      const monstersHere: NearbyMonster[] = (entities.monsters || []).map(
-        (m) => ({
-          id: String(m.id ?? ''),
-          name: m.name ?? 'Unknown Monster',
-        }),
-      );
-      const playersHere: NearbyPlayer[] = (entities.players || [])
-        .map((p) => {
-          const playerSlackUser = (
-            p as { slackUser?: { userId?: string; teamId?: string } }
-          ).slackUser;
-          const targetUserId = playerSlackUser?.userId;
-          const targetTeamId = playerSlackUser?.teamId;
-          if (!targetUserId || !targetTeamId) {
-            return null;
-          }
-          if (targetUserId === userId && targetTeamId === this.teamId) {
-            return null;
-          }
-          return {
-            userId: targetUserId,
-            teamId: targetTeamId,
-            name: p.name ?? 'Unknown Adventurer',
-          };
-        })
-        .filter((p): p is NearbyPlayer => p !== null);
-
-      if (monstersHere.length === 0 && playersHere.length === 0) {
-        await say({ text: 'No monsters or players here to attack!' });
-        perfDetails = {
-          success: false,
-          reason: 'no-targets',
-        };
-        return;
-      }
-
-      await say(buildTargetSelectionMessage(monstersHere, playersHere));
-      perfDetails = {
-        success: true,
-        path: 'selection',
-        monsters: monstersHere.length,
-        players: playersHere.length,
-      };
-    } catch (error) {
-      perfDetails = {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Unknown attack handler error',
-      };
-      throw error;
-    } finally {
-      emitPerf();
+      // Event bus will deliver combat resolution; no local summary
+      return;
     }
+
+    metrics.branch = 'selection';
+    metrics.targetType = undefined;
+
+    const playerLookupStart = Date.now();
+    const player = await requireCharacter(this.teamId!, userId, say);
+    metrics.dmGetPlayerMs = Date.now() - playerLookupStart;
+
+    if (!player) {
+      return;
+    }
+
+    const { x, y } = player;
+    if (typeof x !== 'number' || typeof y !== 'number') {
+      await say({ text: 'Unable to determine your current location.' });
+      return;
+    }
+
+    const entitiesStart = Date.now();
+    const entities = await this.dm.getLocationEntities({ x, y });
+    metrics.dmGetLocationEntitiesMs = Date.now() - entitiesStart;
+
+    const monstersHere: NearbyMonster[] = (entities.monsters || []).map(
+      (m) => ({
+        id: String(m.id ?? ''),
+        name: m.name ?? 'Unknown Monster',
+      }),
+    );
+    const playersHere: NearbyPlayer[] = (entities.players || [])
+      .map((p) => {
+        const playerSlackUser = (
+          p as { slackUser?: { userId?: string; teamId?: string } }
+        ).slackUser;
+        const targetUserId = playerSlackUser?.userId;
+        const targetTeamId = playerSlackUser?.teamId;
+        if (!targetUserId || !targetTeamId) {
+          return null;
+        }
+        if (targetUserId === userId && targetTeamId === this.teamId) {
+          return null;
+        }
+        return {
+          userId: targetUserId,
+          teamId: targetTeamId,
+          name: p.name ?? 'Unknown Adventurer',
+        };
+      })
+      .filter((p): p is NearbyPlayer => p !== null);
+
+    if (monstersHere.length === 0 && playersHere.length === 0) {
+      await say({ text: 'No monsters or players here to attack!' });
+      return;
+    }
+
+    await say(buildTargetSelectionMessage(monstersHere, playersHere));
   }
 }
 

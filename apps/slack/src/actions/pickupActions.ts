@@ -9,9 +9,6 @@ import { PICKUP_ACTIONS, COMMANDS } from '../commands';
 import { ITEM_SELECTION_BLOCK_ID } from '../handlers/pickup';
 import type { SlackBlockState } from './helpers';
 import type { ItemRecord } from '../dm-client';
-import { createLogger } from '@mud/logging';
-
-const pickupLog = createLogger('slack:actions:pickup');
 
 const formatQualityLabel = (quality: unknown): string | null => {
   if (typeof quality !== 'string') return null;
@@ -124,7 +121,7 @@ export const registerPickupActions = (app: App) => {
               blocks: updatedBlocks,
             });
           } catch (err) {
-            pickupLog.warn(
+            app.logger.warn(
               { error: err },
               'Failed to update pickup button state',
             );

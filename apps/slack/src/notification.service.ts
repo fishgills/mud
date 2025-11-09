@@ -8,21 +8,20 @@
 import { RedisEventBridge, NotificationMessage } from '@mud/redis-client';
 import { env } from './env';
 import type { InstallationStore, InstallationQuery } from '@slack/oauth';
-import { WebClient } from '@slack/web-api';
-import { createLogger } from '@mud/logging';
+import { Logger, WebClient } from '@slack/web-api';
 
 interface NotificationServiceOptions {
   installationStore?: InstallationStore;
   fallbackBotToken?: string | null;
+  logger: Logger;
 }
 
 export class NotificationService {
   private bridge: RedisEventBridge;
   private readonly options: NotificationServiceOptions;
   private readonly webClients = new Map<string, WebClient>();
-  private readonly logger = createLogger('slack:notifications');
 
-  constructor(options: NotificationServiceOptions = {}) {
+  constructor(options: NotificationServiceOptions) {
     this.options = options;
     this.bridge = new RedisEventBridge({
       redisUrl: env.REDIS_URL,
@@ -45,7 +44,7 @@ export class NotificationService {
       },
     );
 
-    this.logger.info(
+    this.options.logger.info(
       '✅ Notification Service started - listening for game events',
     );
   }
@@ -64,7 +63,7 @@ export class NotificationService {
     notification: NotificationMessage,
   ): Promise<void> {
     // High-level receipt log
-    this.logger.info(
+    this.options.logger.info(
       {
         type: notification.type,
         recipients: notification.recipients.length,
@@ -80,7 +79,7 @@ export class NotificationService {
         return s.length > 160 ? `${s.slice(0, 157)}...` : s;
       };
 
-      this.logger.debug(
+      this.options.logger.debug(
         {
           type: notification.type,
           recipients: notification.recipients.length,
@@ -92,7 +91,7 @@ export class NotificationService {
       );
     } catch (e) {
       // non-fatal logging helper error
-      this.logger.debug(
+      this.options.logger.debug(
         { error: e },
         'Failed to produce notification preview',
       );
@@ -101,14 +100,14 @@ export class NotificationService {
     // Send message to each recipient
     for (const recipient of notification.recipients) {
       if (recipient.clientType !== 'slack') {
-        this.logger.debug(
+        this.options.logger.debug(
           { clientType: recipient.clientType },
           'Skipping non-slack recipient',
         );
         continue;
       }
       try {
-        this.logger.debug(
+        this.options.logger.debug(
           {
             teamId: recipient.teamId,
             userId: recipient.userId,
@@ -121,7 +120,7 @@ export class NotificationService {
         );
 
         // Open DM channel with user
-        this.logger.debug(
+        this.options.logger.debug(
           { teamId: recipient.teamId, userId: recipient.userId },
           'Opening DM with user',
         );
@@ -137,7 +136,7 @@ export class NotificationService {
           recipient.userId,
         );
         if (!botToken) {
-          this.logger.error(
+          this.options.logger.error(
             {
               teamId: recipient.teamId,
               userId: recipient.userId,
@@ -148,7 +147,7 @@ export class NotificationService {
         }
 
         if (fromFallback) {
-          this.logger.debug(
+          this.options.logger.debug(
             { teamId: recipient.teamId, userId: recipient.userId },
             'Using fallback bot token for notification',
           );
@@ -159,7 +158,7 @@ export class NotificationService {
 
         // Log DM open response shape minimally
         try {
-          this.logger.debug(
+          this.options.logger.debug(
             {
               ok: Boolean(dm.ok),
               channelId: dm.channel?.id || null,
@@ -168,12 +167,15 @@ export class NotificationService {
             'dm.open response',
           );
         } catch (e) {
-          this.logger.debug({ error: e }, 'Failed to log dm.open response');
+          this.options.logger.debug(
+            { error: e },
+            'Failed to log dm.open response',
+          );
         }
 
         const channelId = dm.channel?.id;
         if (!channelId) {
-          this.logger.error(
+          this.options.logger.error(
             { teamId: recipient.teamId, userId: recipient.userId },
             'Could not open DM; no channel ID returned',
           );
@@ -187,7 +189,7 @@ export class NotificationService {
           const blocksCount = Array.isArray(recipient.blocks)
             ? recipient.blocks.length
             : 0;
-          this.logger.debug(
+          this.options.logger.debug(
             {
               channel: channelId,
               textPreview:
@@ -215,7 +217,7 @@ export class NotificationService {
               ? `${recipient.message.slice(0, 117)}...`
               : recipient.message;
 
-          this.logger.debug(
+          this.options.logger.debug(
             {
               channel: channelId,
               textPreview,
@@ -240,7 +242,7 @@ export class NotificationService {
           });
         }
 
-        this.logger.info(
+        this.options.logger.info(
           {
             teamId: recipient.teamId,
             userId: recipient.userId,
@@ -252,7 +254,7 @@ export class NotificationService {
       } catch (error) {
         // Provide stack-aware debug for errors
         // Log error object for debugging; stringify may fail on circulars so pass as-is
-        this.logger.error(
+        this.options.logger.error(
           {
             teamId: recipient.teamId,
             userId: recipient.userId,
@@ -291,12 +293,12 @@ export class NotificationService {
       if (token) {
         return { token, fromFallback: false };
       }
-      this.logger.warn(
+      this.options.logger.warn(
         { teamId, userId },
         'Installation missing bot token; falling back to env token',
       );
     } catch (error) {
-      this.logger.warn(
+      this.options.logger.warn(
         { teamId, userId, error },
         'Failed to fetch installation; falling back to env token',
       );
@@ -308,7 +310,7 @@ export class NotificationService {
   private getOrCreateWebClient(token: string): WebClient {
     const cached = this.webClients.get(token);
     if (cached) return cached;
-    this.logger.debug(
+    this.options.logger.debug(
       { tokenPreview: token.slice(0, 8) },
       'Creating WebClient for notification service',
     );

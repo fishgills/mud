@@ -5,9 +5,7 @@ import { getQualityBadge, formatQualityLabel } from '@mud/constants';
 import { COMMANDS, INSPECT_ACTIONS } from '../commands';
 import { PlayerCommandHandler } from './base';
 import type { HandlerContext } from './types';
-import { createLogger } from '@mud/logging';
 
-const inspectLog = createLogger('slack:handlers:inspect');
 import { requireCharacter } from './characterUtils';
 import {
   buildPlayerOption,
@@ -462,25 +460,13 @@ class InspectHandler extends PlayerCommandHandler {
     // Check if user wants to inspect a specific player by mention
     // Extract text after "inspect" command (e.g., "inspect @John" → "@John" or "inspect <@U123>" → "<@U123>")
     const fullText = (text || '').trim();
-    inspectLog.debug({ fullText }, 'INSPECT-DEBUG fullText');
     const inspectMatch = fullText.match(/^inspect\s+(.+)$/i);
-    inspectLog.debug(
-      { matchFound: Boolean(inspectMatch) },
-      'INSPECT-DEBUG inspectMatch',
-    );
+
     if (inspectMatch) {
       const targetMention = inspectMatch[1].trim();
-      inspectLog.debug({ targetMention }, 'INSPECT-DEBUG targetMention');
       const targetSlackId = await resolveUserId?.(targetMention);
-      inspectLog.debug(
-        { targetSlackId: targetSlackId ?? 'undefined' },
-        'INSPECT-DEBUG targetSlackId',
-      );
+
       if (targetSlackId) {
-        inspectLog.debug(
-          { targetSlackId },
-          'INSPECT-DEBUG resolving to direct inspect',
-        );
         // Directly inspect the mentioned player - use simple DM-based approach
         const targetRes = await this.dm.getPlayer({
           teamId: this.teamId,
@@ -562,17 +548,12 @@ class InspectHandler extends PlayerCommandHandler {
     message: { text?: string; blocks?: KnownBlock[] },
   ): Promise<boolean> {
     if (!client) return false;
-    try {
-      await client.chat.postMessage({
-        channel: channelId,
-        text: message.text ?? 'Inspection update',
-        ...(message.blocks ? { blocks: message.blocks } : {}),
-      });
-      return true;
-    } catch (error) {
-      inspectLog.warn({ error }, 'inspect: failed to post message');
-      return false;
-    }
+    await client.chat.postMessage({
+      channel: channelId,
+      text: message.text ?? 'Inspection update',
+      ...(message.blocks ? { blocks: message.blocks } : {}),
+    });
+    return true;
   }
 
   private async safeDm(
@@ -581,22 +562,17 @@ class InspectHandler extends PlayerCommandHandler {
     message: { text?: string; blocks?: KnownBlock[] },
   ): Promise<boolean> {
     if (!client) return false;
-    try {
-      const dm = await client.conversations.open({ users: userId });
-      const channelId = dm.channel?.id;
-      if (!channelId) {
-        return false;
-      }
-      await client.chat.postMessage({
-        channel: channelId,
-        text: message.text ?? 'Inspection update',
-        ...(message.blocks ? { blocks: message.blocks } : {}),
-      });
-      return true;
-    } catch (error) {
-      inspectLog.warn({ error }, 'inspect: failed to DM user');
+    const dm = await client.conversations.open({ users: userId });
+    const channelId = dm.channel?.id;
+    if (!channelId) {
       return false;
     }
+    await client.chat.postMessage({
+      channel: channelId,
+      text: message.text ?? 'Inspection update',
+      ...(message.blocks ? { blocks: message.blocks } : {}),
+    });
+    return true;
   }
 
   private async respondWithMessage(

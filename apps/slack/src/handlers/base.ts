@@ -3,6 +3,7 @@ import { COMMANDS, MOVEMENT_COMMANDS } from '../commands';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { registerHandler } from './handlerRegistry';
 import { HandlerContext } from './types';
+import { getSlackApp } from '../appContext';
 
 type CommandRegistration = string | string[];
 
@@ -19,6 +20,10 @@ export abstract class BaseCommandHandler {
 
   protected get dm() {
     return dmClient;
+  }
+
+  protected get app() {
+    return getSlackApp();
   }
 
   protected register(): void {

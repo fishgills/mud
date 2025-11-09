@@ -22,7 +22,6 @@
   - `logs/mud-combined.log` - Unified log file with all service interactions (DM, Slack, World, Tick, Engine)
   - `logs/mud-{service}-error.log` - Service-specific error logs (e.g., `mud-dm-error.log`, `mud-slack-error.log`)
 - Logs are cleared on startup for fresh session tracking, making them ideal for AI agent analysis
-- All services share the same logger instance via `@mud/logging` library, ensuring consistent formatting and output
 
 ### Common Issues
 

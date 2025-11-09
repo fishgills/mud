@@ -3,9 +3,6 @@ import type { KnownBlock } from '@slack/types';
 import { COMMANDS } from '../commands';
 import { buildHelpBlocks } from './help';
 import { getLeaderboard } from '../dm-client';
-import { createLogger } from '@mud/logging';
-
-const appHomeLog = createLogger('slack:handlers:app-home');
 
 const buildLeaderboardBlocks = async (
   teamId?: string,
@@ -85,8 +82,7 @@ const buildLeaderboardBlocks = async (
     }
 
     return blocks;
-  } catch (err) {
-    appHomeLog.error({ error: err }, 'Failed to build leaderboard blocks');
+  } catch {
     return [
       {
         type: 'section',
@@ -138,7 +134,7 @@ export const buildAppHomeBlocks = async (
 };
 
 export const registerAppHome = (app: App) => {
-  appHomeLog.info('Registering app home event handler');
+  app.logger.info('Registering app home event handler');
 
   // Handle app home opened event
   app.event('app_home_opened', async ({ event, client, logger, context }) => {

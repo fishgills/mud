@@ -15,9 +15,5 @@ export default {
       __dirname,
       '../../libs/redis-client/dist/redis-client.js',
     ),
-    '^@mud/logging$': path.resolve(
-      __dirname,
-      '../../libs/logging/dist/index.js',
-    ),
   },
 };

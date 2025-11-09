@@ -2,9 +2,7 @@ import { HandlerContext } from './types';
 import { Direction } from '../dm-types';
 // No debug JSON on move; keep the channel clean.
 import { sendPngMap } from './mapUtils';
-import { createLogger } from '@mud/logging';
 
-const moveLog = createLogger('slack:handlers:move');
 import { COMMANDS } from '../commands';
 import { sendOccupantsSummary } from './locationUtils';
 import { MOVEMENT_COMMAND_SET, PlayerCommandHandler } from './base';
@@ -123,7 +121,7 @@ export class MoveHandler extends PlayerCommandHandler {
       if (!result.success) {
         await say({ text: `Move failed: ${result.message}` });
         totalMs = Date.now() - t0;
-        moveLog.info(
+        this.app.logger.info(
           { userId, movementLabel, dmMs, totalMs },
           'Move timing (fail)',
         );
@@ -133,7 +131,7 @@ export class MoveHandler extends PlayerCommandHandler {
       if (!data) {
         await say({ text: 'Move succeeded but no data returned.' });
         totalMs = Date.now() - t0;
-        moveLog.info(
+        this.app.logger.info(
           { userId, movementLabel, dmMs, totalMs },
           'Move timing (no data)',
         );
@@ -142,7 +140,7 @@ export class MoveHandler extends PlayerCommandHandler {
       if (typeof data.x !== 'number' || typeof data.y !== 'number') {
         await say({ text: 'Move succeeded but your new location is unclear.' });
         totalMs = Date.now() - t0;
-        moveLog.info(
+        this.app.logger.info(
           { userId, movementLabel, dmMs, totalMs },
           'Move timing (no location)',
         );
@@ -177,13 +175,13 @@ export class MoveHandler extends PlayerCommandHandler {
       });
       finalMsgMs = Date.now() - tMsgStart;
       totalMs = Date.now() - t0;
-      moveLog.info(
+      this.app.logger.info(
         { userId, movementLabel, dmMs, pngMs, finalMsgMs, totalMs },
         'Move timing success',
       );
     } catch (error) {
       totalMs = Date.now() - t0;
-      moveLog.error(
+      this.app.logger.error(
         { userId, movementLabel, dmMs, pngMs, finalMsgMs, totalMs, error },
         'Move timing error',
       );

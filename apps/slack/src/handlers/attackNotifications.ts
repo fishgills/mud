@@ -1,8 +1,5 @@
 import type { WebClient } from '@slack/web-api';
 import { COMMANDS } from '../commands';
-import { createLogger } from '@mud/logging';
-
-const attackNotifyLog = createLogger('slack:handlers:attack-notifications');
 
 type FailureMessageOptions = {
   targetKind?: 'player' | 'monster';
@@ -73,20 +70,13 @@ export const notifyTargetAboutMissingCharacter = async (
   if (!targetSlackId) return;
   if (attackerSlackId && attackerSlackId === targetSlackId) return;
 
-  try {
-    const dm = await client.conversations.open({ users: targetSlackId });
-    const dmChannelId =
-      typeof dm.channel?.id === 'string' ? dm.channel.id : undefined;
-    if (!dmChannelId) return;
+  const dm = await client.conversations.open({ users: targetSlackId });
+  const dmChannelId =
+    typeof dm.channel?.id === 'string' ? dm.channel.id : undefined;
+  if (!dmChannelId) return;
 
-    await client.chat.postMessage({
-      channel: dmChannelId,
-      text: buildTargetAttackAttemptNotice(attackerSlackId),
-    });
-  } catch (error) {
-    attackNotifyLog.warn(
-      { error, targetSlackId, attackerSlackId },
-      'Failed to notify target about missing character',
-    );
-  }
+  await client.chat.postMessage({
+    channel: dmChannelId,
+    text: buildTargetAttackAttemptNotice(attackerSlackId),
+  });
 };

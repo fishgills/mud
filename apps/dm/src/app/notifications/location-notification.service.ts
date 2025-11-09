@@ -11,7 +11,6 @@ import {
   type PlayerSpawnEvent,
   type PlayerRespawnEvent,
   type PlayerDeathEvent,
-  type MonsterMoveEvent,
   type MonsterSpawnEvent,
   type MonsterDeathEvent,
   type LootSpawnEvent,
@@ -62,9 +61,9 @@ export class LocationNotificationService
     this.subscribe<PlayerDeathEvent>('player:death', (event) =>
       this.handlePlayerDeath(event),
     );
-    this.subscribe<MonsterMoveEvent>('monster:move', (event) =>
-      this.handleMonsterMove(event),
-    );
+    // this.subscribe<MonsterMoveEvent>('monster:move', (_) =>
+    //   this.handleMonsterMove(),
+    // );
     this.subscribe<MonsterSpawnEvent>('monster:spawn', (event) =>
       this.handleMonsterSpawn(event),
     );
@@ -200,14 +199,10 @@ export class LocationNotificationService
     );
   }
 
-  private async handleMonsterMove(event: MonsterMoveEvent): Promise<void> {
-    this.logger.debug(
-      `Monster move event received: ${JSON.stringify(event)}`,
-    );
+  private async handleMonsterMove(): Promise<void> {
     // if (event.fromX === event.toX && event.fromY === event.toY) {
     //   return;
     // }
-
     // await this.notifyPlayersAtLocation(
     //   event,
     //   { x: event.fromX, y: event.fromY },
@@ -216,7 +211,6 @@ export class LocationNotificationService
     //     message: `${event.monster.name} leaves ${this.describeHeading(event.fromX, event.fromY, event.toX, event.toY)}.`,
     //   },
     // );
-
     // await this.notifyPlayersAtLocation(
     //   event,
     //   { x: event.toX, y: event.toY },

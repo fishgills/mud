@@ -6,7 +6,6 @@
  */
 
 import { createClient, RedisClientType } from 'redis';
-import { createLogger } from '@mud/logging';
 import type { GameEvent } from './game-events.js';
 
 export interface EventBridgeConfig {
@@ -50,7 +49,6 @@ export class RedisEventBridge {
   private channelPrefix: string;
   private enableLogging: boolean;
   private isConnected = false;
-  private readonly logger = createLogger('redis:event-bridge');
 
   constructor(config: EventBridgeConfig) {
     this.channelPrefix = config.channelPrefix || 'game';
@@ -61,10 +59,7 @@ export class RedisEventBridge {
     }) as RedisClientType;
 
     this.publisherClient.on('error', (err) => {
-      this.logger.error(
-        { error: err },
-        'Redis Event Bridge publisher error',
-      );
+      console.error({ error: err }, 'Redis Event Bridge publisher error');
     });
   }
 
@@ -80,7 +75,7 @@ export class RedisEventBridge {
     this.isConnected = true;
 
     if (this.enableLogging) {
-      this.logger.info('✅ Redis Event Bridge connected');
+      console.info('✅ Redis Event Bridge connected');
     }
   }
 
@@ -101,7 +96,7 @@ export class RedisEventBridge {
     this.isConnected = false;
 
     if (this.enableLogging) {
-      this.logger.info('👋 Redis Event Bridge disconnected');
+      console.info('👋 Redis Event Bridge disconnected');
     }
   }
 
@@ -120,7 +115,7 @@ export class RedisEventBridge {
     await this.publisherClient.publish(channel, message);
 
     if (this.enableLogging) {
-      this.logger.debug(
+      console.debug(
         { channel, eventType: event.eventType },
         '📤 Published event',
       );
@@ -161,7 +156,7 @@ export class RedisEventBridge {
       await this.publisherClient.publish(channel, message);
 
       if (this.enableLogging) {
-        this.logger.debug(
+        console.debug(
           { channel, count: recipients.length, type: notification.type },
           '📤 Published notifications',
         );
@@ -194,7 +189,7 @@ export class RedisEventBridge {
           const event = JSON.parse(message) as GameEvent;
           await callback(channel, event);
         } catch (err: unknown) {
-          this.logger.error(
+          console.error(
             { channel, error: err },
             'Error processing event from channel',
           );
@@ -203,7 +198,7 @@ export class RedisEventBridge {
     );
 
     if (this.enableLogging) {
-      this.logger.info({ pattern }, '👂 Subscribed to pattern');
+      console.info({ pattern }, '👂 Subscribed to pattern');
     }
   }
 
@@ -232,15 +227,12 @@ export class RedisEventBridge {
         const notification = JSON.parse(message) as NotificationMessage;
         await callback(notification);
       } catch (err: unknown) {
-        this.logger.error(
-          { channel, error: err },
-          'Error processing notification',
-        );
+        console.error({ channel, error: err }, 'Error processing notification');
       }
     });
 
     if (this.enableLogging) {
-      this.logger.info({ channel }, '👂 Subscribed to notifications');
+      console.info({ channel }, '👂 Subscribed to notifications');
     }
   }
 

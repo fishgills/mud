@@ -1,7 +1,6 @@
 import '@mud/tracer/register';
 
 import http from 'http';
-import { createLogger } from '@mud/logging';
 
 // Use global fetch in place of the removed @mud/gcp-auth helper
 const authorizedFetch = globalThis.fetch as typeof fetch;
@@ -19,9 +18,6 @@ const ACTIVITY_THRESHOLD_MINUTES = parseInt(
 
 // auth logger removed (was setAuthLogger) — not needed on GKE
 
-const log = createLogger('tick');
-const httpLog = createLogger('tick:http');
-
 async function hasActivePlayers(): Promise<boolean> {
   try {
     const url = new URL(`${DM_API_BASE_URL}/system/active-players`);
@@ -37,7 +33,7 @@ async function hasActivePlayers(): Promise<boolean> {
     });
     const text = await res.text();
     if (!res.ok) {
-      log.error(
+      console.error(
         {
           status: res.status,
           body: text.slice(0, 500),
@@ -53,7 +49,7 @@ async function hasActivePlayers(): Promise<boolean> {
     };
     return payload.active ?? false;
   } catch (err) {
-    log.error(
+    console.error(
       {
         error: err instanceof Error ? err.message : err,
       },
@@ -67,7 +63,7 @@ async function sendProcessTick() {
   // First check if there are any active players
   const hasActive = await hasActivePlayers();
   if (!hasActive) {
-    log.info(
+    console.info(
       {
         activityThresholdMinutes: ACTIVITY_THRESHOLD_MINUTES,
       },
@@ -76,7 +72,7 @@ async function sendProcessTick() {
     return;
   }
 
-  log.info('Active players detected, processing tick');
+  console.info('Active players detected, processing tick');
   try {
     const res = await authorizedFetch(
       `${DM_API_BASE_URL}/system/process-tick`,
@@ -89,7 +85,7 @@ async function sendProcessTick() {
     );
     const text = await res.text();
     if (!res.ok) {
-      log.error(
+      console.error(
         {
           status: res.status,
           statusText: res.statusText,
@@ -103,7 +99,7 @@ async function sendProcessTick() {
     try {
       payload = JSON.parse(text);
     } catch (e) {
-      log.error({ error: e }, 'Failed to parse DM response as JSON');
+      console.error({ error: e }, 'Failed to parse DM response as JSON');
       return;
     }
     const result = payload as {
@@ -112,7 +108,7 @@ async function sendProcessTick() {
       result?: Record<string, unknown>;
     };
     if (result.success) {
-      log.info(
+      console.info(
         {
           message: result.message ?? 'success',
           result: result.result,
@@ -120,7 +116,7 @@ async function sendProcessTick() {
         'DM processTick succeeded',
       );
     } else {
-      log.warn(
+      console.warn(
         {
           message: result?.message ?? 'unknown error',
         },
@@ -129,15 +125,15 @@ async function sendProcessTick() {
     }
   } catch (err) {
     if (err instanceof Error) {
-      log.error({ error: err.message }, 'Error calling DM processTick');
+      console.error({ error: err.message }, 'Error calling DM processTick');
     } else {
-      log.error({ error: err }, 'Error calling DM processTick');
+      console.error({ error: err }, 'Error calling DM processTick');
     }
   }
 }
 
 // Start loop and lightweight HTTP server for platform health/readiness checks
-log.info(
+console.info(
   {
     dmBaseUrl: DM_API_BASE_URL,
     tickIntervalMs: TICK_INTERVAL_MS,
@@ -162,21 +158,18 @@ const server = http.createServer((req, res) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ ok: true }));
-    httpLog.debug(
-      { url: req.url, method: req.method },
-      'Health probe handled',
-    );
+    console.debug({ url: req.url, method: req.method }, 'Health probe handled');
     return;
   }
   res.statusCode = 404;
   res.end('Not Found');
-  httpLog.debug(
+  console.debug(
     { url: req.url, method: req.method },
     'Unhandled request received',
   );
 });
 server.listen(PORT, '0.0.0.0', () => {
-  log.info({ port: PORT, host: '0.0.0.0' }, 'HTTP health server listening');
+  console.info({ port: PORT, host: '0.0.0.0' }, 'HTTP health server listening');
 });
 
 // Graceful shutdown
@@ -190,10 +183,10 @@ function cleanup(code?: number) {
 }
 
 process.on('SIGINT', () => {
-  log.info('Received SIGINT, shutting down');
+  console.info('Received SIGINT, shutting down');
   cleanup(0);
 });
 process.on('SIGTERM', () => {
-  log.info('Received SIGTERM, shutting down');
+  console.info('Received SIGTERM, shutting down');
   cleanup(0);
 });
