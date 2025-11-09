@@ -18,14 +18,6 @@
     "./register": {
       "types": "./dist/register.d.ts",
       "default": "./dist/register.js"
-    },
-    "./nest-winston-logger": {
-      "types": "./dist/nest-winston-logger.d.ts",
-      "default": "./dist/nest-winston-logger.js"
-    },
-    "./nest-winston-module": {
-      "types": "./dist/nest-winston-module.d.ts",
-      "default": "./dist/nest-winston-module.js"
     }
   },
   "scripts": {
@@ -34,8 +26,8 @@
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
-    "nest-winston": "^1.10.0",
-    "tslib": "^2.3.0",
-    "winston": "^3.13.1"
+    "pino": "^9.3.2",
+    "pino-pretty": "^11.2.1",
+    "tslib": "^2.3.0"
   }
 }

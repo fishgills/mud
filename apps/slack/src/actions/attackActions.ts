@@ -18,6 +18,9 @@ import {
   PLAYER_SELECTION_PREFIX,
 } from '../handlers/entitySelection';
 import type { SlackBlockState } from './helpers';
+import { createLogger } from '@mud/logging';
+
+const attackActionsLog = createLogger('slack:actions:attack');
 
 type SelectedTarget =
   | { kind: 'monster'; id: number; name: string }
@@ -156,7 +159,10 @@ export const registerAttackActions = (app: App) => {
               blocks: updatedBlocks,
             });
           } catch (err) {
-            console.warn('Failed to update attack button state', err);
+            attackActionsLog.warn(
+              { error: err },
+              'Failed to update attack button state',
+            );
           }
         }
       }

@@ -2,6 +2,9 @@ import { HandlerContext } from './types';
 import { Direction } from '../dm-types';
 // No debug JSON on move; keep the channel clean.
 import { sendPngMap } from './mapUtils';
+import { createLogger } from '@mud/logging';
+
+const moveLog = createLogger('slack:handlers:move');
 import { COMMANDS } from '../commands';
 import { sendOccupantsSummary } from './locationUtils';
 import { MOVEMENT_COMMAND_SET, PlayerCommandHandler } from './base';
@@ -120,8 +123,9 @@ export class MoveHandler extends PlayerCommandHandler {
       if (!result.success) {
         await say({ text: `Move failed: ${result.message}` });
         totalMs = Date.now() - t0;
-        console.log(
-          `move timing (fail): user=${userId} move=${movementLabel} dmMs=${dmMs} totalMs=${totalMs}`,
+        moveLog.info(
+          { userId, movementLabel, dmMs, totalMs },
+          'Move timing (fail)',
         );
         return;
       }
@@ -129,16 +133,18 @@ export class MoveHandler extends PlayerCommandHandler {
       if (!data) {
         await say({ text: 'Move succeeded but no data returned.' });
         totalMs = Date.now() - t0;
-        console.log(
-          `move timing (nodata): user=${userId} move=${movementLabel} dmMs=${dmMs} totalMs=${totalMs}`,
+        moveLog.info(
+          { userId, movementLabel, dmMs, totalMs },
+          'Move timing (no data)',
         );
         return;
       }
       if (typeof data.x !== 'number' || typeof data.y !== 'number') {
         await say({ text: 'Move succeeded but your new location is unclear.' });
         totalMs = Date.now() - t0;
-        console.log(
-          `move timing (noloc): user=${userId} move=${movementLabel} dmMs=${dmMs} totalMs=${totalMs}`,
+        moveLog.info(
+          { userId, movementLabel, dmMs, totalMs },
+          'Move timing (no location)',
         );
         return;
       }
@@ -171,13 +177,15 @@ export class MoveHandler extends PlayerCommandHandler {
       });
       finalMsgMs = Date.now() - tMsgStart;
       totalMs = Date.now() - t0;
-      console.log(
-        `move timing: user=${userId} move=${movementLabel} dmMs=${dmMs} pngMs=${pngMs} finalMsgMs=${finalMsgMs} totalMs=${totalMs}`,
+      moveLog.info(
+        { userId, movementLabel, dmMs, pngMs, finalMsgMs, totalMs },
+        'Move timing success',
       );
     } catch (error) {
       totalMs = Date.now() - t0;
-      console.log(
-        `move timing (error): user=${userId} move=${movementLabel} dmMs=${dmMs} pngMs=${pngMs} finalMsgMs=${finalMsgMs} totalMs=${totalMs}`,
+      moveLog.error(
+        { userId, movementLabel, dmMs, pngMs, finalMsgMs, totalMs, error },
+        'Move timing error',
       );
       throw error;
     }

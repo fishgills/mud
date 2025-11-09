@@ -11,6 +11,9 @@ import {
 import { resolveTarget } from './target';
 import { PlayerStatsSource } from './types';
 import { MISSING_CHARACTER_MESSAGE } from '../characterUtils';
+import { createLogger } from '@mud/logging';
+
+const statsLog = createLogger('slack:handlers:stats');
 
 export const statsHandlerHelp = `Show stats with "${COMMANDS.STATS}". Example: Send "${COMMANDS.STATS}" for yourself, "${COMMANDS.STATS} Alice" to inspect another adventurer, or "${COMMANDS.STATS} Goblin" to scout a nearby monster.`;
 
@@ -118,7 +121,7 @@ export const statsHandler = async ({
       text: fallbackMessage,
     });
   } catch (err: unknown) {
-    console.error('Error fetching player stats:', err);
+    statsLog.error({ error: err }, 'Error fetching player stats');
     const errorMessage = getUserFriendlyErrorMessage(
       err,
       'Failed to load stats',

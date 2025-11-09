@@ -14,7 +14,7 @@ Mud is an AI-assisted multiplayer text adventure game built as a Turborepo monor
 | `libs/engine`                | Client-agnostic game engine with entity management (Players, Monsters, NPCs) and factory patterns.                                |
 | `libs/event-bus`             | Process-wide EventBus for event-driven communication within services.                                                             |
 | `libs/redis-client`          | Redis-based event bridge for cross-service pub/sub messaging and notifications.                                                   |
-| `libs/logging`               | Shared Winston-based logging library with NestJS integration.                                                                     |
+| `libs/logging`               | Shared Pino-based logging library with NestJS integration.                                                                        |
 | `libs/constants`             | Shared constants and enumerations used across services.                                                                           |
 | `libs/api-contracts`         | Shared TypeScript types and interfaces for API contracts.                                                                         |
 | `libs/tracer`                | Datadog APM tracing integration for observability.                                                                                |

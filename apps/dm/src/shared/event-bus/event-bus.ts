@@ -3,9 +3,11 @@
  * Allows decoupled communication between game systems
  */
 
+import { Logger } from '@nestjs/common';
 import { GameEvent, GameEventType, EventListener } from './game-events';
 
 export class EventBus {
+  private static readonly logger = new Logger(EventBus.name);
   private static listeners: Map<GameEventType, Set<EventListener>> = new Map();
   private static wildcardListeners: Set<EventListener> = new Set();
 
@@ -97,9 +99,9 @@ export class EventBus {
         try {
           void listener(eventWithTimestamp);
         } catch (error) {
-          console.error(
-            `Error in event listener for ${event.eventType}:`,
-            error,
+          this.logger.error(
+            `Error in event listener for ${event.eventType}`,
+            error as Error,
           );
         }
       });
@@ -110,7 +112,7 @@ export class EventBus {
       try {
         void listener(eventWithTimestamp);
       } catch (error) {
-        console.error('Error in wildcard event listener:', error);
+        this.logger.error('Error in wildcard event listener', error as Error);
       }
     });
   }

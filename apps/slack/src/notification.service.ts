@@ -9,6 +9,7 @@ import { RedisEventBridge, NotificationMessage } from '@mud/redis-client';
 import { env } from './env';
 import type { InstallationStore, InstallationQuery } from '@slack/oauth';
 import { WebClient } from '@slack/web-api';
+import { createLogger } from '@mud/logging';
 
 interface NotificationServiceOptions {
   installationStore?: InstallationStore;
@@ -19,6 +20,7 @@ export class NotificationService {
   private bridge: RedisEventBridge;
   private readonly options: NotificationServiceOptions;
   private readonly webClients = new Map<string, WebClient>();
+  private readonly logger = createLogger('slack:notifications');
 
   constructor(options: NotificationServiceOptions = {}) {
     this.options = options;
@@ -43,7 +45,9 @@ export class NotificationService {
       },
     );
 
-    console.log('✅ Notification Service started - listening for game events');
+    this.logger.info(
+      '✅ Notification Service started - listening for game events',
+    );
   }
 
   /**
@@ -60,8 +64,12 @@ export class NotificationService {
     notification: NotificationMessage,
   ): Promise<void> {
     // High-level receipt log
-    console.info(
-      `📨 Received ${notification.type} notification for ${notification.recipients.length} recipients`,
+    this.logger.info(
+      {
+        type: notification.type,
+        recipients: notification.recipients.length,
+      },
+      'Received notification',
     );
 
     // Debug: show a sanitized notification summary
@@ -72,38 +80,50 @@ export class NotificationService {
         return s.length > 160 ? `${s.slice(0, 157)}...` : s;
       };
 
-      console.debug('notification.preview:', {
-        type: notification.type,
-        recipients: notification.recipients.length,
-        // preview first recipient message for quick triage
-        firstMessage: notification.recipients[0]
-          ? safePreview(notification.recipients[0].message)
-          : null,
-      });
+      this.logger.debug(
+        {
+          type: notification.type,
+          recipients: notification.recipients.length,
+          firstMessage: notification.recipients[0]
+            ? safePreview(notification.recipients[0].message)
+            : null,
+        },
+        'notification.preview',
+      );
     } catch (e) {
       // non-fatal logging helper error
-      console.debug('Failed to produce notification preview', e);
+      this.logger.debug(
+        { error: e },
+        'Failed to produce notification preview',
+      );
     }
 
     // Send message to each recipient
     for (const recipient of notification.recipients) {
       if (recipient.clientType !== 'slack') {
-        console.debug(`Skipping non-slack recipient: ${recipient.clientType}`);
+        this.logger.debug(
+          { clientType: recipient.clientType },
+          'Skipping non-slack recipient',
+        );
         continue;
       }
       try {
-        console.debug('processing recipient:', {
-          teamId: recipient.teamId,
-          userId: recipient.userId,
-          role: recipient.role || 'participant',
-          priority: recipient.priority || 'normal',
-          hasBlocks:
-            Array.isArray(recipient.blocks) && recipient.blocks.length > 0,
-        });
+        this.logger.debug(
+          {
+            teamId: recipient.teamId,
+            userId: recipient.userId,
+            role: recipient.role || 'participant',
+            priority: recipient.priority || 'normal',
+            hasBlocks:
+              Array.isArray(recipient.blocks) && recipient.blocks.length > 0,
+          },
+          'Processing recipient',
+        );
 
         // Open DM channel with user
-        console.debug(
-          `opening DM with ${recipient.teamId}:${recipient.userId}`,
+        this.logger.debug(
+          { teamId: recipient.teamId, userId: recipient.userId },
+          'Opening DM with user',
         );
         // Resolve bot credentials for the slack user so we can call the
         // Web API with the correct bot token for that user's workspace.
@@ -117,15 +137,20 @@ export class NotificationService {
           recipient.userId,
         );
         if (!botToken) {
-          console.error(
-            `No bot credentials or fallback SLACK_BOT_TOKEN available for user ${recipient.userId} in team ${recipient.teamId}; cannot send notification`,
+          this.logger.error(
+            {
+              teamId: recipient.teamId,
+              userId: recipient.userId,
+            },
+            'No bot credentials or fallback SLACK_BOT_TOKEN available; cannot send notification',
           );
           continue;
         }
 
         if (fromFallback) {
-          console.debug(
-            `Using fallback bot token for notifications to ${recipient.userId} in team ${recipient.teamId}`,
+          this.logger.debug(
+            { teamId: recipient.teamId, userId: recipient.userId },
+            'Using fallback bot token for notification',
           );
         }
 
@@ -134,19 +159,23 @@ export class NotificationService {
 
         // Log DM open response shape minimally
         try {
-          console.debug('dm.open response:', {
-            ok: Boolean(dm.ok),
-            channelId: dm.channel?.id || null,
-            is_im: dm.channel?.is_im || null,
-          });
+          this.logger.debug(
+            {
+              ok: Boolean(dm.ok),
+              channelId: dm.channel?.id || null,
+              is_im: dm.channel?.is_im || null,
+            },
+            'dm.open response',
+          );
         } catch (e) {
-          console.debug('Failed to log dm.open response', e);
+          this.logger.debug({ error: e }, 'Failed to log dm.open response');
         }
 
         const channelId = dm.channel?.id;
         if (!channelId) {
-          console.error(
-            `Could not open DM with user ${recipient.userId} in team ${recipient.teamId}; no channel ID returned from Slack API`,
+          this.logger.error(
+            { teamId: recipient.teamId, userId: recipient.userId },
+            'Could not open DM; no channel ID returned',
           );
           continue;
         }
@@ -158,15 +187,18 @@ export class NotificationService {
           const blocksCount = Array.isArray(recipient.blocks)
             ? recipient.blocks.length
             : 0;
-          console.debug('posting message with blocks, payload preview:', {
-            channel: channelId,
-            textPreview:
-              typeof recipient.message === 'string' &&
-              recipient.message.length > 120
-                ? `${recipient.message.slice(0, 117)}...`
-                : recipient.message,
-            blocksCount,
-          });
+          this.logger.debug(
+            {
+              channel: channelId,
+              textPreview:
+                typeof recipient.message === 'string' &&
+                recipient.message.length > 120
+                  ? `${recipient.message.slice(0, 117)}...`
+                  : recipient.message,
+              blocksCount,
+            },
+            'Posting message with blocks',
+          );
           await web.chat.postMessage({
             channel: channelId,
             text: recipient.message,
@@ -183,11 +215,14 @@ export class NotificationService {
               ? `${recipient.message.slice(0, 117)}...`
               : recipient.message;
 
-          console.debug('posting message without blocks, payload preview:', {
-            channel: channelId,
-            textPreview,
-            hasBlocks: recipient.priority === 'high',
-          });
+          this.logger.debug(
+            {
+              channel: channelId,
+              textPreview,
+              hasBlocks: recipient.priority === 'high',
+            },
+            'Posting message without blocks',
+          );
           await web.chat.postMessage({
             channel: channelId,
             text: recipient.message,
@@ -205,15 +240,25 @@ export class NotificationService {
           });
         }
 
-        console.log(
-          `✅ Sent ${notification.type} notification to ${recipient.teamId}:${recipient.userId} (${recipient.role || 'participant'})`,
+        this.logger.info(
+          {
+            teamId: recipient.teamId,
+            userId: recipient.userId,
+            role: recipient.role || 'participant',
+            notificationType: notification.type,
+          },
+          '✅ Sent notification',
         );
       } catch (error) {
         // Provide stack-aware debug for errors
         // Log error object for debugging; stringify may fail on circulars so pass as-is
-        console.error(
-          `Error sending notification to ${recipient.teamId}:${recipient.userId}`,
-          JSON.stringify(error, null, 2),
+        this.logger.error(
+          {
+            teamId: recipient.teamId,
+            userId: recipient.userId,
+            error,
+          },
+          'Error sending notification',
         );
       }
     }
@@ -246,13 +291,14 @@ export class NotificationService {
       if (token) {
         return { token, fromFallback: false };
       }
-      console.warn(
-        `Installation for ${userId} in team ${teamId} did not include a bot or user token; falling back to env token`,
+      this.logger.warn(
+        { teamId, userId },
+        'Installation missing bot token; falling back to env token',
       );
     } catch (error) {
-      console.warn(
-        `Failed to fetch installation for ${userId} in team ${teamId}; falling back to env token`,
-        error,
+      this.logger.warn(
+        { teamId, userId, error },
+        'Failed to fetch installation; falling back to env token',
       );
     }
 
@@ -262,9 +308,10 @@ export class NotificationService {
   private getOrCreateWebClient(token: string): WebClient {
     const cached = this.webClients.get(token);
     if (cached) return cached;
-    console.debug('[NotificationService] creating WebClient (token prefix)', {
-      tokenPreview: token.slice(0, 8),
-    });
+    this.logger.debug(
+      { tokenPreview: token.slice(0, 8) },
+      'Creating WebClient for notification service',
+    );
     const client = new WebClient(token);
     this.webClients.set(token, client);
     return client;

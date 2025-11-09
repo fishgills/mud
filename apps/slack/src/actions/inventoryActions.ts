@@ -3,6 +3,9 @@ import { PlayerSlot } from '@mud/database';
 import { dmClient } from '../dm-client';
 import { mapErrCodeToFriendlyMessage } from '../handlers/errorUtils';
 import { getActionValue, getChannelIdFromBody, getTriggerId } from './helpers';
+import { createLogger } from '@mud/logging';
+
+const inventoryLog = createLogger('slack:actions:inventory');
 
 export const registerInventoryActions = (app: App) => {
   app.action<BlockAction>(
@@ -76,7 +79,7 @@ export const registerInventoryActions = (app: App) => {
           },
         });
       } catch (err) {
-        console.warn('Failed to open equip modal', err);
+        inventoryLog.warn({ error: err }, 'Failed to open equip modal');
         const dm = await client.conversations.open({ users: userId });
         const channel = dm.channel?.id;
         if (!channel) return;
@@ -122,7 +125,10 @@ export const registerInventoryActions = (app: App) => {
           await client.chat.postMessage({ channel, text });
         }
       } catch (error) {
-        console.warn('inventory_equip_view handler failed', error);
+        inventoryLog.warn(
+          { error },
+          'inventory_equip_view handler failed',
+        );
         const dm = await client.conversations.open({ users: userId });
         const channel = dm.channel?.id;
         if (channel) {
@@ -168,7 +174,7 @@ export const registerInventoryActions = (app: App) => {
         if (channel) await client.chat.postMessage({ channel, text });
       }
     } catch (error) {
-      console.warn('inventory_drop failed', error);
+      inventoryLog.warn({ error }, 'inventory_drop failed');
       if (channelId) {
         await client.chat.postEphemeral({
           channel: channelId,
@@ -215,7 +221,7 @@ export const registerInventoryActions = (app: App) => {
           if (channel) await client.chat.postMessage({ channel, text });
         }
       } catch (error) {
-        console.warn('inventory_unequip failed', error);
+        inventoryLog.warn({ error }, 'inventory_unequip failed');
         if (channelId) {
           await client.chat.postEphemeral({
             channel: channelId,

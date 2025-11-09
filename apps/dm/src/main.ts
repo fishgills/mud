@@ -2,7 +2,7 @@ import '@mud/tracer/register';
 import './env';
 
 import { createLogger } from '@mud/logging';
-import { NestWinstonLogger } from '@mud/logging/nest';
+import { NestLogger } from '@mud/logging/nest';
 
 import { NestFactory } from '@nestjs/core';
 import { Request, Response, NextFunction } from 'express';
@@ -15,7 +15,7 @@ const httpLogger = createLogger('dm:http');
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
-    logger: new NestWinstonLogger('dm:nest'),
+    logger: new NestLogger('dm:nest'),
   });
 
   // Add global request logging
@@ -33,15 +33,18 @@ async function bootstrap() {
 
     const started = Date.now();
     res.on('finish', () => {
-      httpLogger.info('HTTP request completed', {
-        method: req.method,
-        url,
-        status: res.statusCode,
-        durationMs: Date.now() - started,
-        userAgent: userAgent || undefined,
-        hasAuthHeader: Boolean(req.headers.authorization),
-        contentType: req.headers['content-type'] || undefined,
-      });
+      httpLogger.info(
+        {
+          method: req.method,
+          url,
+          status: res.statusCode,
+          durationMs: Date.now() - started,
+          userAgent: userAgent || undefined,
+          hasAuthHeader: Boolean(req.headers.authorization),
+          contentType: req.headers['content-type'] || undefined,
+        },
+        'HTTP request completed',
+      );
     });
     next();
   });
@@ -49,11 +52,17 @@ async function bootstrap() {
   // Use PORT from environment when provided by the hosting platform, default to 3000 locally
   const port = env.PORT;
   await app.listen(port, '0.0.0.0');
-  bootstrapLogger.info('Application started', { port, host: '0.0.0.0' });
+  bootstrapLogger.info(
+    { port, host: '0.0.0.0' },
+    'Application started',
+  );
 }
 bootstrap().catch((error) => {
-  bootstrapLogger.error('Failed to bootstrap Dungeon Master service', {
-    error,
-  });
+  bootstrapLogger.error(
+    {
+      error,
+    },
+    'Failed to bootstrap Dungeon Master service',
+  );
   process.exit(1);
 });

@@ -1,14 +1,14 @@
 import type { LoggerService, LogLevel } from '@nestjs/common';
-import type winston from 'winston';
+import type { Logger as PinoLogger, LevelWithSilent } from 'pino';
 import { createLogger, logger, setLogLevel } from './register.js';
 
-const levelMap: Record<LogLevel, string> = {
+const levelMap: Record<LogLevel, LevelWithSilent> = {
   log: 'info',
   error: 'error',
   warn: 'warn',
   debug: 'debug',
-  verbose: 'verbose',
-  fatal: 'error',
+  verbose: 'trace',
+  fatal: 'fatal',
 };
 
 const severityOrder: LogLevel[] = [
@@ -20,33 +20,11 @@ const severityOrder: LogLevel[] = [
   'verbose',
 ];
 
-const envLevelToNestLevels = (level: string): LogLevel[] => {
-  const normalized = level.toLowerCase();
-  switch (normalized) {
-    case 'error':
-      return ['fatal', 'error'];
-    case 'warn':
-      return ['fatal', 'error', 'warn'];
-    case 'info':
-    case 'log':
-      return ['fatal', 'error', 'warn', 'log'];
-    case 'debug':
-      return ['fatal', 'error', 'warn', 'log', 'debug'];
-    case 'verbose':
-    case 'silly':
-      return ['fatal', 'error', 'warn', 'log', 'debug', 'verbose'];
-    default:
-      return ['fatal', 'error', 'warn', 'log', 'debug'];
-  }
-};
-
-export class NestWinstonLogger implements LoggerService {
-  private readonly base: winston.Logger;
+export class NestLogger implements LoggerService {
+  private readonly base: PinoLogger;
 
   constructor(private readonly defaultContext?: string) {
     this.base = defaultContext ? createLogger(defaultContext) : logger;
-    const envLevels = envLevelToNestLevels(process.env.LOG_LEVEL || 'debug');
-    this.setLogLevels?.(envLevels);
   }
 
   log(message: unknown, context?: string) {
@@ -56,16 +34,19 @@ export class NestWinstonLogger implements LoggerService {
   error(message: unknown, trace?: unknown, context?: string) {
     const child = this.child(context);
     if (trace instanceof Error) {
-      child.error(this.stringify(message ?? trace.message), {
-        stack: trace.stack,
-      });
+      child.error(
+        {
+          stack: trace.stack,
+        },
+        this.stringify(message ?? trace.message),
+      );
       return;
     }
     if (typeof trace === 'string' && trace.length > 0) {
-      child.error(this.stringify(message), { trace });
+      child.error({ trace }, this.stringify(message));
       return;
     }
-    child.error(this.stringify(message), trace ? { trace } : undefined);
+    child.error(this.stringify(message));
   }
 
   warn(message: unknown, context?: string) {
@@ -77,17 +58,20 @@ export class NestWinstonLogger implements LoggerService {
   }
 
   verbose(message: unknown, context?: string) {
-    const child = this.child(context);
-    const maybeVerbose = child.verbose as undefined | ((msg: string) => void);
-    if (typeof maybeVerbose === 'function') {
-      maybeVerbose.call(child, this.stringify(message));
-    } else {
-      child.debug(this.stringify(message));
-    }
+    this.child(context).trace(this.stringify(message));
   }
 
   fatal?(message: unknown, trace?: unknown, context?: string): void {
-    this.error(message, trace, context);
+    if (trace instanceof Error) {
+      this.child(context).fatal(
+        {
+          stack: trace.stack,
+        },
+        this.stringify(message ?? trace.message),
+      );
+      return;
+    }
+    this.child(context).fatal(this.stringify(message));
   }
 
   setLogLevels?(levels: LogLevel[]): void {
@@ -101,7 +85,7 @@ export class NestWinstonLogger implements LoggerService {
     setLogLevel(mapped);
   }
 
-  private child(context?: string): winston.Logger {
+  private child(context?: string): PinoLogger {
     if (!context) {
       return this.base;
     }

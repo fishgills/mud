@@ -1,5 +1,8 @@
 import { COMMANDS } from '../../commands';
 import { HandlerContext } from '../types';
+import { createLogger } from '@mud/logging';
+
+const statsTargetLog = createLogger('slack:handlers:stats-target');
 
 const leadingFiller = new Set(['for', 'about', 'of', 'on', 'the']);
 const contextWords = new Set(['player', 'character']);
@@ -66,10 +69,10 @@ async function resolveSlackId({
         return resolved.toUpperCase();
       }
     } catch (error) {
-      console.warn('Failed to resolve Slack user ID for target', {
-        target: rawTarget,
-        error,
-      });
+      statsTargetLog.warn(
+        { target: rawTarget, error },
+        'Failed to resolve Slack user ID for target',
+      );
     }
   }
 

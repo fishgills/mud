@@ -6,6 +6,7 @@
  */
 
 import { createClient, RedisClientType } from 'redis';
+import { createLogger } from '@mud/logging';
 import type { GameEvent } from './game-events.js';
 
 export interface EventBridgeConfig {
@@ -49,6 +50,7 @@ export class RedisEventBridge {
   private channelPrefix: string;
   private enableLogging: boolean;
   private isConnected = false;
+  private readonly logger = createLogger('redis:event-bridge');
 
   constructor(config: EventBridgeConfig) {
     this.channelPrefix = config.channelPrefix || 'game';
@@ -59,7 +61,10 @@ export class RedisEventBridge {
     }) as RedisClientType;
 
     this.publisherClient.on('error', (err) => {
-      console.error('Redis Event Bridge Publisher Error:', err);
+      this.logger.error(
+        { error: err },
+        'Redis Event Bridge publisher error',
+      );
     });
   }
 
@@ -75,7 +80,7 @@ export class RedisEventBridge {
     this.isConnected = true;
 
     if (this.enableLogging) {
-      console.log('✅ Redis Event Bridge connected');
+      this.logger.info('✅ Redis Event Bridge connected');
     }
   }
 
@@ -96,7 +101,7 @@ export class RedisEventBridge {
     this.isConnected = false;
 
     if (this.enableLogging) {
-      console.log('👋 Redis Event Bridge disconnected');
+      this.logger.info('👋 Redis Event Bridge disconnected');
     }
   }
 
@@ -115,7 +120,10 @@ export class RedisEventBridge {
     await this.publisherClient.publish(channel, message);
 
     if (this.enableLogging) {
-      console.log(`📤 Published event to ${channel}:`, event.eventType);
+      this.logger.debug(
+        { channel, eventType: event.eventType },
+        '📤 Published event',
+      );
     }
   }
 
@@ -153,8 +161,9 @@ export class RedisEventBridge {
       await this.publisherClient.publish(channel, message);
 
       if (this.enableLogging) {
-        console.log(
-          `📤 Published ${recipients.length} notifications to ${channel}`,
+        this.logger.debug(
+          { channel, count: recipients.length, type: notification.type },
+          '📤 Published notifications',
         );
       }
     }
@@ -185,13 +194,16 @@ export class RedisEventBridge {
           const event = JSON.parse(message) as GameEvent;
           await callback(channel, event);
         } catch (err: unknown) {
-          console.error(`Error processing event from ${channel}:`, err);
+          this.logger.error(
+            { channel, error: err },
+            'Error processing event from channel',
+          );
         }
       },
     );
 
     if (this.enableLogging) {
-      console.log(`👂 Subscribed to pattern: ${pattern}`);
+      this.logger.info({ pattern }, '👂 Subscribed to pattern');
     }
   }
 
@@ -220,12 +232,15 @@ export class RedisEventBridge {
         const notification = JSON.parse(message) as NotificationMessage;
         await callback(notification);
       } catch (err: unknown) {
-        console.error(`Error processing notification from ${channel}:`, err);
+        this.logger.error(
+          { channel, error: err },
+          'Error processing notification',
+        );
       }
     });
 
     if (this.enableLogging) {
-      console.log(`👂 Subscribed to notifications: ${channel}`);
+      this.logger.info({ channel }, '👂 Subscribed to notifications');
     }
   }
 

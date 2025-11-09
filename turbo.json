@@ -3,7 +3,8 @@
   "globalDependencies": ["**/.env.*local"],
   "tasks": {
     "serve": {
-      "dependsOn": ["^serve"]
+      "dependsOn": ["^build"],
+      "persistent": true
     },
     "build": {
       "env": [

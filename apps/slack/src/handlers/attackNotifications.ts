@@ -1,5 +1,8 @@
 import type { WebClient } from '@slack/web-api';
 import { COMMANDS } from '../commands';
+import { createLogger } from '@mud/logging';
+
+const attackNotifyLog = createLogger('slack:handlers:attack-notifications');
 
 type FailureMessageOptions = {
   targetKind?: 'player' | 'monster';
@@ -81,6 +84,9 @@ export const notifyTargetAboutMissingCharacter = async (
       text: buildTargetAttackAttemptNotice(attackerSlackId),
     });
   } catch (error) {
-    console.warn('Failed to notify target about missing character', error);
+    attackNotifyLog.warn(
+      { error, targetSlackId, attackerSlackId },
+      'Failed to notify target about missing character',
+    );
   }
 };

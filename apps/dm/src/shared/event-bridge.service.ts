@@ -6,7 +6,12 @@
  * and receive real-time game updates.
  */
 
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import {
   RedisEventBridge,
   type NotificationRecipient,
@@ -18,6 +23,7 @@ import { env } from '../env';
 @Injectable()
 export class EventBridgeService implements OnModuleInit, OnModuleDestroy {
   private bridge: RedisEventBridge;
+  private readonly logger = new Logger(EventBridgeService.name);
 
   constructor() {
     this.bridge = new RedisEventBridge({
@@ -36,11 +42,11 @@ export class EventBridgeService implements OnModuleInit, OnModuleDestroy {
       try {
         await this.bridge.publishEvent(event);
       } catch (error) {
-        console.error('Error publishing event to Redis:', error);
+        this.logger.error('Error publishing event to Redis', error as Error);
       }
     });
 
-    console.log('✅ Event Bridge Service initialized');
+    this.logger.log('✅ Event Bridge Service initialized');
   }
 
   async onModuleDestroy() {

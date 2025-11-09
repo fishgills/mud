@@ -14,6 +14,9 @@ import {
   notifyTargetAboutMissingCharacter,
 } from './attackNotifications';
 import type { WebClient } from '@slack/web-api';
+import { createLogger } from '@mud/logging';
+
+const attackLog = createLogger('slack:handlers:attack');
 
 export const MONSTER_SELECTION_BLOCK_ID = 'attack_monster_selection_block';
 export const SELF_ATTACK_ERROR = "You can't attack yourself.";
@@ -200,7 +203,7 @@ export class AttackHandler extends PlayerCommandHandler {
           ...metrics,
           ...perfDetails,
         };
-        console.log(JSON.stringify(payload));
+        attackLog.debug(payload, 'slack.attack.perf');
       } catch (error) {
         void error;
       }
@@ -291,7 +294,10 @@ export class AttackHandler extends PlayerCommandHandler {
         // Event bus will deliver combat resolution; no local summary
         // (Removed direct initiation DM to unify delivery path)
 
-        console.log(JSON.stringify(combat, null, 2));
+        attackLog.debug(
+          { combat },
+          'Combat result payload',
+        );
         perfDetails = {
           success: true,
           path: 'direct-target',

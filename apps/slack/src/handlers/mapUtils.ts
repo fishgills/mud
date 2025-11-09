@@ -1,5 +1,8 @@
 import { env } from '../env';
 import type { SayMessage } from './types';
+import { createLogger } from '@mud/logging';
+
+const mapLog = createLogger('slack:handlers:map');
 
 /**
  * Attempts to render and send a PNG map centered on (x, y).
@@ -18,7 +21,7 @@ export async function sendPngMap(
     url.searchParams.set('y', String(y));
     url.searchParams.set('p', String(pixelsPerTile));
     const imageUrl = url.toString();
-    console.log(`Generated Map Image URL: ${imageUrl}`);
+    mapLog.debug({ imageUrl }, 'Generated map image URL');
     const t0 = Date.now();
     await say({
       text: 'Map',
@@ -31,12 +34,13 @@ export async function sendPngMap(
       ],
     });
     const totalMs = Date.now() - t0;
-    console.log(
-      `sendPngMap via URL: x=${x} y=${y} p=${pixelsPerTile} url=${imageUrl} postMs=${totalMs}`,
+    mapLog.info(
+      { x, y, pixelsPerTile, imageUrl, totalMs },
+      'sendPngMap via URL',
     );
     return true;
   } catch (e) {
-    console.info('sendPngMap: failed to render/send PNG map:', e);
+    mapLog.error({ error: e, x, y }, 'sendPngMap failed to render/send PNG');
     return false;
   }
 }

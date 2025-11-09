@@ -4,14 +4,14 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { env } from './env';
 import { createLogger } from '@mud/logging';
-import { NestWinstonLogger } from '@mud/logging/nest';
+import { NestLogger } from '@mud/logging/nest';
 
 const bootstrapLogger = createLogger('world:bootstrap');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
-    logger: new NestWinstonLogger('world:nest'),
+    logger: new NestLogger('world:nest'),
   });
   const globalPrefix = 'world';
   app.setGlobalPrefix(globalPrefix);
@@ -24,18 +24,27 @@ async function bootstrap() {
   } catch {
     databaseHost = undefined;
   }
-  bootstrapLogger.debug('Database connection configured', {
-    host: databaseHost,
-  });
+  bootstrapLogger.debug(
+    {
+      host: databaseHost,
+    },
+    'Database connection configured',
+  );
   await app.listen(port, '0.0.0.0');
-  bootstrapLogger.info('World service started', {
-    port,
-    host: '0.0.0.0',
-    prefix: globalPrefix,
-  });
+  bootstrapLogger.info(
+    {
+      port,
+      host: '0.0.0.0',
+      prefix: globalPrefix,
+    },
+    'World service started',
+  );
 }
 
 bootstrap().catch((error) => {
-  bootstrapLogger.error('Failed to bootstrap world service', { error });
+  bootstrapLogger.error(
+    { error },
+    'Failed to bootstrap world service',
+  );
   process.exit(1);
 });

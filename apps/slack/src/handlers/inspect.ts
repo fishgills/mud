@@ -5,6 +5,9 @@ import { getQualityBadge, formatQualityLabel } from '@mud/constants';
 import { COMMANDS, INSPECT_ACTIONS } from '../commands';
 import { PlayerCommandHandler } from './base';
 import type { HandlerContext } from './types';
+import { createLogger } from '@mud/logging';
+
+const inspectLog = createLogger('slack:handlers:inspect');
 import { requireCharacter } from './characterUtils';
 import {
   buildPlayerOption,
@@ -459,21 +462,24 @@ class InspectHandler extends PlayerCommandHandler {
     // Check if user wants to inspect a specific player by mention
     // Extract text after "inspect" command (e.g., "inspect @John" → "@John" or "inspect <@U123>" → "<@U123>")
     const fullText = (text || '').trim();
-    console.log(`[INSPECT-DEBUG] fullText: "${fullText}"`);
+    inspectLog.debug({ fullText }, 'INSPECT-DEBUG fullText');
     const inspectMatch = fullText.match(/^inspect\s+(.+)$/i);
-    console.log(
-      `[INSPECT-DEBUG] inspectMatch: ${inspectMatch ? 'found' : 'not found'}`,
+    inspectLog.debug(
+      { matchFound: Boolean(inspectMatch) },
+      'INSPECT-DEBUG inspectMatch',
     );
     if (inspectMatch) {
       const targetMention = inspectMatch[1].trim();
-      console.log(`[INSPECT-DEBUG] targetMention: "${targetMention}"`);
+      inspectLog.debug({ targetMention }, 'INSPECT-DEBUG targetMention');
       const targetSlackId = await resolveUserId?.(targetMention);
-      console.log(
-        `[INSPECT-DEBUG] targetSlackId: ${targetSlackId ?? 'undefined'}`,
+      inspectLog.debug(
+        { targetSlackId: targetSlackId ?? 'undefined' },
+        'INSPECT-DEBUG targetSlackId',
       );
       if (targetSlackId) {
-        console.log(
-          `[INSPECT-DEBUG] Resolving to direct inspect for ${targetSlackId}`,
+        inspectLog.debug(
+          { targetSlackId },
+          'INSPECT-DEBUG resolving to direct inspect',
         );
         // Directly inspect the mentioned player - use simple DM-based approach
         const targetRes = await this.dm.getPlayer({
@@ -564,7 +570,7 @@ class InspectHandler extends PlayerCommandHandler {
       });
       return true;
     } catch (error) {
-      console.warn('inspect: failed to post message', error);
+      inspectLog.warn({ error }, 'inspect: failed to post message');
       return false;
     }
   }
@@ -588,7 +594,7 @@ class InspectHandler extends PlayerCommandHandler {
       });
       return true;
     } catch (error) {
-      console.warn('inspect: failed to DM user', error);
+      inspectLog.warn({ error }, 'inspect: failed to DM user');
       return false;
     }
   }

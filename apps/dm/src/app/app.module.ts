@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
-import { createWinstonModuleForRoot } from '@mud/logging/nest';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PlayerService } from './player/player.service';
@@ -35,7 +34,7 @@ import { PlayerItemService } from './player/player-item.service';
 import { LootService } from './monster/loot.service';
 
 @Module({
-  imports: [AiModule, ...createWinstonModuleForRoot({ serviceName: 'dm' })],
+  imports: [AiModule],
   controllers: [
     AppController,
     PlayersController,

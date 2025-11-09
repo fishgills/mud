@@ -1,18 +1,13 @@
 // server.ts
 import '@mud/tracer/register'; // must come before importing any instrumented module.
 import { App } from '@slack/bolt';
+import { LogLevel } from '@slack/logger';
 import { env } from './env';
 import { getPrismaClient } from '@mud/database';
 import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
 import { NotificationService } from './notification.service';
 import { createLogger } from '@mud/logging';
-
-console.info(`Env production is: ${env.isProduction}`);
-console.debug(`This is a debug log entry to test log levels.`);
-console.warn(`This is a warning log entry to test log levels.`);
-console.error(`This is an error log entry to test log levels.`);
-console.info(`This is an info log entry to test log levels.`);
-console.log(`This is a log entry to test log levels.`);
+import { createSlackLogger } from './logger';
 
 // Decode any env values that were accidentally base64-encoded so the app
 // always receives raw strings. We create `decodedEnv` from `env` and use it
@@ -49,30 +44,41 @@ const decodedEnv = Object.fromEntries(
 const log = createLogger('slack:bootstrap');
 const installLog = createLogger('slack:install');
 const commandLog = createLogger('slack:commands');
+const boltLog = createLogger('slack:bolt');
+const slackLogger = createSlackLogger(boltLog);
 
 const installationStore = new PrismaInstallationStore({
   clientId: decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
   prismaTable: getPrismaClient().slackAppInstallation,
   onFetchInstallation: async (args) => {
-    installLog.debug('Installation fetched', {
-      type: args.installation.isEnterpriseInstall ? 'enterprise' : 'team',
-      enterpriseId: args.installation.enterprise?.id,
-      teamId: args.installation.team?.id,
-    });
+    installLog.debug(
+      {
+        type: args.installation.isEnterpriseInstall ? 'enterprise' : 'team',
+        enterpriseId: args.installation.enterprise?.id,
+        teamId: args.installation.team?.id,
+      },
+      'Installation fetched',
+    );
   },
   onStoreInstallation: async (args) => {
-    installLog.debug('Installation stored', {
-      type: args.installation.isEnterpriseInstall ? 'enterprise' : 'team',
-      enterpriseId: args.installation.enterprise?.id,
-      teamId: args.installation.team?.id,
-    });
+    installLog.debug(
+      {
+        type: args.installation.isEnterpriseInstall ? 'enterprise' : 'team',
+        enterpriseId: args.installation.enterprise?.id,
+        teamId: args.installation.team?.id,
+      },
+      'Installation stored',
+    );
   },
   onDeleteInstallation: async (args) => {
-    installLog.debug('Installation deleted', {
-      type: args.query.isEnterpriseInstall ? 'enterprise' : 'team',
-      enterpriseId: args.query.enterpriseId,
-      teamId: args.query.teamId,
-    });
+    installLog.debug(
+      {
+        type: args.query.isEnterpriseInstall ? 'enterprise' : 'team',
+        enterpriseId: args.query.enterpriseId,
+        teamId: args.query.teamId,
+      },
+      'Installation deleted',
+    );
   },
 });
 
@@ -106,6 +112,8 @@ const app = new App({
       },
     },
   ],
+  logger: slackLogger,
+  logLevel: env.isProduction ? LogLevel.INFO : LogLevel.DEBUG,
 });
 
 // No-op: cloud-run specific auth helper removed for GKE-only deployments. Use platform
@@ -221,22 +229,22 @@ app.message(async ({ message, say, client, context }) => {
   const lowerText = text.toLowerCase();
   for (const [key, handler] of Object.entries(getAllHandlers())) {
     // Check if the message starts with the command or contains it as a whole word
-    commandLog.debug('Inspecting handler', { command: key, userId, teamId });
+    commandLog.debug({ command: key, userId, teamId }, 'Inspecting handler');
     if (
       lowerText === key.toLowerCase() ||
       lowerText.startsWith(key.toLowerCase() + ' ') ||
       lowerText.includes(' ' + key.toLowerCase() + ' ') ||
       lowerText.endsWith(' ' + key.toLowerCase())
     ) {
-      commandLog.debug('Dispatching handler', { command: key, userId });
+      commandLog.debug({ command: key, userId }, 'Dispatching handler');
       // Minimal resolver: supports both <@U123> and @username formats from Slack
       const resolveUserId = async (nameOrMention: string) => {
-        console.log(`[RESOLVE-DEBUG] Input: "${nameOrMention}"`);
+        commandLog.debug({ input: nameOrMention }, 'Resolve user ID input');
         // Try <@U123> format first
         const m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
         if (m) {
           const result = m[1];
-          console.log(`[RESOLVE-DEBUG] Matched ID format: ${result}`);
+          commandLog.debug({ result }, 'Resolve matched ID format');
           return result;
         }
         // If not ID format, it might be a plain username like @CharliTest or CharliTest
@@ -246,11 +254,12 @@ app.message(async ({ message, say, client, context }) => {
           .trim()
           .match(/^@?([a-zA-Z0-9_.-]+)$/);
         if (usernameMatch) {
-          console.log(
-            `[RESOLVE-DEBUG] Got username format but can't resolve without API call: ${usernameMatch[1]}`,
+          commandLog.debug(
+            { username: usernameMatch[1] },
+            'Resolve matched username format but cannot resolve without API call',
           );
         }
-        console.log(`[RESOLVE-DEBUG] No match found`);
+        commandLog.debug('Resolve user ID: no match found');
         return undefined;
       };
       await handler({
@@ -264,7 +273,7 @@ app.message(async ({ message, say, client, context }) => {
       return;
     }
   }
-  commandLog.debug('No handler resolved', { userId, text });
+  commandLog.debug({ userId, text }, 'No handler resolved');
 
   // Help message for unknown input
   await say(
@@ -298,7 +307,7 @@ registerActions(app);
 
 async function start() {
   await app.start(Number(decodedEnv.PORT ?? env.PORT));
-  log.info('Slack MUD bot ready', { port: env.PORT, host: '0.0.0.0' });
+  log.info({ port: env.PORT, host: '0.0.0.0' }, 'Slack MUD bot ready');
 
   // Start notification service to receive game events
   const notificationService = new NotificationService({

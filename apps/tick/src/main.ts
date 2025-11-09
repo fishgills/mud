@@ -37,10 +37,13 @@ async function hasActivePlayers(): Promise<boolean> {
     });
     const text = await res.text();
     if (!res.ok) {
-      log.error('Active player lookup failed', {
-        status: res.status,
-        body: text.slice(0, 500),
-      });
+      log.error(
+        {
+          status: res.status,
+          body: text.slice(0, 500),
+        },
+        'Active player lookup failed',
+      );
       return false;
     }
     const payload = JSON.parse(text) as {
@@ -50,9 +53,12 @@ async function hasActivePlayers(): Promise<boolean> {
     };
     return payload.active ?? false;
   } catch (err) {
-    log.error('Error checking active players', {
-      error: err instanceof Error ? err.message : err,
-    });
+    log.error(
+      {
+        error: err instanceof Error ? err.message : err,
+      },
+      'Error checking active players',
+    );
     return false;
   }
 }
@@ -61,9 +67,12 @@ async function sendProcessTick() {
   // First check if there are any active players
   const hasActive = await hasActivePlayers();
   if (!hasActive) {
-    log.info('No active players, skipping tick', {
-      activityThresholdMinutes: ACTIVITY_THRESHOLD_MINUTES,
-    });
+    log.info(
+      {
+        activityThresholdMinutes: ACTIVITY_THRESHOLD_MINUTES,
+      },
+      'No active players, skipping tick',
+    );
     return;
   }
 
@@ -80,18 +89,21 @@ async function sendProcessTick() {
     );
     const text = await res.text();
     if (!res.ok) {
-      log.error('DM processTick failed', {
-        status: res.status,
-        statusText: res.statusText,
-        body: text.slice(0, 1000),
-      });
+      log.error(
+        {
+          status: res.status,
+          statusText: res.statusText,
+          body: text.slice(0, 1000),
+        },
+        'DM processTick failed',
+      );
       return;
     }
     let payload: unknown;
     try {
       payload = JSON.parse(text);
     } catch (e) {
-      log.error('Failed to parse DM response as JSON', { error: e });
+      log.error({ error: e }, 'Failed to parse DM response as JSON');
       return;
     }
     const result = payload as {
@@ -100,30 +112,39 @@ async function sendProcessTick() {
       result?: Record<string, unknown>;
     };
     if (result.success) {
-      log.info('DM processTick succeeded', {
-        message: result.message ?? 'success',
-        result: result.result,
-      });
+      log.info(
+        {
+          message: result.message ?? 'success',
+          result: result.result,
+        },
+        'DM processTick succeeded',
+      );
     } else {
-      log.warn('DM processTick returned failure', {
-        message: result?.message ?? 'unknown error',
-      });
+      log.warn(
+        {
+          message: result?.message ?? 'unknown error',
+        },
+        'DM processTick returned failure',
+      );
     }
   } catch (err) {
     if (err instanceof Error) {
-      log.error('Error calling DM processTick', { error: err.message });
+      log.error({ error: err.message }, 'Error calling DM processTick');
     } else {
-      log.error('Error calling DM processTick', { error: err });
+      log.error({ error: err }, 'Error calling DM processTick');
     }
   }
 }
 
 // Start loop and lightweight HTTP server for platform health/readiness checks
-log.info('Tick service starting', {
-  dmBaseUrl: DM_API_BASE_URL,
-  tickIntervalMs: TICK_INTERVAL_MS,
-  activityThresholdMinutes: ACTIVITY_THRESHOLD_MINUTES,
-});
+log.info(
+  {
+    dmBaseUrl: DM_API_BASE_URL,
+    tickIntervalMs: TICK_INTERVAL_MS,
+    activityThresholdMinutes: ACTIVITY_THRESHOLD_MINUTES,
+  },
+  'Tick service starting',
+);
 // Kick one immediately on startup (optional)
 sendProcessTick().catch(() => void 0);
 // Then every configured interval
@@ -141,15 +162,21 @@ const server = http.createServer((req, res) => {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ ok: true }));
-    httpLog.debug('Health probe', { url: req.url, method: req.method });
+    httpLog.debug(
+      { url: req.url, method: req.method },
+      'Health probe handled',
+    );
     return;
   }
   res.statusCode = 404;
   res.end('Not Found');
-  httpLog.debug('Unhandled request', { url: req.url, method: req.method });
+  httpLog.debug(
+    { url: req.url, method: req.method },
+    'Unhandled request received',
+  );
 });
 server.listen(PORT, '0.0.0.0', () => {
-  log.info('HTTP health server listening', { port: PORT, host: '0.0.0.0' });
+  log.info({ port: PORT, host: '0.0.0.0' }, 'HTTP health server listening');
 });
 
 // Graceful shutdown

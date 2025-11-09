@@ -1,5 +1,8 @@
 import type { WebClient } from '@slack/web-api';
 import type { CombatResult } from '../dm-client';
+import { createLogger } from '@mud/logging';
+
+const combatMessagingLog = createLogger('slack:handlers:combat-messaging');
 
 export type CombatPlayerMessage = NonNullable<
   CombatResult['playerMessages']
@@ -15,18 +18,15 @@ export const deliverCombatMessages = async (
   const delivered = new Set<string>();
 
   for (const entry of messages) {
-    // Construct slackId from userId/teamId if available, otherwise use existing slackId
-    const slackId =
-      entry?.slackId ||
-      (entry?.userId && entry?.teamId
-        ? `${entry.teamId}:${entry.userId}`
-        : undefined);
+    if (!entry?.userId) continue;
+    const slackKey = entry.teamId
+      ? `${entry.teamId}:${entry.userId}`
+      : entry.userId;
 
-    if (!slackId || delivered.has(slackId)) continue;
-    delivered.add(slackId);
+    if (delivered.has(slackKey)) continue;
+    delivered.add(slackKey);
 
     try {
-      if (!entry?.userId) continue;
       const dm = await client.conversations.open({ users: entry.userId });
       const channelId =
         typeof dm.channel?.id === 'string' ? dm.channel.id : undefined;
@@ -40,10 +40,10 @@ export const deliverCombatMessages = async (
           : {}),
       });
     } catch (error) {
-      console.warn('Failed to deliver combat message', {
-        slackId,
-        error,
-      });
+      combatMessagingLog.warn(
+        { slackKey, error },
+        'Failed to deliver combat message',
+      );
     }
   }
 };

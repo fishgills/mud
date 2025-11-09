@@ -1,10 +1,12 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EventBus, type PlayerMoveEvent } from '../../shared/event-bus';
 import type { Monster } from '@mud/database';
 import { MonsterService } from '../monster/monster.service';
 
 @Injectable()
 export class EncounterService implements OnModuleInit {
+  private readonly logger = new Logger(EncounterService.name);
+
   constructor(private monsterService: MonsterService) {}
 
   onModuleInit() {
@@ -62,7 +64,7 @@ export class EncounterService implements OnModuleInit {
         timestamp: new Date(),
       });
     } catch (error) {
-      console.error('Error handling monster encounter event:', error);
+      this.logger.error('Error handling monster encounter event', error as Error);
     }
   }
 }

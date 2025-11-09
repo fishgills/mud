@@ -1,4 +1,7 @@
 import { HandlerContext } from './types';
+import { createLogger } from '@mud/logging';
+
+const createLog = createLogger('slack:handlers:create');
 import { COMMANDS } from '../commands';
 import { buildPlayerStatsMessage } from './stats/format';
 import { PlayerCommandHandler } from './base';
@@ -68,7 +71,7 @@ export class CreateHandler extends PlayerCommandHandler {
         return;
       }
 
-      console.log('CreatePlayer error:', result);
+      createLog.error({ result }, 'CreatePlayer error');
       await say({ text: `Error: ${result.message}` });
     } catch (err: unknown) {
       const message =

@@ -201,7 +201,7 @@ export class LocationNotificationService
   }
 
   private async handleMonsterMove(event: MonsterMoveEvent): Promise<void> {
-    this.logger.verbose(
+    this.logger.debug(
       `Monster move event received: ${JSON.stringify(event)}`,
     );
     // if (event.fromX === event.toX && event.fromY === event.toY) {
@@ -271,7 +271,7 @@ export class LocationNotificationService
   private async handleMonsterEncounter(
     event: MonsterEncounterEvent,
   ): Promise<void> {
-    console.log(`Encounter event received: ${JSON.stringify(event)}`);
+    this.logger.debug(`Encounter event received: ${JSON.stringify(event)}`);
     return;
   }
 
