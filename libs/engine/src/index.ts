@@ -5,9 +5,3 @@
 
 // Events
 export * from './events/index.js';
-
-// Entities
-export * from './entities/index.js';
-
-// Behaviors
-export * from './behaviors/index.js';
