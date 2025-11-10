@@ -83,7 +83,7 @@ export class PlayerService {
     // Check if player already exists (without throwing)
     let existing: Player | undefined;
     try {
-      existing = await this.getPlayer(userId, teamId);
+      existing = await this.getPlayer(teamId, userId);
     } catch (err) {
       // Player doesn't exist yet, which is expected for new players
       existing = undefined;
@@ -619,7 +619,7 @@ export class PlayerService {
   ): Promise<
     Array<{ distance: number; direction: string; x: number; y: number }>
   > {
-    // const player = await this.getPlayer(userId, teamId);
+    // const player = await this.getPlayer(teamId, userId);
     const whereClause: {
       isAlive?: boolean;
       AND?: Array<Record<string, unknown>>;

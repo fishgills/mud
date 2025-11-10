@@ -411,7 +411,7 @@ export class MovementController {
       };
     } catch (error) {
       const fallbackPlayer = await this.playerService
-        .getPlayer(input.userId, input.teamId)
+        .getPlayer(input.teamId, input.userId)
         .catch(() => null);
 
       if (!fallbackPlayer) {

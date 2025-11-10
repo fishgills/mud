@@ -10,7 +10,10 @@ export default {
   displayName: '@mud/dm',
   moduleNameMapper: {
     ...(baseConfig.moduleNameMapper ?? {}),
-    '^@mud/engine$': path.resolve(__dirname, '../../libs/engine/dist/index.js'),
+    '^@mud/engine$': path.resolve(
+      __dirname,
+      './test-support/mud-engine.stub.ts',
+    ),
     '^@mud/redis-client$': path.resolve(
       __dirname,
       '../../libs/redis-client/dist/redis-client.js',

@@ -5,7 +5,12 @@ import {
   ItemQuality,
 } from '@mud/database';
 import { PlayerSlot } from '@mud/database';
-import type { Item, PlayerItem, ItemQualityType } from '@mud/database';
+import type {
+  Item,
+  PlayerItem,
+  ItemQualityType,
+  PlayerWithSlackUser,
+} from '@mud/database';
 import { EventBus, type PlayerRespawnEvent } from '../../shared/event-bus';
 import { PlayerService } from '../player/player.service';
 import { AiService } from '../../openai/ai.service';
@@ -20,10 +25,7 @@ import type {
 import { AttackOrigin } from '../api/dto/player-requests.dto';
 import { runCombat as engineRunCombat } from './engine';
 import { CombatMessenger } from './messages';
-import {
-  applyCombatResults as resultsApplyCombatResults,
-  type CombatResultEffects,
-} from './results';
+import { applyCombatResults, type CombatResultEffects } from './results';
 
 const QUALITY_MULTIPLIERS: Record<ItemQualityType, number> = {
   [ItemQuality.Trash]: 0.4,
@@ -85,6 +87,10 @@ export interface Combatant {
   x: number;
   y: number;
   identifier?: {
+    teamId: string;
+    userId: string;
+  };
+  slackUser?: {
     teamId: string;
     userId: string;
   };
@@ -554,7 +560,7 @@ export class CombatService {
   ): Promise<Combatant> {
     let firstError: unknown;
     const player = await this.playerService
-      .getPlayer(userId, teamId)
+      .getPlayer(teamId, userId)
       .catch((err) => {
         firstError = err;
         return null;
@@ -576,6 +582,10 @@ export class CombatService {
       player.hp + equipmentTotals.hpBonus,
     );
 
+    const playerWithSlack = player as PlayerWithSlackUser;
+    const resolvedTeamId = playerWithSlack.slackUser?.teamId ?? teamId;
+    const resolvedUserId = playerWithSlack.slackUser?.userId ?? userId;
+
     const combatant: Combatant = {
       id: player.id,
       name: player.name,
@@ -589,8 +599,12 @@ export class CombatService {
       x: player.x,
       y: player.y,
       identifier: {
-        teamId: teamId,
-        userId: userId,
+        teamId: resolvedTeamId,
+        userId: resolvedUserId,
+      },
+      slackUser: {
+        teamId: resolvedTeamId,
+        userId: resolvedUserId,
       },
     };
 
@@ -681,13 +695,13 @@ export class CombatService {
   }
 
   // Update HP in database and award XP
-  private async applyCombatResults(
+  private async processCombatOutcome(
     combatLog: DetailedCombatLog,
     combatant1: Combatant,
     combatant2: Combatant,
     options: { attackOrigin?: AttackOrigin } = {},
   ): Promise<CombatResultEffects> {
-    return resultsApplyCombatResults(
+    return applyCombatResults(
       combatLog,
       combatant1,
       combatant2,
@@ -733,7 +747,7 @@ export class CombatService {
     options: { ignoreLocation?: boolean; attackOrigin?: AttackOrigin } = {},
   ): Promise<CombatResult> {
     this.logger.log(
-      `⚔️ Combat initiated: ${attackerType} ${attackerId} attacking ${defenderType} ${defenderId}`,
+      `⚔️ Combat initiated: ${attackerType} ${JSON.stringify(attackerId)} attacking ${defenderType} ${JSON.stringify(defenderId)}`,
     );
     const timingStart = Date.now();
     const perf: CombatPerformanceBreakdown = {
@@ -821,11 +835,34 @@ export class CombatService {
       this.logger.debug(`✅ Pre-combat checks passed, starting combat...`);
 
       const combatStart = Date.now();
+      this.logger.debug(
+        JSON.stringify({
+          event: 'combat.preApply',
+          combatId: combatLog?.combatId,
+          attacker: {
+            name: attacker.name,
+            type: attacker.type,
+            identifier: attacker.identifier,
+            slackUser: attacker.slackUser,
+          },
+          defender: {
+            name: defender.name,
+            type: defender.type,
+            identifier: defender.identifier,
+            slackUser: defender.slackUser,
+          },
+          combatLogParticipants: {
+            winner: combatLog?.winner,
+            loser: combatLog?.loser,
+            location: combatLog?.location,
+          },
+        }),
+      );
       combatLog = await this.runCombat(attacker, defender);
       perf.runCombatMs = Date.now() - combatStart;
 
       const applyStart = Date.now();
-      const effects = await this.applyCombatResults(
+      const effects = await this.processCombatOutcome(
         combatLog,
         attacker,
         defender,

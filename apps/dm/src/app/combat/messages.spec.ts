@@ -100,6 +100,7 @@ describe('CombatMessenger', () => {
       id: 1,
       name: 'Hero',
       type: 'player',
+      slackUser: { teamId: 'T1', userId: 'U1' },
       hp: 10,
       maxHp: 10,
       strength: 12,
@@ -108,7 +109,6 @@ describe('CombatMessenger', () => {
       isAlive: true,
       x: 0,
       y: 0,
-      slackId: 'S1',
       levelUp: { previousLevel: 3, newLevel: 4, skillPointsAwarded: 1 },
     } as any;
     const defender = {
@@ -155,11 +155,22 @@ describe('CombatMessenger', () => {
     const { messenger } = createMessenger();
     const log = makeCombatLog();
     const context = {
-      attacker: { type: 'player', name: 'Hero', hp: 10, maxHp: 10 } as any,
-      defender: { type: 'monster', name: 'Goblin', hp: 8, maxHp: 8 } as any,
+      attacker: {
+        type: 'player',
+        name: 'Hero',
+        hp: 10,
+        maxHp: 10,
+        slackUser: { teamId: 'T1', userId: 'U1' },
+      } as any,
+      defender: {
+        type: 'monster',
+        name: 'Goblin',
+        hp: 8,
+        maxHp: 8,
+      } as any,
     };
 
-    const nonPlayer = { type: 'monster', slackId: 'M1' } as any;
+    const nonPlayer = { type: 'monster', slackUser: { teamId: 'T2', userId: 'U2' } } as any;
     expect(
       await messenger.buildParticipantMessage(
         log,
@@ -169,7 +180,7 @@ describe('CombatMessenger', () => {
       ),
     ).toBeNull();
 
-    const missingSlack = { type: 'player', slackId: undefined } as any;
+    const missingSlack = { type: 'player', slackUser: undefined } as any;
     expect(
       await messenger.buildParticipantMessage(
         log,
@@ -184,8 +195,18 @@ describe('CombatMessenger', () => {
     const { messenger, aiService, playerService } = createMessenger();
     aiService.getText.mockResolvedValue({ output_text: 'S' });
     playerService.getPlayersAtLocation.mockResolvedValue([
-      { id: 3, name: 'Obs', clientType: 'slack', clientId: 'S-OBS' },
-      { id: 2, name: 'Defender', clientType: 'slack', clientId: 'S-B' },
+      {
+        id: 3,
+        name: 'Obs',
+        clientType: 'slack',
+        slackUser: { teamId: 'T-OBS', userId: 'U-OBS' },
+      },
+      {
+        id: 2,
+        name: 'Defender',
+        clientType: 'slack',
+        slackUser: { teamId: 'T-B', userId: 'U-B' },
+      },
     ]);
 
     const log = makeCombatLog();
@@ -193,7 +214,7 @@ describe('CombatMessenger', () => {
       id: 1,
       name: 'Hero',
       type: 'player',
-      slackId: 'S-A',
+      slackUser: { teamId: 'T-A', userId: 'U-A' },
       hp: 12,
       maxHp: 12,
       strength: 14,
@@ -207,7 +228,7 @@ describe('CombatMessenger', () => {
       id: 2,
       name: 'Defender',
       type: 'player',
-      slackId: 'S-B',
+      slackUser: { teamId: 'T-B', userId: 'U-B' },
       hp: 11,
       maxHp: 11,
       strength: 11,

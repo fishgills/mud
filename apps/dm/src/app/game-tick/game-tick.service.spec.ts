@@ -23,9 +23,10 @@ import type { PopulationService } from '../monster/population.service';
 import type { MonsterService } from '../monster/monster.service';
 import { EventBus } from '../../shared/event-bus';
 
-jest.mock('@mud/engine', () => ({
+jest.mock('../../shared/event-bus', () => ({
   EventBus: {
     emit: jest.fn(),
+    on: jest.fn(),
   },
 }));
 
@@ -105,18 +106,18 @@ describe('GameTickService', () => {
     const playerService = {
       getAllPlayers: jest.fn().mockResolvedValue([
         {
-          clientId: 'client-U1',
-          slackId: 'U1',
-          position: { x: 1, y: 1 },
-          combat: { isAlive: true },
+          id: 1,
+          x: 1,
+          y: 1,
+          isAlive: true,
         },
       ]),
       getPlayersAtLocation: jest.fn().mockResolvedValue([
         {
-          clientId: 'client-U1',
-          slackId: 'U1',
-          position: { x: 1, y: 1 },
-          combat: { isAlive: true },
+          id: 1,
+          x: 1,
+          y: 1,
+          isAlive: true,
         },
       ]),
     } as unknown as {

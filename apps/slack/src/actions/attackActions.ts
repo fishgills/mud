@@ -103,13 +103,20 @@ export const registerAttackActions = (app: App) => {
 
   app.action<BlockAction>(
     ATTACK_ACTIONS.ATTACK_MONSTER,
-    async ({ ack, body, client }) => {
+    async ({ ack, body, client, context }) => {
       await ack();
 
       const userId = body.user?.id;
-      const teamId = body.team?.id;
+      const teamId = body.team?.id ?? (context as { teamId?: string })?.teamId;
       if (!teamId || !userId) {
-        throw new Error('Missing teamId or userId in action payload');
+        app.logger.warn(
+          {
+            userId,
+            teamId,
+          },
+          'Missing teamId or userId in action payload',
+        );
+        return;
       }
       const channelId =
         body.channel?.id ||

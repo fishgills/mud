@@ -36,7 +36,7 @@ describe('applyCombatResults', () => {
       isAlive: true,
       x: 0,
       y: 0,
-      slackId: 'S1',
+      slackUser: { teamId: 'T1', userId: 'U1' },
     };
 
     const monsterLoser: any = {
@@ -66,16 +66,38 @@ describe('applyCombatResults', () => {
         skillPoints: 0,
         combat: { maxHp: 20, hp: 10 },
       }),
-      respawnPlayer: jest.fn().mockResolvedValue({ player: null, event: null }),
+      respawnPlayer: jest.fn(),
       restorePlayerHealth: jest.fn().mockResolvedValue({
         combat: { maxHp: 20, hp: 20 },
         level: 2,
-        position: { x: 0, y: 0 },
+        x: 0,
+        y: 0,
+        isAlive: true,
       }),
     };
 
     const prisma: any = {
       combatLog: { create: jest.fn().mockResolvedValue({}) },
+      monster: {
+        delete: jest.fn().mockResolvedValue({
+          id: 99,
+          name: 'Goblin',
+          x: 0,
+          y: 0,
+        }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: 99,
+          name: 'Goblin',
+          x: 0,
+          y: 0,
+        }),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+      player: {
+        findFirst: jest.fn().mockResolvedValue({
+          slackUser: { teamId: 'T1', userId: 'U1' },
+        }),
+      },
     };
     const logger: any = { debug: jest.fn(), log: jest.fn() };
 
@@ -92,13 +114,19 @@ describe('applyCombatResults', () => {
       { attackOrigin: AttackOrigin.TEXT_PVE },
     );
 
-    expect(playerService.getPlayer).toHaveBeenCalledWith('S1');
-    expect(playerService.updatePlayerStats).toHaveBeenCalledWith('S1', {
-      xp: 110,
-      gold: 8,
+    expect(playerService.getPlayer).toHaveBeenCalledWith('T1', 'U1');
+    expect(playerService.updatePlayerStats).toHaveBeenCalledWith(
+      'U1',
+      'T1',
+      expect.objectContaining({
+        xp: 110,
+        gold: 8,
+      }),
+    );
+    expect(playerService.restorePlayerHealth).toHaveBeenCalledWith('U1', 'T1');
+    expect(prisma.monster.delete).toHaveBeenCalledWith({
+      where: { id: 99 },
     });
-    expect(playerService.restorePlayerHealth).toHaveBeenCalledWith('S1');
-    expect(MonsterFactory.delete).toHaveBeenCalledWith(99, expect.any(Object));
     expect(prisma.combatLog.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.any(Object) }),
     );
@@ -127,7 +155,7 @@ describe('applyCombatResults', () => {
       isAlive: true,
       x: 1,
       y: 1,
-      slackId: 'S1',
+      slackUser: { teamId: 'T1', userId: 'U1' },
     };
 
     const playerLoser: any = {
@@ -142,7 +170,7 @@ describe('applyCombatResults', () => {
       isAlive: false,
       x: 1,
       y: 1,
-      slackId: 'S2',
+      slackUser: { teamId: 'T2', userId: 'U2' },
     };
 
     const playerService: any = {
@@ -172,12 +200,26 @@ describe('applyCombatResults', () => {
       restorePlayerHealth: jest.fn().mockResolvedValue({
         combat: { maxHp: 8, hp: 8, isAlive: true },
         level: 1,
-        position: { x: 1, y: 1 },
+        x: 1,
+        y: 1,
+        isAlive: true,
       }),
     };
 
     const prisma: any = {
       combatLog: { create: jest.fn().mockResolvedValue({}) },
+      player: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({
+            id: 2,
+            slackUser: { teamId: 'T2', userId: 'U2' },
+          })
+          .mockResolvedValueOnce({
+            id: 1,
+            slackUser: { teamId: 'T1', userId: 'U1' },
+          }),
+      },
     };
     const logger: any = { debug: jest.fn(), log: jest.fn() };
 
@@ -191,11 +233,9 @@ describe('applyCombatResults', () => {
       { attackOrigin: AttackOrigin.DROPDOWN_PVP },
     );
 
-    expect(playerService.respawnPlayer).toHaveBeenCalledWith('S2', {
-      emitEvent: false,
-    });
-    expect(playerService.restorePlayerHealth).toHaveBeenCalledWith('S1');
-    expect(playerService.getPlayer).toHaveBeenCalledWith('S1');
+    expect(playerService.respawnPlayer).toHaveBeenCalledWith('U2', 'T2');
+    expect(playerService.restorePlayerHealth).toHaveBeenCalledWith('U1', 'T1');
+    expect(playerService.getPlayer).toHaveBeenCalledWith('T1', 'U1');
     expect(prisma.combatLog.create).toHaveBeenCalled();
   });
 });

@@ -5,12 +5,14 @@ jest.mock('dd-trace', () => ({
 
 const useMock = jest.fn();
 const listenMock = jest.fn().mockResolvedValue(undefined);
+const setGlobalPrefixMock = jest.fn();
 
 jest.mock('@nestjs/core', () => ({
   NestFactory: {
     create: jest.fn().mockResolvedValue({
       use: useMock,
       listen: listenMock,
+      setGlobalPrefix: setGlobalPrefixMock,
     }),
   },
 }));
@@ -26,6 +28,7 @@ describe('main bootstrap', () => {
     jest.resetModules();
     useMock.mockClear();
     listenMock.mockClear();
+    setGlobalPrefixMock.mockClear();
   });
 
   it('initializes tracing and bootstraps Nest application', async () => {
@@ -52,6 +55,7 @@ describe('main bootstrap', () => {
     const mockRes = {
       on: onMock,
       statusCode: 200,
+      getHeader: jest.fn().mockReturnValue(undefined),
     } as unknown as Response;
 
     middleware(

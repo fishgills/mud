@@ -88,6 +88,36 @@ describe('pickup actions', () => {
     ).toBe('W:101');
   });
 
+  test('buildItemSelectionMessage falls back to related item.name', () => {
+    const items: ItemRecord[] = [
+      {
+        id: 202,
+        quality: 'Common',
+        item: { id: 77, name: 'Shortsword' } as ItemRecord['item'],
+      } as ItemRecord,
+    ];
+    const msg = buildItemSelectionMessage(items);
+    const headerBlock = msg.blocks[0] as {
+      text?: { text?: string };
+    };
+    expect(headerBlock?.text?.text).toContain('Shortsword');
+    const actionsBlock = msg.blocks.find(
+      (b: SlackBlock) => b.block_id === ITEM_SELECTION_BLOCK_ID,
+    ) as SlackBlock | undefined;
+    const select = (
+      (actionsBlock?.elements ?? []) as Array<Record<string, unknown>>
+    ).find((e) => (e as Record<string, unknown>).type === 'static_select') as
+      | Record<string, unknown>
+      | undefined;
+    const firstOption =
+      (select?.options as Array<{
+        text: { text: string };
+        value: string;
+      }>)?.[0];
+    expect(firstOption?.text.text).toContain('Shortsword');
+    expect(firstOption?.value).toBe('W:202');
+  });
+
   test('PICKUP action calls dmClient.pickup and DMs players', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
 

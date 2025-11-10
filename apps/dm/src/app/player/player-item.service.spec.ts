@@ -30,9 +30,17 @@ const mockPrisma = {
   ) => Promise<unknown>;
 };
 
-jest.mock('@mud/database', () => ({
-  getPrismaClient: () => mockPrisma,
-}));
+jest.mock('@mud/database', () => {
+  const mockPlayerSlot = {
+    head: 'head',
+    weapon: 'weapon',
+    chest: 'chest',
+  };
+  return {
+    getPrismaClient: () => mockPrisma,
+    PlayerSlot: mockPlayerSlot,
+  };
+});
 
 // Mock redis client createClient — typed interface for the subset of methods used
 type MockRedis = {

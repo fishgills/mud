@@ -16,13 +16,18 @@ export const registerStatActions = (app: App) => {
   for (const [actionId, attribute] of Object.entries(actionToAttribute)) {
     app.action<BlockAction>(
       actionId,
-      async ({ ack, body, client, respond }) => {
+      async ({ ack, body, client, respond, context }) => {
         await ack();
 
         const userId = body.user?.id;
-        const teamId = body.team?.id;
-        if(!teamId || !userId) {
-          throw new Error('Missing teamId or userId in action payload');
+        const teamId =
+          body.team?.id ?? (context as { teamId?: string })?.teamId;
+        if (!teamId || !userId) {
+          app.logger.warn(
+            { actionId, userId, teamId },
+            'Missing teamId or userId in stat action payload',
+          );
+          return;
         }
         const channelId =
           body.channel?.id ||

@@ -37,6 +37,11 @@ export async function applyCombatResults(
   );
 
   if (loser.type === 'player') {
+    logger.debug(`Loser is a player, processing respawn or health restore...`);
+
+    logger.debug(
+      `Loser is ${loser.slackUser?.teamId}:${loser.slackUser?.userId}`,
+    );
     if (!loser.slackUser?.teamId || !loser.slackUser?.userId) {
       throw new Error(
         `Player ${loser.name} missing Slack user/team ID in combat results`,
@@ -66,8 +71,8 @@ export async function applyCombatResults(
       logger.log(`🏥 Respawning defeated player ${loser.name}`);
 
       const respawnedPlayer = await playerService.respawnPlayer(
-        slackUserId,
         slackTeamId,
+        slackUserId,
       );
       loser.hp = respawnedPlayer.hp;
       loser.maxHp = respawnedPlayer.maxHp;
@@ -77,8 +82,8 @@ export async function applyCombatResults(
     } else {
       logger.log(`🩹 Restoring defeated player ${loser.name} to full health`);
       const healedLoser = await playerService.restorePlayerHealth(
-        slackUserId,
         slackTeamId,
+        slackUserId,
       );
       loser.hp = healedLoser.hp;
       loser.maxHp = healedLoser.maxHp;
@@ -157,8 +162,8 @@ export async function applyCombatResults(
       updatedStats.gold = newGoldTotal;
     }
     const updatedPlayer = await playerService.updatePlayerStats(
-      slackUserId,
       slackTeamId,
+      slackUserId,
       updatedStats,
     );
     logger.log(
@@ -185,8 +190,8 @@ export async function applyCombatResults(
     }
 
     const healedWinner = await playerService.restorePlayerHealth(
-      slackUserId,
       slackTeamId,
+      slackUserId,
     );
     winner.level = healedWinner.level;
     winner.maxHp = healedWinner.maxHp;

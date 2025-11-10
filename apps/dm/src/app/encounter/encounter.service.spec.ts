@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Logger } from '@nestjs/common';
 import { EncounterService } from './encounter.service';
 import { MonsterService } from '../monster/monster.service';
 import { EventBus } from '../../shared/event-bus';
@@ -11,7 +12,7 @@ jest.mock('@mud/database', () => ({
 }));
 
 // Mock EventBus
-jest.mock('@mud/engine', () => ({
+jest.mock('../../shared/event-bus', () => ({
   EventBus: {
     on: jest.fn(),
     emit: jest.fn(),
@@ -192,7 +193,9 @@ describe('EncounterService', () => {
         new Error('Database error'),
       );
 
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const loggerErrorSpy = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
 
       const event: PlayerMoveEvent = {
         eventType: 'player:move',
@@ -206,12 +209,12 @@ describe('EncounterService', () => {
 
       await service['handlePlayerMove'](event);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Error handling monster encounter event:',
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        'Error handling monster encounter event',
         expect.any(Error),
       );
 
-      consoleErrorSpy.mockRestore();
+      loggerErrorSpy.mockRestore();
     });
   });
 });

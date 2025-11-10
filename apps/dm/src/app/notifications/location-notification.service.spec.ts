@@ -11,11 +11,25 @@ import type { PlayerService } from '../player/player.service';
 import type { EventBridgeService } from '../../shared/event-bridge.service';
 
 describe('LocationNotificationService', () => {
-  const createPlayer = (overrides?: Partial<PlayerEntity>): PlayerEntity => {
+  const createPlayer = (
+    overrides?: Partial<PlayerEntity> & {
+      slackUser?: { teamId?: string; userId?: string } | null;
+    },
+  ): PlayerEntity => {
+    const defaultId = overrides?.id ?? 99;
+    const slackUser =
+      overrides?.slackUser ??
+      ({
+        teamId: `T${defaultId}`,
+        userId: `U${defaultId}`,
+      } as PlayerEntity['slackUser']);
+
     return {
-      id: overrides?.id ?? 99,
-      clientId: overrides?.clientId ?? 'U123',
+      id: defaultId,
+      clientId: overrides?.clientId ?? `T${defaultId}:U${defaultId}`,
       clientType: overrides?.clientType ?? 'slack',
+      slackUser,
+      ...overrides,
     } as PlayerEntity;
   };
 
@@ -46,7 +60,11 @@ describe('LocationNotificationService', () => {
     playerService.getPlayersAtLocation
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
-        createPlayer({ clientId: 'T001:U789', id: 101 }),
+        createPlayer({
+          clientId: 'T001:U789',
+          id: 101,
+          slackUser: { teamId: 'T001', userId: 'U789' },
+        }),
       ]);
 
     const event: PlayerMoveEvent = {
@@ -73,7 +91,11 @@ describe('LocationNotificationService', () => {
     const payload = eventBridge.publishNotification.mock.calls[0][0];
     expect(payload.type).toBe('player');
     expect(payload.recipients).toHaveLength(1);
-    expect(payload.recipients[0].clientId).toBe('slack:T001:U789');
+    expect(payload.recipients[0]).toMatchObject({
+      teamId: 'T001',
+      userId: 'U789',
+      clientType: 'slack',
+    });
     expect(payload.recipients[0].message).toContain(
       'arrives from the south-west',
     );
@@ -81,8 +103,20 @@ describe('LocationNotificationService', () => {
 
   it('notifies players when a monster moves in and out', async () => {
     playerService.getPlayersAtLocation
-      .mockResolvedValueOnce([createPlayer({ clientId: 'slack:U555', id: 7 })])
-      .mockResolvedValueOnce([createPlayer({ clientId: 'T002:U556', id: 8 })]);
+      .mockResolvedValueOnce([
+        createPlayer({
+          id: 7,
+          clientId: 'slack:U555',
+          slackUser: { teamId: 'T-Origin', userId: 'U555' },
+        }),
+      ])
+      .mockResolvedValueOnce([
+        createPlayer({
+          id: 8,
+          clientId: 'T002:U556',
+          slackUser: { teamId: 'T002', userId: 'U556' },
+        }),
+      ]);
 
     const event: MonsterMoveEvent = {
       eventType: 'monster:move',
@@ -140,7 +174,11 @@ describe('LocationNotificationService', () => {
 
   it('notifies combat activity with damage details', async () => {
     playerService.getPlayersAtLocation.mockResolvedValue([
-      createPlayer({ clientId: 'T003:U321', id: 55 }),
+      createPlayer({
+        clientId: 'T003:U321',
+        id: 55,
+        slackUser: { teamId: 'T003', userId: 'U321' },
+      }),
     ]);
 
     const event: CombatHitEvent = {
@@ -171,12 +209,19 @@ describe('LocationNotificationService', () => {
     const payload = eventBridge.publishNotification.mock.calls[0][0];
     expect(payload.type).toBe('combat');
     expect(payload.recipients[0].message).toContain('11 damage');
-    expect(payload.recipients[0].clientId).toBe('slack:T003:U321');
+    expect(payload.recipients[0]).toMatchObject({
+      teamId: 'T003',
+      userId: 'U321',
+    });
   });
 
   it('emits workspace-aware client ids for spawn notifications', async () => {
     playerService.getPlayersAtLocation.mockResolvedValue([
-      createPlayer({ clientId: 'T777:U999', id: 202 }),
+      createPlayer({
+        clientId: 'T777:U999',
+        id: 202,
+        slackUser: { teamId: 'T777', userId: 'U999' },
+      }),
     ]);
 
     const event = {
@@ -198,6 +243,9 @@ describe('LocationNotificationService', () => {
 
     expect(eventBridge.publishNotification).toHaveBeenCalledTimes(1);
     const payload = eventBridge.publishNotification.mock.calls[0][0];
-    expect(payload.recipients[0].clientId).toBe('slack:T777:U999');
+    expect(payload.recipients[0]).toMatchObject({
+      teamId: 'T777',
+      userId: 'U999',
+    });
   });
 });

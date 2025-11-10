@@ -1,7 +1,6 @@
 // server.ts
 import '@mud/tracer/register'; // must come before importing any instrumented module.
 import { App } from '@slack/bolt';
-import { LogLevel } from '@slack/logger';
 import { env } from './env';
 import { getPrismaClient } from '@mud/database';
 import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
@@ -75,7 +74,6 @@ const app = new App({
       },
     },
   ],
-  logLevel: env.isProduction ? LogLevel.INFO : LogLevel.DEBUG,
 });
 setSlackApp(app);
 

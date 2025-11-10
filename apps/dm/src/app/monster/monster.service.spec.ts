@@ -97,7 +97,7 @@ describe('MonsterService', () => {
   it('spawns monsters and prevents water spawns', async () => {
     const service = new MonsterService(worldService);
     const spawned = await service.spawnMonster(1, 2, 1);
-    expect(spawned.combat.hp).toBeGreaterThan(0);
+    expect(spawned.hp).toBeGreaterThan(0);
 
     await expect(service.spawnMonster(999, 2, 1)).rejects.toThrow('water');
   });
@@ -157,7 +157,7 @@ describe('MonsterService', () => {
 
     emitSpy.mockClear();
     const damaged = await service.damageMonster(2, 10);
-    expect(damaged.combat.isAlive).toBe(false);
+    expect(damaged.isAlive).toBe(false);
     expect(emitSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'monster:death',

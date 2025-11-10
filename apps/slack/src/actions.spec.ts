@@ -167,6 +167,12 @@ describe('registerActions', () => {
       view: jest.fn((callbackId: string, handler: SlackViewHandler) => {
         viewHandlers[callbackId] = handler;
       }),
+      logger: {
+        warn: jest.fn(),
+        error: jest.fn(),
+        info: jest.fn(),
+        debug: jest.fn(),
+      },
     };
 
     registerActions(app as unknown as import('@slack/bolt').App);
@@ -422,7 +428,12 @@ describe('registerActions', () => {
         goldGained: 1,
         message: 'Hero strikes down the goblin.',
         playerMessages: [
-          { slackId: 'U1', name: 'Hero', message: 'combat results' },
+          {
+            teamId: 'T1',
+            userId: 'U1',
+            name: 'Hero',
+            message: 'combat results',
+          },
         ],
       },
     });
@@ -457,7 +468,8 @@ describe('registerActions', () => {
 
     expect(ack).toHaveBeenCalled();
     expect(mockedDmClient.attack).toHaveBeenCalledWith({
-      slackId: toClientId('U1', 'T1'),
+      teamId: 'T1',
+      userId: 'U1',
       input: {
         targetType: TargetType.Monster,
         targetId: 42,
@@ -1196,7 +1208,8 @@ describe('registerActions', () => {
       message: null,
       data: {
         id: '1',
-        slackId: toClientId('U1', 'T1'),
+        teamId: 'T1',
+        userId: 'U1',
         name: 'Hero',
         hp: 18,
         maxHp: 18,
@@ -1235,7 +1248,8 @@ describe('registerActions', () => {
     });
 
     expect(mockedDmClient.spendSkillPoint).toHaveBeenCalledWith({
-      slackId: toClientId('U1', 'T1'),
+      teamId: 'T1',
+      userId: 'U1',
       attribute: PlayerAttribute.Strength,
     });
     expect(client.chat.update).toHaveBeenCalledWith(
@@ -1278,7 +1292,8 @@ describe('registerActions', () => {
     });
 
     expect(mockedDmClient.spendSkillPoint).toHaveBeenCalledWith({
-      slackId: toClientId('U1', 'T1'),
+      teamId: 'T1',
+      userId: 'U1',
       attribute: PlayerAttribute.Agility,
     });
     expect(client.chat.update).not.toHaveBeenCalled();
@@ -1426,7 +1441,8 @@ describe('registerActions', () => {
       });
 
       expect(mockedDmClient.equip).toHaveBeenCalledWith({
-        slackId: toClientId('U1', 'T1'),
+        teamId: 'T1',
+        userId: 'U1',
         playerItemId: 9,
         slot: 'weapon',
       });
@@ -1461,7 +1477,8 @@ describe('registerActions', () => {
       });
 
       expect(mockedDmClient.drop).toHaveBeenCalledWith({
-        slackId: toClientId('U1', 'T1'),
+        teamId: 'T1',
+        userId: 'U1',
         playerItemId: 12,
       });
       expect(postEphemeral).toHaveBeenCalledWith(
@@ -1519,7 +1536,7 @@ describe('registerActions', () => {
         data: { name: 'Hero', x: 3, y: 4 },
       });
       mockedDmClient.getLocationEntities.mockResolvedValueOnce({
-        players: [{ slackId: 'U2' }],
+        players: [{ teamId: 'T1', userId: 'U2' }],
         monsters: [],
         items: [],
       });

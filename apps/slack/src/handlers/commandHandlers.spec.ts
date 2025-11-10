@@ -88,6 +88,8 @@ beforeEach(() => {
     data: {
       id: '1',
       slackId: toClientId('U1', 'T1'),
+      teamId: 'T1',
+      userId: 'U1',
       name: 'Hero',
       hp: 1,
       maxHp: 10,
@@ -112,8 +114,8 @@ describe('attackHandler', () => {
       data: {
         message: 'combat summary',
         playerMessages: [
-          { slackId: 'U1', message: 'attacker wins' },
-          { slackId: 'U2', message: 'defender loses' },
+          { teamId: 'T1', userId: 'U1', message: 'attacker wins' },
+          { teamId: 'T1', userId: 'U2', message: 'defender loses' },
         ],
       },
     });
@@ -127,10 +129,12 @@ describe('attackHandler', () => {
     } as HandlerContext);
 
     expect(mockedDmClient.attack).toHaveBeenCalledWith({
-      slackId: toClientId('U1', 'T1'),
+      teamId: 'T1',
+      userId: 'U1',
       input: {
         targetType: TargetType.Player,
-        targetSlackId: 'U2',
+        targetUserId: 'U2',
+        targetTeamId: 'T1',
         ignoreLocation: true,
         attackOrigin: AttackOrigin.TextPvp,
       },
@@ -370,7 +374,8 @@ describe('createHandler', () => {
     } as HandlerContext);
 
     expect(mockedDmClient.createPlayer).toHaveBeenCalledWith({
-      slackId: toClientId('U1', 'T1'),
+      teamId: 'T1',
+      userId: 'U1',
       name: 'Hero',
     });
     expect(say).toHaveBeenLastCalledWith(
@@ -513,7 +518,8 @@ describe('deleteHandler', () => {
     } as HandlerContext);
 
     expect(mockedDmClient.deletePlayer).toHaveBeenCalledWith({
-      slackId: toClientId('U1', 'T1'),
+      teamId: 'T1',
+      userId: 'U1',
     });
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -582,6 +588,7 @@ describe('lookHandler', () => {
         {
           id: '2',
           slackId: toClientId('U2'),
+          slackUser: { teamId: 'T1', userId: 'U2' },
           name: 'Friend',
           x: 0,
           y: 0,
@@ -599,6 +606,7 @@ describe('lookHandler', () => {
         {
           id: '1',
           slackId: 'U1',
+          slackUser: { teamId: 'T1', userId: 'U1' },
           name: 'Hero',
           x: 0,
           y: 0,
@@ -686,6 +694,7 @@ describe('lookHandler', () => {
         {
           id: '1',
           slackId: toClientId('U1', 'T1'),
+          slackUser: { teamId: 'T1', userId: 'U1' },
           name: 'Hero',
           x: 0,
           y: 0,
@@ -799,6 +808,7 @@ describe('mapHandler', () => {
         {
           id: '2',
           slackId: toClientId('U2'),
+          slackUser: { teamId: 'T1', userId: 'U2' },
           name: 'Friend',
           x: 3,
           y: -4,
@@ -848,6 +858,7 @@ describe('mapHandler', () => {
         {
           id: '1',
           slackId: toClientId('U1', 'T1'),
+          slackUser: { teamId: 'T1', userId: 'U1' },
           name: 'Hero',
           x: 5,
           y: 6,
@@ -932,7 +943,8 @@ describe('moveHandler', () => {
     } as HandlerContext);
 
     expect(mockedDmClient.movePlayer).toHaveBeenCalledWith({
-      slackId: toClientId('U1', 'T1'),
+      teamId: 'T1',
+      userId: 'U1',
       input: { direction: Direction.North },
     });
     expect(mockedSendPngMap).toHaveBeenCalledWith(say, 1, 2, 8);
@@ -973,7 +985,8 @@ describe('moveHandler', () => {
     } as HandlerContext);
 
     expect(mockedDmClient.movePlayer).toHaveBeenCalledWith({
-      slackId: toClientId('U1', 'T1'),
+      teamId: 'T1',
+      userId: 'U1',
       input: { direction: Direction.North, distance: 3 },
     });
     expect(say).toHaveBeenCalledWith({
@@ -998,7 +1011,8 @@ describe('moveHandler', () => {
     } as HandlerContext);
 
     expect(mockedDmClient.movePlayer).toHaveBeenCalledWith({
-      slackId: toClientId('U1', 'T1'),
+      teamId: 'T1',
+      userId: 'U1',
       input: { x: 10, y: -5 },
     });
     expect(say).toHaveBeenCalledWith({

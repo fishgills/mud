@@ -135,13 +135,20 @@ export const registerInventoryActions = (app: App) => {
     },
   );
 
-  app.action<BlockAction>('inventory_drop', async ({ ack, body, client }) => {
-    await ack();
-    const userId = body.user?.id;
-    const teamId = body.team?.id;
-    if (!teamId || !userId) {
-      throw new Error('Missing teamId or userId in action payload');
-    }
+  app.action<BlockAction>(
+    'inventory_drop',
+    async ({ ack, body, client, context }) => {
+      await ack();
+      const userId = body.user?.id;
+      const teamId =
+        body.team?.id ?? (context as { teamId?: string })?.teamId;
+      if (!teamId || !userId) {
+        app.logger.warn(
+          { userId, teamId },
+          'Missing teamId or userId in inventory_drop payload',
+        );
+        return;
+      }
     const value = getActionValue(body);
     const channelId = getChannelIdFromBody(body);
     if (!userId || !value) return;
@@ -181,12 +188,17 @@ export const registerInventoryActions = (app: App) => {
 
   app.action<BlockAction>(
     'inventory_unequip',
-    async ({ ack, body, client }) => {
+    async ({ ack, body, client, context }) => {
       await ack();
       const userId = body.user?.id;
-      const teamId = body.team?.id;
+      const teamId =
+        body.team?.id ?? (context as { teamId?: string })?.teamId;
       if (!teamId || !userId) {
-        throw new Error('Missing teamId or userId in action payload');
+        app.logger.warn(
+          { userId, teamId },
+          'Missing teamId or userId in inventory_unequip payload',
+        );
+        return;
       }
       const value = getActionValue(body);
       const channelId = getChannelIdFromBody(body);

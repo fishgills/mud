@@ -3,7 +3,7 @@ import { EventBus, type PlayerRespawnEvent } from '../../shared/event-bus';
 import { EventBridgeService } from '../../shared/event-bridge.service';
 import { PlayerNotificationService } from './player-notification.service';
 
-jest.mock('@mud/engine', () => ({
+jest.mock('../../shared/event-bus', () => ({
   EventBus: {
     on: jest.fn(),
   },
@@ -57,8 +57,7 @@ describe('PlayerNotificationService', () => {
       player: {
         id: 1,
         name: 'Test Player',
-        clientId: 'slack:U123',
-        clientType: 'slack',
+        slackUser: { teamId: 'T1', userId: 'U1' },
       } as unknown as PlayerRespawnEvent['player'],
       x: 10,
       y: 20,
@@ -71,8 +70,8 @@ describe('PlayerNotificationService', () => {
       expect.arrayContaining([
         expect.objectContaining({
           clientType: 'slack',
-          clientId: 'slack:U123',
-          message: expect.stringContaining('respawned'),
+          teamId: 'T1',
+          userId: 'U1',
         }),
       ]),
     );
@@ -86,8 +85,7 @@ describe('PlayerNotificationService', () => {
       player: {
         id: 2,
         name: 'No Slack',
-        clientId: null,
-        clientType: 'slack',
+        slackUser: null,
       } as unknown as PlayerRespawnEvent['player'],
       x: 5,
       y: 7,

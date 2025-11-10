@@ -1,21 +1,16 @@
-import { pickup, getPlayer, getLocationEntities, ItemRecord } from '../dm-client';
+import { getPlayer, getLocationEntities, ItemRecord } from '../dm-client';
 import { COMMANDS, PICKUP_ACTIONS } from '../commands';
 import { registerHandler } from './handlerRegistry';
 import type { HandlerContext } from './types';
-import {
-  getUserFriendlyErrorMessage,
-  mapErrCodeToFriendlyMessage,
-} from './errorUtils';
+import { getUserFriendlyErrorMessage } from './errorUtils';
 
 export const ITEM_SELECTION_BLOCK_ID = 'pickup_item_selection_block';
 
 export function buildItemSelectionMessage(items: Array<ItemRecord>) {
-  const itemList = (items || [])
-    .map((it) => it.itemName ?? `Item ${it.id}`)
-    .join(', ');
+  const itemList = (items || []).map((it) => it.item?.name).join(', ');
   const options = (items || []).map((it) => {
     const id = String(it.id ?? '');
-    const name = it.itemName ?? `Item ${id}`;
+    const name = it.item?.name;
     const quality =
       typeof it.quality === 'string' && it.quality ? ` (${it.quality})` : '';
     const qty =
@@ -76,53 +71,8 @@ export function buildItemSelectionMessage(items: Array<ItemRecord>) {
 export const pickupHandler = async ({
   userId,
   say,
-  text,
   teamId,
 }: HandlerContext) => {
-  const args = (text || '').trim().split(/\s+/).slice(1);
-  const worldItemIdArg = args[0];
-
-  // Numeric-argument path: keep existing behavior
-  if (worldItemIdArg) {
-    const worldItemId = Number(worldItemIdArg);
-    if (!Number.isFinite(worldItemId) || worldItemId <= 0) {
-      await say({ text: `Invalid worldItemId: ${worldItemIdArg}` });
-      return;
-    }
-
-    try {
-      const res = await pickup({
-        teamId,
-        userId,
-        worldItemId,
-      });
-      if (res && res.success) {
-        await say({ text: res.message ?? 'You picked up an item.' });
-      } else {
-        const getCode = (v: unknown): string | undefined => {
-          if (v && typeof v === 'object' && 'code' in v) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            return (v as any).code as string | undefined;
-          }
-          return undefined;
-        };
-
-        const friendly = mapErrCodeToFriendlyMessage(getCode(res));
-        await say({
-          text: friendly ?? res?.message ?? 'Failed to pick up item.',
-        });
-      }
-    } catch (err) {
-      const message = getUserFriendlyErrorMessage(
-        err,
-        'Failed to pick up item',
-      );
-      await say({ text: message });
-    }
-
-    return;
-  }
-
   // Selection flow: show dropdown of nearby items
   try {
     const playerRes = await getPlayer({
