@@ -93,7 +93,7 @@ All services rely on the following shared configuration:
 | `SLACK_BOT_TOKEN`      | Bot token for your Slack app.                                                 |
 | `SLACK_SIGNING_SECRET` | Signing secret for request verification.                                      |
 | `SLACK_APP_TOKEN`      | App-level token for the Bolt SDK.                                             |
-| `DM_API_BASE_URL`      | Base URL of the DM REST API (local default `http://localhost:3000`).          |
+| `DM_API_BASE_URL`      | Base URL of the DM REST API (local default `http://localhost:3000/dm`).          |
 | `WORLD_API_BASE_URL`   | Base URL of the world REST API (local default `http://localhost:3001/world`). |
 | `PORT`                 | Port the Slack bot listens on (default `3002`).                               |
 
@@ -101,7 +101,7 @@ All services rely on the following shared configuration:
 
 | Variable          | Description                                                          |
 | ----------------- | -------------------------------------------------------------------- |
-| `DM_API_BASE_URL` | Base URL of the DM REST API (local default `http://localhost:3000`). |
+| `DM_API_BASE_URL` | Base URL of the DM REST API (local default `http://localhost:3000/dm`). |
 | `PORT`            | HTTP port for the lightweight health server (default `3003`).        |
 
 Services communicate using standard HTTP fetch calls. When running on GKE, internal service-to-service traffic is unauthenticated and uses Kubernetes DNS for service discovery.

@@ -3,7 +3,13 @@ import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { getPrismaClient } from '@mud/database';
 import { AppError, ErrCodes } from '../errors/app-error';
-import type { Prisma, Item, PlayerItem, WorldItem } from '@mud/database';
+import type {
+  Prisma,
+  Item,
+  PlayerItem,
+  WorldItem,
+  WorldItemWithDetails,
+} from '@mud/database';
 import { PlayerSlot } from '@mud/database';
 
 @Injectable()
@@ -214,6 +220,16 @@ export class PlayerItemService {
       await tx.playerItem.delete({ where: { id: playerItemId } });
 
       return created;
+    });
+  }
+
+  async listWorldItemsAtLocation(
+    x: number,
+    y: number,
+  ): Promise<WorldItemWithDetails[]> {
+    return this.prisma.worldItem.findMany({
+      where: { x, y },
+      include: { item: true },
     });
   }
 }

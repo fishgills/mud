@@ -184,6 +184,7 @@ describe('attackHandler', () => {
         { id: '42', name: 'Goblin' },
         { id: '43', name: 'Orc' },
       ],
+      items: [],
     });
 
     await attackHandler.handle({
@@ -240,6 +241,7 @@ describe('attackHandler', () => {
         },
       ],
       monsters: [],
+      items: [],
     });
 
     await attackHandler.handle({
@@ -276,6 +278,7 @@ describe('attackHandler', () => {
     mockedDmClient.getLocationEntities.mockResolvedValueOnce({
       players: [],
       monsters: [],
+      items: [],
     });
 
     await attackHandler.handle({
@@ -612,6 +615,7 @@ describe('lookHandler', () => {
         },
       ],
       monsters: [{ name: 'Goblin' }, { name: 'Orc' }],
+      items: [],
     });
     mockedDmClient.getLookView.mockResolvedValueOnce({
       success: true,
@@ -698,6 +702,7 @@ describe('lookHandler', () => {
         },
       ],
       monsters: [],
+      items: [],
     });
     mockedDmClient.getLookView.mockResolvedValueOnce({
       success: true,
@@ -810,6 +815,7 @@ describe('mapHandler', () => {
         },
       ],
       monsters: [],
+      items: [],
     });
 
     await mapHandler.handle({
@@ -858,6 +864,7 @@ describe('mapHandler', () => {
         },
       ],
       monsters: [],
+      items: [],
     });
 
     await mapHandler.handle({

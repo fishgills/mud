@@ -1,10 +1,4 @@
-import {
-  pickup,
-  getPlayer,
-  getLocationEntities,
-  getLookView,
-  ItemRecord,
-} from '../dm-client';
+import { pickup, getPlayer, getLocationEntities, ItemRecord } from '../dm-client';
 import { COMMANDS, PICKUP_ACTIONS } from '../commands';
 import { registerHandler } from './handlerRegistry';
 import type { HandlerContext } from './types';
@@ -146,18 +140,8 @@ export const pickupHandler = async ({
       return;
     }
 
-    // Try getLocationEntities first, but fall back to getLookView for items
     const entities = await getLocationEntities({ x, y });
-    // Prefer items on entities if backend provides them; otherwise use look view
-    let items: ItemRecord[] = entities.items ?? [];
-    if (!items || items.length === 0) {
-      const look = await getLookView({
-        teamId,
-        userId,
-      });
-      // look.data is a JsonMap and may contain an items array; narrow via unknown cast
-      items = (look?.data as unknown as { items?: ItemRecord[] })?.items ?? [];
-    }
+    const items: ItemRecord[] = entities.items ?? [];
 
     if (!items || items.length === 0) {
       await say({ text: 'No items here to pick up!' });

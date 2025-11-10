@@ -14,6 +14,7 @@ import {
   MovementController,
   SystemController,
   ItemController,
+  LocationController,
 } from './api/controllers';
 import { CoordinationService } from '../shared/coordination.service';
 import { EventBridgeService } from '../shared/event-bridge.service';
@@ -29,7 +30,6 @@ import { PopulationService } from './monster/population.service';
 import { PrefetchService } from './prefetch/prefetch.service';
 import { PlayerNotificationService } from './player/player-notification.service';
 import { LocationNotificationService } from './notifications/location-notification.service';
-import { LoggingInterceptor } from './interceptors/logging.interceptor';
 import { PlayerItemService } from './player/player-item.service';
 import { LootService } from './monster/loot.service';
 
@@ -41,6 +41,7 @@ import { LootService } from './monster/loot.service';
     MovementController,
     SystemController,
     ItemController,
+    LocationController,
   ],
   providers: [
     AppService,
@@ -64,10 +65,6 @@ import { LootService } from './monster/loot.service';
     LocationNotificationService,
     PlayerItemService,
     LootService,
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: LoggingInterceptor,
-    },
   ],
 })
 export class AppModule {}

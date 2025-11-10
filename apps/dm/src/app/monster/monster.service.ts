@@ -15,6 +15,12 @@ export class MonsterService {
 
   constructor(private worldService: WorldService) {}
 
+  async getMonsterById(monsterId: number): Promise<Monster | null> {
+    return this.prisma.monster.findUnique({
+      where: { id: monsterId },
+    });
+  }
+
   async spawnMonster(
     x: number,
     y: number,

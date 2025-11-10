@@ -180,6 +180,7 @@ describe('inspectHandler.handleInspectAction', () => {
           isAlive: true,
         },
       ],
+      items: [],
     });
 
     const body = buildActionBody('M:99');

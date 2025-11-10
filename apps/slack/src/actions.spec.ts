@@ -1520,6 +1520,8 @@ describe('registerActions', () => {
       });
       mockedDmClient.getLocationEntities.mockResolvedValueOnce({
         players: [{ slackId: 'U2' }],
+        monsters: [],
+        items: [],
       });
 
       const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;

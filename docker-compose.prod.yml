@@ -86,7 +86,7 @@ services:
       NODE_ENV: production
       PORT: 3002
       REDIS_URL: redis://redis:6379/0
-      DM_API_BASE_URL: ${DM_API_BASE_URL:-http://dm:3000}
+      DM_API_BASE_URL: ${DM_API_BASE_URL:-http://dm:3000/dm}
       WORLD_API_BASE_URL: ${WORLD_API_BASE_URL:-http://world:3001/world}
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:?SLACK_BOT_TOKEN must be set}
       SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:?SLACK_SIGNING_SECRET must be set}
@@ -109,7 +109,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3003
-      DM_API_BASE_URL: ${DM_API_BASE_URL:-http://dm:3000}
+      DM_API_BASE_URL: ${DM_API_BASE_URL:-http://dm:3000/dm}
       TICK_INTERVAL_MS: ${TICK_INTERVAL_MS:-60000}
       ACTIVITY_THRESHOLD_MINUTES: ${ACTIVITY_THRESHOLD_MINUTES:-30}
     expose:

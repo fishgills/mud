@@ -494,16 +494,7 @@ class InspectHandler extends PlayerCommandHandler {
     }
 
     const entities = await this.dm.getLocationEntities({ x, y });
-
-    let items = normalizeItems(entities.items as ItemRecord[] | undefined);
-    if (!items.length) {
-      const look = await this.dm.getLookView({ teamId: this.teamId, userId });
-      const lookItems = (look?.data as unknown as { items?: ItemRecord[] })
-        ?.items;
-      if (Array.isArray(lookItems)) {
-        items = normalizeItems(lookItems);
-      }
-    }
+    const items = normalizeItems(entities.items);
 
     const players = normalizePlayers(entities.players, userId, this.teamId!);
     const monsters = normalizeMonsters(entities.monsters);
@@ -706,10 +697,7 @@ class InspectHandler extends PlayerCommandHandler {
       return;
     }
 
-    const entities = await this.dm.getLocationEntities({ x, y });
-    const monster = (entities.monsters ?? []).find(
-      (m) => Number(m.id) === monsterId,
-    );
+    const monster = await this.dm.getMonsterById(monsterId);
     if (!monster) {
       await this.respondFailure(
         client,
@@ -738,27 +726,16 @@ class InspectHandler extends PlayerCommandHandler {
 
   private async loadInspectableItems(
     inspector: PlayerRecord,
-    teamId: string,
-    userId: string,
   ): Promise<InspectableItem[]> {
     const items: InspectableItem[] = [];
     const { x, y } = inspector;
 
     if (typeof x === 'number' && typeof y === 'number') {
       const entities = await this.dm.getLocationEntities({ x, y });
-      const locItems = normalizeItems(
-        entities.items as ItemRecord[] | undefined,
-      );
+      const locItems = normalizeItems(entities.items);
       if (locItems.length > 0) {
         return locItems;
       }
-    }
-
-    const look = await this.dm.getLookView({ teamId, userId });
-    const lookItems = (look?.data as { items?: ItemRecord[] } | undefined)
-      ?.items;
-    if (Array.isArray(lookItems)) {
-      return normalizeItems(lookItems);
     }
 
     return items;
@@ -786,11 +763,7 @@ class InspectHandler extends PlayerCommandHandler {
     }
 
     const { worldId, itemId } = parseItemSelection(identifier);
-    const nearbyItems = await this.loadInspectableItems(
-      inspector,
-      this.teamId ?? '',
-      userId,
-    );
+    const nearbyItems = await this.loadInspectableItems(inspector);
 
     const match = nearbyItems.find((item) => {
       if (worldId !== undefined && String(item.id) === String(worldId)) {

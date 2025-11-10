@@ -12,7 +12,18 @@ import type {
 export type JsonMap = Record<string, unknown>;
 type JsonBody = JsonMap | unknown;
 
-const dmBaseUrl = env.DM_API_BASE_URL.replace(/\/$/, '');
+function normalizeDmBaseUrl(rawUrl: string): string {
+  const parsed = new URL(rawUrl);
+  const trimmedPath = parsed.pathname.replace(/\/+$/, '');
+  if (!trimmedPath || trimmedPath === '/') {
+    parsed.pathname = '/dm';
+  } else {
+    parsed.pathname = trimmedPath;
+  }
+  return parsed.toString().replace(/\/$/, '');
+}
+
+const dmBaseUrl = normalizeDmBaseUrl(env.DM_API_BASE_URL);
 
 const enum HttpMethod {
   GET = 'GET',
@@ -237,7 +248,11 @@ export interface LookViewResponse extends SuccessResponse {
 export interface LocationEntitiesResult {
   players: PlayerRecord[];
   monsters: MonsterRecord[];
-  items?: ItemRecord[];
+  items: ItemRecord[];
+}
+
+interface LocationCollectionResponse<T> extends SuccessResponse {
+  data?: T[];
 }
 
 export interface CreatePlayerRequest {
@@ -303,6 +318,15 @@ export async function getPlayer(params: {
       userId: params.userId,
     },
   });
+}
+
+export async function getMonsterById(
+  monsterId: number,
+): Promise<MonsterRecord | null> {
+  return dmRequest<MonsterRecord | null>(
+    `/system/monster/${encodeURIComponent(String(monsterId))}`,
+    HttpMethod.GET,
+  );
 }
 
 export async function getLeaderboard(params?: {
@@ -467,20 +491,71 @@ export async function getItemDetails(
   );
 }
 
+function assertLocationResponse<T>(
+  endpoint: string,
+  response: LocationCollectionResponse<T>,
+): T[] {
+  if (!response.success) {
+    throw new Error(
+      `${endpoint} failed: ${response.message ?? 'unknown error'}`,
+    );
+  }
+  return response.data ?? [];
+}
+
+export async function getLocationPlayers(params: {
+  x: number;
+  y: number;
+}): Promise<PlayerRecord[]> {
+  const response = await dmRequest<LocationCollectionResponse<PlayerRecord>>(
+    '/location/players',
+    HttpMethod.GET,
+    {
+      query: { x: String(params.x), y: String(params.y) },
+    },
+  );
+  return assertLocationResponse('getLocationPlayers', response);
+}
+
+export async function getLocationMonsters(params: {
+  x: number;
+  y: number;
+}): Promise<MonsterRecord[]> {
+  const response = await dmRequest<LocationCollectionResponse<MonsterRecord>>(
+    '/location/monsters',
+    HttpMethod.GET,
+    {
+      query: { x: String(params.x), y: String(params.y) },
+    },
+  );
+  return assertLocationResponse('getLocationMonsters', response);
+}
+
+export async function getLocationItems(params: {
+  x: number;
+  y: number;
+}): Promise<ItemRecord[]> {
+  const response = await dmRequest<LocationCollectionResponse<ItemRecord>>(
+    '/location/items',
+    HttpMethod.GET,
+    {
+      query: { x: String(params.x), y: String(params.y) },
+    },
+  );
+  return assertLocationResponse('getLocationItems', response);
+}
+
 export async function getLocationEntities(params: {
   x: number;
   y: number;
 }): Promise<LocationEntitiesResult> {
-  const [players, monsters] = await Promise.all([
-    dmRequest<PlayerRecord[]>('/players/location', HttpMethod.GET, {
-      query: { x: String(params.x), y: String(params.y) },
-    }),
-    dmRequest<MonsterRecord[]>('/system/monsters', HttpMethod.GET, {
-      query: { x: String(params.x), y: String(params.y) },
-    }),
+  const [players, monsters, items] = await Promise.all([
+    getLocationPlayers(params),
+    getLocationMonsters(params),
+    getLocationItems(params),
   ]);
 
-  return { players, monsters };
+  return { players, monsters, items };
 }
 
 export const dmClient = {
@@ -496,11 +571,15 @@ export const dmClient = {
   getLookView,
   getLocationEntities,
   getPlayerItems,
+  getMonsterById,
   pickup,
   equip,
   unequip,
   drop,
   getItemDetails,
+  getLocationPlayers,
+  getLocationMonsters,
+  getLocationItems,
 };
 
 type DirectionCode = 'n' | 's' | 'e' | 'w';

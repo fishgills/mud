@@ -103,6 +103,10 @@ describe('pickup actions', () => {
     mockedDmClient.getLocationEntities.mockResolvedValue({
       players: [{ slackId: 'U2', name: 'Other' }],
       monsters: [],
+      items: [
+        { id: 101, itemName: 'Potion', quantity: 3 },
+        { id: 102, itemName: 'Sword', quantity: 1 },
+      ],
     });
 
     const mockClient: MockSlackClient = {

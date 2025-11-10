@@ -5,6 +5,7 @@ import {
   Post,
   Query,
   BadRequestException,
+  Param,
 } from '@nestjs/common';
 import { MonsterService } from '../../monster/monster.service';
 import { GameTickService } from '../../game-tick/game-tick.service';
@@ -110,6 +111,15 @@ export class SystemController {
     }
 
     return await this.monsterService.getAllMonsters();
+  }
+
+  @Get('monster/:id')
+  async getMonsterById(@Param('id') id: string): Promise<Monster | null> {
+    const monsterId = Number.parseInt(id, 10);
+    if (Number.isNaN(monsterId)) {
+      throw new BadRequestException('id must be a numeric value');
+    }
+    return await this.monsterService.getMonsterById(monsterId);
   }
 
   @Post('monsters')

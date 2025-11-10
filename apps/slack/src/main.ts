@@ -199,7 +199,7 @@ app.message(async ({ message, say, client, context }) => {
       lowerText.includes(' ' + key.toLowerCase() + ' ') ||
       lowerText.endsWith(' ' + key.toLowerCase())
     ) {
-      app.logger.debug({ command: key, userId }, 'Dispatching handler');
+      app.logger.debug({ command: key, userId, teamId }, 'Dispatching handler');
       // Minimal resolver: supports both <@U123> and @username formats from Slack
       const resolveUserId = async (nameOrMention: string) => {
         app.logger.debug({ input: nameOrMention }, 'Resolve user ID input');
