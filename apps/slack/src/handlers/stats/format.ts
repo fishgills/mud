@@ -19,6 +19,22 @@ const attributeWithModifier = (value: number | null | undefined): string => {
   return `${value} (${sign}${modifier})`;
 };
 
+const attributeWithGearBonus = (
+  value: number | null | undefined,
+  gearBonus: number,
+): string => {
+  if (value == null) return '—';
+  const effectiveValue = value + gearBonus;
+  const modifier = Math.floor((effectiveValue - 10) / 2);
+  const sign = modifier >= 0 ? '+' : '';
+  let text = `${effectiveValue} (${sign}${modifier})`;
+  if (gearBonus !== 0) {
+    const bonusSign = gearBonus >= 0 ? '+' : '';
+    text += ` (base ${value}, ${bonusSign}${gearBonus} gear)`;
+  }
+  return text;
+};
+
 const buildActionsBlock = (skillPoints: number): (KnownBlock | Block)[] => {
   if (skillPoints <= 0) {
     return [];
@@ -116,7 +132,10 @@ export function buildPlayerStatsMessage(
       },
       {
         type: 'mrkdwn',
-        text: `*Vitality*\n${attributeWithModifier(player.health)}`,
+        text: `*Vitality*\n${attributeWithGearBonus(
+          player.health,
+          player.equipmentTotals?.vitalityBonus ?? 0,
+        )}`,
       },
     ],
   });
