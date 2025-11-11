@@ -12,4 +12,4 @@ cd /app
 
 # Start the application
 echo "✅ Starting DM service..."
-exec node apps/dm/dist/main.js
+exec node apps/dm/dist/src/main.js
