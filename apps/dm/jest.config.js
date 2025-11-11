@@ -18,5 +18,9 @@ export default {
       __dirname,
       '../../libs/redis-client/dist/redis-client.js',
     ),
+    '^@prisma/client$': path.resolve(
+      __dirname,
+      './test-support/mocks/prisma.mock.ts',
+    ),
   },
 };

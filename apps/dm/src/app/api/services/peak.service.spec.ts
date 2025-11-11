@@ -1,48 +1,38 @@
 import { PeakService } from './peak.service';
 
-const makeTile = (
-  x: number,
-  y: number,
-  height: number,
-): Record<string, number> => ({
-  x,
-  y,
-  height,
-});
-
 describe('PeakService', () => {
-  let service: PeakService;
+  const service = new PeakService();
+  const player = { x: 0, y: 0 } as any;
 
-  beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(new Date('2024-01-01T00:00:00Z'));
-    service = new PeakService();
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
-  it('filters peaks outside minimum distance and annotates direction', () => {
-    const player = { x: 0, y: 0 };
-    const timing: any = {};
+  it('filters peaks by distance, height, and limits results', () => {
+    const timing = {} as any;
     const peaks = service.processVisiblePeaks(
-      player as any,
-      6,
+      player,
+      8,
       [
-        makeTile(1, 0, 0.9),
-        makeTile(5, 0, 0.8),
-        makeTile(-4, 0, 0.85),
+        { x: 10, y: 0, height: 0.8 },
+        { x: 2, y: 0, height: 0.9 }, // too close
+        { x: -10, y: 0, height: 0.95 },
+        { x: 0, y: 15, height: 0.7 },
       ] as any,
       timing,
     );
 
-    expect(peaks).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ direction: 'east' }),
-        expect.objectContaining({ direction: 'west' }),
-      ]),
-    );
+    expect(peaks).toHaveLength(3);
+    expect(peaks[0].height).toBeGreaterThanOrEqual(peaks[1].height);
+    expect(peaks[0].direction).toMatch(/east|west|north/);
     expect(timing.tPeaksSortMs).toBeGreaterThanOrEqual(0);
-    expect(timing.peaksCount).toBe(peaks.length);
+    expect(timing.peaksCount).toBe(3);
+  });
+
+  it('uses minimum peak distance of at least 3', () => {
+    const timing = {} as any;
+    const peaks = service.processVisiblePeaks(
+      player,
+      4,
+      [{ x: 2, y: 0, height: 0.9 }] as any,
+      timing,
+    );
+    expect(peaks).toHaveLength(0);
   });
 });

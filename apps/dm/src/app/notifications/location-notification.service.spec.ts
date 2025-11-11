@@ -1,10 +1,18 @@
+import { Logger } from '@nestjs/common';
 import { LocationNotificationService } from './location-notification.service';
 import type {
   PlayerMoveEvent,
   PlayerSpawnEvent,
+  PlayerRespawnEvent,
+  PlayerDeathEvent,
   MonsterMoveEvent,
   MonsterSpawnEvent,
+  MonsterDeathEvent,
+  LootSpawnEvent,
+  CombatStartEvent,
   CombatHitEvent,
+  CombatMissEvent,
+  CombatEndEvent,
 } from '../../shared/event-bus';
 import type { PlayerEntity } from '@mud/engine';
 import type { PlayerService } from '../player/player.service';
@@ -38,6 +46,9 @@ describe('LocationNotificationService', () => {
   let service: LocationNotificationService;
 
   beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     playerService = {
       getPlayersAtLocation: jest.fn(),
     };
@@ -53,6 +64,7 @@ describe('LocationNotificationService', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.resetAllMocks();
   });
 
@@ -247,5 +259,209 @@ describe('LocationNotificationService', () => {
       teamId: 'T777',
       userId: 'U999',
     });
+  });
+
+  it('routes respawn/death/monster events through notify helper', async () => {
+    const notifySpy = jest
+      .spyOn(service as unknown as { notifyPlayersAtLocation: jest.Mock }, 'notifyPlayersAtLocation')
+      .mockResolvedValue(undefined);
+
+    const respawn: PlayerRespawnEvent = {
+      eventType: 'player:respawn',
+      player: { id: 1, name: 'Hero' } as any,
+      x: 2,
+      y: 3,
+      timestamp: new Date(),
+    };
+    await (service as any).handlePlayerRespawn(respawn);
+    expect(notifySpy).toHaveBeenCalledWith(
+      respawn,
+      { x: 2, y: 3 },
+      expect.objectContaining({ priority: 'high', type: 'player' }),
+    );
+
+    notifySpy.mockClear();
+    const death: PlayerDeathEvent = {
+      eventType: 'player:death',
+      player: { id: 2, name: 'Rogue' } as any,
+      x: 4,
+      y: 5,
+      timestamp: new Date(),
+    };
+    await (service as any).handlePlayerDeath(death);
+    expect(notifySpy).toHaveBeenCalledWith(
+      death,
+      { x: 4, y: 5 },
+      expect.objectContaining({ message: expect.stringContaining('falls') }),
+    );
+
+    notifySpy.mockClear();
+    const spawn: MonsterSpawnEvent = {
+      eventType: 'monster:spawn',
+      monster: { id: 3, name: 'Imp' } as any,
+      x: 6,
+      y: 7,
+      timestamp: new Date(),
+    };
+    await (service as any).handleMonsterSpawn(spawn);
+    expect(notifySpy).toHaveBeenCalledWith(
+      spawn,
+      { x: 6, y: 7 },
+      expect.objectContaining({ type: 'monster', priority: 'high' }),
+    );
+
+    notifySpy.mockClear();
+    const mDeath: MonsterDeathEvent = {
+      eventType: 'monster:death',
+      monster: { id: 4, name: 'Ghoul' } as any,
+      x: 8,
+      y: 9,
+      timestamp: new Date(),
+    };
+    await (service as any).handleMonsterDeath(mDeath);
+    expect(notifySpy).toHaveBeenCalledWith(
+      mDeath,
+      { x: 8, y: 9 },
+      expect.objectContaining({ message: expect.stringContaining('defeated') }),
+    );
+  });
+
+  it('summarizes loot drops and logs encounters/combat', async () => {
+    const notifySpy = jest
+      .spyOn(service as any, 'notifyPlayersAtLocation')
+      .mockResolvedValue(undefined);
+    const lootEvent: LootSpawnEvent = {
+      eventType: 'loot:spawn',
+      drops: [
+        { itemId: 1, quantity: 2, quality: 'Rare', itemName: 'Blade' },
+        { itemId: 2, quality: 'Common' },
+      ],
+      x: 1,
+      y: 2,
+      timestamp: new Date(),
+    } as any;
+    await (service as any).handleLootSpawn(lootEvent);
+    const lootCall = notifySpy.mock.calls[0][2];
+    expect(lootCall.message).toContain('Blade');
+    expect(lootCall.message).toContain('item #2');
+
+    const encounterEvent = {
+      eventType: 'monster:encounter',
+      player: { id: 1 },
+      monsters: [],
+      x: 0,
+      y: 0,
+      timestamp: new Date(),
+    } as any;
+    await (service as any).handleMonsterEncounter(encounterEvent);
+    expect(Logger.prototype.debug).toHaveBeenCalledWith(
+      expect.stringContaining('Encounter event received'),
+    );
+
+    const combatStart: CombatStartEvent = {
+      eventType: 'combat:start',
+      attacker: { type: 'player', id: 5, name: 'Knight' },
+      defender: { type: 'monster', id: 6, name: 'Ogre' },
+      x: 3,
+      y: 4,
+      timestamp: new Date(),
+    };
+    notifySpy.mockClear();
+    await (service as any).handleCombatStart(combatStart);
+    expect(notifySpy).toHaveBeenCalledWith(
+      combatStart,
+      { x: 3, y: 4 },
+      expect.objectContaining({ excludePlayerIds: [5] }),
+    );
+
+    notifySpy.mockClear();
+    const combatMiss: CombatMissEvent = {
+      eventType: 'combat:miss',
+      attacker: { type: 'player', id: 5, name: 'Knight' },
+      defender: { type: 'monster', id: 6, name: 'Ogre' },
+      x: 3,
+      y: 4,
+      timestamp: new Date(),
+    };
+    await (service as any).handleCombatMiss(combatMiss);
+    expect(notifySpy).toHaveBeenCalledWith(
+      combatMiss,
+      { x: 3, y: 4 },
+      expect.objectContaining({ message: expect.stringContaining('misses') }),
+    );
+
+    notifySpy.mockClear();
+    const combatEnd: CombatEndEvent = {
+      eventType: 'combat:end',
+      winner: { type: 'player', id: 5, name: 'Knight' },
+      loser: { type: 'monster', id: 6, name: 'Ogre' },
+      x: 3,
+      y: 4,
+      timestamp: new Date(),
+    };
+    await (service as any).handleCombatEnd(combatEnd);
+    expect(notifySpy).toHaveBeenCalledWith(
+      combatEnd,
+      { x: 3, y: 4 },
+      expect.objectContaining({ message: expect.stringContaining('defeats') }),
+    );
+  });
+
+  it('builds recipients via notifyPlayersAtLocation and logs errors', async () => {
+    const players = [
+      createPlayer({ id: 1 }),
+      createPlayer({ id: 2, slackUser: { teamId: 'T2', userId: 'U2' } }),
+    ];
+    playerService.getPlayersAtLocation.mockResolvedValue(players);
+
+    await (service as any).notifyPlayersAtLocation(
+      { eventType: 'test' },
+      { x: 7, y: 8 },
+      { type: 'world', message: 'hello', excludePlayerIds: [1] },
+    );
+
+    expect(eventBridge.publishNotification).toHaveBeenCalled();
+    const payload = eventBridge.publishNotification.mock.calls.pop()?.[0];
+    expect(payload.recipients).toHaveLength(1);
+    expect(payload.recipients[0]).toMatchObject({
+      teamId: 'T2',
+      userId: 'U2',
+    });
+
+    playerService.getPlayersAtLocation.mockResolvedValue([
+      createPlayer({ slackUser: null as any }),
+    ]);
+    await (service as any).notifyPlayersAtLocation(
+      { eventType: 'test' },
+      { x: 1, y: 1 },
+      { type: 'world', message: 'oops' },
+    );
+    expect(Logger.prototype.error).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to notify players'),
+      expect.any(Error),
+    );
+  });
+
+  it('handles null locations and direction helpers', async () => {
+    await (service as any).notifyPlayersAtLocation(
+      { eventType: 'none' },
+      null,
+      { type: 'world', message: 'skip' },
+    );
+    expect(playerService.getPlayersAtLocation).not.toHaveBeenCalled();
+
+    const ids = (service as any).extractPlayerIds(
+      { type: 'player', id: 1 },
+      { type: 'monster', id: 2 },
+      { type: 'player', id: 'bad' },
+    );
+    expect(ids).toEqual([1]);
+
+    const heading = (service as any).describeHeading(0, 0, 1, 0);
+    const arrival = (service as any).describeArrival(0, 0, 0, -1);
+    const direction = (service as any).getDirectionName(0, 0, 1, 1);
+    expect(heading).toContain('east');
+    expect(arrival).toContain('north');
+    expect(direction).toBe('north-east');
   });
 });

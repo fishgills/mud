@@ -35,6 +35,8 @@ const buildEnv = () => {
     MOVEMENT_CHANCE: num({ default: 0.4 }),
     MOVEMENT_BUDGET: num({ default: 1000 }),
     DM_USE_VERTEX_AI: boolFlexible({ default: false }),
+    ACTIVE_PLAYER_WINDOW_MINUTES: num({ default: 30 }),
+    SPAWN_COOLDOWN_TICKS: num({ default: 3 }),
     GCP_PROJECT_ID: str({ default: fallbackProject }),
     GCP_REGION: str({ default: fallbackRegion }),
     PORT: port({ default: 3000 }),

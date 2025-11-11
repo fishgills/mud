@@ -32,6 +32,7 @@ import {
 import { getPrismaClient } from '@mud/database';
 import { calculateDirection } from '../../shared/direction.util';
 import { env } from '../../../env';
+import { EventBus } from '../../../shared/event-bus';
 
 @Controller('movement')
 export class MovementController {
@@ -232,6 +233,27 @@ export class MovementController {
     return `The nearest settlement is ${nameSegment}${distancePhrase} to the ${settlement.direction}.`;
   }
 
+  private recordPlayerActivity(
+    playerId: number,
+    source: string,
+    context: { teamId?: string; userId?: string; metadata?: Record<string, unknown> } = {},
+  ): void {
+    EventBus.emit({
+      eventType: 'player:activity',
+      playerId,
+      teamId: context.teamId,
+      userId: context.userId,
+      source,
+      metadata: context.metadata,
+      timestamp: new Date(),
+    }).catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `Failed to emit player activity for player ${playerId} from ${source}: ${message}`,
+      );
+    });
+  }
+
   @Get('sniff')
   async sniffNearestMonster(
     @Query('teamId') teamId: string,
@@ -241,8 +263,9 @@ export class MovementController {
       const player = await this.playerService.getPlayer(teamId, userId);
 
       if (player) {
-        this.playerService.updateLastAction(player.id).catch(() => {
-          /* ignore activity errors */
+        this.recordPlayerActivity(player.id, 'movement:sniff', {
+          teamId,
+          userId,
         });
       }
 
@@ -463,8 +486,9 @@ export class MovementController {
 
       const tPlayerStart = Date.now();
       const player = await this.playerService.getPlayer(teamId, userId);
-      this.playerService.updateLastAction(player.id).catch(() => {
-        /* ignore */
+      this.recordPlayerActivity(player.id, 'movement:look', {
+        teamId,
+        userId,
       });
       timing.tPlayerMs = Date.now() - tPlayerStart;
 

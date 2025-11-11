@@ -3,70 +3,78 @@ import { EventBus } from '../../shared/event-bus';
 
 const monsters: Record<string, unknown>[] = [];
 
-jest.mock('@mud/database', () => ({
-  getPrismaClient: () => ({
-    monster: {
-      create: jest.fn(async ({ data }) => {
-        const monster = {
-          id: monsters.length + 1,
-          updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-          ...data,
-        };
-        monsters.push(monster);
-        return monster;
-      }),
-      findMany: jest.fn(async (args: Record<string, unknown> = {}) => {
-        let result = monsters.filter((m) => m.isAlive !== false);
-        const where = args.where ?? {};
-        if (where.x?.gte !== undefined) {
-          result = result.filter(
-            (m) =>
-              m.x >= where.x.gte &&
-              m.x <= where.x.lte &&
-              m.y >= where.y.gte &&
-              m.y <= where.y.lte,
-          );
-        } else {
-          if (where.x !== undefined) {
-            result = result.filter((m) => m.x === where.x);
-          }
-          if (where.y !== undefined) {
-            result = result.filter((m) => m.y === where.y);
-          }
+const mockPrisma = {
+  monster: {
+    create: jest.fn(async ({ data }) => {
+      const monster = {
+        id: monsters.length + 1,
+        updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        ...data,
+      };
+      monsters.push(monster);
+      return monster;
+    }),
+    findMany: jest.fn(async (args: Record<string, unknown> = {}) => {
+      let result = monsters.filter((m) => m.isAlive !== false);
+      const where = args.where ?? {};
+      if (where.x?.gte !== undefined) {
+        result = result.filter(
+          (m) =>
+            m.x >= where.x.gte &&
+            m.x <= where.x.lte &&
+            m.y >= where.y.gte &&
+            m.y <= where.y.lte,
+        );
+      } else {
+        if (where.x !== undefined) {
+          result = result.filter((m) => m.x === where.x);
         }
-        if (where.isAlive !== undefined) {
-          result = monsters.filter((m) => m.isAlive === where.isAlive);
+        if (where.y !== undefined) {
+          result = result.filter((m) => m.y === where.y);
         }
-        if (args.include?.biome) {
-          return result.map((m) => ({ ...m, biome: { name: 'forest' } }));
+      }
+      if (where.isAlive !== undefined) {
+        result = monsters.filter((m) => m.isAlive === where.isAlive);
+      }
+      if (args.include?.biome) {
+        return result.map((m) => ({ ...m, biome: { name: 'forest' } }));
+      }
+      return result;
+    }),
+    findUnique: jest.fn(
+      async ({ where: { id } }) =>
+        monsters.find((m) => m.id === id && m.isAlive !== false) ?? null,
+    ),
+    update: jest.fn(async ({ where: { id }, data }) => {
+      const idx = monsters.findIndex((m) => m.id === id);
+      if (idx === -1) throw new Error('not found');
+      monsters[idx] = { ...monsters[idx], ...data };
+      return monsters[idx];
+    }),
+    deleteMany: jest.fn(async ({ where: { updatedAt } }) => {
+      const before = monsters.length;
+      for (let i = monsters.length - 1; i >= 0; i--) {
+        if (
+          monsters[i].isAlive === false &&
+          monsters[i].updatedAt < updatedAt.lt
+        ) {
+          monsters.splice(i, 1);
         }
-        return result;
-      }),
-      findUnique: jest.fn(
-        async ({ where: { id } }) =>
-          monsters.find((m) => m.id === id && m.isAlive !== false) ?? null,
-      ),
-      update: jest.fn(async ({ where: { id }, data }) => {
-        const idx = monsters.findIndex((m) => m.id === id);
-        if (idx === -1) throw new Error('not found');
-        monsters[idx] = { ...monsters[idx], ...data };
-        return monsters[idx];
-      }),
-      deleteMany: jest.fn(async ({ where: { updatedAt } }) => {
-        const before = monsters.length;
-        for (let i = monsters.length - 1; i >= 0; i--) {
-          if (
-            monsters[i].isAlive === false &&
-            monsters[i].updatedAt < updatedAt.lt
-          ) {
-            monsters.splice(i, 1);
-          }
-        }
-        return { count: before - monsters.length };
-      }),
-    },
-  }),
-}));
+      }
+      return { count: before - monsters.length };
+    }),
+  },
+};
+
+jest.mock('@mud/database', () => {
+  const actual = jest.requireActual<typeof import('@mud/database')>(
+    '@mud/database',
+  );
+  return {
+    ...actual,
+    getPrismaClient: () => mockPrisma,
+  };
+});
 
 describe('MonsterService', () => {
   const worldService = {

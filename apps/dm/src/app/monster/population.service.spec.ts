@@ -1,7 +1,12 @@
-jest.mock('@mud/database', () => ({
-  Monster: class {},
-  getPrismaClient: jest.fn(),
-}));
+jest.mock('@mud/database', () => {
+  const actual = jest.requireActual<typeof import('@mud/database')>(
+    '@mud/database',
+  );
+  return {
+    ...actual,
+    getPrismaClient: jest.fn(),
+  };
+});
 
 import { PopulationService } from './population.service';
 

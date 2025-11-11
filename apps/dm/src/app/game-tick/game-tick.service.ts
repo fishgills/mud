@@ -11,6 +11,7 @@ import { env } from '../../env';
 export class GameTickService {
   private prisma = getPrismaClient();
   private logger = new Logger(GameTickService.name);
+  private lastSpawnTickByPlayer = new Map<string, number>();
 
   constructor(
     private playerService: PlayerService,
@@ -94,75 +95,111 @@ export class GameTickService {
     };
 
     // 1) Spawn/maintain density only around active (alive) players
-    const allPlayers = await this.playerService.getAllPlayers();
-    const activePlayers = allPlayers.filter((p) => p.isAlive);
-    for (const player of activePlayers) {
-      const { spawned, report } =
-        await this.populationService.enforceDensityAround(
-          player.x,
-          player.y,
-          12,
-          6,
-        );
-      monstersSpawned += spawned;
-      if (report.length) {
-        const lines = report
-          .filter((r) => r.spawned > 0 || r.deficit > 0)
-          .map(
-            (r) =>
-              `${r.biome}: tiles=${r.tiles} target=${r.targetCount} current=${r.current} deficit=${r.deficit} spawned=${r.spawned}`,
-          )
-          .join(' | ');
-        if (lines) {
-          this.logger.debug(
-            `Density around (${player.x},${player.y}) -> ${lines}`,
-          );
-        }
-      }
-    }
+    const activityWindowMinutes = env.ACTIVE_PLAYER_WINDOW_MINUTES;
+    const activePlayers =
+      (await this.playerService.getActivePlayers(activityWindowMinutes)) ?? [];
 
-    // 2) Move monsters near active players only, partitioned by ID and capped by budget
-    const candidateById = new Map<number, { id: number }>();
-    for (const p of activePlayers) {
-      const minX = p.x - ACTIVE_RADIUS;
-      const maxX = p.x + ACTIVE_RADIUS;
-      const minY = p.y - ACTIVE_RADIUS;
-      const maxY = p.y + ACTIVE_RADIUS;
-      const nearby = await this.monsterService.getMonstersInBounds(
-        minX,
-        maxX,
-        minY,
-        maxY,
+    this.logger.debug(
+      `Tick ${newTick}: ${activePlayers.length} active player(s) in last ${activityWindowMinutes} minutes.`,
+    );
+
+    if (activePlayers.length === 0) {
+      this.logger.debug(
+        `Tick ${newTick}: No active players detected; skipping monster spawn/move.`,
       );
-      for (const m of nearby) {
-        // partition monsters across ticks to avoid hotspotting
-        if (m.id % MOVEMENT_PARTITIONS !== newTick % MOVEMENT_PARTITIONS)
-          continue;
-        candidateById.set(m.id, { id: m.id });
-      }
-    }
-
-    const candidates = Array.from(candidateById.values());
-    // Randomize order
-    for (let i = candidates.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-    }
-
-    const toAttempt = candidates.slice(0, MOVEMENT_BUDGET);
-    await withConcurrency(toAttempt, MOVEMENT_CONCURRENCY, async (m) => {
-      if (Math.random() < MOVEMENT_CHANCE) {
-        try {
-          await this.monsterService.moveMonster(m.id);
-          monstersMoved++;
-        } catch (err) {
+    } else {
+      for (const player of activePlayers) {
+        const spawnKey = Number.isFinite(Number(player.id))
+          ? `player:${Number(player.id)}`
+          : `pos:${player.x}:${player.y}`;
+        const lastSpawnTick = this.lastSpawnTickByPlayer.get(spawnKey);
+        if (
+          typeof lastSpawnTick === 'number' &&
+          newTick - lastSpawnTick < env.SPAWN_COOLDOWN_TICKS
+        ) {
           this.logger.debug(
-            `moveMonster(${m.id}) failed: ${err instanceof Error ? err.message : err}`,
+            `Tick ${newTick}: Skipping density enforcement for ${spawnKey} (cooldown ${env.SPAWN_COOLDOWN_TICKS} ticks).`,
           );
+          continue;
+        }
+        const { spawned, report } =
+          await this.populationService.enforceDensityAround(
+            player.x,
+            player.y,
+            12,
+            6,
+          );
+        monstersSpawned += spawned;
+        if (spawned > 0) {
+          this.logger.debug(
+            `Tick ${newTick}: Spawned ${spawned} monster(s) near player ${player.id} at (${player.x},${player.y}).`,
+          );
+          this.lastSpawnTickByPlayer.set(spawnKey, newTick);
+        }
+        if (report.length) {
+          const lines = report
+            .filter((r) => r.spawned > 0 || r.deficit > 0)
+            .map(
+              (r) =>
+                `${r.biome}: tiles=${r.tiles} target=${r.targetCount} current=${r.current} deficit=${r.deficit} spawned=${r.spawned}`,
+            )
+            .join(' | ');
+          if (lines) {
+            this.logger.debug(
+              `Density around (${player.x},${player.y}) -> ${lines}`,
+            );
+          }
         }
       }
-      return undefined as unknown as void;
-    });
+
+      // 2) Move monsters near active players only, partitioned by ID and capped by budget
+      const candidateById = new Map<number, { id: number }>();
+      for (const p of activePlayers) {
+        const minX = p.x - ACTIVE_RADIUS;
+        const maxX = p.x + ACTIVE_RADIUS;
+        const minY = p.y - ACTIVE_RADIUS;
+        const maxY = p.y + ACTIVE_RADIUS;
+        const nearby = await this.monsterService.getMonstersInBounds(
+          minX,
+          maxX,
+          minY,
+          maxY,
+        );
+        for (const m of nearby) {
+          // partition monsters across ticks to avoid hotspotting
+          if (m.id % MOVEMENT_PARTITIONS !== newTick % MOVEMENT_PARTITIONS)
+            continue;
+          candidateById.set(m.id, { id: m.id });
+        }
+      }
+
+      const candidates = Array.from(candidateById.values());
+      // Randomize order
+      for (let i = candidates.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+      }
+
+      const toAttempt = candidates.slice(0, MOVEMENT_BUDGET);
+      if (toAttempt.length === 0) {
+        this.logger.debug(
+          `Tick ${newTick}: No monsters eligible for movement near active players.`,
+        );
+      }
+      await withConcurrency(toAttempt, MOVEMENT_CONCURRENCY, async (m) => {
+        if (Math.random() < MOVEMENT_CHANCE) {
+          try {
+            await this.monsterService.moveMonster(m.id);
+            monstersMoved++;
+          } catch (err) {
+            this.logger.debug(
+              `moveMonster(${m.id}) failed: ${err instanceof Error ? err.message : err}`,
+            );
+          }
+        }
+        return undefined as unknown as void;
+      });
+    }
 
     // 3) Cleanup dead monsters periodically
 
@@ -178,6 +215,10 @@ export class GameTickService {
         });
       }
     }
+
+    this.logger.debug(
+      `Tick ${newTick} summary: spawned=${monstersSpawned}, moved=${monstersMoved}, weatherUpdated=${weatherUpdated}.`,
+    );
 
     return {
       tick: newTick,

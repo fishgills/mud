@@ -10,11 +10,18 @@ type PlayerStatsFormatOptions = {
 const displayValue = (value: unknown) =>
   value === undefined || value === null ? '—' : String(value);
 
-const attributeWithModifier = (value: number | null | undefined): string => {
+const getAbilityModifier = (value: number | null | undefined): number | null => {
   if (value == null) {
+    return null;
+  }
+  return Math.floor((value - 10) / 2);
+};
+
+const attributeWithModifier = (value: number | null | undefined): string => {
+  const modifier = getAbilityModifier(value);
+  if (value == null || modifier == null) {
     return '—';
   }
-  const modifier = Math.floor((value - 10) / 2);
   const sign = modifier >= 0 ? '+' : '';
   return `${value} (${sign}${modifier})`;
 };
@@ -33,6 +40,49 @@ const attributeWithGearBonus = (
     text += ` (base ${value}, ${bonusSign}${gearBonus} gear)`;
   }
   return text;
+};
+
+const formatSignedValue = (value: number): string => {
+  if (value === 0) {
+    return '0';
+  }
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${value}`;
+};
+
+const formatAttackOrDamageStat = (
+  base: number | null,
+  gearBonus: number,
+): string => {
+  if (base == null) {
+    return '—';
+  }
+  const total = base + gearBonus;
+  const totalText = formatSignedValue(total);
+  const baseText = formatSignedValue(base);
+  if (gearBonus === 0) {
+    return `${totalText} (base ${baseText})`;
+  }
+  const gearText = `${gearBonus > 0 ? '+' : ''}${gearBonus} gear`;
+  return `${totalText} (base ${baseText}, ${gearText})`;
+};
+
+const formatArmorStat = (
+  agility: number | null | undefined,
+  armorBonus: number,
+): string => {
+  const modifier = getAbilityModifier(agility);
+  if (modifier == null) {
+    return '—';
+  }
+  const baseArmor = 10 + modifier;
+  const totalArmor = baseArmor + armorBonus;
+  const baseText = `${baseArmor}`;
+  if (armorBonus === 0) {
+    return `${totalArmor} (base ${baseText})`;
+  }
+  const gearText = `${armorBonus > 0 ? '+' : ''}${armorBonus} gear`;
+  return `${totalArmor} (base ${baseText}, ${gearText})`;
 };
 
 const buildActionsBlock = (skillPoints: number): (KnownBlock | Block)[] => {
@@ -136,6 +186,38 @@ export function buildPlayerStatsMessage(
           player.health,
           player.equipmentTotals?.vitalityBonus ?? 0,
         )}`,
+      },
+    ],
+  });
+
+  const equipmentTotals = player.equipmentTotals ?? null;
+  const attackBonus = equipmentTotals?.attackBonus ?? 0;
+  const damageBonus = equipmentTotals?.damageBonus ?? 0;
+  const armorBonus = equipmentTotals?.armorBonus ?? 0;
+  const baseAttackModifier = getAbilityModifier(player.strength);
+  const baseDamageModifier = getAbilityModifier(player.strength);
+  const armorText = formatArmorStat(player.agility, armorBonus);
+
+  blocks.push({
+    type: 'section',
+    fields: [
+      {
+        type: 'mrkdwn',
+        text: `*Attack*\n${formatAttackOrDamageStat(
+          baseAttackModifier,
+          attackBonus,
+        )}`,
+      },
+      {
+        type: 'mrkdwn',
+        text: `*Damage*\n${formatAttackOrDamageStat(
+          baseDamageModifier,
+          damageBonus,
+        )}`,
+      },
+      {
+        type: 'mrkdwn',
+        text: `*Armor*\n${armorText}`,
       },
     ],
   });

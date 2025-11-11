@@ -4,6 +4,8 @@ import {
   Logger,
   BadRequestException,
   ConflictException,
+  OnModuleInit,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import {
   getPrismaClient,
@@ -11,7 +13,11 @@ import {
   Player,
   Prisma,
 } from '@mud/database';
-import { EventBus, type PlayerRespawnEvent } from '../../shared/event-bus';
+import {
+  EventBus,
+  type PlayerRespawnEvent,
+  type PlayerActivityEvent,
+} from '../../shared/event-bus';
 import {
   CreatePlayerDto,
   MovePlayerDto,
@@ -21,9 +27,10 @@ import { WorldService } from '../world/world.service';
 import { isWaterBiome } from '../shared/biome.util';
 import { DiceRoll } from '@dice-roller/rpg-dice-roller';
 import { PlayerItemService } from './player-item.service';
+import { env } from '../../env';
 
 @Injectable()
-export class PlayerService {
+export class PlayerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlayerService.name);
   private prisma = getPrismaClient();
 
@@ -31,11 +38,42 @@ export class PlayerService {
   private readonly SKILL_POINTS_PER_INTERVAL = 2;
   private readonly HIT_DIE_MAX = 10;
   private readonly HIT_DIE_AVERAGE = 6; // Average roll for a d10
+  private activityUnsubscribe?: () => void;
 
   constructor(
     private readonly worldService: WorldService,
     private readonly playerItemService: PlayerItemService,
   ) {}
+
+  onModuleInit(): void {
+    this.activityUnsubscribe = EventBus.on(
+      'player:activity',
+      (event) => this.handlePlayerActivity(event as PlayerActivityEvent),
+    );
+  }
+
+  onModuleDestroy(): void {
+    if (this.activityUnsubscribe) {
+      this.activityUnsubscribe();
+      this.activityUnsubscribe = undefined;
+    }
+  }
+
+  private async handlePlayerActivity(event: PlayerActivityEvent): Promise<void> {
+    if (!event.playerId) {
+      return;
+    }
+
+    try {
+      await this.updateLastAction(event.playerId);
+    } catch (err) {
+      const reason = event.source ?? 'unknown';
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `Failed to record activity for player ${event.playerId} (source=${reason}): ${message}`,
+      );
+    }
+  }
 
   /**
    * Get top players by level and XP, optionally filtered by team/workspace
@@ -255,6 +293,25 @@ export class PlayerService {
     return count > 0;
   }
 
+  async getActivePlayers(
+    minutesThreshold: number = env.ACTIVE_PLAYER_WINDOW_MINUTES,
+  ): Promise<Player[]> {
+    const windowMinutes = Math.max(0, minutesThreshold ?? 0);
+    if (windowMinutes === 0) {
+      return this.prisma.player.findMany({ where: { isAlive: true } });
+    }
+
+    const cutoff = new Date(Date.now() - windowMinutes * 60 * 1000);
+    return this.prisma.player.findMany({
+      where: {
+        isAlive: true,
+        lastAction: {
+          gte: cutoff,
+        },
+      },
+    });
+  }
+
   async movePlayer(
     teamId: string,
     userId: string,
@@ -347,14 +404,39 @@ export class PlayerService {
       where: { id: player.id },
     });
     if (dbPlayer) {
-      await EventBus.emit({
+      const timestamp = new Date();
+      const moveEvent = {
         eventType: 'player:move',
         player: dbPlayer,
         fromX: oldX,
         fromY: oldY,
         toX: newX,
         toY: newY,
-        timestamp: new Date(),
+        timestamp,
+      } as const;
+      await EventBus.emit(moveEvent);
+
+      const metadata: Record<string, unknown> = {
+        fromX: oldX,
+        fromY: oldY,
+        toX: newX,
+        toY: newY,
+      };
+      if (moveDto.direction) {
+        metadata.direction = moveDto.direction;
+      }
+      if (!hasX && !hasY && typeof moveDto.distance === 'number') {
+        metadata.distance = moveDto.distance;
+      }
+
+      await EventBus.emit({
+        eventType: 'player:activity',
+        playerId: dbPlayer.id,
+        teamId,
+        userId,
+        source: 'player:move',
+        metadata,
+        timestamp,
       });
     }
 

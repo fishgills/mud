@@ -672,6 +672,20 @@ export class CombatService {
 
       perf.loadCombatantsMs = Date.now() - loadStart;
 
+      if (attacker.type === 'player') {
+        const inferredOrigin =
+          options.attackOrigin ??
+          (defender.type === 'monster'
+            ? AttackOrigin.TEXT_PVE
+            : AttackOrigin.TEXT_PVP);
+        void this.emitPlayerActivityEvent(attacker, 'combat:attack', {
+          attackOrigin: inferredOrigin,
+          targetType: defender.type,
+          targetId: defender.id,
+          targetName: defender.name,
+        });
+      }
+
       this.logger.debug(
         `Combatants loaded: ${attacker.name} (${attacker.hp} HP) vs ${defender.name} (${defender.hp} HP)`,
       );
@@ -953,5 +967,36 @@ export class CombatService {
       orderBy: { timestamp: 'desc' },
       take: limit,
     });
+  }
+
+  private async emitPlayerActivityEvent(
+    combatant: Combatant,
+    source: string,
+    metadata: Record<string, unknown> = {},
+  ): Promise<void> {
+    if (combatant.type !== 'player') {
+      return;
+    }
+
+    const teamId =
+      combatant.slackUser?.teamId ?? combatant.identifier?.teamId;
+    const userId =
+      combatant.slackUser?.userId ?? combatant.identifier?.userId;
+
+    try {
+      await EventBus.emit({
+        eventType: 'player:activity',
+        playerId: combatant.id,
+        teamId,
+        userId,
+        source,
+        metadata,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to emit player activity for combatant ${combatant.id} (${source}): ${error instanceof Error ? error.message : error}`,
+      );
+    }
   }
 }

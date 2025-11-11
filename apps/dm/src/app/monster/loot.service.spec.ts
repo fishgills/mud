@@ -30,9 +30,16 @@ jest.mock('../../shared/event-bus', () => {
   };
 });
 
-jest.mock('@mud/database', () => ({
-  PrismaClient: jest.fn(),
-}));
+jest.mock('@mud/database', () => {
+  const actual = jest.requireActual<typeof import('@mud/database')>(
+    '@mud/database',
+  );
+  const PrismaClientMock = jest.fn();
+  return {
+    ...actual,
+    PrismaClient: PrismaClientMock,
+  };
+});
 
 jest.mock('./loot-generator', () => ({
   LootGenerator: jest.fn(),

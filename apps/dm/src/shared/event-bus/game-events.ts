@@ -3,6 +3,7 @@ export type {
   BaseGameEvent,
   PlayerSpawnEvent,
   PlayerMoveEvent,
+  PlayerActivityEvent,
   PlayerDeathEvent,
   PlayerRespawnEvent,
   PlayerLevelUpEvent,

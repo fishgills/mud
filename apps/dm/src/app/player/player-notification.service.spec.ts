@@ -95,4 +95,35 @@ describe('PlayerNotificationService', () => {
 
     expect(eventBridge.publishPlayerNotification).not.toHaveBeenCalled();
   });
+
+  it('cleans up subscriptions on destroy and logs unsubscribe errors', () => {
+    const unsubscribeSpy = jest.fn();
+    (EventBus.on as jest.Mock).mockImplementationOnce((eventType, callback) => {
+      listener = callback as (event: PlayerRespawnEvent) => Promise<void>;
+      return unsubscribeSpy;
+    });
+    service.onModuleInit();
+
+    const failingUnsub = jest.fn(() => {
+      throw new Error('boom');
+    });
+    (service as unknown as { subscriptions: Array<() => void> }).subscriptions.push(
+      failingUnsub,
+    );
+
+    const errorSpy = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+
+    service.onModuleDestroy();
+
+    expect(unsubscribeSpy).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error unsubscribing from event listener',
+      expect.any(Error),
+    );
+    expect(
+      (service as unknown as { subscriptions: Array<() => void> }).subscriptions,
+    ).toHaveLength(0);
+  });
 });

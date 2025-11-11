@@ -27,6 +27,15 @@ export interface PlayerMoveEvent extends BaseGameEvent {
   direction?: string;
 }
 
+export interface PlayerActivityEvent extends BaseGameEvent {
+  eventType: 'player:activity';
+  playerId: number;
+  teamId?: string;
+  userId?: string;
+  source?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface PlayerDeathEvent extends BaseGameEvent {
   eventType: 'player:death';
   player: Player;
@@ -206,6 +215,7 @@ export interface TimeTickEvent extends BaseGameEvent {
 export type GameEvent =
   | PlayerSpawnEvent
   | PlayerMoveEvent
+  | PlayerActivityEvent
   | PlayerDeathEvent
   | PlayerRespawnEvent
   | PlayerLevelUpEvent

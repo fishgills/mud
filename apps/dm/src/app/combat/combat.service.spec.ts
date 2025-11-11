@@ -2,6 +2,12 @@ import { CombatService } from './combat.service';
 import { AttackOrigin } from '../api/dto/player-requests.dto';
 import { calculateEquipmentEffects } from '../player/equipment.effects';
 
+jest.mock('../../shared/event-bus', () => ({
+  EventBus: {
+    emit: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 const createPlayerService = () => ({
   getPlayer: jest.fn(),
   getPlayersAtLocation: jest.fn(),
@@ -51,12 +57,15 @@ describe('CombatService', () => {
   let playerService: ReturnType<typeof createPlayerService>;
   let aiService: ReturnType<typeof createAiService>;
   let eventBridge: ReturnType<typeof createEventBridge>;
-  const { runCombat } = jest.requireMock('./engine') as {
-    runCombat: jest.Mock;
-  };
-  const { applyCombatResults } = jest.requireMock('./results') as {
-    applyCombatResults: jest.Mock;
-  };
+const { runCombat } = jest.requireMock('./engine') as {
+  runCombat: jest.Mock;
+};
+const { applyCombatResults } = jest.requireMock('./results') as {
+  applyCombatResults: jest.Mock;
+};
+const { EventBus } = jest.requireMock('../../shared/event-bus') as {
+  EventBus: { emit: jest.Mock };
+};
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2024-01-01T00:00:00Z'));
@@ -76,6 +85,7 @@ describe('CombatService', () => {
     jest.useRealTimers();
     jest.restoreAllMocks();
     jest.clearAllMocks();
+    EventBus.emit.mockClear();
   });
 
   const buildCombatant = (overrides: Partial<Record<string, unknown>> = {}) => ({
@@ -210,6 +220,30 @@ describe('CombatService', () => {
 
       expect(narrative.metrics).toContain('Hero');
       expect(narrative.rounds[0]).toContain('HIT');
+    });
+  });
+
+  describe('player activity tracking', () => {
+    it('emits player activity events for combatants', async () => {
+      const combatant = buildCombatant({ id: 42 });
+      await (service as any).emitPlayerActivityEvent(combatant, 'combat:test', {
+        targetType: 'monster',
+      });
+
+      expect(EventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'player:activity',
+          playerId: 42,
+          source: 'combat:test',
+          metadata: { targetType: 'monster' },
+        }),
+      );
+    });
+
+    it('skips activity emission for non-player combatants', async () => {
+      const monster = buildCombatant({ type: 'monster', id: 7 });
+      await (service as any).emitPlayerActivityEvent(monster, 'combat:test');
+      expect(EventBus.emit).not.toHaveBeenCalled();
     });
   });
 });

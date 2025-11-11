@@ -6,11 +6,6 @@ import { EventBus } from '../../shared/event-bus';
 import type { PlayerMoveEvent } from '../../shared/event-bus';
 import type { MonsterEntity } from '@mud/engine';
 
-// Mock database package
-jest.mock('@mud/database', () => ({
-  getPrismaClient: jest.fn(),
-}));
-
 // Mock EventBus
 jest.mock('../../shared/event-bus', () => ({
   EventBus: {

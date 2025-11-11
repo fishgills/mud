@@ -101,9 +101,71 @@ describe('buildPlayerStatsMessage', () => {
       expect(sectionBlocks.length).toBeGreaterThan(0);
     });
   });
+
+  describe('combat stat breakdowns', () => {
+    it('should show attack, damage, and armor with base and gear contributions', () => {
+      const player = createMockPlayer({
+        strength: 14,
+        agility: 12,
+        equipmentTotals: {
+          attackBonus: 3,
+          damageBonus: 5,
+          armorBonus: 2,
+          vitalityBonus: 0,
+        },
+      });
+      const result = buildPlayerStatsMessage(player);
+
+      const attackField = findFieldText(result.blocks, '*Attack*');
+      const damageField = findFieldText(result.blocks, '*Damage*');
+      const armorField = findFieldText(result.blocks, '*Armor*');
+
+      expect(attackField).toContain('+5 (base +2, +3 gear)');
+      expect(damageField).toContain('+7 (base +2, +5 gear)');
+      expect(armorField).toContain('13 (base 11, +2 gear)');
+    });
+
+    it('should show base attack/damage/armor even without gear bonuses', () => {
+      const player = createMockPlayer({
+        strength: 16,
+        agility: 10,
+        equipmentTotals: {
+          attackBonus: 0,
+          damageBonus: 0,
+          armorBonus: 0,
+          vitalityBonus: 0,
+        },
+      });
+      const result = buildPlayerStatsMessage(player);
+
+      const attackField = findFieldText(result.blocks, '*Attack*');
+      const damageField = findFieldText(result.blocks, '*Damage*');
+      const armorField = findFieldText(result.blocks, '*Armor*');
+
+      expect(attackField).toContain('+3 (base +3)');
+      expect(damageField).toContain('+3 (base +3)');
+      expect(armorField).toContain('10 (base 10)');
+    });
+  });
 });
 const isActionsBlock = (block: KnownBlock | Block): block is ActionsBlock =>
   block.type === 'actions';
 
 const isSectionBlock = (block: KnownBlock | Block): block is SectionBlock =>
   block.type === 'section';
+
+const findFieldText = (
+  blocks: (KnownBlock | Block)[] | undefined,
+  label: string,
+): string | undefined => {
+  if (!blocks) return undefined;
+  for (const block of blocks) {
+    if (!isSectionBlock(block)) continue;
+    for (const field of block.fields ?? []) {
+      if ('text' in field && field.text.includes(label)) {
+        return field.text;
+      }
+    }
+  }
+  return undefined;
+};

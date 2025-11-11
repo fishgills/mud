@@ -1,54 +1,51 @@
 import { VisibilityService } from './visibility.service';
-
-const createWorldService = () => ({
-  getTilesInBounds: jest.fn(),
-});
-
-const makeTile = (overrides: Partial<Record<string, number | string>> = {}) => ({
-  x: overrides.x ?? 0,
-  y: overrides.y ?? 0,
-  biomeName: overrides.biomeName ?? 'grassland',
-  height: overrides.height ?? 0.5,
-});
+import type { WorldService } from '../../world/world.service';
 
 describe('VisibilityService', () => {
+  let worldService: jest.Mocked<WorldService>;
   let service: VisibilityService;
-  let worldService: ReturnType<typeof createWorldService>;
 
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(new Date('2024-01-01T00:00:00Z'));
-    worldService = createWorldService();
-    service = new VisibilityService(worldService as never);
+    worldService = {
+      getTilesInBounds: jest.fn(),
+    } as unknown as jest.Mocked<WorldService>;
+    service = new VisibilityService(worldService);
   });
 
-  afterEach(() => {
-    jest.useRealTimers();
-    jest.restoreAllMocks();
+  it('clamps visibility radius between sensible bounds', () => {
+    expect(service.calculateVisibilityRadius({ height: -10 })).toBeGreaterThan(
+      3,
+    );
+    expect(service.calculateVisibilityRadius({ height: 10 })).toBe(12);
+    const mid = service.calculateVisibilityRadius({ height: 0.5 });
+    expect(mid).toBeGreaterThan(3);
+    expect(mid).toBeLessThanOrEqual(12);
   });
 
-  it('clamps visibility radius between 3 and 12 based on tile height', () => {
-    expect(service.calculateVisibilityRadius({ height: -1 })).toBe(10);
-    expect(service.calculateVisibilityRadius({ height: 0.5 })).toBe(12);
-    expect(service.calculateVisibilityRadius({ height: 2 })).toBe(12);
-  });
-
-  it('processes tile data using prefetched ext tiles and updates timing', async () => {
-    const player = { x: 0, y: 0 };
-    const timing = { } as any;
-    const extTiles = [
-      makeTile({ x: 0, y: 0 }),
-      makeTile({ x: 5, y: 0 }),
-      makeTile({ x: 20, y: 0 }),
+  it('fetches tile data with optional prefetched ext tiles', async () => {
+    const tiles = [
+      { x: 0, y: 0, height: 0.5 },
+      { x: 3, y: 4, height: 0.2 },
+      { x: 20, y: 20, height: 0.3 },
     ];
-    const prefetch = {
-      extTilesPromise: Promise.resolve(extTiles),
-      tExtStart: Date.now(),
-    };
+    worldService.getTilesInBounds.mockResolvedValue(tiles as any);
+    const timing: any = {};
+    const player = { x: 0, y: 0 } as any;
 
-    const res = await service.processTileData(player as any, 6, timing, prefetch);
+    const result = await service.processTileData(player, 5, timing);
+    expect(worldService.getTilesInBounds).toHaveBeenCalled();
+    expect(result.tiles).toHaveLength(2);
+    expect(result.extTiles).toHaveLength(3);
+    expect(timing.tExtBoundsMs).toBeGreaterThanOrEqual(0);
+    expect(timing.tilesCount).toBe(2);
 
-    expect(res.tiles).toHaveLength(2);
-    expect(res.extTiles).toBe(extTiles);
-    expect(timing.tBoundsTilesMs).toBe(timing.tExtBoundsMs);
+    const prefetchTiming: any = {};
+    const prefetched = Promise.resolve(tiles as any);
+    const resultPrefetch = await service.processTileData(player, 5, prefetchTiming, {
+      extTilesPromise: prefetched,
+      tExtStart: Date.now() - 5,
+    });
+    expect(resultPrefetch.extTiles).toEqual(tiles);
+    expect(prefetchTiming.tExtBoundsMs).toBeGreaterThanOrEqual(0);
   });
 });

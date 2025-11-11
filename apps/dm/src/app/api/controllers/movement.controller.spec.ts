@@ -1,5 +1,12 @@
 import { MovementController } from './movement.controller';
 import { BadRequestException } from '@nestjs/common';
+import { EventBus } from '../../../shared/event-bus';
+
+jest.mock('../../../shared/event-bus', () => ({
+  EventBus: {
+    emit: jest.fn().mockResolvedValue(undefined),
+  },
+}));
 
 const createPlayerService = () => ({
   getPlayer: jest.fn(),
@@ -27,6 +34,7 @@ describe('MovementController', () => {
   let playerService: ReturnType<typeof createPlayerService>;
   let worldService: ReturnType<typeof createWorldService>;
   let monsterService: ReturnType<typeof createMonsterService>;
+  const eventBusEmit = EventBus.emit as jest.Mock;
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2024-01-01T00:00:00Z'));
@@ -49,6 +57,7 @@ describe('MovementController', () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.resetAllMocks();
+    eventBusEmit.mockResolvedValue(undefined);
   });
 
   describe('sniffNearestMonster', () => {
@@ -70,7 +79,13 @@ describe('MovementController', () => {
       expect(response.success).toBe(true);
       expect(response.message).toContain("can't catch any monster scent");
       expect(response.data?.detectionRadius).toBe(2);
-      expect(playerService.updateLastAction).toHaveBeenCalledWith(1);
+      expect(eventBusEmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'player:activity',
+          playerId: 1,
+          source: 'movement:sniff',
+        }),
+      );
     });
 
     it('describes nearest monster and settlement sentence', async () => {
@@ -150,6 +165,106 @@ describe('MovementController', () => {
       expect(response.success).toBe(false);
       expect(response.player?.name).toBe('Hero');
       expect(response.message).toBe('blocked');
+    });
+  });
+
+  describe('helper behavior', () => {
+    it('categorizes distance buckets with readable labels', () => {
+      const describe = (controller as unknown as {
+        describeDistance: (d?: number | null) => {
+          proximity: string;
+          label: string;
+        };
+      }).describeDistance.bind(controller);
+
+      expect(describe(undefined)).toMatchObject({
+        proximity: 'unknown',
+        label: 'nearby',
+      });
+      expect(describe(0.5).proximity).toBe('immediate');
+      expect(describe(1).proximity).toBe('close');
+      expect(describe(2).proximity).toBe('near');
+      expect(describe(5).proximity).toBe('far');
+      expect(describe(10).proximity).toBe('distant');
+    });
+
+    it('selects nearest settlement prioritizing current location', () => {
+      const helper = controller as unknown as {
+        resolveNearestSettlement: typeof MovementController.prototype['resolveNearestSettlement'];
+      };
+      const result = helper.resolveNearestSettlement(
+        0,
+        0,
+        [
+          {
+            name: 'Harbor',
+            x: 4,
+            y: 0,
+            distance: 4,
+            type: 'village',
+            size: 'small',
+            population: 10,
+            description: 'coast',
+          },
+          {
+            name: 'Citadel',
+            x: -2,
+            y: -2,
+            distance: 3,
+            type: 'fort',
+            size: 'large',
+            population: 200,
+            description: 'walls',
+          },
+        ],
+        {
+          name: 'Home',
+          x: 0,
+          y: 0,
+          distance: 0,
+          type: 'town',
+          size: 'medium',
+          population: 50,
+          isCurrent: true,
+          description: null,
+        },
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.name).toBe('Home');
+      expect(result?.isCurrent).toBe(true);
+      expect(result?.proximity).toBe('immediate');
+      expect(result?.distanceLabel).toBe('right under your nose');
+
+      const fallback = helper.resolveNearestSettlement(
+        0,
+        0,
+        [
+          {
+            name: 'Harbor',
+            x: 4,
+            y: 0,
+            type: 'village',
+            size: 'small',
+            population: 10,
+            description: 'coast',
+          },
+          {
+            name: 'Citadel',
+            x: 1,
+            y: 1,
+            type: 'fort',
+            size: 'large',
+            population: 200,
+            description: 'walls',
+          },
+        ],
+        undefined,
+      );
+
+      expect(fallback?.name).toBe('Citadel');
+      expect(fallback?.direction).toMatch(/north|east/);
+      expect(fallback?.proximity).toBe('close');
     });
   });
 });

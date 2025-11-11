@@ -61,14 +61,12 @@ const mockPrisma = {
 };
 
 jest.mock('@mud/database', () => {
-  const mockPlayerSlot = {
-    head: 'head',
-    weapon: 'weapon',
-    chest: 'chest',
-  };
+  const actual = jest.requireActual<typeof import('@mud/database')>(
+    '@mud/database',
+  );
   return {
+    ...actual,
     getPrismaClient: () => mockPrisma,
-    PlayerSlot: mockPlayerSlot,
   };
 });
 

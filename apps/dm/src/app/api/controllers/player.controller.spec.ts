@@ -1,6 +1,7 @@
 import { PlayersController } from './player.controller';
 import { BadRequestException } from '@nestjs/common';
 import { AttackOrigin, TargetType } from '../dto/player-requests.dto';
+import { AppError, ErrCodes } from '../../errors/app-error';
 
 const createPlayerService = () => ({
   createPlayer: jest.fn(),
@@ -16,11 +17,24 @@ const createPlayerService = () => ({
   movePlayer: jest.fn(),
   updateLastAction: jest.fn().mockResolvedValue(undefined),
   getTopPlayers: jest.fn(),
+  deletePlayer: jest.fn(),
+  recalculatePlayerHitPointsFromEquipment: jest.fn(),
 });
 
 const createCombatService = () => ({
   playerAttackMonster: jest.fn(),
   playerAttackPlayer: jest.fn(),
+  getCombatLogForLocation: jest.fn(),
+});
+
+const createPlayerItemService = () => ({
+  getEquipmentTotals: jest.fn(),
+  listBag: jest.fn(),
+  listWorldItemsAtLocation: jest.fn(),
+  pickup: jest.fn(),
+  equip: jest.fn(),
+  drop: jest.fn(),
+  unequip: jest.fn(),
 });
 
 const noopService = () => ({});
@@ -29,17 +43,19 @@ describe('PlayersController', () => {
   let controller: PlayersController;
   let playerService: ReturnType<typeof createPlayerService>;
   let combatService: ReturnType<typeof createCombatService>;
+  let playerItemService: ReturnType<typeof createPlayerItemService>;
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2024-01-01T00:00:00Z'));
     playerService = createPlayerService();
     combatService = createCombatService();
+    playerItemService = createPlayerItemService();
     controller = new PlayersController(
       playerService as never,
       noopService() as never,
       combatService as never,
       noopService() as never,
-      noopService() as never,
+      playerItemService as never,
     );
   });
 
@@ -104,6 +120,44 @@ describe('PlayersController', () => {
     );
   });
 
+  it('returns leaderboard data and surfaces failures', async () => {
+    const players = [{ id: 1 }];
+    playerService.getTopPlayers.mockResolvedValue(players as never);
+
+    const success = await controller.getLeaderboard('5', 'T1');
+    expect(success).toEqual({ success: true, data: players });
+    expect(playerService.getTopPlayers).toHaveBeenCalledWith(5, 'T1');
+
+    playerService.getTopPlayers.mockRejectedValue(new Error('nope'));
+    const failure = await controller.getLeaderboard('5');
+    expect(failure).toEqual({ success: false });
+  });
+
+  it('returns player data with equipment totals', async () => {
+    const player = { id: 7, name: 'Hero' };
+    playerService.getPlayer.mockResolvedValue(player as never);
+    playerItemService.getEquipmentTotals.mockResolvedValue({ attackBonus: 2 });
+
+    const response = await controller.getPlayer('T1', 'U1');
+
+    expect(response.success).toBe(true);
+    expect(response.data).toMatchObject({
+      id: 7,
+      equipmentTotals: { attackBonus: 2 },
+    });
+  });
+
+  it('lists all players and players at a coordinate', async () => {
+    const all = [{ id: 1 }];
+    playerService.getAllPlayers.mockResolvedValue(all as never);
+    expect(await controller.getAllPlayers()).toBe(all);
+
+    playerService.getPlayersAtLocation.mockResolvedValue(all as never);
+    const located = await controller.getPlayersAtLocation('3', '4');
+    expect(playerService.getPlayersAtLocation).toHaveBeenCalledWith(3, 4);
+    expect(located).toBe(all);
+  });
+
   it('updates stats when payload is valid and bubbles errors otherwise', async () => {
     const updated = { id: 1, hp: 10 };
     playerService.updatePlayerStats.mockResolvedValue(updated);
@@ -125,10 +179,59 @@ describe('PlayersController', () => {
     expect(fail).toEqual({ success: false, message: 'nope' });
   });
 
+  it('requires identity when updating stats', async () => {
+    await expect(
+      controller.updatePlayerStats({ userId: 'U1', input: {} }),
+    ).rejects.toThrow('teamId and userId are required');
+  });
+
   it('requires attribute for spendSkillPoint', async () => {
     await expect(
       controller.spendSkillPoint({ teamId: 'T1', userId: 'U1' } as never),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('spends skill points, rerolls, heals, damages, respawns, and deletes', async () => {
+    const player = { id: 1, name: 'Hero' };
+    playerService.spendSkillPoint.mockResolvedValue(player as never);
+    expect(
+      await controller.spendSkillPoint({
+        teamId: 'T1',
+        userId: 'U1',
+        attribute: 'strength',
+      }),
+    ).toEqual({ success: true, data: player });
+
+    playerService.rerollPlayerStats.mockResolvedValue(player as never);
+    expect(
+      await controller.rerollPlayerStats({ teamId: 'T1', userId: 'U1' }),
+    ).toEqual({ success: true, data: player });
+
+    playerService.healPlayer.mockResolvedValue({ ...player, hp: 5 } as never);
+    expect(
+      await controller.healPlayer({ teamId: 'T1', userId: 'U1', amount: 5 }),
+    ).toEqual({ success: true, data: { ...player, hp: 5 } });
+
+    playerService.damagePlayer.mockResolvedValue({ ...player, hp: 0 } as never);
+    expect(
+      await controller.damagePlayer({ teamId: 'T1', userId: 'U1', damage: 2 }),
+    ).toEqual({ success: true, data: { ...player, hp: 0 } });
+
+    playerService.respawnPlayer.mockResolvedValue(player as never);
+    expect(
+      await controller.respawn({ teamId: 'T1', userId: 'U1' }),
+    ).toEqual({
+      success: true,
+      data: player,
+      message: 'You have been resurrected at the starting location!',
+    });
+
+    playerService.deletePlayer.mockResolvedValue(player as never);
+    expect(await controller.deletePlayer('U1', 'T1')).toEqual({
+      success: true,
+      data: player,
+      message: 'Player deleted successfully',
+    });
   });
 
   it('validates numeric payloads for heal/damage', async () => {
@@ -207,5 +310,108 @@ describe('PlayersController', () => {
     );
     expect(response.success).toBe(true);
     expect(response.perf.attackOrigin).toBe(AttackOrigin.DROPDOWN_PVP);
+  });
+
+  it('returns stats with derived modifiers and combat logs', async () => {
+    const player = {
+      id: 1,
+      strength: 14,
+      agility: 12,
+      health: 10,
+      level: 3,
+      xp: 250,
+      x: 1,
+      y: 2,
+    };
+    playerService.getPlayer.mockResolvedValue(player as never);
+    combatService.getCombatLogForLocation.mockResolvedValue([{ id: 1 }]);
+
+    const stats = await controller.getPlayerStats('T1', 'U1');
+    expect(stats.strengthModifier).toBe(2);
+    expect(stats.xpNeeded).toBeGreaterThanOrEqual(0);
+    expect(combatService.getCombatLogForLocation).toHaveBeenCalledWith(1, 2);
+  });
+
+  it('lists player items and surfaces bag/allowed slot metadata', async () => {
+    const player = { id: 1, name: 'Hero' };
+    playerService.getPlayer.mockResolvedValue(player as never);
+    playerItemService.getEquipmentTotals.mockResolvedValue({ armorBonus: 1 });
+    playerItemService.listBag.mockResolvedValue([
+      { id: 10, playerId: 1, itemId: 5, equipped: false, item: { type: 'weapon', name: 'Sword' } },
+    ]);
+
+    const response = await controller.getPlayerItems('T1', 'U1');
+    expect(response.success).toBe(true);
+    expect(response.data?.bag?.[0]).toMatchObject({
+      allowedSlots: ['weapon'],
+      itemName: 'Sword',
+    });
+  });
+
+  it('handles pickup/equip/drop/unequip flows including AppErrors', async () => {
+    playerService.getPlayer.mockResolvedValue({ id: 1 } as never);
+    playerItemService.pickup.mockResolvedValue({ id: 20 });
+
+    const pickup = await controller.pickup({
+      teamId: 'T1',
+      userId: 'U1',
+      worldItemId: 5,
+    });
+    expect(playerItemService.pickup).toHaveBeenCalledWith(1, 5);
+    expect(pickup).toEqual({ success: true, data: { id: 20 } });
+
+    playerItemService.equip.mockResolvedValue({ id: 21 });
+    const equip = await controller.equip({
+      teamId: 'T1',
+      userId: 'U1',
+      playerItemId: 21,
+      slot: 'weapon',
+    });
+    expect(playerService.recalculatePlayerHitPointsFromEquipment).toHaveBeenCalledWith(1);
+    expect(equip.success).toBe(true);
+
+    playerItemService.drop.mockResolvedValue({ id: 30 });
+    const drop = await controller.drop({
+      teamId: 'T1',
+      userId: 'U1',
+      playerItemId: 30,
+    });
+    expect(drop.success).toBe(true);
+
+    playerItemService.unequip.mockResolvedValue({ id: 31 });
+    const unequip = await controller.unequip({
+      teamId: 'T1',
+      userId: 'U1',
+      playerItemId: 31,
+    });
+    expect(unequip.success).toBe(true);
+
+    const err = new AppError(ErrCodes.LOCKED, 'busy');
+    playerItemService.pickup.mockRejectedValue(err);
+    const pickupError = await controller.pickup({
+      teamId: 'T1',
+      userId: 'U1',
+      worldItemId: 6,
+    });
+    expect(pickupError).toEqual({
+      success: false,
+      message: 'busy',
+      code: ErrCodes.LOCKED,
+    });
+  });
+
+  it('validates pickup/equip payloads before hitting services', async () => {
+    expect(
+      await controller.pickup({ teamId: 'T1', userId: 'U1' } as never),
+    ).toEqual({ success: false, message: 'worldItemId is required' });
+
+    expect(
+      await controller.equip({
+        teamId: 'T1',
+        userId: 'U1',
+        slot: 'invalid',
+        playerItemId: 1,
+      } as never),
+    ).toEqual({ success: false, message: 'Invalid slot' });
   });
 });

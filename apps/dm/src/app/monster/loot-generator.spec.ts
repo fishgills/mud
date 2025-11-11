@@ -1,4 +1,5 @@
 import { LootGenerator } from './loot-generator';
+import { ITEM_TEMPLATES } from '@mud/constants';
 import type { PrismaClient, Item } from '@mud/database';
 
 const mockItem = (overrides: Partial<Item> = {}): Item => ({
@@ -34,7 +35,7 @@ describe('LootGenerator', () => {
     const drops = await generator.generateForMonster({ level: 3 });
 
     expect(prisma.item.findFirst).toHaveBeenCalledWith({
-      where: { name: 'Rusty Dagger' },
+      where: { name: ITEM_TEMPLATES[0]?.name },
     });
     expect(drops).toEqual([
       expect.objectContaining({

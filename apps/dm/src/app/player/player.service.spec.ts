@@ -1,6 +1,11 @@
 import { PlayerService } from './player.service';
 import type { Player } from '@mud/database';
 import { EventBus } from '../../shared/event-bus';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 
 const mockPrisma = {
   player: {
@@ -8,6 +13,14 @@ const mockPrisma = {
     update: jest.fn(),
     findUnique: jest.fn(),
     findMany: jest.fn(),
+    create: jest.fn(),
+    delete: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  slackUser: {
+    create: jest.fn(),
+    delete: jest.fn(),
+    deleteMany: jest.fn(),
   },
 };
 
@@ -106,6 +119,68 @@ describe('PlayerService', () => {
     });
   });
 
+  describe('getActivePlayers', () => {
+    it('queries alive players within the provided window', async () => {
+      const players = [{ id: 1 }];
+      mockPrisma.player.findMany.mockResolvedValue(players as never);
+
+      const result = await service.getActivePlayers(10);
+
+      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
+        where: {
+          isAlive: true,
+          lastAction: {
+            gte: new Date(Date.now() - 10 * 60 * 1000),
+          },
+        },
+      });
+      expect(result).toBe(players);
+    });
+
+    it('falls back to alive players when window is zero', async () => {
+      mockPrisma.player.findMany.mockResolvedValue([]);
+      await service.getActivePlayers(0);
+      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
+        where: { isAlive: true },
+      });
+    });
+  });
+
+  describe('getTopPlayers', () => {
+    it('filters leaderboard by team when provided', async () => {
+      const players = [makePlayer({ id: 42 })];
+      mockPrisma.player.findMany.mockResolvedValue(players);
+
+      const result = await service.getTopPlayers(5, 'T1');
+
+      expect(result).toBe(players);
+      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
+        where: { slackUser: { teamId: 'T1' } },
+        orderBy: [{ level: 'desc' }, { xp: 'desc' }],
+        take: 5,
+      });
+    });
+
+    it('uses defaults when team filter missing', async () => {
+      mockPrisma.player.findMany.mockResolvedValue([]);
+      await service.getTopPlayers();
+      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
+        where: {},
+        orderBy: [{ level: 'desc' }, { xp: 'desc' }],
+        take: 10,
+      });
+    });
+  });
+
+  describe('getPlayer', () => {
+    it('throws NotFoundException when lookup returns null', async () => {
+      mockFindPlayerBySlackUser.mockResolvedValue(null);
+      await expect(service.getPlayer('T1', 'U1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
   describe('movePlayer', () => {
     it('throws when requested distance exceeds agility', async () => {
       jest
@@ -139,6 +214,13 @@ describe('PlayerService', () => {
         expect.objectContaining({
           eventType: 'player:move',
           toY: 2,
+        }),
+      );
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'player:activity',
+          playerId: 1,
+          source: 'player:move',
         }),
       );
       expect(result.y).toBe(2);
@@ -208,6 +290,90 @@ describe('PlayerService', () => {
     it('calculates Euclidean distance', () => {
       const d = service.calculateDistance(0, 0, 3, 4);
       expect(d).toBe(5);
+    });
+  });
+
+  describe('createPlayer', () => {
+    const baseDto = {
+      teamId: 'T1',
+      userId: 'U1',
+      name: 'Newbie',
+      x: 2,
+      y: 3,
+    };
+
+    it('rejects when missing identity info', async () => {
+      await expect(
+        service.createPlayer({ ...baseDto, userId: '' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws ConflictException when player already exists', async () => {
+      jest.spyOn(service, 'getPlayer').mockResolvedValue(makePlayer());
+      await expect(service.createPlayer(baseDto as any)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockPrisma.player.create).not.toHaveBeenCalled();
+    });
+
+    it('creates player after generating stats and spawn location', async () => {
+      jest
+        .spyOn(service, 'getPlayer')
+        .mockRejectedValue(new NotFoundException());
+      jest
+        .spyOn(service as unknown as { findValidSpawnPosition: jest.Mock }, 'findValidSpawnPosition')
+        .mockResolvedValue({ x: 9, y: -4 });
+      jest
+        .spyOn(service as unknown as { generateRandomStats: () => any }, 'generateRandomStats')
+        .mockReturnValue({
+          strength: 15,
+          agility: 13,
+          health: 14,
+          maxHp: 12,
+        });
+      mockPrisma.player.create.mockResolvedValue({
+        id: 77,
+        name: baseDto.name,
+        x: 9,
+        y: -4,
+        hp: 12,
+        maxHp: 12,
+        strength: 15,
+        agility: 13,
+        health: 14,
+        level: 1,
+        skillPoints: 0,
+        gold: 0,
+        xp: 0,
+        isAlive: true,
+      });
+      mockPrisma.slackUser.create.mockResolvedValue(undefined);
+
+      const created = await service.createPlayer(baseDto as any);
+
+      expect(created.id).toBe(77);
+      expect(mockPrisma.player.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          name: baseDto.name,
+          x: 9,
+          y: -4,
+          strength: 15,
+          agility: 13,
+          health: 14,
+          hp: 12,
+          maxHp: 12,
+        }),
+      });
+      expect(mockPrisma.slackUser.create).toHaveBeenCalledWith({
+        data: { teamId: 'T1', userId: 'U1', playerId: 77 },
+      });
+      expect(
+        (
+          service as unknown as {
+            findValidSpawnPosition: jest.Mock;
+          }
+        ).findValidSpawnPosition,
+      ).toHaveBeenCalledWith(baseDto.x, baseDto.y);
     });
   });
 
@@ -344,6 +510,99 @@ describe('PlayerService', () => {
           player: expect.objectContaining({ id: player.id }),
         }),
       );
+    });
+  });
+
+  describe('respawnPlayer', () => {
+    it('restores health, relocates, and emits respawn event', async () => {
+      const player = makePlayer({ hp: 0, maxHp: 12, isAlive: false });
+      jest.spyOn(service, 'getPlayer').mockResolvedValue(player);
+      jest
+        .spyOn(service as unknown as { findValidSpawnPosition: jest.Mock }, 'findValidSpawnPosition')
+        .mockResolvedValue({ x: 25, y: -8 });
+      mockPrisma.player.update.mockResolvedValue(undefined);
+      mockPrisma.player.findUnique.mockResolvedValue({
+        ...player,
+        x: 25,
+        y: -8,
+        slackUser: { teamId: 'T1', userId: 'U1' },
+      });
+
+      const respawned = await service.respawnPlayer('T1', 'U1');
+
+      expect(respawned.isAlive).toBe(true);
+      expect(mockPrisma.player.update).toHaveBeenCalledWith({
+        where: { id: player.id },
+        data: expect.objectContaining({
+          x: 25,
+          y: -8,
+          isAlive: true,
+        }),
+      });
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ eventType: 'player:respawn' }),
+      );
+    });
+  });
+
+  describe('deletePlayer', () => {
+    it('removes slack mapping and returns associated player', async () => {
+      const linked = { player: makePlayer({ id: 99 }) };
+      mockPrisma.slackUser.delete.mockResolvedValue(linked);
+
+      const deleted = await service.deletePlayer('T1', 'U1');
+
+      expect(deleted).toBe(linked.player);
+      expect(mockPrisma.slackUser.delete).toHaveBeenCalledWith({
+        where: { teamId_userId: { teamId: 'T1', userId: 'U1' } },
+        include: { player: true },
+      });
+    });
+  });
+
+  describe('player lookups', () => {
+    it('retrieves players at a location with filters applied', async () => {
+      const rows = [makePlayer({ id: 4 })];
+      mockPrisma.player.findMany.mockResolvedValue(rows);
+
+      const result = await service.getPlayersAtLocation(3, 7, {
+        excludePlayerId: 2,
+        aliveOnly: false,
+      });
+
+      expect(result).toBe(rows);
+      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
+        where: {
+          x: 3,
+          y: 7,
+          isAlive: false,
+          NOT: { id: 2 },
+        },
+        include: { slackUser: true },
+      });
+    });
+
+    it('lists nearby players within radius and sorts by distance', async () => {
+      mockPrisma.player.findMany.mockResolvedValue([
+        { x: 3, y: 0, isAlive: true },
+        { x: 0, y: -4, isAlive: true },
+        { x: 10, y: 10, isAlive: true },
+      ]);
+
+      const nearby = await service.getNearbyPlayers(0, 0, 'T1', 'U1', 5, 5);
+
+      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
+        where: {
+          isAlive: true,
+          x: { gte: -5, lte: 5 },
+          y: { gte: -5, lte: 5 },
+        },
+        include: { playerItems: { include: { item: true } } },
+      });
+      expect(nearby).toEqual([
+        expect.objectContaining({ direction: 'east', distance: 3 }),
+        expect.objectContaining({ direction: 'south', distance: 4 }),
+      ]);
     });
   });
 

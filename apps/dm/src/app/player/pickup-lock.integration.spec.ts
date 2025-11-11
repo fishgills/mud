@@ -95,14 +95,22 @@ const mockTransaction = {
   },
 };
 
-// Mock getPrismaClient to supply $transaction
-jest.mock('@mud/database', () => ({
-  getPrismaClient: () => ({
-    $transaction: async (
-      cb: (tx: typeof mockTransaction) => Promise<unknown>,
-    ) => cb(mockTransaction),
-  }),
-}));
+// Mock getPrismaClient to supply $transaction but keep other exports intact
+const mockPrisma = {
+  $transaction: async (
+    cb: (tx: typeof mockTransaction) => Promise<unknown>,
+  ) => cb(mockTransaction),
+};
+
+jest.mock('@mud/database', () => {
+  const actual = jest.requireActual<typeof import('@mud/database')>(
+    '@mud/database',
+  );
+  return {
+    ...actual,
+    getPrismaClient: () => mockPrisma,
+  };
+});
 
 import { PlayerItemService } from './player-item.service';
 import { AppError, ErrCodes } from '../errors/app-error';
