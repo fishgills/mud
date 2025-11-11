@@ -3,14 +3,14 @@ import { HandlerContext } from '../types';
 
 const leadingFiller = new Set(['for', 'about', 'of', 'on', 'the']);
 const contextWords = new Set(['player', 'character']);
-const slackIdPattern = /^[UW][A-Z0-9]{2,}$/i;
+const userIdPattern = /^[UW][A-Z0-9]{2,}$/i;
 
 type ResolveUserId = HandlerContext['resolveUserId'];
 
 export interface ResolvedTarget {
   rawTarget?: string;
   cleanedTarget?: string;
-  slackId?: string;
+  targetUserId?: string;
   isSelf: boolean;
 }
 
@@ -26,7 +26,7 @@ export async function resolveTarget(
   }
 
   const cleanedTarget = sanitizeTargetText(rawTarget);
-  const slackId = await resolveSlackId({
+  const targetUserId = await resolveUserIdFromText({
     rawTarget,
     cleanedTarget,
     resolveUserId,
@@ -35,12 +35,12 @@ export async function resolveTarget(
   return {
     rawTarget,
     cleanedTarget,
-    slackId,
-    isSelf: slackId ? slackId === userId : false,
+    targetUserId,
+    isSelf: targetUserId ? targetUserId === userId : false,
   };
 }
 
-async function resolveSlackId({
+async function resolveUserIdFromText({
   rawTarget,
   cleanedTarget,
   resolveUserId,
@@ -55,7 +55,7 @@ async function resolveSlackId({
   }
 
   const trimmed = rawTarget.trim();
-  if (slackIdPattern.test(trimmed)) {
+  if (userIdPattern.test(trimmed)) {
     return trimmed.toUpperCase();
   }
 
@@ -70,7 +70,7 @@ async function resolveSlackId({
     }
   }
 
-  if (cleanedTarget && slackIdPattern.test(cleanedTarget)) {
+  if (cleanedTarget && userIdPattern.test(cleanedTarget)) {
     return cleanedTarget.toUpperCase();
   }
 

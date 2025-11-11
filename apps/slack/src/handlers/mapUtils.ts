@@ -11,22 +11,27 @@ export async function sendPngMap(
   y: number,
   pixelsPerTile = 8,
 ): Promise<boolean> {
-  const url = new URL(env.WORLD_API_BASE_URL);
-  url.pathname = `${url.pathname.replace(/\/$/, '')}/render/map.png`;
-  url.searchParams.set('x', String(x));
-  url.searchParams.set('y', String(y));
-  url.searchParams.set('p', String(pixelsPerTile));
-  const imageUrl = url.toString();
-  await say({
-    text: 'Map',
-    blocks: [
-      {
-        type: 'image',
-        image_url: imageUrl,
-        alt_text: `Map at (${x}, ${y})`,
-      },
-    ],
-  });
+  try {
+    const url = new URL(env.WORLD_API_BASE_URL);
+    url.pathname = `${url.pathname.replace(/\/$/, '')}/render/map.png`;
+    url.searchParams.set('x', String(x));
+    url.searchParams.set('y', String(y));
+    url.searchParams.set('p', String(pixelsPerTile));
+    const imageUrl = url.toString();
+    await say({
+      text: 'Map',
+      blocks: [
+        {
+          type: 'image',
+          image_url: imageUrl,
+          alt_text: `Map at (${x}, ${y})`,
+        },
+      ],
+    });
 
-  return true;
+    return true;
+  } catch (error) {
+    console.info('Failed to send PNG map', error);
+    return false;
+  }
 }

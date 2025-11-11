@@ -111,7 +111,6 @@ import './handlers/map';
 import './handlers/stats';
 import './handlers/inventory';
 import './handlers/pickup';
-import './handlers/drop';
 import './handlers/equip';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { COMMANDS } from './commands';

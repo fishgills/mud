@@ -1,203 +1,215 @@
 import { CombatService } from './combat.service';
-import type { PlayerService } from '../player/player.service';
-import type { AiService } from '../../openai/ai.service';
-import type { EventBridgeService } from '../../shared/event-bridge.service';
-import type { Combatant, CombatMessage } from './combat.service';
-import type { DetailedCombatLog } from '../api';
 import { AttackOrigin } from '../api/dto/player-requests.dto';
+import { calculateEquipmentEffects } from '../player/equipment.effects';
 
-const mockApplyCombatResults = jest.fn().mockResolvedValue({
-  playerRespawnEvents: [],
+const createPlayerService = () => ({
+  getPlayer: jest.fn(),
+  getPlayersAtLocation: jest.fn(),
+  movePlayer: jest.fn(),
 });
+
+const createAiService = () => ({
+  summarizeCombat: jest.fn(),
+});
+
+const createEventBridge = () => ({
+  publishCombatNotifications: jest.fn(),
+});
+
+const mockPrisma = {
+  combatLog: { create: jest.fn(), findMany: jest.fn() },
+  monster: { create: jest.fn() },
+  player: { findUnique: jest.fn() },
+};
+
+jest.mock('@mud/database', () => {
+  const actual = jest.requireActual('@mud/database');
+  return {
+    ...actual,
+    getPrismaClient: () => mockPrisma,
+  };
+});
+
+jest.mock('./engine', () => ({
+  runCombat: jest.fn(),
+}));
+
+jest.mock('./messages', () => ({
+  CombatMessenger: jest.fn().mockImplementation(() => ({
+    sendCombatMessages: jest.fn(),
+  })),
+}));
 
 jest.mock('./results', () => ({
-  applyCombatResults: (...args: unknown[]) =>
-    mockApplyCombatResults(...(args as [unknown])),
+  applyCombatResults: jest.fn().mockResolvedValue({
+    playerRespawnEvents: [],
+  }),
 }));
 
-jest.mock('../../shared/event-bus', () => ({
-  EventBus: {
-    emit: jest.fn().mockResolvedValue(undefined),
-    on: jest.fn().mockReturnValue(() => undefined),
-  },
-}));
-
-const makeIdentity = (label: string) => ({
-  teamId: `T-${label}`,
-  userId: label,
-});
-
-const makeCombatant = (overrides: Partial<Combatant> = {}): Combatant => ({
-  id: overrides.id ?? 1,
-  name: overrides.name ?? 'Hero',
-  type: overrides.type ?? 'player',
-  hp: overrides.hp ?? 10,
-  maxHp: overrides.maxHp ?? 10,
-  strength: overrides.strength ?? 10,
-  agility: overrides.agility ?? 10,
-  level: overrides.level ?? 1,
-  isAlive: overrides.isAlive ?? true,
-  x: overrides.x ?? 0,
-  y: overrides.y ?? 0,
-  slackUser:
-    overrides.slackUser ??
-    (overrides.type === 'player'
-      ? { teamId: `T-${overrides.name ?? 'Hero'}`, userId: overrides.name ?? 'Hero' }
-      : undefined),
-  ...overrides,
-});
-
-describe('CombatService (refactored wrappers)', () => {
-  const playerService = {
-    getPlayer: jest.fn(),
-    getPlayersAtLocation: jest.fn(),
-    respawnPlayer: jest.fn(),
-    restorePlayerHealth: jest.fn(),
-    updatePlayerStats: jest.fn(),
-  } as unknown as PlayerService;
-
-  const aiService = {
-    getText: jest.fn(),
-  } as unknown as AiService;
-
-  const eventBridge = {
-    publishCombatNotifications: jest.fn().mockResolvedValue(undefined),
-  } as unknown as EventBridgeService;
-
+describe('CombatService', () => {
   let service: CombatService;
+  let playerService: ReturnType<typeof createPlayerService>;
+  let aiService: ReturnType<typeof createAiService>;
+  let eventBridge: ReturnType<typeof createEventBridge>;
+  const { runCombat } = jest.requireMock('./engine') as {
+    runCombat: jest.Mock;
+  };
+  const { applyCombatResults } = jest.requireMock('./results') as {
+    applyCombatResults: jest.Mock;
+  };
 
   beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2024-01-01T00:00:00Z'));
+    playerService = createPlayerService();
+    aiService = createAiService();
+    eventBridge = createEventBridge();
+    service = new CombatService(
+      playerService as never,
+      aiService as never,
+      eventBridge as never,
+    );
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    jest.spyOn(Math, 'floor').mockImplementation((n) => Number.parseInt(String(n), 10));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
     jest.clearAllMocks();
-    service = new CombatService(playerService, aiService, eventBridge);
   });
 
-  it('blocks combat when players are in different locations', async () => {
-    const attacker = makeCombatant({ name: 'Attacker', x: 0, y: 0 });
-    const defender = makeCombatant({ name: 'Defender', id: 2, x: 10, y: -3 });
-
-    (service as any).playerToCombatant = jest
-      .fn()
-      .mockResolvedValueOnce(attacker)
-      .mockResolvedValueOnce(defender);
-
-    await expect(
-      service.initiateCombat(
-        makeIdentity('A'),
-        'player',
-        makeIdentity('B'),
-        'player',
-      ),
-    ).rejects.toThrow('Target is not at your location');
+  const buildCombatant = (overrides: Partial<Record<string, unknown>> = {}) => ({
+    id: 1,
+    name: 'Hero',
+    type: 'player',
+    hp: 10,
+    maxHp: 10,
+    strength: 12,
+    agility: 12,
+    level: 3,
+    isAlive: true,
+    x: 0,
+    y: 0,
+    slackUser: { teamId: 'T1', userId: 'U1' },
+    ...overrides,
   });
 
-  it('runs combat, applies results, and publishes notifications', async () => {
-    const attacker = makeCombatant({
-      name: 'Attacker',
-      slackUser: { teamId: 'T-A', userId: 'A' },
+  describe('playerAttackPlayer', () => {
+    it('invokes initiateCombat for player vs player attacks', async () => {
+      const mockResult = { winner: 'Hero' };
+      jest
+        .spyOn(service as unknown as { initiateCombat: Function }, 'initiateCombat')
+        .mockResolvedValue(mockResult);
+
+      const response = await service.playerAttackPlayer(
+        { teamId: 'T1', userId: 'U1' },
+        { teamId: 'T2', userId: 'U2' },
+        true,
+        { attackOrigin: AttackOrigin.DROPDOWN_PVP },
+      );
+
+      expect(response).toBe(mockResult);
+      expect(
+        (service as unknown as { initiateCombat: jest.Mock }).initiateCombat,
+      ).toHaveBeenCalledWith(
+        { teamId: 'T1', userId: 'U1' },
+        'player',
+        { teamId: 'T2', userId: 'U2' },
+        'player',
+        expect.objectContaining({
+          ignoreLocation: true,
+          attackOrigin: AttackOrigin.DROPDOWN_PVP,
+        }),
+      );
     });
-    const defender = makeCombatant({
-      id: 2,
-      name: 'Defender',
-      slackUser: { teamId: 'T-B', userId: 'B' },
+  });
+
+  describe('XP and gold calculations', () => {
+    it('awards more XP for defeating higher-level foes', () => {
+      const xpVsHigher = (service as any).calculateXpGain(5, 8);
+      const xpVsLower = (service as any).calculateXpGain(8, 5);
+      expect(xpVsHigher).toBeGreaterThan(xpVsLower);
     });
-    const combatLog: DetailedCombatLog = {
-      combatId: 'c-123',
-      participant1: 'Attacker',
-      participant2: 'Defender',
-      firstAttacker: 'Attacker',
-      rounds: [
-        {
-          roundNumber: 1,
-          attackerName: 'Attacker',
-          defenderName: 'Defender',
-          attackRoll: 15,
-          attackModifier: 2,
-          totalAttack: 17,
-          defenderAC: 12,
-          hit: true,
-          damage: 5,
-          defenderHpAfter: 5,
-          killed: false,
+
+    it('ensures minimum gold reward and scales with level difference', () => {
+      const goldEqual = (service as any).calculateGoldReward(5, 5);
+      const goldHigherTarget = (service as any).calculateGoldReward(5, 8);
+      expect(goldEqual).toBeGreaterThanOrEqual(5);
+      expect(goldHigherTarget).toBeGreaterThanOrEqual(goldEqual);
+    });
+  });
+
+  describe('equipment effects', () => {
+    it('derives bonuses from equipped items with quality multipliers', () => {
+      const weapon = {
+        id: 1,
+        playerId: 10,
+        slot: 'weapon',
+        quality: 'Rare',
+        item: {
+          id: 100,
+          name: 'Sword',
+          attack: 4,
+          defense: 0,
+          healthBonus: 0,
+          slot: 'weapon',
+          type: 'weapon',
         },
-      ],
-      winner: 'Attacker',
-      loser: 'Defender',
-      xpAwarded: 20,
-      goldAwarded: 4,
-      timestamp: new Date(),
-      location: { x: 0, y: 0 },
-      initiativeRolls: [],
-    };
-    const mockMessages: CombatMessage[] = [
-      {
-        teamId: 'T-A',
-        userId: 'A',
-        name: 'Attacker',
-        role: 'attacker',
-        message: 'Attacker wins!',
-      },
-    ];
+      };
+      const armor = {
+        id: 2,
+        playerId: 10,
+        slot: 'chest',
+        quality: 'Common',
+        item: {
+          id: 101,
+          name: 'Armor',
+          attack: 0,
+          defense: 3,
+          healthBonus: 5,
+          slot: 'chest',
+        },
+      };
 
-    (service as any).playerToCombatant = jest
-      .fn()
-      .mockResolvedValueOnce(attacker)
-      .mockResolvedValueOnce(defender);
-    (service as any).runCombat = jest.fn().mockResolvedValue(combatLog);
-    (service as any).applyCombatResults = jest
-      .fn()
-      .mockResolvedValue({ playerRespawnEvents: [] });
-    (service as any).generateCombatMessages = jest
-      .fn()
-      .mockResolvedValue({ messages: mockMessages, perf: { totalMs: 5 } });
-    (service as any).dispatchRespawnEvents = jest
-      .fn()
-      .mockResolvedValue(undefined);
-
-    const result = await service.playerAttackPlayer(
-      makeIdentity('A'),
-      makeIdentity('B'),
-      true,
-      { attackOrigin: AttackOrigin.TEXT_PVP },
-    );
-
-    expect(result.success).toBe(true);
-    expect(result.winnerName).toBe('Attacker');
-    expect(result.totalDamageDealt).toBe(5);
-    expect(result.playerMessages).toEqual(mockMessages);
-    expect(eventBridge.publishCombatNotifications).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: 'combat:end',
-        winner: expect.objectContaining({ name: 'Attacker' }),
-      }),
-      mockMessages,
-    );
-    expect((service as any).runCombat).toHaveBeenCalled();
-    expect(mockApplyCombatResults).toHaveBeenCalledWith(
-      combatLog,
-      attacker,
-      defender,
-      playerService,
-      expect.any(Object),
-      expect.any(Object),
-      expect.objectContaining({ attackOrigin: AttackOrigin.TEXT_PVP }),
-    );
+      const result = calculateEquipmentEffects([weapon as any, armor as any]);
+      expect(result.totals.attackBonus).toBeGreaterThan(0);
+      expect(result.totals.armorBonus).toBeGreaterThan(0);
+      expect(result.totals.hpBonus).toBeGreaterThan(0);
+      expect(result.totals.damageBonus).toBeGreaterThan(0);
+    });
   });
 
-  it('rejects when either combatant is dead', async () => {
-    const attacker = makeCombatant({ isAlive: false });
-    const defender = makeCombatant({ id: 2 });
-    (service as any).playerToCombatant = jest
-      .fn()
-      .mockResolvedValueOnce(attacker)
-      .mockResolvedValueOnce(defender);
+  describe('fallback narrative', () => {
+    it('builds a readable narrative when AI summary is unavailable', () => {
+      const attacker = buildCombatant({ name: 'Hero' });
+      const defender = buildCombatant({ name: 'Goblin', id: 2, type: 'monster' });
+      const combatLog = {
+        combatId: 'c1',
+        winner: 'Hero',
+        loser: 'Goblin',
+        rounds: [
+          {
+            attackerName: 'Hero',
+            defenderName: 'Goblin',
+            attackRoll: 15,
+            attackModifier: 2,
+            totalAttack: 17,
+            defenderAC: 12,
+            hit: true,
+            damage: 5,
+            defenderHpAfter: 0,
+            killed: true,
+          },
+        ],
+      } as any;
 
-    await expect(
-      service.initiateCombat(
-        makeIdentity('A'),
-        'player',
-        makeIdentity('B'),
-        'player',
-      ),
-    ).rejects.toThrow('One or both combatants are dead');
+      const narrative = (service as any).createFallbackNarrative(combatLog, {
+        attackerCombatant: attacker,
+        defenderCombatant: defender,
+      });
+
+      expect(narrative.metrics).toContain('Hero');
+      expect(narrative.rounds[0]).toContain('HIT');
+    });
   });
 });

@@ -27,7 +27,8 @@ type AttackCombatResult = {
   goldGained: number;
   message: string;
   playerMessages?: Array<{
-    slackId: string;
+    userId?: string;
+    teamId?: string;
     name: string;
     message: string;
     role: string;

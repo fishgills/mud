@@ -116,14 +116,14 @@ describe('applyCombatResults', () => {
 
     expect(playerService.getPlayer).toHaveBeenCalledWith('T1', 'U1');
     expect(playerService.updatePlayerStats).toHaveBeenCalledWith(
-      'U1',
       'T1',
+      'U1',
       expect.objectContaining({
         xp: 110,
         gold: 8,
       }),
     );
-    expect(playerService.restorePlayerHealth).toHaveBeenCalledWith('U1', 'T1');
+    expect(playerService.restorePlayerHealth).toHaveBeenCalledWith('T1', 'U1');
     expect(prisma.monster.delete).toHaveBeenCalledWith({
       where: { id: 99 },
     });
@@ -233,8 +233,8 @@ describe('applyCombatResults', () => {
       { attackOrigin: AttackOrigin.DROPDOWN_PVP },
     );
 
-    expect(playerService.respawnPlayer).toHaveBeenCalledWith('U2', 'T2');
-    expect(playerService.restorePlayerHealth).toHaveBeenCalledWith('U1', 'T1');
+    expect(playerService.respawnPlayer).toHaveBeenCalledWith('T2', 'U2');
+    expect(playerService.restorePlayerHealth).toHaveBeenCalledWith('T1', 'U1');
     expect(playerService.getPlayer).toHaveBeenCalledWith('T1', 'U1');
     expect(prisma.combatLog.create).toHaveBeenCalled();
   });

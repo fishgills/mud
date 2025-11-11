@@ -3,6 +3,7 @@ import { COMMANDS } from '../commands';
 import { registerHandler } from './handlerRegistry';
 import type { HandlerContext } from './types';
 import { getUserFriendlyErrorMessage } from './errorUtils';
+import { buildItemActionMessage } from '../utils/itemDisplay';
 
 export const equipHandler = async ({
   userId,
@@ -32,8 +33,15 @@ export const equipHandler = async ({
       slot,
     });
     if (res && res.success) {
+      const successText =
+        buildItemActionMessage(
+          'Equipped',
+          res.data,
+          res.message ?? `Equipped item ${playerItemId} to ${slot}.`,
+          { suffix: `to ${slot}` },
+        ) ?? res.message ?? `Equipped item ${playerItemId} to ${slot}.`;
       await say({
-        text: res.message ?? `Equipped item ${playerItemId} to ${slot}.`,
+        text: successText,
       });
     } else {
       await say({ text: res?.message ?? 'Failed to equip item.' });

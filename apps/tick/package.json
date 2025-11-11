@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "serve": "ts-node-dev --respawn src/main.ts"
+    "serve": "ts-node-dev --respawn src/main.ts",
+    "test": "jest"
   }
 }

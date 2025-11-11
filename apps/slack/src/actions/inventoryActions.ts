@@ -3,6 +3,7 @@ import { PlayerSlot } from '@mud/database';
 import { dmClient } from '../dm-client';
 import { mapErrCodeToFriendlyMessage } from '../handlers/errorUtils';
 import { getActionValue, getChannelIdFromBody, getTriggerId } from './helpers';
+import { buildItemActionMessage } from '../utils/itemDisplay';
 
 export const registerInventoryActions = (app: App) => {
   app.action<BlockAction>(
@@ -115,8 +116,16 @@ export const registerInventoryActions = (app: App) => {
         if (channel) {
           const resCode = (res as unknown as { code?: string })?.code;
           const friendly = mapErrCodeToFriendlyMessage(resCode);
+          const successText = res.success
+            ? buildItemActionMessage(
+                'Equipped',
+                res.data,
+                res.message ?? `Equipped item ${playerItemId} to ${slot}`,
+                { suffix: `to ${slot}` },
+              )
+            : undefined;
           const text = res.success
-            ? `Equipped item ${playerItemId} to ${slot}`
+            ? successText ?? `Equipped item ${playerItemId} to ${slot}`
             : (friendly ??
               `Failed to equip: ${res.message ?? 'Unknown error'}`);
           await client.chat.postMessage({ channel, text });
@@ -149,42 +158,50 @@ export const registerInventoryActions = (app: App) => {
         );
         return;
       }
-    const value = getActionValue(body);
-    const channelId = getChannelIdFromBody(body);
-    if (!userId || !value) return;
-    try {
-      const res = await dmClient.drop({
-        teamId,
-        userId,
-        playerItemId: Number(value),
-      });
-      const resCode = (res as unknown as { code?: string })?.code;
-      const friendly = mapErrCodeToFriendlyMessage(resCode);
-      const text = res.success
-        ? `Dropped item ${value}.`
-        : (friendly ?? `Failed to drop: ${res.message ?? 'Unknown error'}`);
-      if (channelId) {
-        await client.chat.postEphemeral({
-          channel: channelId,
-          user: userId,
-          text,
+      const value = getActionValue(body);
+      const channelId = getChannelIdFromBody(body);
+      if (!userId || !value) return;
+      try {
+        const res = await dmClient.drop({
+          teamId,
+          userId,
+          playerItemId: Number(value),
         });
-      } else {
-        const dm = await client.conversations.open({ users: userId });
-        const channel = dm.channel?.id;
-        if (channel) await client.chat.postMessage({ channel, text });
+        const resCode = (res as unknown as { code?: string })?.code;
+        const friendly = mapErrCodeToFriendlyMessage(resCode);
+        const successText = res.success
+          ? buildItemActionMessage(
+              'Dropped',
+              res.data,
+              res.message ?? `Dropped item ${value}.`,
+            )
+          : undefined;
+        const text = res.success
+          ? successText ?? `Dropped item ${value}.`
+          : (friendly ?? `Failed to drop: ${res.message ?? 'Unknown error'}`);
+        if (channelId) {
+          await client.chat.postEphemeral({
+            channel: channelId,
+            user: userId,
+            text,
+          });
+        } else {
+          const dm = await client.conversations.open({ users: userId });
+          const channel = dm.channel?.id;
+          if (channel) await client.chat.postMessage({ channel, text });
+        }
+      } catch (error) {
+        app.logger.warn({ error }, 'inventory_drop failed');
+        if (channelId) {
+          await client.chat.postEphemeral({
+            channel: channelId,
+            user: userId,
+            text: 'Failed to drop item',
+          });
+        }
       }
-    } catch (error) {
-      app.logger.warn({ error }, 'inventory_drop failed');
-      if (channelId) {
-        await client.chat.postEphemeral({
-          channel: channelId,
-          user: userId,
-          text: 'Failed to drop item',
-        });
-      }
-    }
-  });
+    },
+  );
 
   app.action<BlockAction>(
     'inventory_unequip',
@@ -211,8 +228,15 @@ export const registerInventoryActions = (app: App) => {
         });
         const resCode = (res as unknown as { code?: string })?.code;
         const friendly = mapErrCodeToFriendlyMessage(resCode);
+        const successText = res.success
+          ? buildItemActionMessage(
+              'Unequipped',
+              res.data,
+              res.message ?? `Unequipped item ${value}.`,
+            )
+          : undefined;
         const text = res.success
-          ? `Unequipped item ${value}.`
+          ? successText ?? `Unequipped item ${value}.`
           : (friendly ??
             `Failed to unequip: ${res.message ?? 'Unknown error'}`);
         if (channelId) {

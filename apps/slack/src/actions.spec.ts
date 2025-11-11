@@ -34,9 +34,6 @@ import { ITEM_SELECTION_BLOCK_ID } from './handlers/pickup';
 import { dmClient } from './dm-client';
 import { PlayerAttribute, TargetType, AttackOrigin } from './dm-types';
 
-const toClientId = (userId: string, teamId: string): string =>
-  `${teamId}:${userId}`;
-
 const mockedDmClient = dmClient as unknown as {
   attack: jest.Mock;
   spendSkillPoint: jest.Mock;
@@ -1408,7 +1405,10 @@ describe('registerActions', () => {
 
     it('handles equip submissions and posts the result', async () => {
       const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
-      mockedDmClient.equip.mockResolvedValueOnce({ success: true });
+      mockedDmClient.equip.mockResolvedValueOnce({
+        success: true,
+        data: { item: { name: 'Shortsword' }, quality: 'Common' },
+      });
       const dmOpen = jest.fn().mockResolvedValue({
         channel: { id: 'DM-U1' },
       }) as ConversationsOpenMock;
@@ -1449,14 +1449,17 @@ describe('registerActions', () => {
       expect(chat.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           channel: 'DM-U1',
-          text: 'Equipped item 9 to weapon',
+          text: 'Equipped Common Shortsword to weapon.',
         }),
       );
     });
 
     it('drops an item and posts an ephemeral confirmation', async () => {
       const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
-      mockedDmClient.drop.mockResolvedValueOnce({ success: true });
+      mockedDmClient.drop.mockResolvedValueOnce({
+        success: true,
+        data: { item: { name: 'Shortsword' }, quality: 'Common' },
+      });
       const postEphemeral = jest.fn().mockResolvedValue(undefined);
       const chat = createChatMocks();
       chat.postEphemeral = postEphemeral;
@@ -1485,7 +1488,41 @@ describe('registerActions', () => {
         expect.objectContaining({
           channel: 'C-DROP',
           user: 'U1',
-          text: 'Dropped item 12.',
+          text: 'Dropped Common Shortsword.',
+        }),
+      );
+    });
+
+    it('reports unequip success in-channel', async () => {
+      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+      mockedDmClient.unequip.mockResolvedValueOnce({
+        success: true,
+        data: { item: { name: 'Shortsword' }, quality: 'Common' },
+      });
+      const postEphemeral = jest.fn().mockResolvedValue(undefined);
+      const chat = createChatMocks();
+      chat.postEphemeral = postEphemeral;
+      const client: MockSlackClient = {
+        conversations: { open: jest.fn() as ConversationsOpenMock },
+        chat,
+      };
+
+      await actionHandlers[INVENTORY_UNEQUIP_ACTION]({
+        ack,
+        body: {
+          user: { id: 'U1' },
+          channel: { id: 'C-UNEQUIP' },
+          actions: [{ value: '55' }],
+        },
+        client,
+        context: { teamId: 'T1' },
+      });
+
+      expect(postEphemeral).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'C-UNEQUIP',
+          user: 'U1',
+          text: 'Unequipped Common Shortsword.',
         }),
       );
     });

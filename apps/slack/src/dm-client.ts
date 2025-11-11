@@ -95,6 +95,7 @@ export type PlayerRecord = Player &
       arms?: { id: number; quality: string } | null;
       weapon?: { id: number; quality: string } | null;
     };
+    equipmentTotals?: EquipmentTotals;
   };
 
 // Use Monster directly from Prisma
@@ -121,6 +122,17 @@ export type ItemRecord =
       name?: string; // convenience mapping
       allowedSlots?: string[];
     });
+
+export type EquipmentTotals = {
+  attackBonus: number;
+  damageBonus: number;
+  armorBonus: number;
+  hpBonus: number;
+};
+
+export interface ItemActionResponse extends SuccessResponse {
+  data?: ItemRecord;
+}
 
 // Extended Item type for detailed item information
 export type ItemDetails = Item & {
@@ -456,8 +468,8 @@ export async function equip(input: {
   userId: string;
   playerItemId?: number;
   slot?: string;
-}): Promise<SuccessResponse> {
-  return dmRequest<SuccessResponse>('/players/equip', HttpMethod.POST, {
+}): Promise<ItemActionResponse> {
+  return dmRequest<ItemActionResponse>('/players/equip', HttpMethod.POST, {
     body: input,
   });
 }
@@ -466,8 +478,8 @@ export async function unequip(input: {
   teamId: string;
   userId: string;
   playerItemId?: number;
-}): Promise<SuccessResponse> {
-  return dmRequest<SuccessResponse>('/players/unequip', HttpMethod.POST, {
+}): Promise<ItemActionResponse> {
+  return dmRequest<ItemActionResponse>('/players/unequip', HttpMethod.POST, {
     body: input,
   });
 }
@@ -476,8 +488,8 @@ export async function drop(input: {
   teamId: string;
   userId: string;
   playerItemId?: number;
-}): Promise<SuccessResponse> {
-  return dmRequest<SuccessResponse>('/players/drop', HttpMethod.POST, {
+}): Promise<ItemActionResponse> {
+  return dmRequest<ItemActionResponse>('/players/drop', HttpMethod.POST, {
     body: input,
   });
 }

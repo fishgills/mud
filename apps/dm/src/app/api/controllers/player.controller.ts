@@ -138,10 +138,13 @@ export class PlayersController {
         `Calling playerService.getPlayer for teamId: ${teamId}, userId: ${userId}`,
       );
       const player = await this.playerService.getPlayer(teamId, userId);
+      const equipmentTotals = await this.playerItemService.getEquipmentTotals(
+        player.id,
+      );
 
       return {
         success: true,
-        data: player,
+        data: { ...player, equipmentTotals },
       };
     } catch (error) {
       this.logger.error(
@@ -528,6 +531,9 @@ export class PlayersController {
   ) {
     try {
       const player = await this.playerService.getPlayer(teamId, userId);
+      const equipmentTotals = await this.playerItemService.getEquipmentTotals(
+        player.id,
+      );
 
       // Fetch bag items
       const bagItems = await this.playerItemService.listBag(player.id);
@@ -566,6 +572,7 @@ export class PlayersController {
         success: true,
         data: {
           ...player,
+          equipmentTotals,
           bag,
         },
       };
@@ -635,12 +642,12 @@ export class PlayersController {
     }
     try {
       const player = await this.resolvePlayerFromPayload(payload);
-      await this.playerItemService.equip(
+      const updated = await this.playerItemService.equip(
         player.id,
         Number(playerItemId),
         slot as PlayerSlot,
       );
-      return { success: true };
+      return { success: true, data: updated };
     } catch (error) {
       return {
         success: false,
@@ -694,8 +701,11 @@ export class PlayersController {
     }
     try {
       const player = await this.resolvePlayerFromPayload(payload);
-      await this.playerItemService.unequip(player.id, Number(playerItemId));
-      return { success: true };
+      const updated = await this.playerItemService.unequip(
+        player.id,
+        Number(playerItemId),
+      );
+      return { success: true, data: updated };
     } catch (error) {
       return {
         success: false,

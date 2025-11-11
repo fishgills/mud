@@ -10,6 +10,21 @@ import { ITEM_SELECTION_BLOCK_ID } from '../handlers/pickup';
 import type { SlackBlockState } from './helpers';
 import type { ItemRecord } from '../dm-client';
 
+type SlackLinkedEntity = {
+  userId?: unknown;
+  slackUser?: { userId?: string | null } | null;
+};
+
+const resolvePlayerUserId = (entity: SlackLinkedEntity): string | null => {
+  if (typeof entity.userId === 'string' && entity.userId.length > 0) {
+    return entity.userId;
+  }
+  const slackUserId = entity.slackUser?.userId;
+  return typeof slackUserId === 'string' && slackUserId.length > 0
+    ? slackUserId
+    : null;
+};
+
 const formatQualityLabel = (quality: unknown): string | null => {
   if (typeof quality !== 'string') return null;
   const normalized = quality.replace(/[_\s]+/g, ' ').trim();
@@ -201,22 +216,22 @@ export const registerPickupActions = (app: App) => {
         const y = player?.y;
         if (typeof x === 'number' && typeof y === 'number') {
           const loc = await dmClient.getLocationEntities({ x, y });
-        for (const p of loc.players || []) {
-          const record = p as unknown as Record<string, unknown>;
-          const directUserId =
-            typeof record.userId === 'string' ? record.userId : null;
-          const slackId =
-            typeof record.slackId === 'string' ? record.slackId : null;
-          const derivedUserId = slackId ? slackId.split(':').pop() : null;
-          const targetUser = directUserId ?? derivedUserId;
-          if (!targetUser || targetUser === userId) continue;
-          try {
-            const dm = await client.conversations.open({ users: targetUser });
-            const ch = dm.channel?.id;
-            if (ch) {
-              await client.chat.postMessage({
-                channel: ch,
-                text: `${playerName} picked something up from the ground.`,
+          for (const p of loc.players || []) {
+            const targetUser = resolvePlayerUserId(
+              p as unknown as SlackLinkedEntity,
+            );
+            if (!targetUser || targetUser === userId) {
+              continue;
+            }
+            try {
+              const dm = await client.conversations.open({
+                users: targetUser,
+              });
+              const ch = dm.channel?.id;
+              if (ch) {
+                await client.chat.postMessage({
+                  channel: ch,
+                  text: `${playerName} picked something up from the ground.`,
                 });
               }
             } catch {

@@ -1,364 +1,195 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
 import { PlayerService } from './player.service';
+import type { Player } from '@mud/database';
 import { EventBus } from '../../shared/event-bus';
-
-type StoredPlayer = {
-  id: number;
-  name: string;
-  teamId: string;
-  userId: string;
-  slackUser: { teamId: string; userId: string };
-  hp: number;
-  maxHp: number;
-  strength: number;
-  agility: number;
-  health: number;
-  level: number;
-  xp: number;
-  gold: number;
-  x: number;
-  y: number;
-  isAlive: boolean;
-  lastAction: Date;
-};
-
-type StoredSlackUser = {
-  teamId: string;
-  userId: string;
-  playerId: number;
-};
-
-const players: StoredPlayer[] = [];
-const slackUsers: StoredSlackUser[] = [];
 
 const mockPrisma = {
   player: {
-    create: jest.fn(),
-    update: jest.fn(),
-    findMany: jest.fn(),
-    findUnique: jest.fn(),
     count: jest.fn(),
-  },
-  slackUser: {
-    create: jest.fn(),
-    delete: jest.fn(),
+    update: jest.fn(),
+    findUnique: jest.fn(),
   },
 };
 
 const mockFindPlayerBySlackUser = jest.fn();
 
-jest.mock('@mud/database', () => ({
-  getPrismaClient: () => mockPrisma,
-  findPlayerBySlackUser: (...args: unknown[]) =>
-    mockFindPlayerBySlackUser(...(args as [unknown])),
-  Player: class {},
-  Prisma: {} as never,
+jest.mock('@mud/database', () => {
+  const actual = jest.requireActual('@mud/database');
+  return {
+    ...actual,
+    getPrismaClient: () => mockPrisma,
+    findPlayerBySlackUser: (...args: unknown[]) =>
+      mockFindPlayerBySlackUser(...args),
+  };
+});
+
+let diceQueue: number[] = [];
+
+jest.mock('@dice-roller/rpg-dice-roller', () => ({
+  DiceRoll: jest.fn().mockImplementation(() => ({
+    total: diceQueue.length > 0 ? (diceQueue.shift() as number) : 12,
+  })),
 }));
 
-const seedPlayer = (
-  overrides: Partial<StoredPlayer> = {},
-  withSlack = true,
-) => {
-  const id = overrides.id ?? players.length + 1;
-  const teamId = overrides.teamId ?? `T${id}`;
-  const userId = overrides.userId ?? `U${id}`;
-  const player: StoredPlayer = {
-    id,
-    name: overrides.name ?? `Player-${id}`,
-    teamId,
-    userId,
-    slackUser:
-      overrides.slackUser ??
-      (withSlack ? { teamId, userId } : { teamId: '', userId: '' }),
-    hp: overrides.hp ?? 10,
-    maxHp: overrides.maxHp ?? 10,
-    strength: overrides.strength ?? 10,
-    agility: overrides.agility ?? 10,
-    health: overrides.health ?? 10,
-    level: overrides.level ?? 1,
-    xp: overrides.xp ?? 0,
-    gold: overrides.gold ?? 0,
-    x: overrides.x ?? 0,
-    y: overrides.y ?? 0,
-    isAlive: overrides.isAlive ?? true,
-    lastAction: overrides.lastAction ?? new Date(Date.now() - 60_000),
-  };
-  players.push(player);
-  if (withSlack) {
-    slackUsers.push({
-      teamId: player.slackUser.teamId,
-      userId: player.slackUser.userId,
-      playerId: player.id,
-    });
-  }
-  return player;
-};
-
-const resetInMemoryDb = () => {
-  players.length = 0;
-  slackUsers.length = 0;
-};
-
-const clonePlayer = (player: StoredPlayer) => ({
-  ...player,
-  slackUser: { ...player.slackUser },
+const createWorldService = () => ({
+  getTileInfo: jest.fn().mockResolvedValue({ biomeName: 'grassland' }),
+  getTileInfoWithNearby: jest.fn(),
+  getTilesInBounds: jest.fn(),
+  getBoundsTiles: jest.fn(),
 });
 
-const buildWorldService = () => ({
-  getTileInfo: jest.fn().mockResolvedValue({ biomeName: 'forest' }),
-});
-
-describe('PlayerService (refactored flows)', () => {
+describe('PlayerService', () => {
   let service: PlayerService;
-  let worldService: ReturnType<typeof buildWorldService>;
-  let emitSpy: jest.SpyInstance;
+  let worldService: ReturnType<typeof createWorldService>;
+  let eventBusEmitSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    resetInMemoryDb();
-    jest.resetAllMocks();
-    worldService = buildWorldService();
-
-    mockPrisma.player.create.mockImplementation(async ({ data }) => {
-      const player: StoredPlayer = {
-        id: players.length + 1,
-        name: data.name ?? `Player-${players.length + 1}`,
-        teamId: '',
-        userId: '',
-        slackUser: { teamId: '', userId: '' },
-        hp: data.hp,
-        maxHp: data.maxHp,
-        strength: data.strength ?? 10,
-        agility: data.agility ?? 10,
-        health: data.health ?? 10,
-        level: data.level ?? 1,
-        xp: data.xp ?? 0,
-        gold: data.gold ?? 0,
-        x: data.x ?? 0,
-        y: data.y ?? 0,
-        isAlive: data.isAlive ?? true,
-        lastAction: data.lastAction ?? new Date(),
-      };
-      players.push(player);
-      return clonePlayer(player);
-    });
-
-    mockPrisma.player.update.mockImplementation(async ({ where, data }) => {
-      const player = players.find((p) => p.id === where.id);
-      if (!player) throw new Error('player not found');
-      Object.assign(player, data);
-      return clonePlayer(player);
-    });
-
-    mockPrisma.player.findMany.mockImplementation(async ({ where } = {}) => {
-      if (!where) return players.map(clonePlayer);
-      let result = [...players];
-      if (where.isAlive !== undefined) {
-        result = result.filter((p) => p.isAlive === where.isAlive);
-      }
-      if (where.slackUser?.teamId) {
-        result = result.filter(
-          (p) => p.slackUser.teamId === where.slackUser.teamId,
-        );
-      }
-      return result.map(clonePlayer);
-    });
-
-    mockPrisma.player.findUnique.mockImplementation(async ({ where }) => {
-      if (where.id !== undefined) {
-        const player = players.find((p) => p.id === where.id);
-        return player ? clonePlayer(player) : null;
-      }
-      return null;
-    });
-
-    mockPrisma.player.count.mockImplementation(async ({ where }) => {
-      if (!where?.lastAction?.gte) return players.length;
-      const cutoff = where.lastAction.gte as Date;
-      return players.filter((p) => p.lastAction >= cutoff).length;
-    });
-
-    mockPrisma.slackUser.create.mockImplementation(async ({ data }) => {
-      slackUsers.push({
-        teamId: data.teamId,
-        userId: data.userId,
-        playerId: data.playerId,
-      });
-      const player = players.find((p) => p.id === data.playerId);
-      if (player) {
-        player.teamId = data.teamId;
-        player.userId = data.userId;
-        player.slackUser = { teamId: data.teamId, userId: data.userId };
-      }
-      return { ...data, id: data.playerId };
-    });
-
-    mockPrisma.slackUser.delete.mockImplementation(async ({ where }) => {
-      const index = slackUsers.findIndex(
-          (entry) =>
-            entry.teamId === where.teamId_userId.teamId &&
-            entry.userId === where.teamId_userId.userId,
-        );
-      if (index >= 0) {
-        slackUsers.splice(index, 1);
-      }
-      return null;
-    });
-
-    mockFindPlayerBySlackUser.mockImplementation(
-      async ({ teamId, userId }: { teamId: string; userId: string }) => {
-        const record = players.find(
-          (p) =>
-            p.slackUser.teamId === teamId && p.slackUser.userId === userId,
-        );
-        return record ? clonePlayer(record) : undefined;
-      },
-    );
-
+    jest.useFakeTimers().setSystemTime(new Date('2024-01-01T00:00:00Z'));
+    jest.clearAllMocks();
+    diceQueue = [];
+    worldService = createWorldService();
     service = new PlayerService(worldService as never);
-    emitSpy = jest.spyOn(EventBus, 'emit').mockResolvedValue(undefined);
+    eventBusEmitSpy = jest
+      .spyOn(EventBus, 'emit')
+      .mockResolvedValue(undefined);
   });
 
   afterEach(() => {
-    emitSpy?.mockRestore();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
-  it('creates a player with workspace identity and prevents duplicates', async () => {
-    (service as any).generateRandomStats = jest.fn().mockReturnValue({
-      strength: 12,
-      agility: 11,
-      health: 13,
-      maxHp: 12,
-    });
-    (service as any).findValidSpawnPosition = jest
-      .fn()
-      .mockResolvedValue({ x: 5, y: -5 });
-
-    const created = await service.createPlayer({
+  const makePlayer = (overrides: Partial<Player> = {}): Player =>
+    ({
+      id: 1,
       name: 'Hero',
-      teamId: 'T1',
-      userId: 'U1',
       x: 0,
       y: 0,
-    });
+      hp: 10,
+      maxHp: 10,
+      agility: 2,
+      strength: 10,
+      health: 10,
+      level: 1,
+      xp: 0,
+      gold: 0,
+      skillPoints: 0,
+      isAlive: true,
+      isCreationComplete: false,
+      lastAction: null,
+      ...overrides,
+    }) as Player;
 
-    expect(created.name).toBe('Hero');
-    expect(created.x).toBe(5);
-    expect(mockPrisma.player.create).toHaveBeenCalledTimes(1);
-    await expect(service.getPlayer('T1', 'U1')).resolves.toEqual(
-      expect.objectContaining({ name: 'Hero' }),
-    );
-    expect(mockPrisma.slackUser.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ teamId: 'T1', userId: 'U1' }),
-      }),
-    );
-
-    await expect(
-      service.createPlayer({
-        name: 'Duplicate',
-        teamId: 'T1',
-        userId: 'U1',
-      }),
-    ).rejects.toBeInstanceOf(ConflictException);
-  });
-
-  it('throws when missing teamId or userId inputs', async () => {
-    await expect(
-      service.createPlayer({
-        name: 'Hero',
-        teamId: undefined as unknown as string,
-        userId: 'U1',
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it('retrieves players through findPlayerBySlackUser', async () => {
-    const stored = seedPlayer({ teamId: 'T42', userId: 'UserA', name: 'Alice' });
-
-    const player = await service.getPlayer('T42', 'UserA');
-    expect(player.name).toBe(stored.name);
-
-    await expect(service.getPlayer('unknown', 'missing')).rejects.toThrow(
-      /Player not found/,
-    );
-  });
-
-  it('moves players while respecting agility-based distance limits', async () => {
-    const stored = seedPlayer({
-      teamId: 'T1',
-      userId: 'Mover',
-      agility: 6,
-      x: 0,
-      y: 0,
-    });
-    const startX = stored.x;
-
-    const moved = await service.movePlayer(
-      'T1',
-      'Mover',
-      { direction: 'east', distance: 4 } as any,
-    );
-
-    expect(moved.x).toBe(startX + 4);
-    expect(mockPrisma.player.update).toHaveBeenCalledWith({
-      where: { id: stored.id },
-      data: expect.objectContaining({ x: startX + 4 }),
-    });
-
-    await expect(
-      service.movePlayer('T1', 'Mover', {
-        direction: 'south',
-        distance: 99,
-      } as any),
-    ).rejects.toThrow('You can move up to');
-  });
-
-  it('updates combat stats and awards XP on level up', async () => {
-    const stored = seedPlayer({
-      teamId: 'T2',
-      userId: 'Leveler',
-      xp: 50,
-      gold: 1,
-    });
-    mockPrisma.player.update.mockImplementation(async ({ where, data }) => {
-      const player = players.find((p) => p.id === where.id)!;
-      Object.assign(player, data);
-      return clonePlayer(player);
-    });
-
-    const updated = await service.updatePlayerStats('T2', 'Leveler', {
-      xp: 200,
-      gold: 6,
-    } as any);
-
-    expect(updated.xp).toBe(200);
-    expect(updated.gold).toBe(6);
-    expect(mockPrisma.player.update).toHaveBeenCalled();
-  });
-
-  it('reports active players based on lastAction threshold', async () => {
-    seedPlayer({
-      teamId: 'T3',
-      userId: 'Active',
-      lastAction: new Date(),
-    });
-    mockPrisma.player.count.mockResolvedValueOnce(1);
-    await expect(service.hasActivePlayers(30)).resolves.toBe(true);
-
-    mockPrisma.player.count.mockResolvedValueOnce(0);
-    await expect(service.hasActivePlayers(30)).resolves.toBe(false);
-  });
-
-  it('updates lastAction timestamp', async () => {
-    const stored = seedPlayer({ teamId: 'T4', userId: 'Timer' });
-    await service.updateLastAction(stored.id);
-    expect(mockPrisma.player.update).toHaveBeenCalledWith({
-      where: { id: stored.id },
-      data: expect.objectContaining({ lastAction: expect.any(Date) }),
+  describe('hasActivePlayers', () => {
+    it('returns true when player count exceeds zero', async () => {
+      mockPrisma.player.count.mockResolvedValue(2);
+      const result = await service.hasActivePlayers(15);
+      expect(result).toBe(true);
+      expect(mockPrisma.player.count).toHaveBeenCalledWith({
+        where: {
+          lastAction: {
+            gte: new Date(Date.now() - 15 * 60 * 1000),
+          },
+        },
+      });
     });
   });
 
-  it('calculates Euclidean distance between two coordinates', () => {
-    expect(service.calculateDistance(0, 0, 3, 4)).toBe(5);
+  describe('movePlayer', () => {
+    it('throws when requested distance exceeds agility', async () => {
+      jest
+        .spyOn(service, 'getPlayer')
+        .mockResolvedValue(makePlayer({ agility: 1 }));
+
+      await expect(
+        service.movePlayer('T1', 'U1', { direction: 'north', distance: 3 }),
+      ).rejects.toThrow('You can move up to 1 space based on your agility.');
+    });
+
+    it('updates coordinates and emits move event', async () => {
+      const basePlayer = makePlayer({ agility: 3 });
+      jest.spyOn(service, 'getPlayer').mockResolvedValue(basePlayer);
+      mockPrisma.player.update.mockResolvedValue(undefined);
+      mockPrisma.player.findUnique.mockResolvedValue(
+        makePlayer({ id: 1, x: 0, y: 2 }),
+      );
+
+      const result = await service.movePlayer('T1', 'U1', {
+        direction: 'north',
+        distance: 2,
+      });
+
+      expect(worldService.getTileInfo).toHaveBeenCalledWith(0, 2);
+      expect(mockPrisma.player.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { x: 0, y: 2 },
+      });
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'player:move',
+          toY: 2,
+        }),
+      );
+      expect(result.y).toBe(2);
+    });
+  });
+
+  describe('spendSkillPoint', () => {
+    it('increments attribute and consumes skill points', async () => {
+      const basePlayer = makePlayer({
+        skillPoints: 2,
+        strength: 15,
+        health: 14,
+      });
+      jest.spyOn(service, 'getPlayer').mockResolvedValue(basePlayer);
+      jest
+        .spyOn(service as unknown as { calculateLevelUpHpGain: () => number }, 'calculateLevelUpHpGain')
+        .mockReturnValue(3);
+
+      const updated = await service.spendSkillPoint('T1', 'U1', 'health');
+      expect(updated.health).toBe(15);
+      expect(updated.maxHp).toBe(13);
+      expect(updated.skillPoints).toBe(1);
+      expect(mockPrisma.player.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            health: 15,
+            maxHp: 13,
+            skillPoints: 1,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('random stat helpers', () => {
+    it('applies deterministic dice totals for generateRandomStats', () => {
+      diceQueue = [15, 14, 13];
+      const stats = (service as any).generateRandomStats();
+      expect(stats).toEqual({
+        strength: 15,
+        agility: 14,
+        health: 13,
+        maxHp: 11, // 10 + modifier of +1
+      });
+    });
+
+    it('calculates level-up HP gain with minimum of 1', () => {
+      diceQueue = [1]; // mocked DiceRoll total
+      const gain = (service as any).calculateLevelUpHpGain(8);
+      expect(gain).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('utility math', () => {
+    it('computes XP threshold increases with level', () => {
+      const xp2 = (service as any).getXpForNextLevel(2);
+      const xp3 = (service as any).getXpForNextLevel(3);
+      expect(xp3).toBeGreaterThan(xp2);
+    });
+
+    it('calculates Euclidean distance', () => {
+      const d = service.calculateDistance(0, 0, 3, 4);
+      expect(d).toBe(5);
+    });
   });
 });

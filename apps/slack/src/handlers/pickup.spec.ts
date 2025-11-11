@@ -11,7 +11,6 @@ import { registerActions } from '../actions';
 import { dmClient } from '../dm-client';
 import { PICKUP_ACTIONS } from '../commands';
 import { buildItemSelectionMessage, ITEM_SELECTION_BLOCK_ID } from './pickup';
-import { toClientId } from '../utils/clientId';
 import type { App } from '@slack/bolt';
 import { ItemRecord } from '../dm-client';
 
@@ -131,7 +130,7 @@ describe('pickup actions', () => {
       data: { id: 1, name: 'Hero', x: 5, y: 6 },
     });
     mockedDmClient.getLocationEntities.mockResolvedValue({
-      players: [{ slackId: 'U2', name: 'Other' }],
+      players: [{ teamId: 'T1', userId: 'U2', name: 'Other' }],
       monsters: [],
       items: [
         { id: 101, itemName: 'Potion', quantity: 3 },
@@ -179,7 +178,8 @@ describe('pickup actions', () => {
     });
 
     expect(mockedDmClient.pickup).toHaveBeenCalledWith({
-      slackId: toClientId('U1', 'T1'),
+      teamId: 'T1',
+      userId: 'U1',
       worldItemId: 101,
     });
 

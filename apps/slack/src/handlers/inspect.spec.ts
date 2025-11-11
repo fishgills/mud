@@ -12,6 +12,7 @@ jest.mock('../dm-client', () => {
       getLocationEntities: fn(),
       getLookView: fn(),
       getItemDetails: fn(),
+      getMonsterById: fn(),
     },
   };
 });
@@ -71,6 +72,7 @@ const mockedDmClient = dmClient as jest.Mocked<typeof dmClient>;
 describe('inspectHandler.handleInspectAction', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedDmClient.getMonsterById.mockReset();
   });
 
   it('responds with failure when no selection is present', async () => {
@@ -80,7 +82,9 @@ describe('inspectHandler.handleInspectAction', () => {
       data: {
         id: 1,
         name: 'Inspector',
-        slackId: 'slack:U123',
+        teamId: 'T1',
+        userId: 'U123',
+        slackUser: { teamId: 'T1', userId: 'U123' },
       },
     } as never);
 
@@ -104,7 +108,9 @@ describe('inspectHandler.handleInspectAction', () => {
       data: {
         id: 10,
         name: 'Inspector',
-        slackId: 'slack:U123',
+        teamId: 'T1',
+        userId: 'U123',
+        slackUser: { teamId: 'T1', userId: 'U123' },
         x: 1,
         y: 2,
         hp: 40,
@@ -120,7 +126,9 @@ describe('inspectHandler.handleInspectAction', () => {
       data: {
         id: 20,
         name: 'Target',
-        slackId: 'slack:U456',
+        teamId: 'T1',
+        userId: 'U456',
+        slackUser: { teamId: 'T1', userId: 'U456' },
         hp: 30,
         maxHp: 45,
         strength: 10,
@@ -153,7 +161,9 @@ describe('inspectHandler.handleInspectAction', () => {
       data: {
         id: 10,
         name: 'Inspector',
-        slackId: 'slack:U123',
+        teamId: 'T1',
+        userId: 'U123',
+        slackUser: { teamId: 'T1', userId: 'U123' },
         x: 5,
         y: 5,
         hp: 40,
@@ -182,6 +192,17 @@ describe('inspectHandler.handleInspectAction', () => {
       ],
       items: [],
     });
+    mockedDmClient.getMonsterById.mockResolvedValue({
+      id: 99,
+      name: 'Goblin',
+      hp: 12,
+      maxHp: 12,
+      strength: 8,
+      agility: 9,
+      health: 7,
+      level: 2,
+      isAlive: true,
+    });
 
     const body = buildActionBody('M:99');
     const client = mockClient();
@@ -205,7 +226,9 @@ describe('inspectHandler.handleInspectAction', () => {
       data: {
         id: 10,
         name: 'Inspector',
-        slackId: 'slack:U123',
+        teamId: 'T1',
+        userId: 'U123',
+        slackUser: { teamId: 'T1', userId: 'U123' },
         x: 0,
         y: 0,
       },

@@ -5,7 +5,27 @@ import http from 'http';
 // Use global fetch in place of the removed @mud/gcp-auth helper
 const authorizedFetch = globalThis.fetch as typeof fetch;
 
-function normalizeDmBaseUrl(rawUrl: string): string {
+export type TickLogger = Pick<
+  typeof console,
+  'info' | 'warn' | 'error' | 'debug'
+>;
+
+export interface TickExecutionOptions {
+  fetchImpl?: typeof fetch;
+  dmBaseUrl?: string;
+  activityThresholdMinutes?: number;
+  logger?: TickLogger;
+}
+
+export interface TickServiceOptions extends TickExecutionOptions {
+  tickIntervalMs?: number;
+  httpModule?: typeof http;
+  host?: string;
+  port?: number;
+  enableSignalHandlers?: boolean;
+}
+
+export function normalizeDmBaseUrl(rawUrl: string): string {
   const parsed = new URL(rawUrl);
   const trimmedPath = parsed.pathname.replace(/\/+$/, '');
   if (!trimmedPath || trimmedPath === '/') {
@@ -29,16 +49,21 @@ const ACTIVITY_THRESHOLD_MINUTES = parseInt(
   10,
 );
 
-// auth logger removed (was setAuthLogger) — not needed on GKE
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3003;
 
-async function hasActivePlayers(): Promise<boolean> {
+export async function hasActivePlayers(
+  options: TickExecutionOptions = {},
+): Promise<boolean> {
+  const fetchImpl = options.fetchImpl ?? authorizedFetch;
+  const dmBaseUrl = options.dmBaseUrl ?? DM_API_BASE_URL;
+  const activityThreshold =
+    options.activityThresholdMinutes ?? ACTIVITY_THRESHOLD_MINUTES;
+  const logger = options.logger ?? console;
+
   try {
-    const url = new URL(`${DM_API_BASE_URL}/system/active-players`);
-    url.searchParams.set(
-      'minutesThreshold',
-      String(ACTIVITY_THRESHOLD_MINUTES),
-    );
-    const res = await authorizedFetch(url.toString(), {
+    const url = new URL(`${dmBaseUrl}/system/active-players`);
+    url.searchParams.set('minutesThreshold', String(activityThreshold));
+    const res = await fetchImpl(url.toString(), {
       method: 'GET',
       headers: {
         accept: 'application/json',
@@ -46,7 +71,7 @@ async function hasActivePlayers(): Promise<boolean> {
     });
     const text = await res.text();
     if (!res.ok) {
-      console.error(
+      logger.error(
         {
           status: res.status,
           body: text.slice(0, 500),
@@ -62,7 +87,7 @@ async function hasActivePlayers(): Promise<boolean> {
     };
     return payload.active ?? false;
   } catch (err) {
-    console.error(
+    logger.error(
       {
         error: err instanceof Error ? err.message : err,
       },
@@ -72,33 +97,42 @@ async function hasActivePlayers(): Promise<boolean> {
   }
 }
 
-async function sendProcessTick() {
-  // First check if there are any active players
-  const hasActive = await hasActivePlayers();
+export async function sendProcessTick(
+  options: TickExecutionOptions = {},
+): Promise<void> {
+  const fetchImpl = options.fetchImpl ?? authorizedFetch;
+  const dmBaseUrl = options.dmBaseUrl ?? DM_API_BASE_URL;
+  const activityThreshold =
+    options.activityThresholdMinutes ?? ACTIVITY_THRESHOLD_MINUTES;
+  const logger = options.logger ?? console;
+
+  const hasActive = await hasActivePlayers({
+    fetchImpl,
+    dmBaseUrl,
+    activityThresholdMinutes: activityThreshold,
+    logger,
+  });
   if (!hasActive) {
-    console.info(
+    logger.info(
       {
-        activityThresholdMinutes: ACTIVITY_THRESHOLD_MINUTES,
+        activityThresholdMinutes: activityThreshold,
       },
       'No active players, skipping tick',
     );
     return;
   }
 
-  console.info('Active players detected, processing tick');
+  logger.info('Active players detected, processing tick');
   try {
-    const res = await authorizedFetch(
-      `${DM_API_BASE_URL}/system/process-tick`,
-      {
-        method: 'POST',
-        headers: {
-          accept: 'application/json',
-        },
+    const res = await fetchImpl(`${dmBaseUrl}/system/process-tick`, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
       },
-    );
+    });
     const text = await res.text();
     if (!res.ok) {
-      console.error(
+      logger.error(
         {
           status: res.status,
           statusText: res.statusText,
@@ -111,8 +145,8 @@ async function sendProcessTick() {
     let payload: unknown;
     try {
       payload = JSON.parse(text);
-    } catch (e) {
-      console.error({ error: e }, 'Failed to parse DM response as JSON');
+    } catch (error) {
+      logger.error({ error }, 'Failed to parse DM response as JSON');
       return;
     }
     const result = payload as {
@@ -121,7 +155,7 @@ async function sendProcessTick() {
       result?: Record<string, unknown>;
     };
     if (result.success) {
-      console.info(
+      logger.info(
         {
           message: result.message ?? 'success',
           result: result.result,
@@ -129,7 +163,7 @@ async function sendProcessTick() {
         'DM processTick succeeded',
       );
     } else {
-      console.warn(
+      logger.warn(
         {
           message: result?.message ?? 'unknown error',
         },
@@ -137,69 +171,120 @@ async function sendProcessTick() {
       );
     }
   } catch (err) {
-    if (err instanceof Error) {
-      console.error({ error: err.message }, 'Error calling DM processTick');
-    } else {
-      console.error({ error: err }, 'Error calling DM processTick');
-    }
+    logger.error(
+      { error: err instanceof Error ? err.message : err },
+      'Error calling DM processTick',
+    );
   }
 }
 
-// Start loop and lightweight HTTP server for platform health/readiness checks
-console.info(
-  {
-    dmBaseUrl: DM_API_BASE_URL,
-    tickIntervalMs: TICK_INTERVAL_MS,
-    activityThresholdMinutes: ACTIVITY_THRESHOLD_MINUTES,
-  },
-  'Tick service starting',
-);
-// Kick one immediately on startup (optional)
-sendProcessTick().catch(() => void 0);
-// Then every configured interval
-const interval: NodeJS.Timeout = setInterval(sendProcessTick, TICK_INTERVAL_MS);
+export function startTickService(options: TickServiceOptions = {}) {
+  const logger = options.logger ?? console;
+  const fetchImpl = options.fetchImpl ?? authorizedFetch;
+  const dmBaseUrl = options.dmBaseUrl ?? DM_API_BASE_URL;
+  const activityThreshold =
+    options.activityThresholdMinutes ?? ACTIVITY_THRESHOLD_MINUTES;
+  const tickIntervalMs = options.tickIntervalMs ?? TICK_INTERVAL_MS;
+  const httpModule = options.httpModule ?? http;
+  const host = options.host ?? '0.0.0.0';
+  const port = options.port ?? PORT;
 
-// Minimal HTTP server to satisfy hosting platform requirements to listen on $PORT
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3003;
-const server = http.createServer((req, res) => {
-  if (!req.url) {
-    res.statusCode = 400;
-    res.end('Bad Request');
-    return;
-  }
-  if (req.url === '/' || req.url.startsWith('/health')) {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ ok: true }));
-    console.debug({ url: req.url, method: req.method }, 'Health probe handled');
-    return;
-  }
-  res.statusCode = 404;
-  res.end('Not Found');
-  console.debug(
-    { url: req.url, method: req.method },
-    'Unhandled request received',
+  logger.info(
+    {
+      dmBaseUrl,
+      tickIntervalMs,
+      activityThresholdMinutes: activityThreshold,
+    },
+    'Tick service starting',
   );
-});
-server.listen(PORT, '0.0.0.0', () => {
-  console.info({ port: PORT, host: '0.0.0.0' }, 'HTTP health server listening');
-});
 
-// Graceful shutdown
-function cleanup(code?: number) {
-  try {
+  const runTick = () =>
+    sendProcessTick({
+      fetchImpl,
+      dmBaseUrl,
+      activityThresholdMinutes: activityThreshold,
+      logger,
+    }).catch((error) => {
+      logger.error(
+        { error: error instanceof Error ? error.message : error },
+        'Tick loop execution failed',
+      );
+    });
+
+  runTick().catch(() => void 0);
+  const interval: NodeJS.Timeout = setInterval(runTick, tickIntervalMs);
+
+  const server = httpModule.createServer((req, res) => {
+    if (!req.url) {
+      res.statusCode = 400;
+      res.end('Bad Request');
+      return;
+    }
+    if (req.url === '/' || req.url.startsWith('/health')) {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ ok: true }));
+      logger.debug({ url: req.url, method: req.method }, 'Health probe handled');
+      return;
+    }
+    res.statusCode = 404;
+    res.end('Not Found');
+    logger.debug(
+      { url: req.url, method: req.method },
+      'Unhandled request received',
+    );
+  });
+  server.listen(port, host, () => {
+    logger.info({ port, host }, 'HTTP health server listening');
+  });
+
+  const removeListener = (
+    event: NodeJS.Signals,
+    handler: (() => void) | undefined,
+  ) => {
+    if (!handler) return;
+    if (typeof process.off === 'function') {
+      process.off(event, handler);
+    } else {
+      process.removeListener(event, handler);
+    }
+  };
+
+  let handleSigint: (() => void) | undefined;
+  let handleSigterm: (() => void) | undefined;
+
+  const cleanup = (code?: number) => {
     clearInterval(interval);
     server.close();
-  } finally {
-    if (typeof code === 'number') process.exit(code);
+    removeListener('SIGINT', handleSigint);
+    removeListener('SIGTERM', handleSigterm);
+    if (typeof code === 'number') {
+      process.exit(code);
+    }
+  };
+
+  const enableSignals =
+    options.enableSignalHandlers ?? process.env.NODE_ENV !== 'test';
+  if (enableSignals) {
+    handleSigint = () => {
+      logger.info('Received SIGINT, shutting down');
+      cleanup(0);
+    };
+    handleSigterm = () => {
+      logger.info('Received SIGTERM, shutting down');
+      cleanup(0);
+    };
+    process.on('SIGINT', handleSigint);
+    process.on('SIGTERM', handleSigterm);
   }
+
+  return { stop: cleanup, server, interval };
 }
 
-process.on('SIGINT', () => {
-  console.info('Received SIGINT, shutting down');
-  cleanup(0);
-});
-process.on('SIGTERM', () => {
-  console.info('Received SIGTERM, shutting down');
-  cleanup(0);
-});
+const shouldAutoStart =
+  process.env.NODE_ENV !== 'test' &&
+  process.env.TICK_DISABLE_AUTO_START !== '1';
+
+if (shouldAutoStart) {
+  startTickService();
+}

@@ -30,9 +30,8 @@ import { moveHandler } from './move';
 import { rerollHandler } from './reroll';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import type { HandlerContext, SayMessage } from './types';
-
-const toClientId = (userId: string, teamId: string): string =>
-  `${teamId}:${userId}`;
+import { setSlackApp } from '../appContext';
+import type { App } from '@slack/bolt';
 
 const mockedDmClient = dmClient as unknown as {
   attack: jest.Mock;
@@ -81,15 +80,27 @@ const makeClient = (channelId = 'D1'): MockSlackClient => ({
   },
 });
 
+beforeAll(() => {
+  const mockApp = {
+    logger: {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+    },
+  } as unknown as App;
+  setSlackApp(mockApp);
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockedDmClient.getPlayer.mockResolvedValue({
     success: true,
     data: {
       id: '1',
-      slackId: toClientId('U1', 'T1'),
       teamId: 'T1',
       userId: 'U1',
+      slackUser: { teamId: 'T1', userId: 'U1', id: 101 },
       name: 'Hero',
       hp: 1,
       maxHp: 10,
@@ -587,7 +598,8 @@ describe('lookHandler', () => {
       players: [
         {
           id: '2',
-          slackId: toClientId('U2'),
+          teamId: 'T1',
+          userId: 'U2',
           slackUser: { teamId: 'T1', userId: 'U2' },
           name: 'Friend',
           x: 0,
@@ -605,7 +617,8 @@ describe('lookHandler', () => {
         },
         {
           id: '1',
-          slackId: 'U1',
+          teamId: 'T1',
+          userId: 'U1',
           slackUser: { teamId: 'T1', userId: 'U1' },
           name: 'Hero',
           x: 0,
@@ -693,7 +706,8 @@ describe('lookHandler', () => {
       players: [
         {
           id: '1',
-          slackId: toClientId('U1', 'T1'),
+          teamId: 'T1',
+          userId: 'U1',
           slackUser: { teamId: 'T1', userId: 'U1' },
           name: 'Hero',
           x: 0,
@@ -807,7 +821,8 @@ describe('mapHandler', () => {
       players: [
         {
           id: '2',
-          slackId: toClientId('U2'),
+          teamId: 'T1',
+          userId: 'U2',
           slackUser: { teamId: 'T1', userId: 'U2' },
           name: 'Friend',
           x: 3,
@@ -857,7 +872,8 @@ describe('mapHandler', () => {
       players: [
         {
           id: '1',
-          slackId: toClientId('U1', 'T1'),
+          teamId: 'T1',
+          userId: 'U1',
           slackUser: { teamId: 'T1', userId: 'U1' },
           name: 'Hero',
           x: 5,

@@ -186,7 +186,10 @@ describe('inventory handler', () => {
       say,
     } as unknown as Parameters<typeof inventoryHandler>[0]);
 
-    expect(mockedGetPlayer).toHaveBeenCalledWith({ slackId: 'slack:T1:U1' });
+    expect(mockedGetPlayer).toHaveBeenCalledWith({
+      teamId: 'T1',
+      userId: 'U1',
+    });
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
         blocks: expect.any(Array),

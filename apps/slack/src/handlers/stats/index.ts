@@ -50,14 +50,14 @@ export const statsHandler = async ({
       return;
     }
 
-    if (target.slackId) {
-      const isSelfLookup = target.slackId === userId;
-      const targetDescription = `<@${target.slackId}>`;
+    if (target.targetUserId) {
+      const isSelfLookup = target.targetUserId === userId;
+      const targetDescription = `<@${target.targetUserId}>`;
       const fallbackMessage = isSelfLookup
         ? MISSING_CHARACTER_MESSAGE
         : `I couldn't find a character for ${targetDescription}.`;
       const { player, message } = await fetchPlayerRecord(
-        { teamId, userId: target.slackId },
+        { teamId, userId: target.targetUserId },
         fallbackMessage,
       );
       await respondWithPlayer(say, player, message, fallbackMessage, {

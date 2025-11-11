@@ -41,11 +41,11 @@ describe('sniff handler', () => {
       userId: 'U123',
       teamId: 'T1',
       say,
-      teamId: 'T1',
     } as unknown as HandlerContext);
 
     expect(mockedSniffNearestMonster).toHaveBeenCalledWith({
-      slackId: 'slack:T1:U123',
+      teamId: 'T1',
+      userId: 'U123',
     });
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -21,6 +21,7 @@ import type {
   LocationEntitiesResult,
   PlayerRecord,
   MonsterRecord,
+  EquipmentTotals,
 } from '../dm-client';
 import {
   buildPlayerStatsMessage,
@@ -210,6 +211,7 @@ type CombatantSnapshot = {
   agility?: number | null;
   health?: number | null;
   level?: number | null;
+  equipmentTotals?: EquipmentTotals | null;
 };
 
 type CombatOdds = {
@@ -252,13 +254,30 @@ const computePowerScore = (snapshot: CombatantSnapshot): number => {
   const vitality = typeof snapshot.health === 'number' ? snapshot.health : 10;
   const level = typeof snapshot.level === 'number' ? snapshot.level : 1;
 
-  const effectiveHp = Math.max(maxHp, hp, 1);
+  const equipmentTotals = snapshot.equipmentTotals ?? null;
+  const hpBonus = typeof equipmentTotals?.hpBonus === 'number'
+    ? equipmentTotals.hpBonus
+    : 0;
+  const attackBonus = typeof equipmentTotals?.attackBonus === 'number'
+    ? equipmentTotals.attackBonus
+    : 0;
+  const damageBonus = typeof equipmentTotals?.damageBonus === 'number'
+    ? equipmentTotals.damageBonus
+    : 0;
+  const armorBonus = typeof equipmentTotals?.armorBonus === 'number'
+    ? equipmentTotals.armorBonus
+    : 0;
+
+  const effectiveHp = Math.max(maxHp + hpBonus, hp + hpBonus, 1);
   return (
     effectiveHp * 0.6 +
     Math.max(strength, 0) * 2 +
     Math.max(agility, 0) * 1.5 +
     Math.max(vitality, 0) * 1.5 +
-    Math.max(level, 0) * 5
+    Math.max(level, 0) * 5 +
+    Math.max(attackBonus, 0) * 1.6 +
+    Math.max(damageBonus, 0) * 1.4 +
+    Math.max(armorBonus, 0) * 1.2
   );
 };
 

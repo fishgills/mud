@@ -12,7 +12,9 @@ describe('buildPlayerStatsMessage', () => {
     overrides: Partial<PlayerStatsSource> = {},
   ): PlayerStatsSource => ({
     id: '1',
-    slackId: 'U123',
+    teamId: 'T1',
+    userId: 'U123',
+    slackUser: { id: 77, teamId: 'T1', userId: 'U123' },
     name: 'Test Player',
     x: 10,
     y: 20,

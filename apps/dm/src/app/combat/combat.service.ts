@@ -2,15 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   getPrismaClient,
   CombatLog as PrismaCombatLog,
-  ItemQuality,
+  PlayerSlot,
 } from '@mud/database';
-import { PlayerSlot } from '@mud/database';
-import type {
-  Item,
-  PlayerItem,
-  ItemQualityType,
-  PlayerWithSlackUser,
-} from '@mud/database';
+import type { Item, PlayerWithSlackUser } from '@mud/database';
 import { EventBus, type PlayerRespawnEvent } from '../../shared/event-bus';
 import { PlayerService } from '../player/player.service';
 import { AiService } from '../../openai/ai.service';
@@ -26,26 +20,10 @@ import { AttackOrigin } from '../api/dto/player-requests.dto';
 import { runCombat as engineRunCombat } from './engine';
 import { CombatMessenger } from './messages';
 import { applyCombatResults, type CombatResultEffects } from './results';
-
-const QUALITY_MULTIPLIERS: Record<ItemQualityType, number> = {
-  [ItemQuality.Trash]: 0.4,
-  [ItemQuality.Poor]: 0.7,
-  [ItemQuality.Common]: 1,
-  [ItemQuality.Uncommon]: 1.15,
-  [ItemQuality.Fine]: 1.25,
-  [ItemQuality.Superior]: 1.35,
-  [ItemQuality.Rare]: 1.5,
-  [ItemQuality.Epic]: 1.7,
-  [ItemQuality.Legendary]: 1.9,
-  [ItemQuality.Mythic]: 2.1,
-  [ItemQuality.Artifact]: 2.4,
-  [ItemQuality.Ascended]: 2.7,
-  [ItemQuality.Transcendent]: 3,
-  [ItemQuality.Primal]: 3.4,
-  [ItemQuality.Divine]: 3.8,
-};
-
-type EquippedPlayerItem = PlayerItem & { item: Item | null };
+import {
+  calculateEquipmentEffects,
+  type EquippedPlayerItem,
+} from '../player/equipment.effects';
 
 type CombatantEquipment = {
   name: string;
@@ -234,13 +212,6 @@ export class CombatService {
     return finalGold;
   }
 
-  private getQualityMultiplier(
-    quality: ItemQualityType | null | undefined,
-  ): number {
-    const key = quality ?? ItemQuality.Common;
-    return QUALITY_MULTIPLIERS[key] ?? QUALITY_MULTIPLIERS[ItemQuality.Common];
-  }
-
   private async getEquippedItems(
     playerId: number,
   ): Promise<EquippedPlayerItem[]> {
@@ -258,119 +229,6 @@ export class CombatService {
       );
       return [];
     }
-  }
-
-  private calculateEquipmentEffects(items: EquippedPlayerItem[]): {
-    attackBonus: number;
-    damageBonus: number;
-    armorBonus: number;
-    hpBonus: number;
-  } {
-    const totals = {
-      attackBonus: 0,
-      damageBonus: 0,
-      armorBonus: 0,
-      hpBonus: 0,
-    };
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return totals;
-    }
-
-    const details: Array<{
-      playerItemId: number;
-      itemId: number | null;
-      name: string | null;
-      slot: string | undefined | null;
-      quality: ItemQualityType | null | undefined;
-      multiplier: number;
-      base: { attack: number; defense: number; health: number };
-      applied: {
-        attackBonus: number;
-        damageBonus: number;
-        armorBonus: number;
-        hpBonus: number;
-      };
-    }> = [];
-
-    for (const record of items) {
-      const item = record.item;
-      if (!item) continue;
-
-      const multiplier = this.getQualityMultiplier(record.quality);
-      const normalizedSlot = ((): string | undefined => {
-        if (typeof record.slot === 'string') return record.slot;
-        if (typeof item.slot === 'string') return item.slot;
-        const type =
-          typeof item.type === 'string' ? item.type.toLowerCase() : '';
-        if (type === 'weapon') return PlayerSlot.weapon;
-        return undefined;
-      })();
-
-      const baseAttack = item.attack ?? 0;
-      const baseDefense = item.defense ?? 0;
-      const baseHealth = item.healthBonus ?? 0;
-
-      const applied = {
-        attackBonus: 0,
-        damageBonus: 0,
-        armorBonus: 0,
-        hpBonus: 0,
-      };
-
-      if (normalizedSlot === PlayerSlot.weapon && baseAttack > 0) {
-        const scaledAttack = baseAttack * multiplier;
-        const scaledToHit = baseAttack * multiplier * 0.5;
-        const toHit =
-          scaledToHit > 0 ? Math.max(1, Math.round(scaledToHit)) : 0;
-        const damage =
-          scaledAttack > 0 ? Math.max(1, Math.round(scaledAttack)) : 0;
-        if (toHit !== 0) {
-          totals.attackBonus += toHit;
-          applied.attackBonus = toHit;
-        }
-        if (damage !== 0) {
-          totals.damageBonus += damage;
-          applied.damageBonus = damage;
-        }
-      }
-
-      if (normalizedSlot !== PlayerSlot.weapon && baseDefense > 0) {
-        const defense = Math.round(baseDefense * multiplier);
-        if (defense !== 0) {
-          totals.armorBonus += defense;
-          applied.armorBonus = defense;
-        }
-      }
-
-      if (baseHealth > 0) {
-        const health = Math.round(baseHealth * multiplier);
-        if (health !== 0) {
-          totals.hpBonus += health;
-          applied.hpBonus = health;
-        }
-      }
-
-      details.push({
-        playerItemId: record.id,
-        itemId: item.id ?? null,
-        name: item.name ?? null,
-        slot:
-          normalizedSlot ?? (typeof item.slot === 'string' ? item.slot : null),
-        quality: record.quality ?? null,
-        multiplier: Number(multiplier.toFixed(2)),
-        base: { attack: baseAttack, defense: baseDefense, health: baseHealth },
-        applied,
-      });
-    }
-
-    if (details.length > 0) {
-      this.logger.debug(
-        `Equipment effects summary: ${JSON.stringify({ totals, details })}`,
-      );
-    }
-
-    return totals;
   }
 
   private formatCombatNarrative(narrative: CombatNarrative): string {
@@ -574,7 +432,8 @@ export class CombatService {
     }
 
     const equippedItems = await this.getEquippedItems(player.id);
-    const equipmentTotals = this.calculateEquipmentEffects(equippedItems);
+    const { totals: equipmentTotals, details: equipmentDetails } =
+      calculateEquipmentEffects(equippedItems);
 
     const effectiveMaxHp = player.maxHp + equipmentTotals.hpBonus;
     const effectiveHp = Math.min(
@@ -640,6 +499,12 @@ export class CombatService {
 
       this.logger.debug(
         `Equipment bonuses for ${combatant.name}: +${equipmentTotals.attackBonus} atk, +${equipmentTotals.damageBonus} dmg, +${equipmentTotals.armorBonus} AC, +${equipmentTotals.hpBonus} HP (${equippedItems.length} items)`,
+      );
+    }
+
+    if (equipmentDetails.length > 0) {
+      this.logger.debug(
+        `Equipment effects summary: ${JSON.stringify({ totals: equipmentTotals, details: equipmentDetails })}`,
       );
     }
 

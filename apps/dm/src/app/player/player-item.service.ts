@@ -11,6 +11,11 @@ import type {
   WorldItemWithDetails,
 } from '@mud/database';
 import { PlayerSlot } from '@mud/database';
+import {
+  calculateEquipmentEffects,
+  type EquippedPlayerItem,
+  type EquipmentTotals,
+} from './equipment.effects';
 
 @Injectable()
 export class PlayerItemService {
@@ -28,14 +33,28 @@ export class PlayerItemService {
     });
   }
 
+  async listEquipped(
+    playerId: number,
+  ): Promise<Array<EquippedPlayerItem>> {
+    return this.prisma.playerItem.findMany({
+      where: { playerId, equipped: true },
+      include: { item: true },
+    });
+  }
+
+  async getEquipmentTotals(playerId: number): Promise<EquipmentTotals> {
+    const equippedItems = await this.listEquipped(playerId);
+    return calculateEquipmentEffects(equippedItems).totals;
+  }
+
   // Equip an item by playerItemId into a slot
   async equip(
     playerId: number,
     playerItemId: number,
     slot: PlayerSlot,
-  ): Promise<void> {
+  ): Promise<PlayerItem & Prisma.ItemInclude> {
     // Basic equip logic: ensure ownership, unequip any other item in the same slot, set equipped
-    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const pi = await tx.playerItem.findUnique({
         where: { id: playerItemId },
         include: { item: true },
@@ -85,15 +104,19 @@ export class PlayerItemService {
       });
 
       // Equip this item and set its slot
-      await tx.playerItem.update({
+      return tx.playerItem.update({
         where: { id: playerItemId },
         data: { equipped: true, slot },
+        include: { item: true },
       });
     });
   }
 
   // Unequip an item
-  async unequip(playerId: number, playerItemId: number): Promise<void> {
+  async unequip(
+    playerId: number,
+    playerItemId: number,
+  ): Promise<PlayerItem & Prisma.ItemInclude> {
     const pi = await this.prisma.playerItem.findUnique({
       where: { id: playerItemId },
     });
@@ -103,9 +126,10 @@ export class PlayerItemService {
         'Item not found or not owned by player',
       );
     }
-    await this.prisma.playerItem.update({
+    return this.prisma.playerItem.update({
       where: { id: playerItemId },
       data: { equipped: false, slot: null },
+      include: { item: true },
     });
   }
 
@@ -194,7 +218,10 @@ export class PlayerItemService {
   }
 
   // Drop a player item onto the world (create WorldItem and remove PlayerItem)
-  async drop(playerId: number, playerItemId: number): Promise<WorldItem> {
+  async drop(
+    playerId: number,
+    playerItemId: number,
+  ): Promise<WorldItem & Prisma.ItemInclude> {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const pi = await tx.playerItem.findUnique({
         where: { id: playerItemId },
@@ -215,6 +242,7 @@ export class PlayerItemService {
           quantity: pi.quantity ?? 1,
           spawnedByMonsterId: null,
         },
+        include: { item: true },
       });
 
       await tx.playerItem.delete({ where: { id: playerItemId } });
