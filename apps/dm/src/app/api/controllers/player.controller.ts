@@ -647,6 +647,9 @@ export class PlayersController {
         Number(playerItemId),
         slot as PlayerSlot,
       );
+      await this.playerService.recalculatePlayerHitPointsFromEquipment(
+        player.id,
+      );
       return { success: true, data: updated };
     } catch (error) {
       return {
@@ -676,6 +679,9 @@ export class PlayersController {
         player.id,
         Number(playerItemId),
       );
+      await this.playerService.recalculatePlayerHitPointsFromEquipment(
+        player.id,
+      );
       return { success: true, data: created };
     } catch (error) {
       return {
@@ -704,6 +710,9 @@ export class PlayersController {
       const updated = await this.playerItemService.unequip(
         player.id,
         Number(playerItemId),
+      );
+      await this.playerService.recalculatePlayerHitPointsFromEquipment(
+        player.id,
       );
       return { success: true, data: updated };
     } catch (error) {

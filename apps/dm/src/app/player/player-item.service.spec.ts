@@ -309,7 +309,7 @@ describe('PlayerItemService.equip validations', () => {
         attackBonus: 2,
         damageBonus: 5,
         armorBonus: 5,
-        hpBonus: 10,
+        vitalityBonus: 10,
       });
     });
 

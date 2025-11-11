@@ -174,7 +174,7 @@ describe('CombatService', () => {
       const result = calculateEquipmentEffects([weapon as any, armor as any]);
       expect(result.totals.attackBonus).toBeGreaterThan(0);
       expect(result.totals.armorBonus).toBeGreaterThan(0);
-      expect(result.totals.hpBonus).toBeGreaterThan(0);
+      expect(result.totals.vitalityBonus).toBeGreaterThan(0);
       expect(result.totals.damageBonus).toBeGreaterThan(0);
     });
   });

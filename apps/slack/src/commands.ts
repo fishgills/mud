@@ -17,6 +17,7 @@ export const COMMANDS = {
   INVENTORY: 'inventory',
   PICKUP: 'pickup',
   EQUIP: 'equip',
+  LOOT: 'loot',
   // Movement (text aliases)
   NORTH: 'north',
   SOUTH: 'south',

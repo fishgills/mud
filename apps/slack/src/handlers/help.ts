@@ -84,6 +84,15 @@ export const buildHelpBlocks = (): KnownBlock[] => [
       },
       {
         type: 'mrkdwn',
+        text: `*Debug*\n• \`${COMMANDS.LOOT} [level]\` - Preview loot tables`,
+      },
+    ],
+  },
+  {
+    type: 'section',
+    fields: [
+      {
+        type: 'mrkdwn',
         text: `*Character Info*\n• \`${COMMANDS.STATS}\` - View your stats\n• \`${COMMANDS.HELP}\` - Show this help`,
       },
     ],

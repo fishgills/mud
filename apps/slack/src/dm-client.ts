@@ -127,7 +127,7 @@ export type EquipmentTotals = {
   attackBonus: number;
   damageBonus: number;
   armorBonus: number;
-  hpBonus: number;
+  vitalityBonus: number;
 };
 
 export interface ItemActionResponse extends SuccessResponse {

@@ -3,6 +3,17 @@ import type { TileInfo } from './tile-info.dto';
 import type { AttackOrigin } from './player-requests.dto';
 import { Monster, Player } from '@mud/database';
 
+export interface EquipmentTotalsDto {
+  attackBonus: number;
+  damageBonus: number;
+  armorBonus: number;
+  vitalityBonus: number;
+}
+
+export type PlayerWithEquipmentTotals = Player & {
+  equipmentTotals?: EquipmentTotalsDto;
+};
+
 export interface LocationInfo {
   location: TileInfo;
   monsters?: Monster[];
@@ -32,7 +43,7 @@ export interface TickSuccessResponse extends SuccessResponse {
 }
 
 export interface PlayerResponse extends SuccessResponse {
-  data?: Player;
+  data?: PlayerWithEquipmentTotals;
 }
 
 export interface LocationResponse extends SuccessResponse {

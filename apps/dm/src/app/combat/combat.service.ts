@@ -4,7 +4,7 @@ import {
   CombatLog as PrismaCombatLog,
   PlayerSlot,
 } from '@mud/database';
-import type { Item, PlayerWithSlackUser } from '@mud/database';
+import type { Item, PlayerWithSlackUser, ItemQualityType } from '@mud/database';
 import { EventBus, type PlayerRespawnEvent } from '../../shared/event-bus';
 import { PlayerService } from '../player/player.service';
 import { AiService } from '../../openai/ai.service';
@@ -435,11 +435,8 @@ export class CombatService {
     const { totals: equipmentTotals, details: equipmentDetails } =
       calculateEquipmentEffects(equippedItems);
 
-    const effectiveMaxHp = player.maxHp + equipmentTotals.hpBonus;
-    const effectiveHp = Math.min(
-      effectiveMaxHp,
-      player.hp + equipmentTotals.hpBonus,
-    );
+    const effectiveMaxHp = player.maxHp;
+    const effectiveHp = Math.min(effectiveMaxHp, player.hp);
 
     const playerWithSlack = player as PlayerWithSlackUser;
     const resolvedTeamId = playerWithSlack.slackUser?.teamId ?? teamId;
@@ -498,7 +495,7 @@ export class CombatService {
       }
 
       this.logger.debug(
-        `Equipment bonuses for ${combatant.name}: +${equipmentTotals.attackBonus} atk, +${equipmentTotals.damageBonus} dmg, +${equipmentTotals.armorBonus} AC, +${equipmentTotals.hpBonus} HP (${equippedItems.length} items)`,
+        `Equipment bonuses for ${combatant.name}: +${equipmentTotals.attackBonus} atk, +${equipmentTotals.damageBonus} dmg, +${equipmentTotals.armorBonus} AC, +${equipmentTotals.vitalityBonus} VIT (${equippedItems.length} items)`,
       );
     }
 

@@ -112,6 +112,7 @@ import './handlers/stats';
 import './handlers/inventory';
 import './handlers/pickup';
 import './handlers/equip';
+import './handlers/loot';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { COMMANDS } from './commands';
 import { registerActions } from './actions';

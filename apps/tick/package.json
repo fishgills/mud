@@ -11,6 +11,6 @@
   "scripts": {
     "build": "tsc",
     "serve": "ts-node-dev --respawn src/main.ts",
-    "test": "jest"
+    "test": "jest --runInBand"
   }
 }

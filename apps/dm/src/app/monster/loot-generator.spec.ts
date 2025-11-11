@@ -1,5 +1,19 @@
 import { LootGenerator } from './loot-generator';
-import type { PrismaClient } from '@mud/database';
+import type { PrismaClient, Item } from '@mud/database';
+
+const mockItem = (overrides: Partial<Item> = {}): Item => ({
+  id: overrides.id ?? 1,
+  name: overrides.name ?? 'Rusty Dagger',
+  type: overrides.type ?? 'weapon',
+  description: overrides.description ?? 'desc',
+  value: overrides.value ?? 1,
+  attack: overrides.attack ?? 1,
+  defense: overrides.defense ?? 0,
+  healthBonus: overrides.healthBonus ?? 0,
+  slot: overrides.slot ?? 'weapon',
+  createdAt: overrides.createdAt ?? new Date(),
+  updatedAt: overrides.updatedAt ?? new Date(),
+});
 
 describe('LootGenerator', () => {
   afterEach(() => {
@@ -7,58 +21,95 @@ describe('LootGenerator', () => {
   });
 
   it('returns drops enriched with item details when prisma lookup succeeds', async () => {
+    const record = mockItem({ id: 42, name: 'Rusty Dagger' });
     const prisma = {
-      item: { findUnique: jest.fn().mockResolvedValue({ id: 1, name: 'Sword' }) },
+      item: {
+        findFirst: jest.fn().mockResolvedValue(record),
+      },
     } as unknown as PrismaClient;
-    jest.spyOn(Math, 'random').mockReturnValue(0.1);
+    const randomSpy = jest.spyOn(Math, 'random');
+    randomSpy.mockReturnValueOnce(0).mockReturnValueOnce(0.1);
 
     const generator = new LootGenerator(prisma);
     const drops = await generator.generateForMonster({ level: 3 });
 
-    expect(prisma.item.findUnique).toHaveBeenCalledWith({ where: { id: 1 } });
+    expect(prisma.item.findFirst).toHaveBeenCalledWith({
+      where: { name: 'Rusty Dagger' },
+    });
     expect(drops).toEqual([
       expect.objectContaining({
-        itemId: 1,
+        itemId: 42,
         quality: 'Common',
-        quantity: 1,
-        item: { id: 1, name: 'Sword' },
+        item: record,
       }),
     ]);
   });
 
-  it('sets item to null when prisma lookup fails', async () => {
+  it('falls back to the first available item when the named template is missing', async () => {
+    const fallback = mockItem({ id: 7, name: 'Fallback' });
     const prisma = {
-      item: { findUnique: jest.fn().mockRejectedValue(new Error('boom')) },
+      item: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(fallback),
+      },
     } as unknown as PrismaClient;
-    jest.spyOn(Math, 'random').mockReturnValue(0.2);
+    const randomSpy = jest.spyOn(Math, 'random');
+    randomSpy.mockReturnValueOnce(0).mockReturnValueOnce(0.2);
 
     const generator = new LootGenerator(prisma);
-    const drops = await generator.generateForMonster({ level: 2 });
+    const drops = await generator.generateForMonster({ level: 5 });
 
-    expect(drops[0]?.item).toBeNull();
+    expect(prisma.item.findFirst).toHaveBeenCalledTimes(2);
+    expect(prisma.item.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { id: 'asc' } }),
+    );
+    expect(drops[0]?.itemId).toBe(7);
+    expect(drops[0]?.item).toEqual(fallback);
   });
 
   it('biases quality toward better tiers at higher levels', async () => {
-    jest.spyOn(Math, 'random').mockReturnValue(0.55);
-    const generator = new LootGenerator();
+    const record = mockItem();
+    const prisma = {
+      item: { findFirst: jest.fn().mockResolvedValue(record) },
+    } as unknown as PrismaClient;
+    const randomSpy = jest.spyOn(Math, 'random');
+  randomSpy
+    .mockReturnValueOnce(0)
+    .mockReturnValueOnce(0.55) // low level quality roll
+    .mockReturnValueOnce(0)
+    .mockReturnValueOnce(0.5); // high level quality roll
 
-    const lowLevelDrop = await generator.generateForMonster({ level: 1 });
-    const highLevelDrop = await generator.generateForMonster({ level: 25 });
+  const generator = new LootGenerator(prisma);
+  const lowLevelDrop = await generator.generateForMonster({ level: 1 });
+  const highLevelDrop = await generator.generateForMonster({ level: 25 });
 
     expect(lowLevelDrop[0]?.quality).toBe('Common');
     expect(highLevelDrop[0]?.quality).toBe('Uncommon');
   });
 
-  it('can roll rare and epic tiers based on random value', async () => {
-    const generator = new LootGenerator();
+  it('can roll rare, epic, and legendary tiers based on random value', async () => {
+    const record = mockItem();
+    const prisma = {
+      item: { findFirst: jest.fn().mockResolvedValue(record) },
+    } as unknown as PrismaClient;
     const randomSpy = jest.spyOn(Math, 'random');
+    randomSpy
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.92) // Rare
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.97) // Epic
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.99); // Legendary
 
-    randomSpy.mockReturnValueOnce(0.9); // Rare branch
+    const generator = new LootGenerator(prisma);
     const rareDrop = await generator.generateForMonster();
-    expect(rareDrop[0]?.quality).toBe('Rare');
-
-    randomSpy.mockReturnValueOnce(0.98); // Epic branch
     const epicDrop = await generator.generateForMonster();
+    const legendaryDrop = await generator.generateForMonster();
+
+    expect(rareDrop[0]?.quality).toBe('Rare');
     expect(epicDrop[0]?.quality).toBe('Epic');
+    expect(legendaryDrop[0]?.quality).toBe('Legendary');
   });
 });

@@ -7,7 +7,7 @@
     "serve": "ts-node-dev --inspect=0.0.0.0:9233 --respawn src/main.ts",
     "send:test:notification": "npx ts-node src/dev/send_test_notification.ts",
     "check-types": "tsc --noEmit",
-    "test": "jest",
+    "test": "jest --runInBand",
     "lint": "eslint"
   },
   "devDependencies": {

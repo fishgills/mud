@@ -12,7 +12,7 @@ export type EquipmentTotals = {
   attackBonus: number;
   damageBonus: number;
   armorBonus: number;
-  hpBonus: number;
+  vitalityBonus: number;
 };
 
 export type EquipmentEffectDetail = {
@@ -59,7 +59,7 @@ export function calculateEquipmentEffects(items: EquippedPlayerItem[]): {
     attackBonus: 0,
     damageBonus: 0,
     armorBonus: 0,
-    hpBonus: 0,
+    vitalityBonus: 0,
   };
 
   const details: EquipmentEffectDetail[] = [];
@@ -89,7 +89,7 @@ export function calculateEquipmentEffects(items: EquippedPlayerItem[]): {
       attackBonus: 0,
       damageBonus: 0,
       armorBonus: 0,
-      hpBonus: 0,
+      vitalityBonus: 0,
     };
 
     if (normalizedSlot === PlayerSlot.weapon && baseAttack > 0) {
@@ -117,10 +117,10 @@ export function calculateEquipmentEffects(items: EquippedPlayerItem[]): {
     }
 
     if (baseHealth > 0) {
-      const health = Math.round(baseHealth * multiplier);
-      if (health !== 0) {
-        totals.hpBonus += health;
-        applied.hpBonus = health;
+      const vitality = Math.round(baseHealth * multiplier);
+      if (vitality !== 0) {
+        totals.vitalityBonus += vitality;
+        applied.vitalityBonus = vitality;
       }
     }
 

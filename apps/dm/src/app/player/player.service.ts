@@ -20,6 +20,7 @@ import {
 import { WorldService } from '../world/world.service';
 import { isWaterBiome } from '../shared/biome.util';
 import { DiceRoll } from '@dice-roller/rpg-dice-roller';
+import { PlayerItemService } from './player-item.service';
 
 @Injectable()
 export class PlayerService {
@@ -28,9 +29,13 @@ export class PlayerService {
 
   private readonly SKILL_POINT_INTERVAL = 4;
   private readonly SKILL_POINTS_PER_INTERVAL = 2;
+  private readonly HIT_DIE_MAX = 10;
   private readonly HIT_DIE_AVERAGE = 6; // Average roll for a d10
 
-  constructor(private readonly worldService: WorldService) {}
+  constructor(
+    private readonly worldService: WorldService,
+    private readonly playerItemService: PlayerItemService,
+  ) {}
 
   /**
    * Get top players by level and XP, optionally filtered by team/workspace
@@ -67,9 +72,77 @@ export class PlayerService {
   }
 
   private calculateLevelUpHpGain(health: number): number {
-    const roll = new DiceRoll('1d10');
     const modifier = this.getStatModifier(health);
-    return Math.max(1, roll.total + modifier);
+    return Math.max(1, this.HIT_DIE_AVERAGE + modifier);
+  }
+
+  private calculatePerLevelHp(health: number): number {
+    return this.calculateLevelUpHpGain(health);
+  }
+
+  private calculateMaxHpForLevel(level: number, health: number): number {
+    if (level <= 0) return 0;
+    const firstLevelHp = this.calculateFirstLevelHp(health);
+    if (level === 1) return firstLevelHp;
+    return firstLevelHp + (level - 1) * this.calculatePerLevelHp(health);
+  }
+
+  private applyMaxHpRecalculation(
+    player: Player,
+    options: { healthOverride?: number } = {},
+  ): void {
+    const health = options.healthOverride ?? player.health;
+    const previousMax = player.maxHp;
+    player.maxHp = this.calculateMaxHpForLevel(player.level, health);
+    const delta = player.maxHp - previousMax;
+    player.hp = Math.min(Math.max(0, player.hp + delta), player.maxHp);
+  }
+
+  private calculateFirstLevelHp(health: number): number {
+    return Math.max(1, this.HIT_DIE_MAX + this.getStatModifier(health));
+  }
+
+  private async getEquipmentHealthBonus(playerId: number): Promise<number> {
+    if (!this.playerItemService?.getEquipmentTotals) {
+      return 0;
+    }
+    try {
+      const totals = await this.playerItemService.getEquipmentTotals(playerId);
+      return totals.vitalityBonus ?? 0;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to load equipment totals for player ${playerId}: ${error instanceof Error ? error.message : error}`,
+      );
+      return 0;
+    }
+  }
+
+  async recalculatePlayerHitPointsFromEquipment(
+    playerId: number,
+  ): Promise<Player | null> {
+    const player = await this.prisma.player.findUnique({ where: { id: playerId } });
+    if (!player) return null;
+    const equipmentBonus = await this.getEquipmentHealthBonus(playerId);
+    this.applyMaxHpRecalculation(player, {
+      healthOverride: player.health + equipmentBonus,
+    });
+    await this.prisma.player.update({
+      where: { id: player.id },
+      data: {
+        maxHp: player.maxHp,
+        hp: player.hp,
+      },
+    });
+    return player;
+  }
+
+  getMaxHpFor(health: number, level: number): number {
+    return this.calculateMaxHpForLevel(level, health);
+  }
+
+  recalculatePlayerHitPoints(player: Player, healthOverride?: number): Player {
+    this.applyMaxHpRecalculation(player, { healthOverride });
+    return player;
   }
 
   async createPlayer(createPlayerDto: CreatePlayerDto): Promise<Player> {
@@ -295,6 +368,8 @@ export class PlayerService {
   ): Promise<Player> {
     const player = await this.getPlayer(teamId, userId);
     const previousSkillPoints = player.skillPoints;
+    const equipmentHealthBonus = await this.getEquipmentHealthBonus(player.id);
+    const getEffectiveHealth = () => player.health + equipmentHealthBonus;
 
     // Handle character creation completion
     if (statsDto.completeCreation) {
@@ -316,6 +391,9 @@ export class PlayerService {
 
     if (typeof statsDto.level === 'number') {
       player.level = statsDto.level;
+      this.applyMaxHpRecalculation(player, {
+        healthOverride: getEffectiveHealth(),
+      });
     }
 
     let leveledUp = false;
@@ -329,10 +407,9 @@ export class PlayerService {
         player.level += 1;
         levelsGained += 1;
         leveledUp = true;
-
-        const hpGain = this.calculateLevelUpHpGain(player.health);
-        player.maxHp += hpGain;
-        player.hp = Math.min(player.hp + hpGain, player.maxHp);
+        this.applyMaxHpRecalculation(player, {
+          healthOverride: getEffectiveHealth(),
+        });
 
         if (player.level % this.SKILL_POINT_INTERVAL === 0) {
           player.skillPoints += this.SKILL_POINTS_PER_INTERVAL;
@@ -388,6 +465,7 @@ export class PlayerService {
     attribute: 'strength' | 'agility' | 'health',
   ): Promise<Player> {
     const player = await this.getPlayer(teamId, userId);
+    const equipmentHealthBonus = await this.getEquipmentHealthBonus(player.id);
 
     if (player.skillPoints <= 0) {
       throw new Error('No skill points available.');
@@ -401,7 +479,9 @@ export class PlayerService {
     player.skillPoints -= 1;
 
     if (attribute === 'health') {
-      player.maxHp = player.maxHp + this.calculateLevelUpHpGain(player.health);
+      this.applyMaxHpRecalculation(player, {
+        healthOverride: player.health + equipmentHealthBonus,
+      });
     }
 
     await this.prisma.player.update({
@@ -436,16 +516,21 @@ export class PlayerService {
     }
 
     // Generate new random starting stats
-    const { strength, agility, health, maxHp } = this.generateRandomStats();
+    const { strength, agility, health } = this.generateRandomStats();
+    const equipmentHealthBonus = await this.getEquipmentHealthBonus(
+      currentPlayer.id,
+    );
 
     // Update entity attributes
     currentPlayer.strength = strength;
     currentPlayer.agility = agility;
     currentPlayer.health = health;
-    currentPlayer.maxHp = maxHp;
-
-    // Set HP to new maxHp during reroll
-    currentPlayer.hp = maxHp;
+    const effectiveHealth = health + equipmentHealthBonus;
+    currentPlayer.maxHp = this.calculateMaxHpForLevel(
+      currentPlayer.level,
+      effectiveHealth,
+    );
+    currentPlayer.hp = currentPlayer.maxHp;
 
     await this.prisma.player.update({
       where: { id: currentPlayer.id },
@@ -453,8 +538,8 @@ export class PlayerService {
         strength,
         agility,
         health,
-        maxHp,
-        hp: maxHp,
+        maxHp: currentPlayer.maxHp,
+        hp: currentPlayer.maxHp,
       },
     });
 
@@ -483,9 +568,14 @@ export class PlayerService {
     const player = await this.getPlayer(teamId, userId);
     const wasAlive = player.isAlive;
     player.hp = player.hp - damage;
+    if (player.hp <= 0) {
+      player.hp = 0;
+      player.isAlive = false;
+    }
+
     await this.prisma.player.update({
       where: { id: player.id },
-      data: { hp: player.hp },
+      data: { hp: player.hp, isAlive: player.isAlive },
     });
 
     // Emit player death event if they died from this damage
@@ -859,8 +949,8 @@ export class PlayerService {
     const agility = new DiceRoll('4d6k3').total;
     const health = new DiceRoll('4d6k3').total;
 
-    // Calculate starting HP: 10 base + Vitality modifier
-    const maxHp = 10 + this.getStatModifier(health);
+    // Calculate starting HP using D&D first-level rule: max hit die + CON mod
+    const maxHp = this.calculateFirstLevelHp(health);
 
     return { strength, agility, health, maxHp };
   }

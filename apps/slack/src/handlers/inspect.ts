@@ -255,9 +255,6 @@ const computePowerScore = (snapshot: CombatantSnapshot): number => {
   const level = typeof snapshot.level === 'number' ? snapshot.level : 1;
 
   const equipmentTotals = snapshot.equipmentTotals ?? null;
-  const hpBonus = typeof equipmentTotals?.hpBonus === 'number'
-    ? equipmentTotals.hpBonus
-    : 0;
   const attackBonus = typeof equipmentTotals?.attackBonus === 'number'
     ? equipmentTotals.attackBonus
     : 0;
@@ -268,7 +265,7 @@ const computePowerScore = (snapshot: CombatantSnapshot): number => {
     ? equipmentTotals.armorBonus
     : 0;
 
-  const effectiveHp = Math.max(maxHp + hpBonus, hp + hpBonus, 1);
+  const effectiveHp = Math.max(maxHp, hp, 1);
   return (
     effectiveHp * 0.6 +
     Math.max(strength, 0) * 2 +

@@ -50,8 +50,32 @@ export class LocationController {
     @Query('y') rawY?: string,
   ): Promise<LocationCollectionResponse<WorldItemWithDetails>> {
     const { x, y } = this.parseCoordinates(rawX, rawY);
-    const items = await this.playerItemService.listWorldItemsAtLocation(x, y);
+    const records = await this.playerItemService.listWorldItemsAtLocation(x, y);
+    const items = records.map((item) => this.serializeWorldItem(item));
     return { success: true, data: items };
+  }
+
+  private serializeWorldItem(
+    item: WorldItemWithDetails,
+  ): WorldItemWithDetails & {
+    itemName?: string | null;
+    allowedSlots?: string[];
+  } {
+    const allowedSlots: string[] = [];
+    const slot = (item.item as { slot?: string | null } | null)?.slot;
+    if (slot) {
+      allowedSlots.push(slot);
+    } else if (
+      (item.item as { type?: string } | null)?.type?.toLowerCase() === 'weapon'
+    ) {
+      allowedSlots.push('weapon');
+    }
+
+    return {
+      ...item,
+      itemName: (item.item as { name?: string } | null)?.name ?? null,
+      allowedSlots,
+    };
   }
 
   private parseCoordinates(rawX?: string, rawY?: string): { x: number; y: number } {
