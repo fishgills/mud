@@ -11,7 +11,6 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
-  app.setGlobalPrefix('dm');
 
   // Simple access log for every HTTP request
   const httpLogger = new Logger('HTTP');
