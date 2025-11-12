@@ -16,6 +16,11 @@ resource "google_sql_database_instance" "postgres" {
     disk_type         = "PD_SSD"
     availability_type = "ZONAL"
 
+    database_flags {
+      name  = "cloudsql.iam_authentication"
+      value = "on"
+    }
+
     backup_configuration {
       enabled = true
     }
@@ -41,4 +46,12 @@ resource "google_sql_user" "app_user" {
   instance = google_sql_database_instance.postgres.name
   name     = var.database_user
   password = random_password.db_password.result
+}
+
+resource "google_sql_user" "cloud_sql_iam_users" {
+  for_each = toset(var.cloud_sql_studio_users)
+
+  instance = google_sql_database_instance.postgres.name
+  name     = each.value
+  type     = "CLOUD_IAM_USER"
 }

@@ -96,6 +96,8 @@ Key variables include:
 - `artifact_repo_id` / `artifact_repo_location`
 - `domain` and `dns_zone_name` (must match an existing Cloud DNS managed zone)
 - Optional `github_repository` (`OWNER/REPO`) to enable Workload Identity Federation
+- Optional `cloud_sql_studio_users` (list of user emails) to grant Cloud SQL Studio access
+- The PostgreSQL instance enables IAM database auth via `cloudsql.iam_authentication`, so you can log in with Cloud SQL Studio or IAM-issued SSL certificates.
 
 Secrets must be provided via Terraform variables before applying:
 

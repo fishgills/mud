@@ -120,6 +120,14 @@ resource "google_project_iam_member" "runtime_vertex_ai" {
   member  = "serviceAccount:${google_service_account.runtime["dm"].email}"
 }
 
+resource "google_project_iam_member" "cloud_sql_studio_users" {
+  for_each = toset(var.cloud_sql_studio_users)
+
+  project = var.project_id
+  role    = "roles/cloudsql.editor"
+  member  = "user:${each.value}"
+}
+
 resource "google_service_account_iam_binding" "runtime_workload_identity" {
   for_each = google_service_account.runtime
 

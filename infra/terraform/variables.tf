@@ -200,3 +200,9 @@ variable "slack_state_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "cloud_sql_studio_users" {
+  description = "List of user emails to grant Cloud SQL Studio access."
+  type        = list(string)
+  default     = ["fishgills@fishgills.net"]
+}
