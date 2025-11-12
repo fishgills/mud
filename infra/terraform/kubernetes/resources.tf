@@ -404,12 +404,12 @@ resource "kubernetes_deployment" "dm" {
 
           env {
             name  = "WORLD_SERVICE_URL"
-            value = "http://${local.service_names.world}.${local.kubernetes_namespace}.svc.cluster.local/world"
+            value = "https://${local.domain_mappings.world}/world"
           }
 
           liveness_probe {
             http_get {
-              path = "/health-check"
+              path = "/dm/health-check"
               port = 8080
             }
             initial_delay_seconds = 30
@@ -420,7 +420,7 @@ resource "kubernetes_deployment" "dm" {
 
           readiness_probe {
             http_get {
-              path = "/health-check"
+              path = "/dm/health-check"
               port = 8080
             }
             initial_delay_seconds = 5
@@ -511,12 +511,12 @@ resource "kubernetes_deployment" "slack" {
 
           env {
             name  = "DM_API_BASE_URL"
-            value = "http://${local.service_names.dm}.${local.kubernetes_namespace}.svc.cluster.local"
+            value = "http://${local.service_names.dm}.${local.kubernetes_namespace}.svc.cluster.local/dm"
           }
 
           env {
             name  = "WORLD_API_BASE_URL"
-            value = "https://world.battleforge.app/world"
+            value = "https://${local.domain_mappings.world}/world"
           }
 
           env {
@@ -673,7 +673,7 @@ resource "kubernetes_deployment" "tick" {
 
           env {
             name  = "DM_API_BASE_URL"
-            value = "http://${local.service_names.dm}.${local.kubernetes_namespace}.svc.cluster.local"
+            value = "http://${local.service_names.dm}.${local.kubernetes_namespace}.svc.cluster.local/dm"
           }
 
           liveness_probe {

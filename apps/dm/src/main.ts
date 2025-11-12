@@ -12,6 +12,8 @@ async function bootstrap() {
     bufferLogs: true,
   });
 
+  app.setGlobalPrefix('dm');
+
   // Simple access log for every HTTP request
   const httpLogger = new Logger('HTTP');
   app.use((req: Request, res: Response, next: NextFunction) => {

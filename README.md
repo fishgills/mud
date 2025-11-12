@@ -69,14 +69,14 @@ All services rely on the following shared configuration:
 
 ### DM service (`apps/dm`)
 
-| Variable                 | Description                                                           |
-| ------------------------ | --------------------------------------------------------------------- |
-| `OPENAI_API_KEY`         | API key used for AI descriptions and responses.                       |
-| `WORLD_SERVICE_URL`      | Base URL for the world service (e.g. `http://localhost:3001/world`).  |
-| `COORDINATION_PREFIX`    | Redis key namespace for coordination locks (defaults to `dm:coord:`). |
-| `TILE_DESC_LOCK_TTL_MS`  | TTL for tile description locks in Redis.                              |
-| `TILE_DESC_COOLDOWN_MS`  | Cooldown before retrying tile descriptions.                           |
-| `TILE_DESC_MIN_RETRY_MS` | Minimum retry delay when description generation fails.                |
+| Variable                 | Description                                                                   |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| `OPENAI_API_KEY`         | API key used for AI descriptions and responses.                               |
+| `WORLD_SERVICE_URL`      | Base URL for the world service (e.g. `https://closet.battleforge.app/world`). |
+| `COORDINATION_PREFIX`    | Redis key namespace for coordination locks (defaults to `dm:coord:`).         |
+| `TILE_DESC_LOCK_TTL_MS`  | TTL for tile description locks in Redis.                                      |
+| `TILE_DESC_COOLDOWN_MS`  | Cooldown before retrying tile descriptions.                                   |
+| `TILE_DESC_MIN_RETRY_MS` | Minimum retry delay when description generation fails.                        |
 
 ### World service (`apps/world`)
 
@@ -88,21 +88,21 @@ All services rely on the following shared configuration:
 
 ### Slack bot (`apps/slack`)
 
-| Variable               | Description                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------- |
-| `SLACK_BOT_TOKEN`      | Bot token for your Slack app.                                                 |
-| `SLACK_SIGNING_SECRET` | Signing secret for request verification.                                      |
-| `SLACK_APP_TOKEN`      | App-level token for the Bolt SDK.                                             |
-| `DM_API_BASE_URL`      | Base URL of the DM REST API (local default `http://localhost:3000/dm`).          |
-| `WORLD_API_BASE_URL`   | Base URL of the world REST API (local default `http://localhost:3001/world`). |
-| `PORT`                 | Port the Slack bot listens on (default `3002`).                               |
+| Variable               | Description                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| `SLACK_BOT_TOKEN`      | Bot token for your Slack app.                                                          |
+| `SLACK_SIGNING_SECRET` | Signing secret for request verification.                                               |
+| `SLACK_APP_TOKEN`      | App-level token for the Bolt SDK.                                                      |
+| `DM_API_BASE_URL`      | Base URL of the DM REST API (local default `http://localhost:3000/dm`).                |
+| `WORLD_API_BASE_URL`   | Base URL of the world REST API (local default `https://closet.battleforge.app/world`). |
+| `PORT`                 | Port the Slack bot listens on (default `3002`).                                        |
 
 ### Tick worker (`apps/tick`)
 
-| Variable          | Description                                                          |
-| ----------------- | -------------------------------------------------------------------- |
+| Variable          | Description                                                             |
+| ----------------- | ----------------------------------------------------------------------- |
 | `DM_API_BASE_URL` | Base URL of the DM REST API (local default `http://localhost:3000/dm`). |
-| `PORT`            | HTTP port for the lightweight health server (default `3003`).        |
+| `PORT`            | HTTP port for the lightweight health server (default `3003`).           |
 
 Services communicate using standard HTTP fetch calls. When running on GKE, internal service-to-service traffic is unauthenticated and uses Kubernetes DNS for service discovery.
 
@@ -138,10 +138,10 @@ Run each service in its own terminal (or use Turbo's parallel execution):
 yarn serve
 
 # Or run individual services:
-# World generation service REST API (http://localhost:3001/world)
+# World generation service REST API (https://closet.battleforge.app/world)
 yarn turbo run serve --filter=@mud/world
 
-# DM REST API (http://localhost:3000)
+# DM REST API (http://localhost:3000/dm)
 yarn turbo run serve --filter=@mud/dm
 
 # Slack bot (requires Slack credentials)

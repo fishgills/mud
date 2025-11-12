@@ -38,6 +38,7 @@ describe('main bootstrap', () => {
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(useMock).toHaveBeenCalled();
+    expect(setGlobalPrefixMock).toHaveBeenCalledWith('dm');
     expect(listenMock).toHaveBeenCalledWith(4321, '0.0.0.0');
   });
 
@@ -48,6 +49,7 @@ describe('main bootstrap', () => {
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(listenMock).toHaveBeenCalledWith(3000, '0.0.0.0');
+    expect(setGlobalPrefixMock).toHaveBeenCalledWith('dm');
 
     const middleware = useMock.mock.calls[0][0];
     const next = jest.fn();

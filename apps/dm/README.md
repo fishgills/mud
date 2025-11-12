@@ -12,24 +12,32 @@ The DM (Dungeon Master) service manages the core game mechanics for the text-bas
 
 ## API Endpoints
 
-### Health Check
+All HTTP routes are namespaced under `/dm`, so both local proxies and
+Kubernetes workloads can rely on the same paths regardless of hostname.
 
-- `GET /api/dm/health` - Service health check
+### Health & tick coordination
 
-### Game Management
+- `GET /dm/health-check` – Lightweight service probe
+- `GET /dm/system/health` – Detailed system health status
+- `POST /dm/system/process-tick` – Advance the simulation (called by the tick worker)
+- `GET /dm/system/game-state` – Snapshot of monsters/time/weather
+- `GET /dm/system/active-players` – Check for recent player activity
 
-- `POST /api/dm/tick` - Process game world tick (called by tick service)
-- `GET /api/dm/game-state` - Get current game state (time, weather)
+### World and location data
 
-### World Information
+- `GET /dm/location/players|monsters|items` – Inspect entities at a coordinate
+- `GET /dm/movement/look` – Rich description of the player’s current tile
+- `GET /dm/movement/sniff` – Nearby monsters/settlements summary
 
-- `GET /api/dm/location/:x/:y` - Get complete location info (players, monsters, combat log)
-- `GET /api/dm/players` - Get all players
-- `GET /api/dm/monsters` - Get all monsters
+### Player actions
 
-### Admin
-
-- `POST /api/dm/admin/spawn-monster/:x/:y` - Manually spawn a monster
+- `POST /dm/players` – Create or resume a player
+- `GET /dm/players` – Fetch a player by Slack workspace/user
+- `POST /dm/players/attack` – Resolve combat against players or monsters
+- `POST /dm/movement/move` – Move a player N/S/E/W/U/D
+- `POST /dm/players/pickup|drop|equip|unequip` – Inventory management
+- `POST /dm/players/reroll|stats|spend-skill-point` – Character sheet updates
+- `POST /dm/system/monsters` – Manual monster spawn for admins
 
 ## Player Stats
 
@@ -71,7 +79,7 @@ Example: `Hero attack: d20 15 + 2 (Str) + 3 (Equipment) = 20 vs AC 10 + 1 (Agi) 
 ## Environment Variables
 
 - `DATABASE_URL`: PostgreSQL connection string
-- `WORLD_SERVICE_URL`: URL for the world service (default: http://localhost:3001/api)
+- `WORLD_SERVICE_URL`: URL for the world service (default: https://closet.battleforge.app/world)
 - `PORT`: Service port (default: 3000)
 
 ## Deployment
@@ -106,22 +114,22 @@ See `docs/DEPLOYMENT.md` for full deployment documentation.
 
 ```bash
 # Create a player
-curl -X POST http://localhost:3000/api/dm/player \
+curl -X POST http://localhost:3000/dm/players \
   -H "Content-Type: application/json" \
-  -d '{"slackId": "U123456", "name": "TestPlayer"}'
+  -d '{"teamId": "T123", "userId": "U123", "name": "TestPlayer"}'
 
 # Move player north
-curl -X POST http://localhost:3000/api/dm/player/U123456/move \
+curl -X POST http://localhost:3000/dm/movement/move \
   -H "Content-Type: application/json" \
-  -d '{"direction": "n"}'
+  -d '{"teamId": "T123", "userId": "U123", "move": { "direction": "north" }}'
 
 # Attack a monster
-curl -X POST http://localhost:3000/api/dm/player/U123456/attack \
+curl -X POST http://localhost:3000/dm/players/attack \
   -H "Content-Type: application/json" \
-  -d '{"targetType": "monster", "targetId": 1}'
+  -d '{"teamId":"T123","userId":"U123","input":{"targetType":"monster","targetId":1}}'
 
 # Process a game tick
-curl -X POST http://localhost:3000/api/dm/tick
+curl -X POST http://localhost:3000/dm/system/process-tick
 ```
 
 ## Game Mechanics
