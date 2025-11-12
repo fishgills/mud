@@ -12,18 +12,7 @@ import type {
 export type JsonMap = Record<string, unknown>;
 type JsonBody = JsonMap | unknown;
 
-function normalizeDmBaseUrl(rawUrl: string): string {
-  const parsed = new URL(rawUrl);
-  const trimmedPath = parsed.pathname.replace(/\/+$/, '');
-  if (!trimmedPath || trimmedPath === '/') {
-    parsed.pathname = '/dm';
-  } else {
-    parsed.pathname = trimmedPath;
-  }
-  return parsed.toString().replace(/\/$/, '');
-}
-
-const dmBaseUrl = normalizeDmBaseUrl(env.DM_API_BASE_URL);
+const dmBaseUrl = env.DM_API_BASE_URL;
 
 const enum HttpMethod {
   GET = 'GET',
