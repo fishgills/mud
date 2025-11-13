@@ -5,6 +5,10 @@
     "resolvePackageJsonExports": true,
     "esModuleInterop": true,
     "isolatedModules": true,
+    "lib": [
+      "es2023",
+      "dom"
+    ],
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,

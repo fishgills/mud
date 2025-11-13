@@ -9,12 +9,49 @@ jest.mock('../env', () => ({
   },
 }));
 
+const mockContext = () => ({
+  fillStyle: '#000000',
+  strokeStyle: '#000000',
+  lineWidth: 1,
+  save: jest.fn(),
+  restore: jest.fn(),
+  beginPath: jest.fn(),
+  moveTo: jest.fn(),
+  lineTo: jest.fn(),
+  closePath: jest.fn(),
+  stroke: jest.fn(),
+  fill: jest.fn(),
+  fillRect: jest.fn(),
+  strokeRect: jest.fn(),
+  translate: jest.fn(),
+  scale: jest.fn(),
+  arc: jest.fn(),
+  quadraticCurveTo: jest.fn(),
+  clip: jest.fn(),
+});
+
+jest.mock('./image-utils', () => {
+  const buildBitmap = (width: number, height: number) => ({
+    width,
+    height,
+    getContext: () => mockContext(),
+  });
+  return {
+    createRenderBitmap: jest.fn((width: number, height: number) =>
+      buildBitmap(width, height),
+    ),
+    bitmapToPngBase64: jest.fn().mockResolvedValue('mock-png-b64'),
+    decodePngBase64: jest.fn().mockResolvedValue(buildBitmap(50, 50)),
+  };
+});
+
 import { RenderService } from './render.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorldService } from '../world/world-refactored.service';
 import { CacheService } from '../shared/cache.service';
 import type { Settlement } from '@mud/database';
-import type { WorldTile } from '../world/models';
+
+import { WorldTile } from 'src/world/dto';
 
 type PrismaServiceMock = {
   settlement: {
@@ -39,6 +76,7 @@ describe('RenderService', () => {
   let mockCache: jest.Mocked<CacheServiceMock>;
 
   beforeEach(() => {
+    jest.clearAllMocks();
     mockPrisma = {
       settlement: {
         findMany: jest.fn<Promise<Settlement[]>, [Record<string, unknown>?]>(),
@@ -62,12 +100,14 @@ describe('RenderService', () => {
     };
 
     mockCache = {
-      get: jest.fn<ReturnType<CacheService['get']>, Parameters<CacheService['get']>>(
-        () => Promise.resolve(null),
-      ),
-      set: jest.fn<ReturnType<CacheService['set']>, Parameters<CacheService['set']>>(
-        () => Promise.resolve(undefined),
-      ),
+      get: jest.fn<
+        ReturnType<CacheService['get']>,
+        Parameters<CacheService['get']>
+      >(() => Promise.resolve(null)),
+      set: jest.fn<
+        ReturnType<CacheService['set']>,
+        Parameters<CacheService['set']>
+      >(() => Promise.resolve(undefined)),
     };
 
     service = new RenderService(
@@ -298,27 +338,28 @@ describe('RenderService', () => {
 
     it('should set cache after rendering chunks', async () => {
       mockCache.get.mockResolvedValue(null);
-      mockPrisma.settlement.findMany.mockResolvedValue([]);
 
-      // Wait for async render to complete
-      await service.renderMap(0, 50, 0, 50, 4);
+      await (
+        service as unknown as { getChunkPngBase64: Function }
+      ).getChunkPngBase64(0, 0, 4);
 
-      // Give time for prewarm to execute (it's non-blocking)
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Cache should be set for rendered chunks during prewarm
-      expect(mockCache.set).toHaveBeenCalled();
+      expect(mockCache.set).toHaveBeenCalledWith(
+        expect.stringContaining('chunk:png:'),
+        expect.any(String),
+        expect.any(Number),
+      );
     });
 
     it('should respect RENDER_STYLE_VERSION in cache keys', async () => {
-      mockCache.get.mockImplementation((key: string) => {
-        // Verify cache key includes version
-        expect(key).toContain('v2'); // RENDER_STYLE_VERSION = 2
-        return Promise.resolve(null);
-      });
-      mockPrisma.settlement.findMany.mockResolvedValue([]);
+      mockCache.get.mockResolvedValue(null);
+      mockCache.set.mockResolvedValue(undefined);
 
-      await service.renderMap(0, 50, 0, 50, 4);
+      await (
+        service as unknown as { getChunkPngBase64: Function }
+      ).getChunkPngBase64(0, 0, 4);
+
+      const key = mockCache.set.mock.calls[0]?.[0];
+      expect(key).toContain('v3');
     });
   });
 

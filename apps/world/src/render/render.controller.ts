@@ -3,6 +3,7 @@ import type { Response } from 'express';
 import { RenderService } from './render.service';
 import { CacheService } from '../shared/cache.service';
 import type { MapTileDto } from './map-tile.dto';
+import { bitmapToPngBase64 } from './image-utils';
 
 @Controller('render')
 export class RenderController {
@@ -76,7 +77,7 @@ export class RenderController {
     const renderMs = Date.now() - tRenderStart;
 
     const tEncodeStart = Date.now();
-    const base64 = canvas.toBuffer('image/png').toString('base64');
+    const base64 = await bitmapToPngBase64(canvas);
     const encodeMs = Date.now() - tEncodeStart;
     await this.cache.set(cacheKey, base64, ttlMs);
     const sizeKB = Math.round(((base64.length / 4) * 3) / 1024);

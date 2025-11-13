@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { createCanvas, ImageSource, loadImage } from 'canvas';
-import { drawBiomeTile, drawBiomeEdges } from './graphics';
+import type { Context } from 'pureimage';
+import {
+  bitmapToPngBase64,
+  createRenderBitmap,
+  decodePngBase64,
+  RenderBitmap,
+} from './image-utils';
+import { drawBiomeTile, drawBiomeEdges, drawHeightShading } from './graphics';
 import { PrismaService } from '../prisma/prisma.service';
 import { BIOMES } from '../constants';
 import { WorldService } from '../world/world-refactored.service';
@@ -31,7 +37,7 @@ type ComputedTile = {
 @Injectable()
 export class RenderService {
   private readonly logger = new Logger(RenderService.name);
-  private readonly RENDER_STYLE_VERSION = 2; // bump to invalidate cached chunk PNGs when style changes
+  private readonly RENDER_STYLE_VERSION = 3; // bump to invalidate cached chunk PNGs when style changes
   constructor(
     private readonly prisma: PrismaService,
     private readonly worldService: WorldService,
@@ -97,7 +103,7 @@ export class RenderService {
     p: number,
     opts: { includeCenterMarker: boolean },
   ): Promise<{
-    canvas: ReturnType<typeof createCanvas>;
+    canvas: RenderBitmap;
     width: number;
     height: number;
     existingTileCount: number;
@@ -109,7 +115,7 @@ export class RenderService {
         includeSettlements: true,
       });
 
-    const canvas = createCanvas(width * p, height * p);
+    const canvas = createRenderBitmap(width * p, height * p);
     const ctx = canvas.getContext('2d');
     // Background
     ctx.fillStyle = '#2c2c2c';
@@ -119,12 +125,19 @@ export class RenderService {
     const centerTileX = minX + Math.floor((maxX - minX) / 2);
     const centerTileY = minY + Math.floor((maxY - minY) / 2);
 
-    // Biome map for edges
+    // Biome map for edges + height map for lighting
     const biomeMap = new Map<
       string,
       (typeof BIOMES)[keyof typeof BIOMES] | null
     >();
-    for (const t of tileData) biomeMap.set(`${t.x},${t.y}`, t.biome);
+    const heightMap = new Map<string, number>();
+    for (const t of tileData) {
+      const key = `${t.x},${t.y}`;
+      biomeMap.set(key, t.biome);
+      if (typeof t.tile?.height === 'number') {
+        heightMap.set(key, t.tile.height);
+      }
+    }
 
     // Deterministic seed for texturing
     const seed = this.worldService.getCurrentSeed();
@@ -135,6 +148,7 @@ export class RenderService {
 
       if (tile && biome) {
         drawBiomeTile(ctx, pixelX, pixelY, p, biome, x, y, seed);
+        drawHeightShading(ctx, pixelX, pixelY, p, x, y, heightMap);
         drawBiomeEdges(
           ctx,
           pixelX,
@@ -151,8 +165,7 @@ export class RenderService {
       if (settlement) {
         const isCenter = settlement.x === x && settlement.y === y;
         if (isCenter) {
-          ctx.fillStyle = '#ff0000';
-          ctx.fillRect(pixelX, pixelY, p, p);
+          this.drawSettlementCore(ctx, pixelX, pixelY, p);
         } else {
           const settlementCheck = this.worldService.isCoordinateInSettlement(
             x,
@@ -160,30 +173,162 @@ export class RenderService {
             [settlement],
           );
           if (settlementCheck.isSettlement) {
-            const intensity = settlementCheck.intensity;
-            ctx.fillStyle = `rgba(255, 51, 51, ${intensity * 0.8})`;
-            ctx.fillRect(pixelX, pixelY, p, p);
+            this.drawSettlementFootprint(
+              ctx,
+              pixelX,
+              pixelY,
+              p,
+              settlementCheck.intensity,
+            );
           } else {
-            ctx.fillStyle = '#ff3333';
-            const dotSize = Math.max(1, Math.floor(p / 2));
-            const offset = Math.max(0, Math.floor((p - dotSize) / 2));
-            ctx.fillRect(pixelX + offset, pixelY + offset, dotSize, dotSize);
+            this.drawSettlementFootprint(ctx, pixelX, pixelY, p, 0.2);
           }
         }
       }
+    }
 
-      if (opts.includeCenterMarker && x === centerTileX && y === centerTileY) {
-        const lw = Math.max(1, Math.floor(p / 4));
-        ctx.lineWidth = lw;
-        ctx.strokeStyle = '#ffffff';
-        ctx.strokeRect(pixelX + 0.5, pixelY + 0.5, p - 1, p - 1);
-      }
+    if (opts.includeCenterMarker) {
+      const centerPixelX = (centerTileX - minX) * p;
+      const centerPixelY = (maxY - 1 - centerTileY) * p;
+      this.drawCenterMarker(ctx, centerPixelX, centerPixelY, p);
     }
 
     return { canvas, width, height, existingTileCount };
   }
 
   // draw helpers are imported from './graphics'
+
+  private drawSettlementCore(
+    ctx: Context,
+    pixelX: number,
+    pixelY: number,
+    p: number,
+  ) {
+    const cx = pixelX + p / 2;
+    const cy = pixelY + p / 2;
+    const layers: Array<{ scale: number; color: string }> = [
+      { scale: 1, color: 'rgba(140,32,0,0.7)' },
+      { scale: 0.85, color: 'rgba(255,112,32,0.82)' },
+      { scale: 0.55, color: 'rgba(255,214,153,0.9)' },
+      { scale: 0.25, color: 'rgba(255,255,255,0.95)' },
+    ];
+
+    for (const { scale, color } of layers) {
+      const size = Math.max(1, p * scale);
+      const offset = (p - size) / 2;
+      ctx.fillStyle = color;
+      ctx.fillRect(pixelX + offset, pixelY + offset, size, size);
+    }
+
+    ctx.save();
+    ctx.lineWidth = Math.max(1, Math.floor(p / 5));
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.strokeRect(
+      pixelX + 0.5,
+      pixelY + 0.5,
+      Math.max(0, p - 1),
+      Math.max(0, p - 1),
+    );
+    ctx.lineWidth = Math.max(1, Math.floor(p / 7));
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.strokeRect(
+      pixelX + 1,
+      pixelY + 1,
+      Math.max(0, p - 2),
+      Math.max(0, p - 2),
+    );
+
+    const radius = Math.max(1.5, p / 2.4);
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = Math.max(1, Math.floor(p / 8));
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - radius, cy);
+    ctx.lineTo(cx + radius, cy);
+    ctx.moveTo(cx, cy - radius);
+    ctx.lineTo(cx, cy + radius);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  private drawSettlementFootprint(
+    ctx: Context,
+    pixelX: number,
+    pixelY: number,
+    p: number,
+    intensity: number,
+  ) {
+    const clamped = Math.min(1, Math.max(0, intensity));
+    const baseAlpha = 0.12 + clamped * 0.28;
+    ctx.fillStyle = `rgba(255, 176, 90, ${baseAlpha})`;
+    ctx.fillRect(pixelX, pixelY, p, p);
+
+    if (p >= 3) {
+      const strokeAlpha = 0.15 + clamped * 0.25;
+      ctx.strokeStyle = `rgba(255, 233, 200, ${strokeAlpha})`;
+      ctx.lineWidth = Math.max(1, Math.floor(p / 8));
+      ctx.strokeRect(
+        pixelX + 0.5,
+        pixelY + 0.5,
+        Math.max(0, p - 1),
+        Math.max(0, p - 1),
+      );
+
+      const roofSize = Math.max(2, Math.floor(p * (0.35 + clamped * 0.45)));
+      const roofX = pixelX + (p - roofSize) / 2;
+      const roofY = pixelY + (p - roofSize) / 2;
+      ctx.fillStyle = `rgba(120, 60, 20, ${0.25 + clamped * 0.4})`;
+      ctx.fillRect(
+        roofX,
+        roofY,
+        roofSize,
+        Math.max(2, Math.floor(roofSize / 2.5)),
+      );
+
+      const laneWidth = Math.max(1, Math.floor(p / 10));
+      ctx.fillStyle = `rgba(255,255,255,${0.05 + clamped * 0.15})`;
+      ctx.fillRect(pixelX + (p - laneWidth) / 2, pixelY, laneWidth, p);
+    }
+  }
+
+  private drawCenterMarker(
+    ctx: Context,
+    pixelX: number,
+    pixelY: number,
+    p: number,
+  ) {
+    if (p < 4) {
+      const lw = Math.max(1, Math.floor(p / 4));
+      ctx.lineWidth = lw;
+      ctx.strokeStyle = '#ffffff';
+      ctx.strokeRect(pixelX + 0.5, pixelY + 0.5, p - 1, p - 1);
+      return;
+    }
+
+    ctx.save();
+    const cx = pixelX + p / 2;
+    const cy = pixelY + p / 2;
+    const radius = Math.max(1.5, p / 2.6);
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+    ctx.lineWidth = Math.max(1, Math.floor(p / 6));
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius + Math.max(1, p / 8), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(1, Math.floor(p / 8));
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - radius, cy);
+    ctx.lineTo(cx + radius, cy);
+    ctx.moveTo(cx, cy - radius);
+    ctx.lineTo(cx, cy + radius);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   private chunkKey(chunkX: number, chunkY: number, p: number) {
     return `chunk:png:v${this.RENDER_STYLE_VERSION}:${chunkX},${chunkY},p=${p}`;
@@ -219,7 +364,7 @@ export class RenderService {
     const renderMs = Date.now() - tRenderStart;
 
     const tEncodeStart = Date.now();
-    const base64 = canvas.toBuffer('image/png').toString('base64');
+    const base64 = await bitmapToPngBase64(canvas);
     const encodeMs = Date.now() - tEncodeStart;
     // Cache with same TTL as region cache
     const ttlMs = Number(30000);
@@ -242,7 +387,7 @@ export class RenderService {
     const t0 = Date.now();
     const width = maxX - minX;
     const height = maxY - minY;
-    const canvas = createCanvas(width * p, height * p);
+    const canvas = createRenderBitmap(width * p, height * p);
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#2c2c2c';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -270,11 +415,11 @@ export class RenderService {
 
     // Pre-decode all chunk images in parallel to reduce latency
     const tDecodeStart = Date.now();
-    const decoded: Array<{ cx: number; cy: number; img: ImageSource } | null> =
+    const decoded: Array<{ cx: number; cy: number; img: RenderBitmap } | null> =
       await Promise.all(
         needed.map((n) =>
           n
-            ? loadImage(Buffer.from(n.imgB64, 'base64')).then((img) => ({
+            ? decodePngBase64(n.imgB64).then((img) => ({
                 cx: n.cx,
                 cy: n.cy,
                 img,
@@ -322,10 +467,7 @@ export class RenderService {
     const centerTileY = minY + Math.floor((maxY - minY) / 2);
     const centerPixelX = (centerTileX - minX) * p;
     const centerPixelY = (maxY - 1 - centerTileY) * p;
-    const lw = Math.max(1, Math.floor(p / 4));
-    ctx.lineWidth = lw;
-    ctx.strokeStyle = '#ffffff';
-    ctx.strokeRect(centerPixelX + 0.5, centerPixelY + 0.5, p - 1, p - 1);
+    this.drawCenterMarker(ctx, centerPixelX, centerPixelY, p);
 
     const totalMs = Date.now() - t0;
     this.logger.debug(

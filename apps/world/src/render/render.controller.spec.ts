@@ -9,10 +9,21 @@ jest.mock('../env', () => ({
   },
 }));
 
+jest.mock('./image-utils', () => ({
+  bitmapToPngBase64: jest
+    .fn()
+    .mockResolvedValue(Buffer.from('fake-png-data').toString('base64')),
+}));
+
 import { RenderController } from './render.controller';
 import { RenderService } from './render.service';
 import { CacheService } from '../shared/cache.service';
 import { Response } from 'express';
+import { bitmapToPngBase64 } from './image-utils';
+
+const bitmapToPngBase64Mock = bitmapToPngBase64 as jest.MockedFunction<
+  typeof bitmapToPngBase64
+>;
 
 describe('RenderController', () => {
   let controller: RenderController;
@@ -21,9 +32,7 @@ describe('RenderController', () => {
   let mockResponse: Partial<Response>;
 
   beforeEach(() => {
-    const mockCanvas = {
-      toBuffer: jest.fn().mockReturnValue(Buffer.from('fake-png-data')),
-    };
+    const mockCanvas = {};
 
     renderService = {
       renderMap: jest.fn().mockResolvedValue(mockCanvas),
@@ -38,6 +47,11 @@ describe('RenderController', () => {
       setHeader: jest.fn(),
       send: jest.fn(),
     };
+
+    bitmapToPngBase64Mock.mockClear();
+    bitmapToPngBase64Mock.mockResolvedValue(
+      Buffer.from('fake-png-data').toString('base64'),
+    );
 
     controller = new RenderController(renderService, cacheService);
   });
