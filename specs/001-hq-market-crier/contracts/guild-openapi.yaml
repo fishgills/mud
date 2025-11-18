@@ -1,0 +1,253 @@
+openapi: 3.0.3
+info:
+  title: Guild Hall Market & Crier APIs
+  version: 0.1.0
+  description: >-
+    DM-facing endpoints that power the `guild`, `buy`, `sell` Slack commands and
+    the automated town crier job. All responses are JSON and include
+    `correlationId` for logging.
+servers:
+  - url: https://dm.service.internal
+paths:
+  /guild/teleport:
+    post:
+      summary: Teleport player to Guild Hall
+      description: Validates combat/cooldown, moves player to guild tile, and returns arrival context.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuildTeleportRequest'
+      responses:
+        '200':
+          description: Teleport succeeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuildTeleportResponse'
+        '409':
+          description: Teleport blocked (combat, cooldown, population cap)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuildError'
+  /guild/shop/buy:
+    post:
+      summary: Purchase catalog items using gold
+      description: Executes within a DM transaction, emits receipt event, and returns updated balances.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuildBuyRequest'
+      responses:
+        '200':
+          description: Purchase completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuildTradeResponse'
+        '400':
+          description: Validation failed (insufficient gold, stock, eligibility)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuildError'
+  /guild/shop/sell:
+    post:
+      summary: Sell eligible inventory back to the guild shop
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuildSellRequest'
+      responses:
+        '200':
+          description: Sale completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuildTradeResponse'
+        '400':
+          description: Item not in inventory or not sellable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuildError'
+  /guild/announcements/next:
+    post:
+      summary: Poll announcements queue and broadcast next message
+      description: Called by scheduled DM job; reads the most recent eligible announcement, marks it announced, and emits EventBus notifications.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrierPollRequest'
+      responses:
+        '200':
+          description: Announcement delivered (or queue empty)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrierPollResponse'
+components:
+  schemas:
+    GuildTeleportRequest:
+      type: object
+      required: [playerId, correlationId]
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        correlationId:
+          type: string
+        sourceTileId:
+          type: string
+          format: uuid
+        requestedAt:
+          type: string
+          format: date-time
+    GuildTeleportResponse:
+      type: object
+      required: [playerId, guildTileId, arrivalMessage, services, correlationId]
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        guildTileId:
+          type: string
+        arrivalMessage:
+          type: string
+        services:
+          type: object
+          properties:
+            shop:
+              type: boolean
+            crier:
+              type: boolean
+            exits:
+              type: array
+              items:
+                type: string
+        occupantsNotified:
+          type: array
+          items:
+            type: string
+            format: uuid
+        correlationId:
+          type: string
+    GuildBuyRequest:
+      type: object
+      required: [playerId, itemId, quantity, correlationId]
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        itemId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+        correlationId:
+          type: string
+    GuildSellRequest:
+      allOf:
+        - $ref: '#/components/schemas/GuildBuyRequest'
+      description: Same shape as buy, but direction is SELL.
+    GuildTradeResponse:
+      type: object
+      required:
+        [
+          receiptId,
+          playerId,
+          itemId,
+          direction,
+          goldDelta,
+          remainingGold,
+          correlationId,
+        ]
+      properties:
+        receiptId:
+          type: string
+          format: uuid
+        playerId:
+          type: string
+          format: uuid
+        itemId:
+          type: string
+        direction:
+          type: string
+          enum: [BUY, SELL]
+        goldDelta:
+          type: integer
+        remainingGold:
+          type: integer
+        inventoryDelta:
+          type: integer
+        stockRemaining:
+          type: integer
+        correlationId:
+          type: string
+    GuildError:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code:
+          type: string
+          enum:
+            [
+              COOLDOWN,
+              COMBAT,
+              POPULATION_CAP,
+              INSUFFICIENT_GOLD,
+              OUT_OF_STOCK,
+              NOT_SELLABLE,
+              RATE_LIMIT,
+            ]
+        message:
+          type: string
+        correlationId:
+          type: string
+    CrierPollRequest:
+      type: object
+      required: [jobId, polledAt]
+      properties:
+        jobId:
+          type: string
+        polledAt:
+          type: string
+          format: date-time
+        batchSize:
+          type: integer
+          default: 1
+    CrierPollResponse:
+      type: object
+      required: [announced]
+      properties:
+        announced:
+          type: boolean
+        announcement:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            body:
+              type: string
+            digest:
+              type: string
+            priority:
+              type: integer
+            visibleUntil:
+              type: string
+              format: date-time
+        correlationId:
+          type: string

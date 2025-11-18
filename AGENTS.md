@@ -35,3 +35,12 @@
 - **Services**: dm, world, slack, tick (all deployed as Kubernetes deployments)
 - **Supporting resources**: Cloud SQL (PostgreSQL), Memorystore (Redis), Artifact Registry, Secret Manager
 - **Debugging production**: Use `kubectl` to access pods and logs (requires gcloud authentication and cluster credentials)
+
+## Active Technologies
+
+- Node.js 20 / TypeScript 5 (NestJS services) + NestJS, Slack Bolt SDK, Prisma ORM, `@mud/event-bus`, `@mud/logging`, Datadog tracing (001-hq-market-crier)
+- PostgreSQL (Cloud SQL) for player/inventory data; Redis EventBridge for pub/sub (001-hq-market-crier)
+
+## Recent Changes
+
+- 001-hq-market-crier: Added Node.js 20 / TypeScript 5 (NestJS services) + NestJS, Slack Bolt SDK, Prisma ORM, `@mud/event-bus`, `@mud/logging`, Datadog tracing
