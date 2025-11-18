@@ -4,10 +4,8 @@ import type {
   CenterTile,
   BiomeSummary,
   VisiblePeak,
-  VisibleSettlement,
   TimingMetrics,
 } from './look-view-types';
-import type { Settlement } from '../../world/world.service';
 
 @Injectable()
 export class DescriptionService {
@@ -23,7 +21,6 @@ export class DescriptionService {
     centerTile: CenterTile,
     biomeSummary: BiomeSummary[],
     visiblePeaks: VisiblePeak[],
-    visibleSettlements: VisibleSettlement[],
   ): string {
     const topBiomes = biomeSummary.slice(0, 2).map((b) => b.biomeName);
     const peakLine = visiblePeaks.length
@@ -33,34 +30,11 @@ export class DescriptionService {
           .join(' and ')}`
       : '';
 
-    // Build settlement line; read nicely when you're currently in a settlement
-    let settleLine = '';
-    if (visibleSettlements.length) {
-      const here = visibleSettlements.find((s) => s.distance === 0);
-      const others = visibleSettlements.filter((s) => s.distance > 0);
-      if (here) {
-        const lead = `You're in the ${here.type} ${here.name}.`;
-        const also = others.length
-          ? ` You also spot ${others
-              .slice(0, 2)
-              .map((s) => `${s.type} ${s.name} to the ${s.direction}`)
-              .join(' and ')}`
-          : '';
-        settleLine = `${lead}${also}`.trim();
-      } else {
-        settleLine = `You spot signs of ${others
-          .slice(0, 2)
-          .map((s) => `${s.type} ${s.name} to the ${s.direction}`)
-          .join(' and ')}`;
-      }
-    }
-
     return [
       `From here you can see roughly ${visibilityRadius} tiles out across mostly ${
         topBiomes.join(' and ') || centerTile.biomeName
       }.`,
       peakLine,
-      settleLine,
     ]
       .filter(Boolean)
       .join(' ');
@@ -74,15 +48,9 @@ export class DescriptionService {
     visibilityRadius: number,
     biomeSummary: BiomeSummary[],
     visiblePeaks: VisiblePeak[],
-    visibleSettlements: VisibleSettlement[],
-    currentSettlement: Settlement | null,
     timing: TimingMetrics,
   ): Promise<string> {
     try {
-      const inSettlement = Boolean(
-        currentSettlement && (currentSettlement.intensity ?? 0) > 0,
-      );
-
       const context = {
         center: {
           x: centerTile.x,
@@ -93,9 +61,6 @@ export class DescriptionService {
         visibilityRadius,
         biomeSummary,
         visiblePeaks,
-        visibleSettlements,
-        currentSettlement: currentSettlement || null,
-        inSettlement,
       };
 
       const baseInstructions = [
@@ -104,33 +69,7 @@ export class DescriptionService {
         'Use the JSON context for bearings and features but avoid explicit numbers unless natural.',
       ];
 
-      const intensityVal = currentSettlement?.intensity ?? 0;
-      const densityBucket =
-        intensityVal >= 0.7
-          ? 'high'
-          : intensityVal >= 0.4
-            ? 'medium'
-            : intensityVal > 0
-              ? 'low'
-              : 'none';
-
-      const settlementFocus = [
-        'You are inside a settlement: make the description center on the settlement itself (architecture, layout, immediate surroundings, notable landmarks, atmosphere).',
-        'Mention the settlement name and type once if present (e.g., "the hamlet South Manorthorpe").',
-        'Optionally reference nearby terrain as backdrop, but keep the settlement as the focal point.',
-        'Use currentSettlement.intensity to scale how built-up and busy it feels:',
-        '- high (>= 0.7): dense core, closely packed structures, tight lanes, frequent activity/noise.',
-        '- medium (0.4-0.69): mixed residential/commercial, some open space, steady but modest activity.',
-        '- low (0.01-0.39): outskirts/edge, scattered buildings, paths/hedgerows/fields, quiet/occasional passersby.',
-        'Do not invent crowds or specifics beyond what intensity implies; keep it grounded and qualitative.',
-      ];
-
-      const landscapeFocus = [
-        'You are in the open: focus on terrain, weather, and distant features; settlements are secondary if visible.',
-      ];
-
       const prompt = [
-        ...(inSettlement ? settlementFocus : landscapeFocus),
         ...baseInstructions,
         'Context:',
         JSON.stringify(context, null, 2),
@@ -144,11 +83,7 @@ export class DescriptionService {
         timeoutMs: 3000,
         cacheKey: `look:${centerTile.x},${centerTile.y}:${visibilityRadius}:${topBiomes.join(',')}:${visiblePeaks
           .map((p) => p.direction)
-          .join('/')}:${visibleSettlements
-          .map((s) => `${s.type}-${s.direction}`)
-          .join(
-            '/',
-          )}::${currentSettlement?.name ?? 'none'}:${inSettlement ? 'in' : 'out'}:${densityBucket}`,
+          .join('/')}`,
       });
 
       timing.tAiMs = Date.now() - tAiStart;
@@ -166,7 +101,6 @@ export class DescriptionService {
       centerTile,
       biomeSummary,
       visiblePeaks,
-      visibleSettlements,
     );
   }
 }

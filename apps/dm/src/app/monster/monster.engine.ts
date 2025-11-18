@@ -2,7 +2,6 @@ import { Monster } from '@mud/database';
 
 export interface SpawnConstraints {
   radius?: number;
-  avoidSettlementsWithin?: number; // tiles to avoid around settlements
   maxGroupSize?: number; // cap per spawn call
 }
 

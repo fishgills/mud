@@ -35,7 +35,6 @@ export type {
   Monster,
   WeatherState,
   GameState,
-  Settlement,
   Landmark,
   CombatLog,
   Item,

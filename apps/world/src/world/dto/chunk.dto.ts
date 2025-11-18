@@ -1,5 +1,4 @@
 import type { WorldTile } from './world-tile.dto';
-import type { Settlement } from './settlement.dto';
 
 export interface ChunkStats {
   averageHeight: number;
@@ -26,7 +25,6 @@ export interface ChunkData {
   chunkY: number;
   tiles?: WorldTile[];
   paginatedTiles?: PaginatedTiles;
-  settlements?: Settlement[];
   stats?: ChunkStats;
   biomeStats?: BiomeCount[];
 }

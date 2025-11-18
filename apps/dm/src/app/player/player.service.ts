@@ -23,7 +23,7 @@ import {
   MovePlayerDto,
   PlayerStatsDto,
 } from './dto/player.dto';
-import { WorldService } from '../world/world.service';
+import { WorldService, type HqExitMode } from '../world/world.service';
 import { isWaterBiome } from '../shared/biome.util';
 import { DiceRoll } from '@dice-roller/rpg-dice-roller';
 import { PlayerItemService } from './player-item.service';
@@ -40,15 +40,17 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
   private readonly HIT_DIE_AVERAGE = 6; // Average roll for a d10
   private activityUnsubscribe?: () => void;
 
+  private readonly HQ_MOVEMENT_ERROR =
+    'You cannot move while inside HQ. Use the teleport command to return to the world.';
+
   constructor(
     private readonly worldService: WorldService,
     private readonly playerItemService: PlayerItemService,
   ) {}
 
   onModuleInit(): void {
-    this.activityUnsubscribe = EventBus.on(
-      'player:activity',
-      (event) => this.handlePlayerActivity(event as PlayerActivityEvent),
+    this.activityUnsubscribe = EventBus.on('player:activity', (event) =>
+      this.handlePlayerActivity(event as PlayerActivityEvent),
     );
   }
 
@@ -59,7 +61,9 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async handlePlayerActivity(event: PlayerActivityEvent): Promise<void> {
+  private async handlePlayerActivity(
+    event: PlayerActivityEvent,
+  ): Promise<void> {
     if (!event.playerId) {
       return;
     }
@@ -158,7 +162,9 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
   async recalculatePlayerHitPointsFromEquipment(
     playerId: number,
   ): Promise<Player | null> {
-    const player = await this.prisma.player.findUnique({ where: { id: playerId } });
+    const player = await this.prisma.player.findUnique({
+      where: { id: playerId },
+    });
     if (!player) return null;
     const equipmentBonus = await this.getEquipmentHealthBonus(playerId);
     this.applyMaxHpRecalculation(player, {
@@ -318,6 +324,13 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     moveDto: MovePlayerDto,
   ): Promise<Player> {
     const player = await this.getPlayer(teamId, userId);
+    const hqAware = player as Player & {
+      isInHq?: boolean | null;
+    };
+
+    if (hqAware.isInHq) {
+      throw new Error(this.HQ_MOVEMENT_ERROR);
+    }
     const oldX = player.x;
     const oldY = player.y;
 
@@ -441,6 +454,64 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     }
 
     return player;
+  }
+
+  async teleportPlayer(
+    teamId: string,
+    userId: string,
+    mode?: HqExitMode,
+  ): Promise<{
+    state: 'entered' | 'awaiting_choice' | 'exited';
+    player?: Player;
+    destination?: { x: number; y: number };
+    lastWorldPosition?: { x: number | null; y: number | null };
+    mode?: HqExitMode;
+  }> {
+    const player = await this.getPlayer(teamId, userId);
+    const hqAware = player as Player & {
+      isInHq?: boolean | null;
+      lastWorldX?: number | null;
+      lastWorldY?: number | null;
+    };
+
+    if (!hqAware.isInHq) {
+      const transition = await this.worldService.enterHq(player.id);
+      const refreshed = await this.prisma.player.findUnique({
+        where: { id: player.id },
+      });
+      return {
+        state: 'entered',
+        player: refreshed ?? player,
+        lastWorldPosition: transition.lastWorldPosition ?? {
+          x: hqAware.lastWorldX ?? null,
+          y: hqAware.lastWorldY ?? null,
+        },
+      };
+    }
+
+    if (!mode) {
+      return {
+        state: 'awaiting_choice',
+        player,
+        lastWorldPosition: {
+          x: hqAware.lastWorldX ?? null,
+          y: hqAware.lastWorldY ?? null,
+        },
+      };
+    }
+
+    const transition = await this.worldService.exitHq(player.id, mode);
+    const refreshed = await this.prisma.player.findUnique({
+      where: { id: player.id },
+    });
+
+    return {
+      state: 'exited',
+      player: refreshed ?? player,
+      destination: transition.location,
+      lastWorldPosition: transition.lastWorldPosition,
+      mode: transition.mode ?? mode,
+    };
   }
 
   async updatePlayerStats(

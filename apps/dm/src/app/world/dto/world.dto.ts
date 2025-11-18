@@ -21,27 +21,6 @@ export interface NearbyBiomeDto {
   direction: string;
 }
 
-export interface NearbySettlementDto {
-  name: string;
-  type: string;
-  size: string;
-  population: number;
-  x: number;
-  y: number;
-  description: string;
-  distance: number;
-}
-
-export interface CurrentSettlementDto {
-  name: string;
-  type: string;
-  size: string;
-  intensity: number;
-  isCenter: boolean;
-}
-
 export interface TileWithNearbyDto extends WorldTileDto {
   nearbyBiomes: NearbyBiomeDto[];
-  nearbySettlements: NearbySettlementDto[];
-  currentSettlement?: CurrentSettlementDto;
 }

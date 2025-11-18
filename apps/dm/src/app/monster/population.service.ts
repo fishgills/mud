@@ -128,7 +128,7 @@ export class PopulationService {
           tile.x,
           tile.y,
           5,
-          { avoidSettlementsWithin: 3, maxGroupSize: 3 },
+          { maxGroupSize: 3 },
         );
         spawned += group.length;
         spawnedForBiome += group.length;

@@ -8,20 +8,20 @@ export const mapHandlerHelp = `Display the ASCII map with "map". Example: Send "
 
 export class MapHandler extends PlayerCommandHandler {
   constructor() {
-    super(COMMANDS.MAP, 'Failed to load map');
+    super(COMMANDS.MAP, 'Failed to load map', {
+      allowInHq: false,
+      hqCommand: COMMANDS.MAP,
+      missingCharacterMessage: 'Could not find your player.',
+    });
   }
 
   protected async perform({ say, userId }: HandlerContext): Promise<void> {
-    const result = await this.dm.getPlayer({
-      teamId: this.teamId!,
-      userId,
-    });
-    if (!result.success || !result.data) {
-      await say({ text: 'Could not find your player.' });
+    const player = this.player;
+    if (!player) {
       return;
     }
 
-    const { x, y } = result.data;
+    const { x, y } = player;
     if (typeof x !== 'number' || typeof y !== 'number') {
       await say({ text: 'Your location is unknown. Please try again later.' });
       return;

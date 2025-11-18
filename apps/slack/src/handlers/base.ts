@@ -1,9 +1,12 @@
+import type { PlayerRecord } from '../dm-client';
 import { dmClient } from '../dm-client';
 import { COMMANDS, MOVEMENT_COMMANDS } from '../commands';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { registerHandler } from './handlerRegistry';
 import { HandlerContext } from './types';
 import { getSlackApp } from '../appContext';
+import { buildHqBlockedMessage } from './hqUtils';
+import { MISSING_CHARACTER_MESSAGE } from './characterUtils';
 
 type CommandRegistration = string | string[];
 
@@ -56,10 +59,19 @@ export abstract class SafeCommandHandler extends BaseCommandHandler {
   protected async execute(ctx: HandlerContext): Promise<void> {
     this.teamId = ctx.teamId;
     try {
+      const shouldContinue = await this.beforePerform(ctx);
+      if (!shouldContinue) {
+        return;
+      }
       await this.perform(ctx);
     } catch (error) {
       await ctx.say({ text: this.getFriendlyError(error) });
     }
+  }
+
+  protected async beforePerform(_ctx?: HandlerContext): Promise<boolean> {
+    void _ctx;
+    return true;
   }
 
   protected getFriendlyError(error: unknown): string {
@@ -68,14 +80,83 @@ export abstract class SafeCommandHandler extends BaseCommandHandler {
 }
 
 export abstract class PlayerCommandHandler extends SafeCommandHandler {
+  protected readonly options: PlayerCommandHandlerResolvedOptions;
+  protected player: PlayerRecord | null = null;
+
   protected constructor(
     commands: CommandRegistration,
     defaultErrorMessage: string,
+    options: PlayerCommandHandlerOptions = {},
   ) {
     super(commands, defaultErrorMessage);
+    this.options = {
+      loadPlayer: options.loadPlayer ?? true,
+      requirePlayer: options.requirePlayer ?? true,
+      allowInHq: options.allowInHq ?? true,
+      missingCharacterMessage:
+        options.missingCharacterMessage ?? MISSING_CHARACTER_MESSAGE,
+      hqCommand: options.hqCommand,
+    };
+  }
+
+  protected override async beforePerform(
+    ctx: HandlerContext,
+  ): Promise<boolean> {
+    const shouldContinue = await super.beforePerform(ctx);
+    if (!shouldContinue) {
+      return false;
+    }
+
+    this.player = null;
+
+    if (!this.options.loadPlayer) {
+      return true;
+    }
+
+    const playerResult = await this.dm.getPlayer({
+      teamId: ctx.teamId,
+      userId: ctx.userId,
+    });
+
+    if (!playerResult || !playerResult.success || !playerResult.data) {
+      if (this.options.requirePlayer) {
+        const message =
+          playerResult?.message ?? this.options.missingCharacterMessage;
+        await ctx.say({ text: message });
+        return false;
+      }
+
+      return true;
+    }
+
+    this.player = playerResult.data;
+
+    if (!this.options.allowInHq && this.player.isInHq) {
+      const commandName = this.options.hqCommand ?? this.commands[0];
+      await ctx.say({ text: buildHqBlockedMessage(commandName) });
+      return false;
+    }
+
+    return true;
   }
 }
 
 export const MOVEMENT_COMMAND_SET = [
   ...new Set<string>([COMMANDS.MOVE, ...MOVEMENT_COMMANDS]),
 ];
+
+interface PlayerCommandHandlerOptions {
+  loadPlayer?: boolean;
+  requirePlayer?: boolean;
+  allowInHq?: boolean;
+  missingCharacterMessage?: string;
+  hqCommand?: string;
+}
+
+interface PlayerCommandHandlerResolvedOptions {
+  loadPlayer: boolean;
+  requirePlayer: boolean;
+  allowInHq: boolean;
+  missingCharacterMessage: string;
+  hqCommand?: string;
+}

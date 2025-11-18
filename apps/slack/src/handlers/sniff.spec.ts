@@ -16,7 +16,7 @@ describe('sniff handler', () => {
     jest.clearAllMocks();
   });
 
-  it('appends settlement details when the DM message omits them', async () => {
+  it('renders monster details when DM returns a target', async () => {
     mockedSniffNearestMonster.mockResolvedValue({
       success: true,
       data: {
@@ -24,11 +24,6 @@ describe('sniff handler', () => {
         monsterName: 'Goblin',
         distanceLabel: 'nearby',
         direction: 'north',
-        nearestSettlementName: 'Fooville',
-        nearestSettlementDirection: 'west',
-        nearestSettlementDistance: 7,
-        nearestSettlementDistanceLabel: 'nearby',
-        nearestSettlementProximity: 'near',
       },
       message: 'You catch the scent of Goblin nearby to the north.',
     });
@@ -49,7 +44,7 @@ describe('sniff handler', () => {
     });
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: 'You catch the scent of Goblin nearby to the north. The nearest settlement is Fooville nearby to the west.',
+        text: 'You catch the scent of Goblin nearby to the north.',
         blocks: expect.arrayContaining([
           expect.objectContaining({ type: 'header' }),
           expect.objectContaining({ type: 'section' }),
@@ -58,51 +53,11 @@ describe('sniff handler', () => {
     );
   });
 
-  it('does not duplicate settlement details already present in the message', async () => {
-    const messageWithSettlement =
-      'You catch the scent of Goblin nearby to the north. The nearest settlement is Fooville nearby to the west.';
-
+  it('falls back to a default sniff message when no monster is found', async () => {
     mockedSniffNearestMonster.mockResolvedValue({
       success: true,
       data: {
-        detectionRadius: 4,
-        monsterName: 'Goblin',
-        distanceLabel: 'nearby',
-        direction: 'north',
-        nearestSettlementName: 'Fooville',
-        nearestSettlementDirection: 'west',
-        nearestSettlementDistance: 7,
-        nearestSettlementDistanceLabel: 'nearby',
-        nearestSettlementProximity: 'near',
-      },
-      message: messageWithSettlement,
-    });
-
-    const say = jest
-      .fn<Promise<void>, Parameters<HandlerContext['say']>>()
-      .mockResolvedValue();
-
-    await sniffHandler({
-      userId: 'U123',
-      teamId: 'T1',
-      say,
-    } as unknown as HandlerContext);
-
-    expect(say).toHaveBeenCalledWith(
-      expect.objectContaining({
-        text: messageWithSettlement,
-        blocks: expect.any(Array),
-      }),
-    );
-  });
-
-  it('includes settlement guidance when falling back to the default copy', async () => {
-    mockedSniffNearestMonster.mockResolvedValue({
-      success: true,
-      data: {
-        detectionRadius: 1,
-        nearestSettlementName: 'Fooville',
-        nearestSettlementDirection: 'here',
+        detectionRadius: 2,
       },
     });
 
@@ -111,61 +66,70 @@ describe('sniff handler', () => {
       .mockResolvedValue();
 
     await sniffHandler({
-      userId: 'U123',
-      teamId: 'T1',
+      userId: 'U999',
+      teamId: 'T9',
       say,
     } as unknown as HandlerContext);
 
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: "You sniff the air but can't catch any monster scent within 1 tile. You're right in Fooville.",
+        text: "You sniff the air but can't catch any monster scent within 2 tiles.",
         blocks: expect.arrayContaining([
           expect.objectContaining({ type: 'header' }),
           expect.objectContaining({ type: 'section' }),
         ]),
       }),
+    );
+  });
+
+  it('reports DM service errors to the user', async () => {
+    mockedSniffNearestMonster.mockResolvedValue({
+      success: false,
+      message: 'Service unavailable',
+    });
+
+    const say = jest
+      .fn<Promise<void>, Parameters<HandlerContext['say']>>()
+      .mockResolvedValue();
+
+    await sniffHandler({
+      userId: 'U000',
+      teamId: 'T0',
+      say,
+    } as unknown as HandlerContext);
+
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'Service unavailable' }),
     );
   });
 });
 
 describe('sniff private helpers', () => {
-  const {
-    appendSettlementInfo,
-    messageIncludesSettlementInfo,
-    buildSettlementFragment,
-  } = __private__;
+  const { resolveDistanceLabel, arrowForDirection, buildMonsterBlockText } =
+    __private__;
 
-  it('detects settlement messaging phrases', () => {
-    expect(
-      messageIncludesSettlementInfo('The nearest settlement is Fooville.'),
-    ).toBe(true);
-    expect(
-      messageIncludesSettlementInfo(
-        "You're right in Fooville. Enjoy your stay.",
-      ),
-    ).toBe(true);
-    expect(
-      messageIncludesSettlementInfo(
-        'You sniff the air but cannot smell anything.',
-      ),
-    ).toBe(false);
+  it('returns readable distance labels', () => {
+    expect(resolveDistanceLabel('nearby', 'near')).toBe('nearby');
+    expect(resolveDistanceLabel(undefined, 'far')).toBe('a ways off');
+    expect(resolveDistanceLabel(undefined, undefined)).toBe('somewhere nearby');
   });
 
-  it('appends settlement fragments when needed', () => {
-    const fragment = buildSettlementFragment({
-      nearestSettlementName: 'Fooville',
-      nearestSettlementDirection: 'south',
-      nearestSettlementDistance: 4,
-      nearestSettlementDistanceLabel: 'far off',
-      nearestSettlementProximity: 'far',
-    });
+  it('maps directions to emoji arrows', () => {
+    expect(arrowForDirection('north')).toBe(':arrow_up:');
+    expect(arrowForDirection('west')).toBe(':arrow_left:');
+    expect(arrowForDirection('here')).toBe(':round_pushpin:');
+    expect(arrowForDirection(undefined)).toBe(':compass:');
+  });
+
+  it('builds monster block markdown when data is complete', () => {
     expect(
-      appendSettlementInfo(
-        'You catch the scent of Goblin far off to the east.',
-        fragment,
-      ),
-    ).toBe(
-      'You catch the scent of Goblin far off to the east. The nearest settlement is Fooville far off to the south.',
-    );
+      buildMonsterBlockText({
+        monsterName: 'Goblin',
+        distanceLabel: 'nearby',
+        direction: 'north',
+        proximity: 'near',
+      }),
+    ).toContain('*Monster* • Goblin');
+    expect(buildMonsterBlockText({})).toBeUndefined();
   });
 });

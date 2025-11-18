@@ -6,7 +6,6 @@ import { COMMANDS, INSPECT_ACTIONS } from '../commands';
 import { PlayerCommandHandler } from './base';
 import type { HandlerContext } from './types';
 
-import { requireCharacter } from './characterUtils';
 import {
   buildPlayerOption,
   buildMonsterOption,
@@ -29,6 +28,7 @@ import {
 } from './stats/format';
 import type { PlayerStatsSource, MonsterStatsSource } from './stats/types';
 import type { NearbyPlayer, NearbyMonster, NearbyItem } from './locationUtils';
+import { buildHqBlockedMessage } from './hqUtils';
 
 export const INSPECT_SELECTION_BLOCK_ID = 'inspect_selection_block';
 
@@ -255,15 +255,18 @@ const computePowerScore = (snapshot: CombatantSnapshot): number => {
   const level = typeof snapshot.level === 'number' ? snapshot.level : 1;
 
   const equipmentTotals = snapshot.equipmentTotals ?? null;
-  const attackBonus = typeof equipmentTotals?.attackBonus === 'number'
-    ? equipmentTotals.attackBonus
-    : 0;
-  const damageBonus = typeof equipmentTotals?.damageBonus === 'number'
-    ? equipmentTotals.damageBonus
-    : 0;
-  const armorBonus = typeof equipmentTotals?.armorBonus === 'number'
-    ? equipmentTotals.armorBonus
-    : 0;
+  const attackBonus =
+    typeof equipmentTotals?.attackBonus === 'number'
+      ? equipmentTotals.attackBonus
+      : 0;
+  const damageBonus =
+    typeof equipmentTotals?.damageBonus === 'number'
+      ? equipmentTotals.damageBonus
+      : 0;
+  const armorBonus =
+    typeof equipmentTotals?.armorBonus === 'number'
+      ? equipmentTotals.armorBonus
+      : 0;
 
   const effectiveHp = Math.max(maxHp, hp, 1);
   return (
@@ -460,7 +463,10 @@ const buildItemInspectMessage = (
 
 class InspectHandler extends PlayerCommandHandler {
   constructor() {
-    super(COMMANDS.INSPECT, 'Failed to inspect surroundings');
+    super(COMMANDS.INSPECT, 'Failed to inspect surroundings', {
+      allowInHq: false,
+      hqCommand: COMMANDS.INSPECT,
+    });
   }
 
   protected async perform({
@@ -470,8 +476,10 @@ class InspectHandler extends PlayerCommandHandler {
     resolveUserId,
   }: HandlerContext): Promise<void> {
     if (!this.teamId) return;
-    const player = await requireCharacter(this.teamId, userId, say);
-    if (!player) return;
+    const player = this.player;
+    if (!player) {
+      return;
+    }
 
     // Check if user wants to inspect a specific player by mention
     // Extract text after "inspect" command (e.g., "inspect @John" → "@John" or "inspect <@U123>" → "<@U123>")
@@ -637,6 +645,15 @@ class InspectHandler extends PlayerCommandHandler {
       return;
     }
 
+    if (inspector.isInHq) {
+      await this.respondFailure(
+        client,
+        body,
+        buildHqBlockedMessage(COMMANDS.INSPECT),
+      );
+      return;
+    }
+
     const targetRes = await this.dm.getPlayer({
       teamId: selection.teamId || this.teamId!,
       userId: selection.userId,
@@ -699,6 +716,15 @@ class InspectHandler extends PlayerCommandHandler {
         client,
         body,
         inspectorMessage ?? 'I could not find your character yet.',
+      );
+      return;
+    }
+
+    if (inspector.isInHq) {
+      await this.respondFailure(
+        client,
+        body,
+        buildHqBlockedMessage(COMMANDS.INSPECT),
       );
       return;
     }
@@ -774,6 +800,15 @@ class InspectHandler extends PlayerCommandHandler {
         client,
         body,
         inspectorMessage ?? 'I could not find your character yet.',
+      );
+      return;
+    }
+
+    if (inspector.isInHq) {
+      await this.respondFailure(
+        client,
+        body,
+        buildHqBlockedMessage(COMMANDS.INSPECT),
       );
       return;
     }

@@ -8,7 +8,10 @@ export const createHandlerHelp = `Create a new character with "new". Example: Se
 
 export class CreateHandler extends PlayerCommandHandler {
   constructor() {
-    super(COMMANDS.NEW, 'Failed to create character');
+    super(COMMANDS.NEW, 'Failed to create character', {
+      loadPlayer: false,
+      requirePlayer: false,
+    });
   }
 
   protected async perform({

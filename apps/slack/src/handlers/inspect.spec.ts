@@ -1,8 +1,9 @@
 import type { BlockAction } from '@slack/bolt';
 import type { WebClient } from '@slack/web-api';
 import { inspectHandler, INSPECT_SELECTION_BLOCK_ID } from './inspect';
-import { INSPECT_ACTIONS } from '../commands';
+import { INSPECT_ACTIONS, COMMANDS } from '../commands';
 import { dmClient } from '../dm-client';
+import { buildHqBlockedMessage } from './hqUtils';
 
 jest.mock('../dm-client', () => {
   const fn = jest.fn;
@@ -85,6 +86,7 @@ describe('inspectHandler.handleInspectAction', () => {
         teamId: 'T1',
         userId: 'U123',
         slackUser: { teamId: 'T1', userId: 'U123' },
+        isInHq: false,
       },
     } as never);
 
@@ -119,6 +121,7 @@ describe('inspectHandler.handleInspectAction', () => {
         agility: 11,
         health: 13,
         level: 4,
+        isInHq: false,
       },
       success: true,
     } as never);
@@ -135,6 +138,7 @@ describe('inspectHandler.handleInspectAction', () => {
         agility: 12,
         health: 9,
         level: 3,
+        isInHq: false,
       },
       success: true,
     } as never);
@@ -172,6 +176,7 @@ describe('inspectHandler.handleInspectAction', () => {
         agility: 11,
         health: 13,
         level: 4,
+        isInHq: false,
       },
       success: true,
     } as never);
@@ -231,6 +236,7 @@ describe('inspectHandler.handleInspectAction', () => {
         slackUser: { teamId: 'T1', userId: 'U123' },
         x: 0,
         y: 0,
+        isInHq: false,
       },
       success: true,
     } as never);
@@ -276,6 +282,33 @@ describe('inspectHandler.handleInspectAction', () => {
       expect.objectContaining({
         channel: 'C123',
         text: expect.stringContaining('Sword of Testing'),
+      }),
+    );
+  });
+
+  it('blocks inspection actions while the player is in HQ', async () => {
+    mockedDmClient.getPlayer.mockResolvedValue({
+      success: true,
+      data: {
+        id: 10,
+        teamId: 'T1',
+        userId: 'U123',
+        isInHq: true,
+      },
+    } as never);
+
+    const body = buildActionBody('M:99');
+    const client = mockClient();
+
+    await inspectHandler.handleInspectAction({
+      ack: mockAck(),
+      body,
+      client: client as unknown as WebClient,
+    });
+
+    expect(client.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: buildHqBlockedMessage(COMMANDS.INSPECT),
       }),
     );
   });

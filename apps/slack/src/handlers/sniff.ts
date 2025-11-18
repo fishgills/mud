@@ -49,44 +49,6 @@ const arrowForDirection = (direction?: string): string => {
   }
 };
 
-const buildSettlementFragment = (data?: {
-  nearestSettlementName?: string;
-  nearestSettlementDirection?: string;
-  nearestSettlementDistance?: number;
-  nearestSettlementSize?: string;
-  nearestSettlementType?: string;
-  nearestSettlementPopulation?: number;
-  nearestSettlementDescription?: string | null;
-  nearestSettlementIsCurrent?: boolean;
-  nearestSettlementDistanceLabel?: string;
-  nearestSettlementProximity?: SniffProximity;
-}): string => {
-  if (!data) {
-    return '';
-  }
-  const direction = data.nearestSettlementDirection?.trim();
-  if (!direction) {
-    return '';
-  }
-
-  const name = data.nearestSettlementName?.trim();
-  if (direction === 'here') {
-    if (name) {
-      return ` You're right in ${name}.`;
-    }
-    return ' You are standing in a settlement.';
-  }
-
-  const nameSegment = name ? `${name} ` : '';
-  const distanceText = resolveDistanceLabel(
-    data.nearestSettlementDistanceLabel,
-    data.nearestSettlementProximity,
-  );
-  const directionSegment = direction ? ` to the ${direction}` : '';
-
-  return ` The nearest settlement is ${nameSegment}${distanceText}${directionSegment}.`;
-};
-
 const buildMonsterBlockText = (data?: {
   monsterName?: string;
   distanceLabel?: string;
@@ -100,56 +62,6 @@ const buildMonsterBlockText = (data?: {
   const dirText = dir && dir !== 'here' ? ` to the ${dir}` : '';
   // Example: :japanese_goblin: *Monster* • Goblin — _nearby_ to the north
   return `:japanese_goblin: *Monster* • ${data.monsterName} — _${distanceText}_${dirText ? `${dirText}` : ''} ${arrow}`.trim();
-};
-
-const buildSettlementBlockText = (data?: {
-  nearestSettlementName?: string;
-  nearestSettlementDirection?: string;
-  nearestSettlementDistanceLabel?: string;
-  nearestSettlementProximity?: SniffProximity;
-}): string | undefined => {
-  if (!data) return undefined;
-  const dir = data.nearestSettlementDirection?.trim();
-  if (!dir) return undefined;
-
-  const name = data.nearestSettlementName?.trim();
-  if (dir === 'here') {
-    if (name) return `:round_pushpin: *Settlement* • You're in *${name}*`;
-    return `:round_pushpin: *Settlement* • You're in a settlement`;
-  }
-
-  const distanceText = resolveDistanceLabel(
-    data.nearestSettlementDistanceLabel,
-    data.nearestSettlementProximity,
-  );
-  const arrow = arrowForDirection(dir);
-  const nameSegment = name ? `${name}` : 'a settlement';
-  return `:house: *Settlement* • ${nameSegment} — _${distanceText}_ to the ${dir} ${arrow}`;
-};
-
-const settlementIndicators: RegExp[] = [
-  /nearest settlement/i,
-  /standing in a settlement/i,
-  /you'?re right in/i,
-];
-
-const messageIncludesSettlementInfo = (message?: string | null): boolean => {
-  if (!message) {
-    return false;
-  }
-
-  return settlementIndicators.some((pattern) => pattern.test(message));
-};
-
-const appendSettlementInfo = (
-  message: string,
-  settlementFragment: string,
-): string => {
-  if (!settlementFragment || messageIncludesSettlementInfo(message)) {
-    return message;
-  }
-
-  return `${message}${settlementFragment}`;
 };
 
 export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
@@ -167,7 +79,6 @@ export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
     }
 
     const data = response.data;
-    const settlementFragment = buildSettlementFragment(data);
 
     if (!data || !data.monsterName) {
       const radius = data?.detectionRadius;
@@ -176,8 +87,7 @@ export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
           ? `${radius} tile${radius === 1 ? '' : 's'}`
           : 'your range';
       const fallbackMessage = `You sniff the air but can't catch any monster scent within ${radiusLabel}.`;
-      const baseMessage = response.message ?? fallbackMessage;
-      const text = appendSettlementInfo(baseMessage, settlementFragment);
+      const text = response.message ?? fallbackMessage;
       // Build a richer Block Kit layout
       const blocks: (KnownBlock | Block)[] = [
         {
@@ -192,14 +102,6 @@ export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
           },
         },
       ];
-      const settlementText = buildSettlementBlockText(data);
-      if (settlementText) {
-        blocks.push({ type: 'divider' as const });
-        blocks.push({
-          type: 'section' as const,
-          text: { type: 'mrkdwn' as const, text: settlementText },
-        });
-      }
       await say({ text, blocks });
       return;
     }
@@ -210,11 +112,9 @@ export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
       data.proximity,
     );
     const fallbackMessage = `You catch the scent of ${data.monsterName} ${distanceText}${direction}.`;
-    const baseMessage = response.message ?? fallbackMessage;
-    const text = appendSettlementInfo(baseMessage, settlementFragment);
+    const text = response.message ?? fallbackMessage;
 
     const monsterText = buildMonsterBlockText(data);
-    const settlementText = buildSettlementBlockText(data);
     const blocks: (KnownBlock | Block)[] = [
       {
         type: 'header' as const,
@@ -225,15 +125,6 @@ export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
             {
               type: 'section' as const,
               text: { type: 'mrkdwn' as const, text: monsterText },
-            },
-          ] as const)
-        : []),
-      ...(settlementText
-        ? ([
-            { type: 'divider' as const },
-            {
-              type: 'section' as const,
-              text: { type: 'mrkdwn' as const, text: settlementText },
             },
           ] as const)
         : []),
@@ -251,12 +142,8 @@ export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
 
 export const __private__ = {
   resolveDistanceLabel,
-  buildSettlementFragment,
-  messageIncludesSettlementInfo,
-  appendSettlementInfo,
   arrowForDirection,
   buildMonsterBlockText,
-  buildSettlementBlockText,
 };
 
 registerHandler(COMMANDS.SNIFF, sniffHandler);

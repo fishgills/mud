@@ -54,7 +54,7 @@ export class PrefetchService {
   ): Promise<void> {
     try {
       const t0 = Date.now();
-      // 1) Center tile + nearby biomes/settlements/currentSettlement
+      // 1) Center tile + nearby biomes metadata
       const centerPromise = this.world
         .getTileInfoWithNearby(x, y)
         .catch(() => null);

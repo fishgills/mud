@@ -1,6 +1,7 @@
 import { MovementController } from './movement.controller';
 import { BadRequestException } from '@nestjs/common';
 import { EventBus } from '../../../shared/event-bus';
+import type { Player } from '@mud/database';
 
 jest.mock('../../../shared/event-bus', () => ({
   EventBus: {
@@ -13,13 +14,16 @@ const createPlayerService = () => ({
   movePlayer: jest.fn(),
   getPlayersAtLocation: jest.fn(),
   updateLastAction: jest.fn().mockResolvedValue(undefined),
+  teleportPlayer: jest.fn(),
 });
 
 const createWorldService = () => ({
   getTileInfoWithNearby: jest.fn(),
-  findNearestSettlement: jest.fn().mockResolvedValue(null),
   getTilesInBounds: jest.fn(),
   getBoundsTiles: jest.fn(),
+  enterHq: jest.fn(),
+  exitHq: jest.fn(),
+  getHqStatus: jest.fn(),
 });
 
 const createMonsterService = () => ({
@@ -49,7 +53,6 @@ describe('MovementController', () => {
       noopService() as never,
       noopService() as never,
       noopService() as never,
-      noopService() as never,
       monsterService as never,
     );
   });
@@ -61,17 +64,9 @@ describe('MovementController', () => {
   });
 
   describe('sniffNearestMonster', () => {
-    it('returns settlement messaging when no monsters detected', async () => {
+    it('returns detection radius when no monsters detected', async () => {
       const player = { id: 1, x: 0, y: 0, agility: 2 };
       playerService.getPlayer.mockResolvedValue(player);
-      worldService.getTileInfoWithNearby.mockResolvedValue({
-        nearbySettlements: [],
-        currentSettlement: {
-          name: 'Town',
-          x: 0,
-          y: 0,
-        },
-      });
       monsterService.findNearestMonsterWithinRadius.mockResolvedValue(null);
 
       const response = await controller.sniffNearestMonster('T1', 'U1');
@@ -88,15 +83,9 @@ describe('MovementController', () => {
       );
     });
 
-    it('describes nearest monster and settlement sentence', async () => {
+    it('describes nearest monster when found', async () => {
       const player = { id: 1, x: 0, y: 0, agility: 3 };
       playerService.getPlayer.mockResolvedValue(player);
-      worldService.getTileInfoWithNearby.mockResolvedValue({
-        nearbySettlements: [
-          { name: 'Village', x: 3, y: 0, description: 'test' },
-        ],
-        currentSettlement: null,
-      });
       monsterService.findNearestMonsterWithinRadius.mockResolvedValue({
         monster: { name: 'Goblin', x: 1, y: 0 },
         distance: 1,
@@ -107,7 +96,6 @@ describe('MovementController', () => {
       expect(response.success).toBe(true);
       expect(response.message).toContain('Goblin');
       expect(response.data?.direction).toBe('east');
-      expect(response.data?.nearestSettlementName).toBe('Village');
     });
 
     it('handles service errors gracefully', async () => {
@@ -168,14 +156,74 @@ describe('MovementController', () => {
     });
   });
 
+  describe('getLookView', () => {
+    it('returns HQ view when player is inside HQ', async () => {
+      playerService.getPlayer.mockResolvedValue({
+        id: 1,
+        x: 0,
+        y: 0,
+        isInHq: true,
+        lastWorldX: 10,
+        lastWorldY: -5,
+      });
+
+      const response = await controller.getLookView('T1', 'U1');
+
+      expect(response.success).toBe(true);
+      expect(response.message).toContain('HQ safe zone');
+      expect(response.data?.location.biomeName).toBe('hq');
+      expect(worldService.getTileInfoWithNearby).not.toHaveBeenCalled();
+      expect(eventBusEmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'player:activity',
+          playerId: 1,
+          source: 'movement:look',
+        }),
+      );
+    });
+  });
+
+  describe('teleport', () => {
+    it('throws when identity missing', async () => {
+      await expect(
+        controller.teleport({ userId: '', teamId: '' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('records activity and returns teleport response', async () => {
+      playerService.teleportPlayer.mockResolvedValue({
+        state: 'entered',
+        player: { id: 1 } as unknown as Player,
+        lastWorldPosition: { x: 1, y: 2 },
+      });
+
+      const response = await controller.teleport({
+        userId: 'U1',
+        teamId: 'T1',
+      });
+
+      expect(response.state).toBe('entered');
+      expect(response.success).toBe(true);
+      expect(eventBusEmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'player:activity',
+          playerId: 1,
+          source: 'movement:teleport',
+        }),
+      );
+    });
+  });
+
   describe('helper behavior', () => {
     it('categorizes distance buckets with readable labels', () => {
-      const describe = (controller as unknown as {
-        describeDistance: (d?: number | null) => {
-          proximity: string;
-          label: string;
-        };
-      }).describeDistance.bind(controller);
+      const describe = (
+        controller as unknown as {
+          describeDistance: (d?: number | null) => {
+            proximity: string;
+            label: string;
+          };
+        }
+      ).describeDistance.bind(controller);
 
       expect(describe(undefined)).toMatchObject({
         proximity: 'unknown',
@@ -186,85 +234,6 @@ describe('MovementController', () => {
       expect(describe(2).proximity).toBe('near');
       expect(describe(5).proximity).toBe('far');
       expect(describe(10).proximity).toBe('distant');
-    });
-
-    it('selects nearest settlement prioritizing current location', () => {
-      const helper = controller as unknown as {
-        resolveNearestSettlement: typeof MovementController.prototype['resolveNearestSettlement'];
-      };
-      const result = helper.resolveNearestSettlement(
-        0,
-        0,
-        [
-          {
-            name: 'Harbor',
-            x: 4,
-            y: 0,
-            distance: 4,
-            type: 'village',
-            size: 'small',
-            population: 10,
-            description: 'coast',
-          },
-          {
-            name: 'Citadel',
-            x: -2,
-            y: -2,
-            distance: 3,
-            type: 'fort',
-            size: 'large',
-            population: 200,
-            description: 'walls',
-          },
-        ],
-        {
-          name: 'Home',
-          x: 0,
-          y: 0,
-          distance: 0,
-          type: 'town',
-          size: 'medium',
-          population: 50,
-          isCurrent: true,
-          description: null,
-        },
-      );
-
-      expect(result).not.toBeNull();
-      expect(result?.name).toBe('Home');
-      expect(result?.isCurrent).toBe(true);
-      expect(result?.proximity).toBe('immediate');
-      expect(result?.distanceLabel).toBe('right under your nose');
-
-      const fallback = helper.resolveNearestSettlement(
-        0,
-        0,
-        [
-          {
-            name: 'Harbor',
-            x: 4,
-            y: 0,
-            type: 'village',
-            size: 'small',
-            population: 10,
-            description: 'coast',
-          },
-          {
-            name: 'Citadel',
-            x: 1,
-            y: 1,
-            type: 'fort',
-            size: 'large',
-            population: 200,
-            description: 'walls',
-          },
-        ],
-        undefined,
-      );
-
-      expect(fallback?.name).toBe('Citadel');
-      expect(fallback?.direction).toMatch(/north|east/);
-      expect(fallback?.proximity).toBe('close');
     });
   });
 });

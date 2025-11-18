@@ -21,7 +21,6 @@ import {
   VisibilityService,
   PeakService,
   BiomeService,
-  SettlementService,
   DescriptionService,
   ResponseService,
 } from './api/services';
@@ -55,7 +54,6 @@ import { LootService } from './monster/loot.service';
     VisibilityService,
     PeakService,
     BiomeService,
-    SettlementService,
     DescriptionService,
     ResponseService,
     PopulationService,

@@ -29,7 +29,6 @@ Legend:
   s = Swamp
   m = Mountain
   w = Water
-  ^ = Settlement Center
-  * = Settlement
+  • = Ungenerated area
 
 LEGEND

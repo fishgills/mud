@@ -7,23 +7,16 @@ export const deleteHandlerHelp =
 
 export class DeleteHandler extends PlayerCommandHandler {
   constructor() {
-    super(COMMANDS.DELETE, 'Failed to delete character');
+    super(COMMANDS.DELETE, 'Failed to delete character', {
+      missingCharacterMessage: `You don't have a character to delete! Use "new CharacterName" to create one.`,
+    });
   }
 
   protected async perform({ userId, say }: HandlerContext): Promise<void> {
-    const playerResult = await this.dm.getPlayer({
-      teamId: this.teamId!,
-      userId,
-    });
-
-    if (!playerResult.success || !playerResult.data) {
-      await say({
-        text: `You don't have a character to delete! Use "new CharacterName" to create one.`,
-      });
+    const player = this.player;
+    if (!player) {
       return;
     }
-
-    const player = playerResult.data;
     const playerName = player.name ?? 'your character';
     const deleteResult = await this.dm.deletePlayer({
       teamId: this.teamId!,

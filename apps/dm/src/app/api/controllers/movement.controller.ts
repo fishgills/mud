@@ -7,25 +7,23 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { WORLD_CHUNK_SIZE } from '@mud/constants';
 import { PlayerService } from '../../player/player.service';
 import { WorldService } from '../../world/world.service';
-import type { NearbySettlement, Settlement } from '../../world/world.service';
 import { MonsterService } from '../../monster/monster.service';
 import type {
   PlayerMoveResponse,
   LookViewResponse,
   PerformanceStats,
   SniffResponse,
-  SniffProximity,
+  TeleportResponse,
 } from '../dto/responses.dto';
+import type { Player } from '@mud/database';
 import type { MovePlayerRequest } from '../dto/player-requests.dto';
 import {
   TimingMetrics,
   VisibilityService,
   PeakService,
   BiomeService,
-  SettlementService,
   DescriptionService,
   ResponseService,
 } from '../services';
@@ -33,6 +31,12 @@ import { getPrismaClient } from '@mud/database';
 import { calculateDirection } from '../../shared/direction.util';
 import { env } from '../../../env';
 import { EventBus } from '../../../shared/event-bus';
+
+type HqAwarePlayer = Player & {
+  isInHq?: boolean | null;
+  lastWorldX?: number | null;
+  lastWorldY?: number | null;
+};
 
 @Controller('movement')
 export class MovementController {
@@ -44,7 +48,6 @@ export class MovementController {
     private readonly visibilityService: VisibilityService,
     private readonly peakService: PeakService,
     private readonly biomeService: BiomeService,
-    private readonly settlementService: SettlementService,
     private readonly descriptionService: DescriptionService,
     private readonly responseService: ResponseService,
     private readonly monsterService: MonsterService,
@@ -98,145 +101,14 @@ export class MovementController {
     };
   }
 
-  private resolveNearestSettlement(
-    playerX: number,
-    playerY: number,
-    nearbySettlements: NearbySettlement[],
-    currentSettlement?: Settlement,
-  ): {
-    name?: string;
-    direction?: string;
-    distance?: number;
-    type?: string;
-    size?: string;
-    population?: number;
-    description?: string | null;
-    isCurrent: boolean;
-    proximity?: SniffProximity;
-    distanceLabel?: string;
-  } | null {
-    let nearest: {
-      name?: string;
-      direction?: string;
-      distance?: number;
-      type?: string;
-      size?: string;
-      population?: number;
-      description?: string | null;
-      isCurrent: boolean;
-      proximity?: SniffProximity;
-      distanceLabel?: string;
-    } | null = null;
-
-    const consider = (candidate: {
-      name?: string;
-      direction?: string;
-      distance?: number;
-      type?: string;
-      size?: string;
-      population?: number;
-      description?: string | null;
-      isCurrent: boolean;
-    }) => {
-      const candidateDistance =
-        typeof candidate.distance === 'number' &&
-        Number.isFinite(candidate.distance)
-          ? candidate.distance
-          : Number.POSITIVE_INFINITY;
-      const currentDistance =
-        nearest &&
-        typeof nearest.distance === 'number' &&
-        Number.isFinite(nearest.distance)
-          ? nearest.distance
-          : Number.POSITIVE_INFINITY;
-
-      if (!nearest || candidateDistance < currentDistance) {
-        const descriptor = Number.isFinite(candidateDistance)
-          ? this.describeDistance(candidateDistance)
-          : null;
-        nearest = {
-          ...candidate,
-          distance: candidateDistance,
-          proximity: descriptor?.proximity,
-          distanceLabel: descriptor?.label,
-        };
-      }
-    };
-
-    if (currentSettlement?.name) {
-      consider({
-        name: currentSettlement.name,
-        direction: 'here',
-        distance: 0,
-        isCurrent: true,
-        type: currentSettlement.type,
-        size: currentSettlement.size,
-        description: null,
-      });
-    }
-
-    for (const settlement of nearbySettlements ?? []) {
-      const dx = settlement.x - playerX;
-      const dy = settlement.y - playerY;
-      const rawDistance =
-        typeof settlement.distance === 'number' &&
-        Number.isFinite(settlement.distance)
-          ? settlement.distance
-          : Math.sqrt(dx * dx + dy * dy);
-      const direction =
-        dx === 0 && dy === 0
-          ? 'here'
-          : calculateDirection(playerX, playerY, settlement.x, settlement.y);
-
-      consider({
-        name: settlement.name,
-        direction,
-        distance: rawDistance,
-        isCurrent: dx === 0 && dy === 0,
-        type: settlement.type,
-        size: settlement.size,
-        population: settlement.population,
-        description: settlement.description,
-      });
-    }
-
-    return nearest;
-  }
-
-  private describeNearestSettlement(
-    settlement: {
-      name?: string;
-      direction?: string;
-      distance?: number;
-      isCurrent: boolean;
-    } | null,
-  ): string {
-    if (!settlement || !settlement.direction) {
-      return '';
-    }
-
-    const trimmedName = settlement.name?.trim();
-    if (settlement.direction === 'here') {
-      if (trimmedName) {
-        return `You're right in ${trimmedName}.`;
-      }
-      return `You're standing in a settlement.`;
-    }
-
-    const nameSegment = trimmedName ? `${trimmedName} ` : '';
-    const descriptor =
-      typeof settlement.distance === 'number' &&
-      Number.isFinite(settlement.distance)
-        ? this.describeDistance(settlement.distance)
-        : null;
-    const distancePhrase = descriptor?.phrase ?? 'nearby';
-    return `The nearest settlement is ${nameSegment}${distancePhrase} to the ${settlement.direction}.`;
-  }
-
   private recordPlayerActivity(
     playerId: number,
     source: string,
-    context: { teamId?: string; userId?: string; metadata?: Record<string, unknown> } = {},
+    context: {
+      teamId?: string;
+      userId?: string;
+      metadata?: Record<string, unknown>;
+    } = {},
   ): void {
     EventBus.emit({
       eventType: 'player:activity',
@@ -272,85 +144,20 @@ export class MovementController {
       const agility = player.agility ?? 0;
       const detectionRadius = Math.max(1, agility);
 
-      const [center, nearest] = await Promise.all([
-        this.worldService.getTileInfoWithNearby(player.x, player.y),
-        this.monsterService.findNearestMonsterWithinRadius(
-          player.x,
-          player.y,
-          detectionRadius,
-        ),
-      ]);
-
-      const settlementInfo = this.resolveNearestSettlement(
+      const nearest = await this.monsterService.findNearestMonsterWithinRadius(
         player.x,
         player.y,
-        center.nearbySettlements,
-        center.currentSettlement,
+        detectionRadius,
       );
-      let resolvedSettlement = settlementInfo;
-
-      if (!resolvedSettlement) {
-        const deterministic = await this.worldService
-          .findNearestSettlement(player.x, player.y, {
-            maxRadius: Math.max(detectionRadius * 2, WORLD_CHUNK_SIZE * 2),
-          })
-          .catch(() => null);
-
-        if (deterministic) {
-          const descriptor =
-            typeof deterministic.distance === 'number' &&
-            Number.isFinite(deterministic.distance)
-              ? this.describeDistance(deterministic.distance)
-              : null;
-
-          resolvedSettlement = {
-            name: deterministic.name,
-            direction: deterministic.direction,
-            distance: deterministic.distance,
-            type: deterministic.type,
-            size: deterministic.size,
-            population: deterministic.population,
-            description: deterministic.description,
-            isCurrent: deterministic.isCurrent,
-            proximity: descriptor?.proximity,
-            distanceLabel: descriptor?.label,
-          };
-        }
-      }
-
-      const settlementSentence =
-        this.describeNearestSettlement(resolvedSettlement);
-      const settlementData = resolvedSettlement
-        ? {
-            nearestSettlementName: resolvedSettlement.name,
-            nearestSettlementDirection: resolvedSettlement.direction,
-            nearestSettlementDistance: resolvedSettlement.distance,
-            nearestSettlementType: resolvedSettlement.type,
-            nearestSettlementPopulation: resolvedSettlement.population,
-            nearestSettlementDescription:
-              resolvedSettlement.description ?? null,
-            nearestSettlementIsCurrent: resolvedSettlement.isCurrent,
-            nearestSettlementSize: resolvedSettlement.size,
-            nearestSettlementDistanceLabel: resolvedSettlement.distanceLabel,
-            nearestSettlementProximity: resolvedSettlement.proximity,
-          }
-        : {};
 
       if (!nearest) {
         const radiusLabel =
           detectionRadius === 1 ? '1 tile' : `${detectionRadius} tiles`;
-        const messageParts = [
-          `You sniff the air but can't catch any monster scent within ${radiusLabel}.`,
-        ];
-        if (settlementSentence) {
-          messageParts.push(settlementSentence);
-        }
         return {
           success: true,
-          message: messageParts.join(' '),
+          message: `You sniff the air but can't catch any monster scent within ${radiusLabel}.`,
           data: {
             detectionRadius,
-            ...settlementData,
           },
         };
       }
@@ -363,12 +170,6 @@ export class MovementController {
       );
       const distanceDescriptor = this.describeDistance(nearest.distance);
       const directionFragment = direction ? ` to the ${direction}` : '';
-      const messageParts = [
-        `You catch the scent of ${nearest.monster.name} ${distanceDescriptor.phrase}${directionFragment}.`,
-      ];
-      if (settlementSentence) {
-        messageParts.push(settlementSentence);
-      }
 
       return {
         success: true,
@@ -380,9 +181,8 @@ export class MovementController {
           monsterY: nearest.monster.y,
           proximity: distanceDescriptor.proximity,
           distanceLabel: distanceDescriptor.label,
-          ...settlementData,
         },
-        message: messageParts.join(' '),
+        message: `You catch the scent of ${nearest.monster.name} ${distanceDescriptor.phrase}${directionFragment}.`,
       };
     } catch (error) {
       return {
@@ -478,26 +278,69 @@ export class MovementController {
         tFilterTilesMs: 0,
         tPeaksSortMs: 0,
         tBiomeSummaryMs: 0,
-        tSettlementsFilterMs: 0,
         tAiMs: 0,
         tilesCount: 0,
         peaksCount: 0,
       };
 
       const tPlayerStart = Date.now();
-      const player = await this.playerService.getPlayer(teamId, userId);
+      const basePlayer = await this.playerService.getPlayer(teamId, userId);
+      const player = basePlayer as HqAwarePlayer;
       this.recordPlayerActivity(player.id, 'movement:look', {
         teamId,
         userId,
       });
       timing.tPlayerMs = Date.now() - tPlayerStart;
 
+      if (player.isInHq) {
+        const totalMs = Date.now() - t0;
+        return {
+          success: true,
+          message:
+            'You are within the HQ safe zone. Use the teleport command to return to the world when ready.',
+          data: {
+            location: {
+              x: player.lastWorldX ?? player.x,
+              y: player.lastWorldY ?? player.y,
+              biomeName: 'hq',
+              description:
+                'The headquarters hums with quiet activity. Vendors restock shelves while a town crier practices announcements.',
+              height: 0,
+              temperature: 0.5,
+              moisture: 0.5,
+            },
+            visibilityRadius: 0,
+            biomeSummary: [],
+            visiblePeaks: [],
+            nearbyPlayers: [],
+            monsters: [],
+            items: [],
+            description:
+              'You stand inside the Adventurers HQ—a fortified hub with vendors, rest areas, and a teleportation portal leading back to the wilds.',
+          },
+          perf: {
+            totalMs,
+            playerMs: timing.tPlayerMs,
+            worldCenterNearbyMs: 0,
+            worldBoundsTilesMs: 0,
+            worldExtendedBoundsMs: 0,
+            tilesFilterMs: 0,
+            peaksSortMs: 0,
+            biomeSummaryMs: 0,
+            aiMs: 0,
+            tilesCount: 0,
+            peaksCount: 0,
+            aiProvider,
+          },
+        } satisfies LookViewResponse;
+      }
+
       const tCenterNearbyStart = Date.now();
       const centerWithNearbyPromise = this.worldService
         .getTileInfoWithNearby(player.x, player.y)
-        .then((d) => {
+        .then((data) => {
           timing.tGetCenterNearbyMs = Date.now() - tCenterNearbyStart;
-          return d;
+          return data;
         })
         .catch(() => null);
 
@@ -511,37 +354,25 @@ export class MovementController {
       );
 
       const centerWithNearby = await centerWithNearbyPromise;
-      const centerTile = ((): {
-        x: number;
-        y: number;
-        biomeName: string;
-        description: string;
-        height: number;
-        temperature: number;
-        moisture: number;
-      } => {
-        const t = centerWithNearby?.tile;
-        if (t) {
-          return {
-            x: t.x,
-            y: t.y,
-            biomeName: t.biomeName,
-            description: t.description || '',
-            height: t.height,
-            temperature: t.temperature,
-            moisture: t.moisture,
+      const centerTile = centerWithNearby?.tile
+        ? {
+            x: centerWithNearby.tile.x,
+            y: centerWithNearby.tile.y,
+            biomeName: centerWithNearby.tile.biomeName,
+            description: centerWithNearby.tile.description || '',
+            height: centerWithNearby.tile.height,
+            temperature: centerWithNearby.tile.temperature,
+            moisture: centerWithNearby.tile.moisture,
+          }
+        : {
+            x: player.x,
+            y: player.y,
+            biomeName: 'grassland',
+            description: '',
+            height: 0.5,
+            temperature: 0.6,
+            moisture: 0.5,
           };
-        }
-        return {
-          x: player.x,
-          y: player.y,
-          biomeName: 'grassland',
-          description: '',
-          height: 0.5,
-          temperature: 0.6,
-          moisture: 0.5,
-        };
-      })();
 
       const visibilityRadius =
         this.visibilityService.calculateVisibilityRadius(centerTile);
@@ -575,29 +406,12 @@ export class MovementController {
         teamId,
         userId,
       );
-      const visibleSettlements =
-        this.settlementService.processVisibleSettlements(
-          { x: player.x, y: player.y },
-          visibilityRadius,
-          centerWithNearby,
-          timing,
-        );
 
       const monstersPromise = this.monsterService.getMonstersAtLocation(
         player.x,
         player.y,
       );
 
-      const currentSettlement: Settlement | null =
-        centerWithNearby?.currentSettlement
-          ? {
-              name: centerWithNearby.currentSettlement.name,
-              type: centerWithNearby.currentSettlement.type,
-              size: centerWithNearby.currentSettlement.size,
-              intensity: centerWithNearby.currentSettlement.intensity,
-              isCenter: Boolean(centerWithNearby.currentSettlement.isCenter),
-            }
-          : null;
       const [nearbyPlayers, monsters] = await Promise.all([
         nearbyPlayersPromise,
         monstersPromise,
@@ -608,8 +422,6 @@ export class MovementController {
         visibilityRadius,
         biomeSummary,
         visiblePeaks,
-        visibleSettlements,
-        currentSettlement,
         timing,
       );
 
@@ -653,8 +465,6 @@ export class MovementController {
         visibilityRadius,
         biomeSummary,
         visiblePeaks,
-        visibleSettlements,
-        currentSettlement,
         description,
         nearbyPlayers,
         monsters,
@@ -663,7 +473,7 @@ export class MovementController {
 
       const totalMs = Date.now() - t0;
       this.logger.debug(
-        `getLookView perf teamId=${teamId} userId=${userId} totalMs=${totalMs} playerMs=${timing.tPlayerMs} getCenterMs=${timing.tGetCenterMs} getCenterNearbyMs=${timing.tGetCenterNearbyMs} boundsTilesMs=${timing.tBoundsTilesMs} filterTilesMs=${timing.tFilterTilesMs} extBoundsMs=${timing.tExtBoundsMs} peaksSortMs=${timing.tPeaksSortMs} biomeSummaryMs=${timing.tBiomeSummaryMs} settlementsFilterMs=${timing.tSettlementsFilterMs} aiMs=${timing.tAiMs} tiles=${timing.tilesCount} peaks=${timing.peaksCount}`,
+        `getLookView perf teamId=${teamId} userId=${userId} totalMs=${totalMs} playerMs=${timing.tPlayerMs} getCenterNearbyMs=${timing.tGetCenterNearbyMs} boundsTilesMs=${timing.tBoundsTilesMs} filterTilesMs=${timing.tFilterTilesMs} extBoundsMs=${timing.tExtBoundsMs} peaksSortMs=${timing.tPeaksSortMs} biomeSummaryMs=${timing.tBiomeSummaryMs} aiMs=${timing.tAiMs} tiles=${timing.tilesCount} peaks=${timing.peaksCount}`,
       );
       try {
         const perfPayload = {
@@ -677,7 +487,6 @@ export class MovementController {
           tilesFilterMs: timing.tFilterTilesMs,
           peaksSortMs: timing.tPeaksSortMs,
           biomeSummaryMs: timing.tBiomeSummaryMs,
-          settlementsFilterMs: timing.tSettlementsFilterMs,
           aiMs: timing.tAiMs,
           tilesCount: timing.tilesCount,
           peaksCount: timing.peaksCount,
@@ -696,7 +505,6 @@ export class MovementController {
         tilesFilterMs: timing.tFilterTilesMs,
         peaksSortMs: timing.tPeaksSortMs,
         biomeSummaryMs: timing.tBiomeSummaryMs,
-        settlementsFilterMs: timing.tSettlementsFilterMs,
         aiMs: timing.tAiMs,
         tilesCount: timing.tilesCount,
         peaksCount: timing.peaksCount,
@@ -715,6 +523,66 @@ export class MovementController {
         message:
           error instanceof Error ? error.message : 'Failed to build view',
       };
+    }
+  }
+
+  @Post('teleport')
+  async teleport(
+    @Body()
+    input: {
+      userId: string;
+      teamId: string;
+      mode?: 'return' | 'random';
+    },
+  ): Promise<TeleportResponse> {
+    if (!input.userId || !input.teamId) {
+      throw new BadRequestException('userId and teamId are required');
+    }
+
+    const result = await this.playerService.teleportPlayer(
+      input.teamId,
+      input.userId,
+      input.mode,
+    );
+
+    const playerId = result.player?.id;
+    if (playerId) {
+      this.recordPlayerActivity(playerId, 'movement:teleport', {
+        teamId: input.teamId,
+        userId: input.userId,
+        metadata: { mode: result.mode ?? result.state },
+      });
+    }
+
+    switch (result.state) {
+      case 'entered':
+        return {
+          success: true,
+          state: 'entered',
+          player: result.player,
+          lastWorldPosition: result.lastWorldPosition,
+          message:
+            '✨ You arrive inside HQ. Your last world position has been saved for a quick return.',
+        };
+      case 'awaiting_choice':
+        return {
+          success: true,
+          state: 'awaiting_choice',
+          player: result.player,
+          lastWorldPosition: result.lastWorldPosition,
+          message:
+            'You are already inside HQ. Choose “return” to go back to your last location or “random” for a fresh spawn.',
+        };
+      case 'exited':
+      default:
+        return {
+          success: true,
+          state: 'exited',
+          player: result.player,
+          destination: result.destination,
+          mode: result.mode,
+          message: `You depart HQ and arrive at (${result.destination?.x ?? '?'}, ${result.destination?.y ?? '?'})`,
+        };
     }
   }
 }

@@ -6,8 +6,6 @@ import type {
   WorldTileDto,
   TileWithNearbyDto,
   NearbyBiomeDto,
-  NearbySettlementDto,
-  CurrentSettlementDto,
 } from './dto/world.dto';
 import { env } from '../../env';
 
@@ -18,29 +16,21 @@ export interface WorldTile
 }
 
 export type NearbyBiome = NearbyBiomeDto;
-export type NearbySettlement = NearbySettlementDto;
-export type Settlement = CurrentSettlementDto;
+
+export type HqExitMode = 'return' | 'random';
+
+export interface HqTransitionDto {
+  playerId: number;
+  isInHq: boolean;
+  location: { x: number; y: number };
+  lastWorldPosition?: { x: number | null; y: number | null };
+  mode?: HqExitMode;
+}
 
 interface ChunkResponseDto {
   chunkX: number;
   chunkY: number;
   tiles?: WorldTileDto[];
-}
-
-interface NearestSettlementDto {
-  settlement: {
-    id: number;
-    name: string;
-    type: string;
-    size: string;
-    population: number;
-    description: string | null;
-    x: number;
-    y: number;
-    distance: number;
-    direction: string;
-    isCurrent: boolean;
-  } | null;
 }
 
 @Injectable()
@@ -64,8 +54,6 @@ export class WorldService {
       data: {
         tile: WorldTile;
         nearbyBiomes: NearbyBiome[];
-        nearbySettlements: NearbySettlement[];
-        currentSettlement?: Settlement;
       };
       ts: number;
     }
@@ -75,8 +63,6 @@ export class WorldService {
     Promise<{
       tile: WorldTile;
       nearbyBiomes: NearbyBiome[];
-      nearbySettlements: NearbySettlement[];
-      currentSettlement?: Settlement;
     }>
   >();
   private readonly CENTER_NEARBY_CACHE_TTL_MS = Number.parseInt('30000', 10);
@@ -135,6 +121,30 @@ export class WorldService {
     return (await response.json()) as T;
   }
 
+  private async httpPost<T>(
+    path: string,
+    body: Record<string, unknown>,
+  ): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+    const response = await authorizedFetch(url, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const responseBody = await response.text().catch(() => '');
+      throw new Error(
+        `World service ${response.status} ${response.statusText}: ${responseBody}`,
+      );
+    }
+
+    return (await response.json()) as T;
+  }
+
   private parseTile(dto: WorldTileDto): WorldTile {
     return {
       ...dto,
@@ -148,15 +158,11 @@ export class WorldService {
   private parseTileWithNearby(dto: TileWithNearbyDto): {
     tile: WorldTile;
     nearbyBiomes: NearbyBiome[];
-    nearbySettlements: NearbySettlement[];
-    currentSettlement?: Settlement;
   } {
-    const { nearbyBiomes, nearbySettlements, currentSettlement, ...rest } = dto;
+    const { nearbyBiomes, ...rest } = dto;
     return {
       tile: this.parseTile(rest),
       nearbyBiomes,
-      nearbySettlements,
-      currentSettlement,
     };
   }
 
@@ -274,8 +280,6 @@ export class WorldService {
   ): Promise<{
     tile: WorldTile;
     nearbyBiomes: NearbyBiome[];
-    nearbySettlements: NearbySettlement[];
-    currentSettlement?: Settlement;
   }> {
     const cacheKey = `${x}:${y}`;
     const cached = this.centerNearbyCache.get(cacheKey);
@@ -301,7 +305,6 @@ export class WorldService {
         const fallback = {
           tile: this.createDefaultTile(x, y),
           nearbyBiomes: [],
-          nearbySettlements: [],
         };
         this.centerNearbyCache.set(cacheKey, {
           data: fallback,
@@ -315,26 +318,15 @@ export class WorldService {
     return promise;
   }
 
-  async findNearestSettlement(
-    x: number,
-    y: number,
-    options?: { maxRadius?: number },
-  ): Promise<NearestSettlementDto['settlement']> {
-    const params = new URLSearchParams({ x: String(x), y: String(y) });
-    if (options?.maxRadius !== undefined) {
-      params.set('maxRadius', String(options.maxRadius));
-    }
+  async enterHq(playerId: number): Promise<HqTransitionDto> {
+    return this.httpPost<HqTransitionDto>('/hq/enter', { playerId });
+  }
 
-    try {
-      const response = await this.httpGet<NearestSettlementDto>(
-        `/settlements/nearest?${params.toString()}`,
-      );
-      return response.settlement ?? null;
-    } catch (error) {
-      this.logger.warn(
-        `Failed to resolve nearest settlement for (${x},${y}): ${error instanceof Error ? error.message : error}`,
-      );
-      return null;
-    }
+  async exitHq(playerId: number, mode: HqExitMode): Promise<HqTransitionDto> {
+    return this.httpPost<HqTransitionDto>('/hq/exit', { playerId, mode });
+  }
+
+  async getHqStatus(playerId: number): Promise<HqTransitionDto> {
+    return this.httpGet<HqTransitionDto>(`/hq/${playerId}`);
   }
 }

@@ -67,9 +67,8 @@ const mockPrisma = {
 };
 
 jest.mock('@mud/database', () => {
-  const actual = jest.requireActual<typeof import('@mud/database')>(
-    '@mud/database',
-  );
+  const actual =
+    jest.requireActual<typeof import('@mud/database')>('@mud/database');
   return {
     ...actual,
     getPrismaClient: () => mockPrisma,
@@ -86,8 +85,7 @@ describe('MonsterService', () => {
     })),
     getTileInfoWithNearby: jest.fn().mockResolvedValue({
       tile: { x: 0, y: 0, biomeName: 'forest', biomeId: 2 },
-      currentSettlement: null,
-      nearbySettlements: [],
+      nearbyBiomes: [],
     }),
   } as unknown as Parameters<typeof MonsterService.prototype.constructor>[0];
   let emitSpy: jest.SpyInstance;
@@ -181,7 +179,6 @@ describe('MonsterService', () => {
   it('spawns monsters in an area with constraints', async () => {
     const service = new MonsterService(worldService);
     const result = await service.spawnMonstersInArea(0, 0, 2, {
-      avoidSettlementsWithin: 2,
       maxGroupSize: 2,
     });
 

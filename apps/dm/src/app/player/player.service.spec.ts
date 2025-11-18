@@ -1,6 +1,12 @@
 import { PlayerService } from './player.service';
 import type { Player } from '@mud/database';
 import { EventBus } from '../../shared/event-bus';
+type HqAwarePlayer = Player & {
+  isInHq?: boolean | null;
+  lastWorldX?: number | null;
+  lastWorldY?: number | null;
+};
+
 import {
   BadRequestException,
   ConflictException,
@@ -49,6 +55,9 @@ const createWorldService = () => ({
   getTileInfoWithNearby: jest.fn(),
   getTilesInBounds: jest.fn(),
   getBoundsTiles: jest.fn(),
+  enterHq: jest.fn(),
+  exitHq: jest.fn(),
+  getHqStatus: jest.fn(),
 });
 
 const createPlayerItemService = () => ({
@@ -72,10 +81,11 @@ describe('PlayerService', () => {
     diceQueue = [];
     worldService = createWorldService();
     playerItemService = createPlayerItemService();
-    service = new PlayerService(worldService as never, playerItemService as never);
-    eventBusEmitSpy = jest
-      .spyOn(EventBus, 'emit')
-      .mockResolvedValue(undefined);
+    service = new PlayerService(
+      worldService as never,
+      playerItemService as never,
+    );
+    eventBusEmitSpy = jest.spyOn(EventBus, 'emit').mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -83,7 +93,7 @@ describe('PlayerService', () => {
     jest.restoreAllMocks();
   });
 
-  const makePlayer = (overrides: Partial<Player> = {}): Player =>
+  const makePlayer = (overrides: Partial<HqAwarePlayer> = {}): HqAwarePlayer =>
     ({
       id: 1,
       name: 'Hero',
@@ -102,7 +112,7 @@ describe('PlayerService', () => {
       isCreationComplete: false,
       lastAction: null,
       ...overrides,
-    }) as Player;
+    }) as HqAwarePlayer;
 
   describe('hasActivePlayers', () => {
     it('returns true when player count exceeds zero', async () => {
@@ -192,6 +202,19 @@ describe('PlayerService', () => {
       ).rejects.toThrow('You can move up to 1 space based on your agility.');
     });
 
+    it('rejects movement attempts while inside HQ', async () => {
+      jest
+        .spyOn(service, 'getPlayer')
+        .mockResolvedValue(makePlayer({ isInHq: true }));
+
+      await expect(
+        service.movePlayer('T1', 'U1', { direction: 'north' }),
+      ).rejects.toThrow(
+        'You cannot move while inside HQ. Use the teleport command to return to the world.',
+      );
+      expect(worldService.getTileInfo).not.toHaveBeenCalled();
+    });
+
     it('updates coordinates and emits move event', async () => {
       const basePlayer = makePlayer({ agility: 3 });
       jest.spyOn(service, 'getPlayer').mockResolvedValue(basePlayer);
@@ -224,6 +247,67 @@ describe('PlayerService', () => {
         }),
       );
       expect(result.y).toBe(2);
+    });
+  });
+
+  describe('teleportPlayer', () => {
+    it('enters HQ when player is in the world', async () => {
+      jest
+        .spyOn(service, 'getPlayer')
+        .mockResolvedValue(makePlayer({ isInHq: false }));
+      worldService.enterHq.mockResolvedValue({
+        playerId: 1,
+        isInHq: true,
+        location: { x: 0, y: 0 },
+        lastWorldPosition: { x: 5, y: -2 },
+      });
+      mockPrisma.player.findUnique.mockResolvedValueOnce(
+        makePlayer({ isInHq: true, x: 0, y: 0 }),
+      );
+
+      const result = await service.teleportPlayer('T1', 'U1');
+
+      expect(worldService.enterHq).toHaveBeenCalledWith(1);
+      expect(result.state).toBe('entered');
+      expect(result.lastWorldPosition).toEqual({ x: 5, y: -2 });
+      expect(result.player?.isInHq).toBe(true);
+    });
+
+    it('requests exit choice when already in HQ and no mode provided', async () => {
+      jest
+        .spyOn(service, 'getPlayer')
+        .mockResolvedValue(
+          makePlayer({ isInHq: true, lastWorldX: 3, lastWorldY: 4 }),
+        );
+
+      const result = await service.teleportPlayer('T1', 'U1');
+
+      expect(result.state).toBe('awaiting_choice');
+      expect(result.lastWorldPosition).toEqual({ x: 3, y: 4 });
+      expect(worldService.exitHq).not.toHaveBeenCalled();
+    });
+
+    it('exits HQ using requested mode', async () => {
+      jest
+        .spyOn(service, 'getPlayer')
+        .mockResolvedValue(makePlayer({ isInHq: true }));
+      worldService.exitHq.mockResolvedValue({
+        playerId: 1,
+        isInHq: false,
+        location: { x: 11, y: -7 },
+        lastWorldPosition: { x: 11, y: -7 },
+        mode: 'random',
+      });
+      mockPrisma.player.findUnique.mockResolvedValueOnce(
+        makePlayer({ isInHq: false, x: 11, y: -7 }),
+      );
+
+      const result = await service.teleportPlayer('T1', 'U1', 'random');
+
+      expect(worldService.exitHq).toHaveBeenCalledWith(1, 'random');
+      expect(result.state).toBe('exited');
+      expect(result.destination).toEqual({ x: 11, y: -7 });
+      expect(result.mode).toBe('random');
     });
   });
 
@@ -321,10 +405,16 @@ describe('PlayerService', () => {
         .spyOn(service, 'getPlayer')
         .mockRejectedValue(new NotFoundException());
       jest
-        .spyOn(service as unknown as { findValidSpawnPosition: jest.Mock }, 'findValidSpawnPosition')
+        .spyOn(
+          service as unknown as { findValidSpawnPosition: jest.Mock },
+          'findValidSpawnPosition',
+        )
         .mockResolvedValue({ x: 9, y: -4 });
       jest
-        .spyOn(service as unknown as { generateRandomStats: () => any }, 'generateRandomStats')
+        .spyOn(
+          service as unknown as { generateRandomStats: () => any },
+          'generateRandomStats',
+        )
         .mockReturnValue({
           strength: 15,
           agility: 13,
@@ -450,7 +540,10 @@ describe('PlayerService', () => {
   describe('recalculatePlayerHitPointsFromEquipment', () => {
     it('adjusts maxHp based on vitality bonuses from gear', async () => {
       const basePlayer = makePlayer({ health: 14, level: 5 });
-      basePlayer.maxHp = service.getMaxHpFor(basePlayer.health, basePlayer.level);
+      basePlayer.maxHp = service.getMaxHpFor(
+        basePlayer.health,
+        basePlayer.level,
+      );
       basePlayer.hp = basePlayer.maxHp;
       mockPrisma.player.findUnique.mockResolvedValueOnce({ ...basePlayer });
       playerItemService.getEquipmentTotals.mockResolvedValueOnce({
@@ -518,7 +611,10 @@ describe('PlayerService', () => {
       const player = makePlayer({ hp: 0, maxHp: 12, isAlive: false });
       jest.spyOn(service, 'getPlayer').mockResolvedValue(player);
       jest
-        .spyOn(service as unknown as { findValidSpawnPosition: jest.Mock }, 'findValidSpawnPosition')
+        .spyOn(
+          service as unknown as { findValidSpawnPosition: jest.Mock },
+          'findValidSpawnPosition',
+        )
         .mockResolvedValue({ x: 25, y: -8 });
       mockPrisma.player.update.mockResolvedValue(undefined);
       mockPrisma.player.findUnique.mockResolvedValue({

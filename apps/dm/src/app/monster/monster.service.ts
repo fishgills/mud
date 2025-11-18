@@ -246,7 +246,7 @@ export class MonsterService {
     centerX: number,
     centerY: number,
     radius = 5,
-    constraints?: { avoidSettlementsWithin?: number; maxGroupSize?: number },
+    constraints?: { maxGroupSize?: number },
   ): Promise<Monster[]> {
     const monsters: Monster[] = [];
     const groupCap = constraints?.maxGroupSize ?? 3;
@@ -268,17 +268,6 @@ export class MonsterService {
       if (isWaterBiome(center.tile.biomeName)) {
         continue;
       }
-
-      // settlement avoidance
-      const avoidR = constraints?.avoidSettlementsWithin ?? 3;
-      const tooCloseToSettlement =
-        (center.currentSettlement && center.currentSettlement.intensity > 0) ||
-        center.nearbySettlements?.some((s) => {
-          const dx = Math.abs(s.x - x);
-          const dy = Math.abs(s.y - y);
-          return dx <= avoidR && dy <= avoidR;
-        });
-      if (tooCloseToSettlement) continue;
 
       // Weighted biome spawn selection from centralized table
       const chosenType = pickTypeForBiome(center.tile.biomeName);

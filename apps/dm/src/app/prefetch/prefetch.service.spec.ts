@@ -23,7 +23,6 @@ describe('PrefetchService', () => {
       getTileInfoWithNearby: jest.fn().mockResolvedValue({
         tile: { x: 10, y: 20 },
         nearbyBiomes: [],
-        nearbySettlements: [],
       }),
       getTilesInBounds: jest
         .fn()
@@ -133,16 +132,16 @@ describe('PrefetchService', () => {
 
   it('reports prefetch failures without throwing for spawn/respawn triggers', async () => {
     const world = createWorldMock();
-    world.getTileInfoWithNearby.mockRejectedValueOnce(
-      new Error('center boom'),
-    );
+    world.getTileInfoWithNearby.mockRejectedValueOnce(new Error('center boom'));
     world.getTilesInBounds.mockRejectedValueOnce(new Error('bounds boom'));
     const service = new PrefetchService(world);
     const debugSpy = jest.spyOn(Logger.prototype, 'debug');
 
-    await (service as unknown as {
-      prefetchAt: (x: number, y: number, reason: string) => Promise<void>;
-    }).prefetchAt(3, 4, 'player:respawn');
+    await (
+      service as unknown as {
+        prefetchAt: (x: number, y: number, reason: string) => Promise<void>;
+      }
+    ).prefetchAt(3, 4, 'player:respawn');
 
     expect(debugSpy).toHaveBeenCalledWith(
       expect.stringContaining('Prefetched @(3,4) reason=player:respawn'),

@@ -1,8 +1,8 @@
-import { getPlayer, getLocationEntities, ItemRecord } from '../dm-client';
+import { getLocationEntities, ItemRecord } from '../dm-client';
 import { COMMANDS, PICKUP_ACTIONS } from '../commands';
-import { registerHandler } from './handlerRegistry';
 import type { HandlerContext } from './types';
 import { getUserFriendlyErrorMessage } from './errorUtils';
+import { PlayerCommandHandler } from './base';
 
 export const ITEM_SELECTION_BLOCK_ID = 'pickup_item_selection_block';
 
@@ -68,41 +68,46 @@ export function buildItemSelectionMessage(items: Array<ItemRecord>) {
   };
 }
 
-export const pickupHandler = async ({
-  userId,
-  say,
-  teamId,
-}: HandlerContext) => {
-  // Selection flow: show dropdown of nearby items
-  try {
-    const playerRes = await getPlayer({
-      teamId,
-      userId,
+class PickupHandler extends PlayerCommandHandler {
+  constructor() {
+    super(COMMANDS.PICKUP, 'Failed to list items', {
+      allowInHq: false,
+      hqCommand: COMMANDS.PICKUP,
+      missingCharacterMessage: 'Could not find your player.',
     });
-    const player = playerRes.data;
+  }
+
+  protected async perform({ say }: HandlerContext): Promise<void> {
+    const player = this.player;
     if (!player) {
-      await say({ text: 'Could not find your player.' });
       return;
     }
+
     const { x, y } = player;
     if (typeof x !== 'number' || typeof y !== 'number') {
       await say({ text: 'Unable to determine your current location.' });
       return;
     }
 
-    const entities = await getLocationEntities({ x, y });
-    const items: ItemRecord[] = entities.items ?? [];
+    try {
+      const entities = await getLocationEntities({ x, y });
+      const items: ItemRecord[] = entities.items ?? [];
 
-    if (!items || items.length === 0) {
-      await say({ text: 'No items here to pick up!' });
-      return;
+      if (!items || items.length === 0) {
+        await say({ text: 'No items here to pick up!' });
+        return;
+      }
+
+      await say(buildItemSelectionMessage(items));
+    } catch (err) {
+      const message = getUserFriendlyErrorMessage(err, 'Failed to list items');
+      await say({ text: message });
     }
-
-    await say(buildItemSelectionMessage(items));
-  } catch (err) {
-    const message = getUserFriendlyErrorMessage(err, 'Failed to list items');
-    await say({ text: message });
   }
-};
 
-registerHandler(COMMANDS.PICKUP, pickupHandler);
+  protected override getFriendlyError(error: unknown): string {
+    return getUserFriendlyErrorMessage(error, 'Failed to list items');
+  }
+}
+
+export const pickupHandler = new PickupHandler();

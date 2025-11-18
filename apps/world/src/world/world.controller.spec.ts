@@ -8,7 +8,6 @@ describe('WorldController', () => {
 
   beforeEach(() => {
     worldService = {
-      findNearestSettlement: jest.fn(),
       getTileWithNearbyBiomes: jest.fn(),
       getChunk: jest.fn(),
       getChunkTiles: jest.fn(),
@@ -25,36 +24,12 @@ describe('WorldController', () => {
     expect(() => new Date(result.timestamp)).not.toThrow();
   });
 
-  it('fetches nearest settlements with optional radius', async () => {
-    worldService.findNearestSettlement.mockResolvedValue({
-      name: 'Town',
-      distance: 5,
-      x: 1,
-      y: 2,
-    });
-
-    const response = await controller.getNearestSettlement('10', '20', '15');
-    expect(worldService.findNearestSettlement).toHaveBeenCalledWith(10, 20, {
-      maxRadius: 15,
-    });
-    expect(response.settlement?.name).toBe('Town');
-
-    await expect(
-      controller.getNearestSettlement('a', '20'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    await expect(
-      controller.getNearestSettlement('1', '2', '-5'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
   it('returns tiles with or without nearby data', async () => {
     worldService.getTileWithNearbyBiomes.mockResolvedValue({
       id: 1,
       x: 0,
       y: 0,
       nearbyBiomes: [],
-      nearbySettlements: [],
-      currentSettlement: null,
     } as any);
 
     const minimal = await controller.getTile('0', '0');

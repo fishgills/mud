@@ -66,16 +66,6 @@ export interface SniffData {
   direction?: string;
   monsterX?: number;
   monsterY?: number;
-  nearestSettlementName?: string;
-  nearestSettlementDirection?: string;
-  nearestSettlementDistance?: number;
-  nearestSettlementType?: string;
-  nearestSettlementPopulation?: number;
-  nearestSettlementDescription?: string | null;
-  nearestSettlementIsCurrent?: boolean;
-  nearestSettlementSize?: string;
-  nearestSettlementDistanceLabel?: string;
-  nearestSettlementProximity?: SniffProximity;
 }
 
 export interface SniffResponse extends SuccessResponse {
@@ -240,6 +230,16 @@ export interface PlayerMoveResponse extends SuccessResponse {
   playersAtLocation: Player[];
 }
 
+export type TeleportState = 'entered' | 'awaiting_choice' | 'exited';
+
+export interface TeleportResponse extends SuccessResponse {
+  state: TeleportState;
+  player?: Player;
+  destination?: { x: number; y: number };
+  lastWorldPosition?: { x: number | null; y: number | null };
+  mode?: 'return' | 'random';
+}
+
 export interface BiomeSectorSummary {
   biomeName: string;
   proportion: number;
@@ -254,31 +254,12 @@ export interface VisiblePeakInfo {
   direction: string;
 }
 
-export interface VisibleSettlementInfo {
-  name: string;
-  type: string;
-  size: string;
-  distance: number;
-  direction: string;
-}
-
-export interface CurrentSettlementInfo {
-  name: string;
-  type: string;
-  size: string;
-  intensity: number;
-  isCenter: boolean;
-}
-
 export interface LookViewData {
   location: TileInfo;
   visibilityRadius: number;
   biomeSummary: BiomeSectorSummary[];
   visiblePeaks: VisiblePeakInfo[];
-  visibleSettlements: VisibleSettlementInfo[];
-  currentSettlement?: CurrentSettlementInfo;
   nearbyPlayers: NearbyPlayerInfo[];
-  inSettlement: boolean;
   description: string;
   monsters: Monster[];
   items?: Array<{
@@ -301,7 +282,6 @@ export interface PerformanceStats {
   tilesFilterMs: number;
   peaksSortMs: number;
   biomeSummaryMs: number;
-  settlementsFilterMs: number;
   aiMs: number;
   tilesCount: number;
   peaksCount: number;

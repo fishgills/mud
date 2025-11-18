@@ -11,6 +11,7 @@ export const COMMANDS = {
   MAP: 'map',
   SNIFF: 'sniff',
   MOVE: 'move',
+  TELEPORT: 'teleport',
   DELETE: 'delete',
   COMPLETE: 'complete',
   REROLL: 'reroll',

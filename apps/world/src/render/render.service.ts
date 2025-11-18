@@ -7,10 +7,8 @@ import {
   RenderBitmap,
 } from './image-utils';
 import { drawBiomeTile, drawBiomeEdges, drawHeightShading } from './graphics';
-import { PrismaService } from '../prisma/prisma.service';
 import { BIOMES } from '../constants';
 import { WorldService } from '../world/world-refactored.service';
-import { Settlement } from '@mud/database';
 import { CacheService } from '../shared/cache.service';
 import { GridMapGenerator } from '../gridmap/gridmap-generator';
 import { DEFAULT_BIOMES } from '../gridmap/default-biomes';
@@ -39,7 +37,6 @@ export class RenderService {
   private readonly logger = new Logger(RenderService.name);
   private readonly RENDER_STYLE_VERSION = 3; // bump to invalidate cached chunk PNGs when style changes
   constructor(
-    private readonly prisma: PrismaService,
     private readonly worldService: WorldService,
     private readonly cache: CacheService,
   ) {}
@@ -109,11 +106,7 @@ export class RenderService {
     existingTileCount: number;
   }> {
     const { width, height, existingTileCount, tileData } =
-      await this.prepareMapData(minX, maxX, minY, maxY, {
-        compute: true,
-        includeDescriptions: false,
-        includeSettlements: true,
-      });
+      await this.prepareMapData(minX, maxX, minY, maxY);
 
     const canvas = createRenderBitmap(width * p, height * p);
     const ctx = canvas.getContext('2d');
@@ -142,7 +135,7 @@ export class RenderService {
     // Deterministic seed for texturing
     const seed = this.worldService.getCurrentSeed();
 
-    for (const { x, y, tile, settlement, biome } of tileData) {
+    for (const { x, y, tile, biome } of tileData) {
       const pixelX = (x - minX) * p;
       const pixelY = (maxY - 1 - y) * p; // invert Y
 
@@ -161,30 +154,6 @@ export class RenderService {
           biomeMap.get(`${x - 1},${y}`) || null,
         );
       }
-
-      if (settlement) {
-        const isCenter = settlement.x === x && settlement.y === y;
-        if (isCenter) {
-          this.drawSettlementCore(ctx, pixelX, pixelY, p);
-        } else {
-          const settlementCheck = this.worldService.isCoordinateInSettlement(
-            x,
-            y,
-            [settlement],
-          );
-          if (settlementCheck.isSettlement) {
-            this.drawSettlementFootprint(
-              ctx,
-              pixelX,
-              pixelY,
-              p,
-              settlementCheck.intensity,
-            );
-          } else {
-            this.drawSettlementFootprint(ctx, pixelX, pixelY, p, 0.2);
-          }
-        }
-      }
     }
 
     if (opts.includeCenterMarker) {
@@ -197,101 +166,6 @@ export class RenderService {
   }
 
   // draw helpers are imported from './graphics'
-
-  private drawSettlementCore(
-    ctx: Context,
-    pixelX: number,
-    pixelY: number,
-    p: number,
-  ) {
-    const cx = pixelX + p / 2;
-    const cy = pixelY + p / 2;
-    const layers: Array<{ scale: number; color: string }> = [
-      { scale: 1, color: 'rgba(140,32,0,0.7)' },
-      { scale: 0.85, color: 'rgba(255,112,32,0.82)' },
-      { scale: 0.55, color: 'rgba(255,214,153,0.9)' },
-      { scale: 0.25, color: 'rgba(255,255,255,0.95)' },
-    ];
-
-    for (const { scale, color } of layers) {
-      const size = Math.max(1, p * scale);
-      const offset = (p - size) / 2;
-      ctx.fillStyle = color;
-      ctx.fillRect(pixelX + offset, pixelY + offset, size, size);
-    }
-
-    ctx.save();
-    ctx.lineWidth = Math.max(1, Math.floor(p / 5));
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-    ctx.strokeRect(
-      pixelX + 0.5,
-      pixelY + 0.5,
-      Math.max(0, p - 1),
-      Math.max(0, p - 1),
-    );
-    ctx.lineWidth = Math.max(1, Math.floor(p / 7));
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.strokeRect(
-      pixelX + 1,
-      pixelY + 1,
-      Math.max(0, p - 2),
-      Math.max(0, p - 2),
-    );
-
-    const radius = Math.max(1.5, p / 2.4);
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = Math.max(1, Math.floor(p / 8));
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(cx - radius, cy);
-    ctx.lineTo(cx + radius, cy);
-    ctx.moveTo(cx, cy - radius);
-    ctx.lineTo(cx, cy + radius);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  private drawSettlementFootprint(
-    ctx: Context,
-    pixelX: number,
-    pixelY: number,
-    p: number,
-    intensity: number,
-  ) {
-    const clamped = Math.min(1, Math.max(0, intensity));
-    const baseAlpha = 0.12 + clamped * 0.28;
-    ctx.fillStyle = `rgba(255, 176, 90, ${baseAlpha})`;
-    ctx.fillRect(pixelX, pixelY, p, p);
-
-    if (p >= 3) {
-      const strokeAlpha = 0.15 + clamped * 0.25;
-      ctx.strokeStyle = `rgba(255, 233, 200, ${strokeAlpha})`;
-      ctx.lineWidth = Math.max(1, Math.floor(p / 8));
-      ctx.strokeRect(
-        pixelX + 0.5,
-        pixelY + 0.5,
-        Math.max(0, p - 1),
-        Math.max(0, p - 1),
-      );
-
-      const roofSize = Math.max(2, Math.floor(p * (0.35 + clamped * 0.45)));
-      const roofX = pixelX + (p - roofSize) / 2;
-      const roofY = pixelY + (p - roofSize) / 2;
-      ctx.fillStyle = `rgba(120, 60, 20, ${0.25 + clamped * 0.4})`;
-      ctx.fillRect(
-        roofX,
-        roofY,
-        roofSize,
-        Math.max(2, Math.floor(roofSize / 2.5)),
-      );
-
-      const laneWidth = Math.max(1, Math.floor(p / 10));
-      ctx.fillStyle = `rgba(255,255,255,${0.05 + clamped * 0.15})`;
-      ctx.fillRect(pixelX + (p - laneWidth) / 2, pixelY, laneWidth, p);
-    }
-  }
 
   private drawCenterMarker(
     ctx: Context,
@@ -530,7 +404,7 @@ export class RenderService {
     asciiMap += `Legend: ~ Ocean, ≈ Shallow Ocean, . Beach, d Desert, g Grassland, T Forest\n`;
     asciiMap += `        J Jungle, S Swamp, L Lake, r River, t Tundra, P Taiga\n`;
     asciiMap += `        ^ Mountain, A Snowy Mountain, h Hills, s Savanna, a Alpine, V Volcanic\n`;
-    asciiMap += `        ★ Settlement Center, ▓ Dense Settlement, ░ Sparse Settlement, • Ungenerated area\n\n`;
+    asciiMap += `        • Ungenerated area\n\n`;
 
     // Render each row
     for (let y = minY; y < maxY; y++) {
@@ -539,34 +413,9 @@ export class RenderService {
         const tileInfo = tileData.find((t) => t.x === x && t.y === y);
         if (!tileInfo) continue;
 
-        const { settlement, tile, biome, hasError } = tileInfo;
+        const { tile, biome, hasError } = tileInfo;
 
-        if (settlement) {
-          // Check if this is exactly the settlement center or part of footprint
-          const isCenter = settlement.x === x && settlement.y === y;
-          if (isCenter) {
-            row += '★'; // Settlement center marker
-          } else {
-            // Get settlement intensity for this tile
-            const settlementCheck = this.worldService.isCoordinateInSettlement(
-              x,
-              y,
-              [settlement],
-            );
-            if (settlementCheck.isSettlement) {
-              const intensity = settlementCheck.intensity;
-              if (intensity > 0.7) {
-                row += '▓'; // Dense settlement
-              } else if (intensity > 0.3) {
-                row += '▒'; // Medium settlement
-              } else {
-                row += '░'; // Sparse settlement
-              }
-            } else {
-              row += '*'; // Fallback settlement marker
-            }
-          }
-        } else if (tile && biome) {
+        if (tile && biome) {
           row += biome.ascii;
         } else if (hasError) {
           row += '?'; // Error character
@@ -595,39 +444,20 @@ export class RenderService {
     maxX: number,
     minY: number,
     maxY: number,
-    options?: {
-      compute?: boolean; // force compute mode regardless of env
-      includeDescriptions?: boolean; // when computing, fetch described tiles in bounds
-      includeSettlements?: boolean; // fetch settlements in bounds
-    },
   ): Promise<{
     width: number;
     height: number;
-    settlementMap: Map<string, Settlement>;
     existingTileCount: number;
     tileData: Array<{
       x: number;
       y: number;
       tile: Partial<WorldTile> | null;
-      settlement: Settlement | undefined;
       biome: (typeof BIOMES)[keyof typeof BIOMES] | null;
       hasError: boolean;
     }>;
   }> {
     const width = maxX - minX;
     const height = maxY - minY;
-
-    const includeSettlements = options?.includeSettlements ?? true;
-    // Fetch settlements in the region (optional)
-    const settlements = includeSettlements
-      ? (await this.prisma.settlement.findMany({
-          where: {
-            x: { gte: minX, lt: maxX },
-            y: { gte: minY, lt: maxY },
-          },
-        })) || []
-      : [];
-    const settlementMap = new Map(settlements.map((s) => [`${s.x},${s.y}`, s]));
 
     const tileMap = new Map<string, ComputedTile>();
     // Compute-on-the-fly path: only fetch descriptions for tiles that have them
@@ -677,7 +507,6 @@ export class RenderService {
       x: number;
       y: number;
       tile: Partial<WorldTile> | null;
-      settlement: Settlement | undefined;
       biome: (typeof BIOMES)[keyof typeof BIOMES] | null;
       hasError: boolean;
     }> = [];
@@ -712,23 +541,6 @@ export class RenderService {
           hasError = true;
         }
 
-        const settlement = settlementMap.get(`${x},${y}`);
-
-        // Check if this coordinate is within any settlement footprint
-        let settlementFromFootprint: Settlement | undefined;
-        if (includeSettlements && !settlement && settlements.length > 0) {
-          const settlementCheck = this.worldService.isCoordinateInSettlement(
-            x,
-            y,
-            settlements,
-          );
-          if (settlementCheck.isSettlement) {
-            settlementFromFootprint = settlementCheck.settlement;
-          }
-        }
-
-        const finalSettlement = settlement || settlementFromFootprint;
-
         const biome =
           tile && tile.biomeName
             ? Object.values(BIOMES).find(
@@ -740,7 +552,6 @@ export class RenderService {
           x,
           y,
           tile,
-          settlement: finalSettlement,
           biome,
           hasError,
         });
@@ -750,7 +561,6 @@ export class RenderService {
     return {
       width,
       height,
-      settlementMap,
       existingTileCount,
       tileData,
     };

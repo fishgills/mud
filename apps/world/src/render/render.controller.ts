@@ -117,11 +117,6 @@ export class RenderController {
           y: yVal,
           biomeName: tileInfo?.biome?.name ?? undefined,
           symbol: tileInfo?.biome?.ascii ?? undefined,
-          hasSettlement: !!tileInfo?.settlement,
-          isSettlementCenter:
-            !!tileInfo?.settlement &&
-            tileInfo.settlement.x === xVal &&
-            tileInfo.settlement.y === yVal,
         });
       }
       rows.push(row);

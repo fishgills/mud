@@ -11,15 +11,7 @@ type PrismaServiceMock = {
     findFirst: jest.Mock<Promise<unknown>, [unknown]>;
     create: jest.Mock<Promise<unknown>, [unknown]>;
   };
-  settlement: {
-    createMany: jest.Mock<Promise<unknown>, [unknown]>;
-    findMany: jest.Mock<Promise<unknown[]>, [unknown]>;
-  };
 };
-
-type SaveSettlementsInput = Parameters<
-  WorldDatabaseService['saveChunkSettlements']
->[0];
 
 describe('WorldDatabaseService', () => {
   let service: WorldDatabaseService;
@@ -35,13 +27,11 @@ describe('WorldDatabaseService', () => {
         findFirst: jest.fn<Promise<unknown>, [unknown]>(),
         create: jest.fn<Promise<unknown>, [unknown]>(),
       },
-      settlement: {
-        createMany: jest.fn<Promise<unknown>, [unknown]>(),
-        findMany: jest.fn<Promise<unknown[]>, [unknown]>(),
-      },
     };
 
-    service = new WorldDatabaseService(prismaService as unknown as PrismaService);
+    service = new WorldDatabaseService(
+      prismaService as unknown as PrismaService,
+    );
   });
 
   describe('initializeBiomes', () => {
@@ -123,144 +113,6 @@ describe('WorldDatabaseService', () => {
 
       expect(data.temperatureSeed).toBe(data.seed + 1000);
       expect(data.moistureSeed).toBe(data.seed + 2000);
-    });
-  });
-
-  describe('saveChunkSettlements', () => {
-    it('should save settlements', async () => {
-      const settlements = [
-        {
-          name: 'Test City',
-          type: 'city',
-          size: 'large',
-          population: 10000,
-          x: 100,
-          y: 200,
-          description: 'A test city',
-        },
-        {
-          name: 'Test Village',
-          type: 'village',
-          size: 'small',
-          population: 500,
-          x: 150,
-          y: 250,
-          description: 'A test village',
-        },
-      ];
-
-      await service.saveChunkSettlements(settlements);
-
-      expect(prismaService.settlement.createMany).toHaveBeenCalledWith({
-        data: settlements,
-        skipDuplicates: true,
-      });
-    });
-
-    it('should handle empty settlements array', async () => {
-      await service.saveChunkSettlements([]);
-
-      expect(prismaService.settlement.createMany).not.toHaveBeenCalled();
-    });
-
-    it('should handle null settlements', async () => {
-      await service.saveChunkSettlements(null as unknown as SaveSettlementsInput);
-
-      expect(prismaService.settlement.createMany).not.toHaveBeenCalled();
-    });
-
-    it('should handle undefined settlements', async () => {
-      await service.saveChunkSettlements(
-        undefined as unknown as SaveSettlementsInput,
-      );
-
-      expect(prismaService.settlement.createMany).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('getSettlementsInRadius', () => {
-    it('should query settlements within radius', async () => {
-      const mockSettlements = [
-        {
-          id: 1,
-          name: 'Nearby City',
-          x: 105,
-          y: 205,
-          type: 'city',
-          size: 'medium',
-          population: 5000,
-          description: 'Close by',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ];
-      prismaService.settlement.findMany.mockResolvedValue(mockSettlements);
-
-      const result = await service.getSettlementsInRadius(100, 200, 50);
-
-      expect(result).toEqual(mockSettlements);
-      expect(prismaService.settlement.findMany).toHaveBeenCalledWith({
-        where: {
-          x: { gte: 50, lte: 150 },
-          y: { gte: 150, lte: 250 },
-        },
-      });
-    });
-
-    it('should handle radius of 0', async () => {
-      prismaService.settlement.findMany.mockResolvedValue([]);
-
-      await service.getSettlementsInRadius(100, 200, 0);
-
-      expect(prismaService.settlement.findMany).toHaveBeenCalledWith({
-        where: {
-          x: { gte: 100, lte: 100 },
-          y: { gte: 200, lte: 200 },
-        },
-      });
-    });
-  });
-
-  describe('getSettlementsInBounds', () => {
-    it('should query settlements within bounds', async () => {
-      const mockSettlements = [
-        {
-          id: 1,
-          name: 'Bounded City',
-          x: 15,
-          y: 25,
-          type: 'city',
-          size: 'large',
-          population: 8000,
-          description: 'Within bounds',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ];
-      prismaService.settlement.findMany.mockResolvedValue(mockSettlements);
-
-      const result = await service.getSettlementsInBounds(10, 20, 30, 40);
-
-      expect(result).toEqual(mockSettlements);
-      expect(prismaService.settlement.findMany).toHaveBeenCalledWith({
-        where: {
-          x: { gte: 10, lte: 30 },
-          y: { gte: 20, lte: 40 },
-        },
-      });
-    });
-
-    it('should handle negative bounds', async () => {
-      prismaService.settlement.findMany.mockResolvedValue([]);
-
-      await service.getSettlementsInBounds(-50, -40, -10, -5);
-
-      expect(prismaService.settlement.findMany).toHaveBeenCalledWith({
-        where: {
-          x: { gte: -50, lte: -10 },
-          y: { gte: -40, lte: -5 },
-        },
-      });
     });
   });
 

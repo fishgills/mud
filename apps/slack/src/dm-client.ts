@@ -64,6 +64,18 @@ export interface SuccessResponse {
   code?: string;
 }
 
+export type TeleportState = 'entered' | 'awaiting_choice' | 'exited';
+
+export type HqExitMode = 'return' | 'random';
+
+export interface TeleportResponse extends SuccessResponse {
+  state: TeleportState;
+  player?: PlayerRecord;
+  destination?: { x: number; y: number };
+  lastWorldPosition?: { x: number | null; y: number | null };
+  mode?: HqExitMode;
+}
+
 // Extended Player type with API-specific fields
 export type PlayerRecord = Player &
   Prisma.SlackUserInclude & {
@@ -215,16 +227,6 @@ export interface SniffData {
   direction?: string;
   monsterX?: number;
   monsterY?: number;
-  nearestSettlementName?: string;
-  nearestSettlementDirection?: string;
-  nearestSettlementDistance?: number;
-  nearestSettlementType?: string;
-  nearestSettlementPopulation?: number;
-  nearestSettlementDescription?: string | null;
-  nearestSettlementIsCurrent?: boolean;
-  nearestSettlementSize?: string;
-  nearestSettlementDistanceLabel?: string;
-  nearestSettlementProximity?: SniffProximity;
 }
 
 export interface SniffResponse extends SuccessResponse {
@@ -352,6 +354,24 @@ export async function movePlayer(
       userId: input.userId,
       move: moveBody,
     },
+  });
+}
+
+export async function teleportPlayer(params: {
+  teamId: string;
+  userId: string;
+  mode?: HqExitMode;
+}): Promise<TeleportResponse> {
+  const body: Record<string, unknown> = {
+    teamId: params.teamId,
+    userId: params.userId,
+  };
+  if (params.mode) {
+    body.mode = params.mode;
+  }
+
+  return dmRequest<TeleportResponse>('/movement/teleport', HttpMethod.POST, {
+    body,
   });
 }
 
@@ -563,6 +583,7 @@ export const dmClient = {
   createPlayer,
   getPlayer,
   movePlayer,
+  teleportPlayer,
   attack,
   spendSkillPoint,
   rerollPlayerStats,

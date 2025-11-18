@@ -3,6 +3,4 @@ export interface MapTileDto {
   y: number;
   biomeName?: string;
   symbol?: string;
-  hasSettlement: boolean;
-  isSettlementCenter: boolean;
 }

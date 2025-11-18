@@ -18,7 +18,6 @@ describe('ChunkGeneratorService', () => {
       expect(chunkData.tiles).toBeDefined();
       expect(chunkData.tiles.length).toBe(2500); // 50x50 chunk
       expect(chunkData.stats).toBeDefined();
-      expect(chunkData.settlements).toBeDefined();
     });
 
     it('should generate deterministic chunks with same seed', () => {

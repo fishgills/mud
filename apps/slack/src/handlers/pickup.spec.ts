@@ -4,15 +4,26 @@ jest.mock('../dm-client', () => {
     getLocationEntities: jest.fn(),
     pickup: jest.fn(),
   };
-  return { dmClient };
+  return {
+    dmClient,
+    getPlayer: dmClient.getPlayer,
+    getLocationEntities: dmClient.getLocationEntities,
+    pickup: dmClient.pickup,
+  };
 });
 
 import { registerActions } from '../actions';
 import { dmClient } from '../dm-client';
-import { PICKUP_ACTIONS } from '../commands';
-import { buildItemSelectionMessage, ITEM_SELECTION_BLOCK_ID } from './pickup';
+import { PICKUP_ACTIONS, COMMANDS } from '../commands';
+import {
+  buildItemSelectionMessage,
+  ITEM_SELECTION_BLOCK_ID,
+  pickupHandler,
+} from './pickup';
+import { buildHqBlockedMessage } from './hqUtils';
 import type { App } from '@slack/bolt';
 import { ItemRecord } from '../dm-client';
+import type { HandlerContext } from './types';
 
 const mockedDmClient = dmClient as unknown as {
   getPlayer: jest.Mock;
@@ -48,6 +59,46 @@ type StateValues = Record<
     { selected_option?: { value?: string; text?: { text?: string } } }
   >
 >;
+
+describe('pickupHandler command', () => {
+  const makeSay = () =>
+    jest.fn<Promise<void>, [{ text: string }]>().mockResolvedValue(undefined);
+
+  beforeEach(() => {
+    mockedDmClient.getPlayer.mockReset();
+    mockedDmClient.getLocationEntities.mockReset();
+    mockedDmClient.getPlayer.mockResolvedValue({
+      success: true,
+      data: {
+        id: 1,
+        name: 'Hero',
+        isInHq: false,
+        x: 0,
+        y: 0,
+      },
+    });
+  });
+
+  it('blocks pickup while inside HQ', async () => {
+    const say = makeSay();
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
+      success: true,
+      data: { id: 1, name: 'Hero', isInHq: true },
+    });
+
+    await pickupHandler.handle({
+      userId: 'U1',
+      teamId: 'T1',
+      say,
+      text: '',
+    } as unknown as HandlerContext);
+
+    expect(mockedDmClient.getLocationEntities).not.toHaveBeenCalled();
+    expect(say).toHaveBeenCalledWith({
+      text: buildHqBlockedMessage(COMMANDS.PICKUP),
+    });
+  });
+});
 
 describe('pickup actions', () => {
   let actionHandlers: Record<string, ActionHandler> = {};
@@ -108,11 +159,12 @@ describe('pickup actions', () => {
     ).find((e) => (e as Record<string, unknown>).type === 'static_select') as
       | Record<string, unknown>
       | undefined;
-    const firstOption =
-      (select?.options as Array<{
+    const firstOption = (
+      select?.options as Array<{
         text: { text: string };
         value: string;
-      }>)?.[0];
+      }>
+    )?.[0];
     expect(firstOption?.text.text).toContain('Shortsword');
     expect(firstOption?.value).toBe('W:202');
   });
@@ -127,7 +179,7 @@ describe('pickup actions', () => {
     });
     mockedDmClient.getPlayer.mockResolvedValue({
       success: true,
-      data: { id: 1, name: 'Hero', x: 5, y: 6 },
+      data: { id: 1, name: 'Hero', x: 5, y: 6, isInHq: false },
     });
     mockedDmClient.getLocationEntities.mockResolvedValue({
       players: [{ teamId: 'T1', userId: 'U2', name: 'Other' }],

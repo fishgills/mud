@@ -9,6 +9,7 @@ jest.mock('../dm-client', () => {
     getLookView: jest.fn(),
     movePlayer: jest.fn(),
     rerollPlayerStats: jest.fn(),
+    teleportPlayer: jest.fn(),
   };
   return { dmClient };
 });
@@ -16,6 +17,14 @@ jest.mock('../dm-client', () => {
 jest.mock('./mapUtils', () => ({
   sendPngMap: jest.fn().mockResolvedValue(true),
 }));
+
+jest.mock('./locationUtils', () => {
+  const actual = jest.requireActual('./locationUtils');
+  return {
+    ...actual,
+    getOccupantsSummaryAt: jest.fn(),
+  };
+});
 
 import { TargetType, Direction, AttackOrigin } from '../dm-types';
 import { dmClient } from '../dm-client';
@@ -32,6 +41,9 @@ import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import type { HandlerContext, SayMessage } from './types';
 import { setSlackApp } from '../appContext';
 import type { App } from '@slack/bolt';
+import { teleportHandler } from './teleport';
+import { getOccupantsSummaryAt } from './locationUtils';
+import { buildHqBlockedMessage } from './hqUtils';
 
 const mockedDmClient = dmClient as unknown as {
   attack: jest.Mock;
@@ -43,11 +55,17 @@ const mockedDmClient = dmClient as unknown as {
   getLookView: jest.Mock;
   movePlayer: jest.Mock;
   rerollPlayerStats: jest.Mock;
+  teleportPlayer: jest.Mock;
 };
 
 const mockedSendPngMap = sendPngMap as unknown as jest.MockedFunction<
   typeof sendPngMap
 >;
+
+const mockedGetOccupantsSummaryAt =
+  getOccupantsSummaryAt as unknown as jest.MockedFunction<
+    typeof getOccupantsSummaryAt
+  >;
 
 type MockSlackClient = {
   conversations: {
@@ -110,8 +128,10 @@ beforeEach(() => {
       x: 0,
       y: 0,
       nearbyMonsters: [],
+      isInHq: false,
     },
   });
+  mockedGetOccupantsSummaryAt.mockResolvedValue(null);
 });
 
 describe('attackHandler', () => {
@@ -594,6 +614,9 @@ describe('deleteHandler', () => {
 describe('lookHandler', () => {
   it('renders the look view with monsters and perf stats', async () => {
     const say = makeSay();
+    mockedGetOccupantsSummaryAt.mockResolvedValueOnce(
+      'You see at your location:\n- Players: Friend\n- Monsters: Goblin, Orc',
+    );
     mockedDmClient.getLocationEntities.mockResolvedValueOnce({
       players: [
         {
@@ -662,8 +685,9 @@ describe('lookHandler', () => {
         tilesFilterMs: 3,
         peaksSortMs: 2,
         biomeSummaryMs: 8,
-        settlementsFilterMs: 5,
         aiMs: 7,
+        tilesCount: 40,
+        peaksCount: 2,
         aiProvider: 'mock',
       },
     });
@@ -778,6 +802,31 @@ describe('lookHandler', () => {
     });
   });
 
+  it('blocks look usage while inside HQ', async () => {
+    const say = makeSay();
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: '1',
+        teamId: 'T1',
+        userId: 'U1',
+        isInHq: true,
+      },
+    });
+
+    await lookHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
+
+    expect(mockedDmClient.getLookView).not.toHaveBeenCalled();
+    expect(say).toHaveBeenCalledWith({
+      text: buildHqBlockedMessage(COMMANDS.LOOK),
+    });
+  });
+
   it('handles unexpected look errors', async () => {
     const say = makeSay();
     mockedDmClient.getLookView.mockRejectedValueOnce(new Error('boom'));
@@ -798,7 +847,7 @@ describe('mapHandler', () => {
     const say = makeSay();
     mockedDmClient.getPlayer.mockResolvedValueOnce({
       success: true,
-      data: { x: 3, y: -4 },
+      data: { x: 3, y: -4, isInHq: false },
     });
 
     await mapHandler.handle({
@@ -813,9 +862,12 @@ describe('mapHandler', () => {
 
   it('displays co-located players after the map', async () => {
     const say = makeSay();
+    mockedGetOccupantsSummaryAt.mockResolvedValueOnce(
+      'You see at your location:\n- Players: Friend',
+    );
     mockedDmClient.getPlayer.mockResolvedValueOnce({
       success: true,
-      data: { x: 3, y: -4 },
+      data: { x: 3, y: -4, isInHq: false },
     });
     mockedDmClient.getLocationEntities.mockResolvedValueOnce({
       players: [
@@ -866,7 +918,7 @@ describe('mapHandler', () => {
     const say = makeSay();
     mockedDmClient.getPlayer.mockResolvedValueOnce({
       success: true,
-      data: { x: 5, y: 6 },
+      data: { x: 5, y: 6, isInHq: false },
     });
     mockedDmClient.getLocationEntities.mockResolvedValueOnce({
       players: [
@@ -907,6 +959,26 @@ describe('mapHandler', () => {
         text: expect.stringContaining('You see at your location:'),
       }),
     );
+  });
+
+  it('refuses to show the map while inside HQ', async () => {
+    const say = makeSay();
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
+      success: true,
+      data: { id: '1', isInHq: true },
+    });
+
+    await mapHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
+
+    expect(mockedSendPngMap).not.toHaveBeenCalled();
+    expect(say).toHaveBeenCalledWith({
+      text: buildHqBlockedMessage(COMMANDS.MAP),
+    });
   });
 
   it('announces map failures', async () => {
@@ -1122,5 +1194,95 @@ describe('rerollHandler', () => {
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'boom' });
+  });
+});
+
+describe('teleportHandler', () => {
+  it('enters HQ by default and confirms the saved location', async () => {
+    const say = makeSay();
+    mockedDmClient.teleportPlayer.mockResolvedValueOnce({
+      success: true,
+      state: 'entered',
+      lastWorldPosition: { x: 12, y: -4 },
+    });
+
+    await teleportHandler.handle({
+      userId: 'U1',
+      text: COMMANDS.TELEPORT,
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
+
+    expect(mockedDmClient.teleportPlayer).toHaveBeenCalledWith({
+      teamId: 'T1',
+      userId: 'U1',
+      mode: undefined,
+    });
+    expect(mockedSendPngMap).not.toHaveBeenCalled();
+    expect(mockedGetOccupantsSummaryAt).not.toHaveBeenCalled();
+    expect(say).toHaveBeenCalledWith({
+      text: 'You arrive inside HQ. Your last world location (12, -4) has been saved.',
+    });
+  });
+
+  it('returns to the world with a map preview and occupant summary', async () => {
+    const say = makeSay();
+    const occupantSummary = 'Other adventurers nearby.';
+    mockedDmClient.teleportPlayer.mockResolvedValueOnce({
+      success: true,
+      state: 'exited',
+      destination: { x: 3, y: -2 },
+      mode: 'return',
+    });
+    mockedGetOccupantsSummaryAt.mockResolvedValueOnce(occupantSummary);
+
+    await teleportHandler.handle({
+      userId: 'U1',
+      text: `${COMMANDS.TELEPORT} return`,
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
+
+    expect(mockedDmClient.teleportPlayer).toHaveBeenCalledWith({
+      teamId: 'T1',
+      userId: 'U1',
+      mode: 'return',
+    });
+    expect(mockedSendPngMap).toHaveBeenCalledWith(say, 3, -2, 8);
+    expect(mockedGetOccupantsSummaryAt).toHaveBeenCalledWith(3, -2, {
+      currentSlackUserId: 'U1',
+      currentSlackTeamId: 'T1',
+    });
+    const sayMessages = say.mock.calls.map(([arg]) => arg);
+    expect(sayMessages).toContainEqual({ text: occupantSummary });
+    expect(sayMessages[sayMessages.length - 1]).toEqual({
+      text: 'You depart HQ and arrive at (3, -2) - last saved location.',
+    });
+  });
+
+  it('notifies the user when already inside HQ', async () => {
+    const say = makeSay();
+    mockedDmClient.teleportPlayer.mockResolvedValueOnce({
+      success: true,
+      state: 'awaiting_choice',
+    });
+
+    await teleportHandler.handle({
+      userId: 'U1',
+      text: `${COMMANDS.TELEPORT} leave`,
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
+
+    expect(mockedDmClient.teleportPlayer).toHaveBeenCalledWith({
+      teamId: 'T1',
+      userId: 'U1',
+      mode: 'return',
+    });
+    expect(mockedSendPngMap).not.toHaveBeenCalled();
+    expect(mockedGetOccupantsSummaryAt).not.toHaveBeenCalled();
+    expect(say).toHaveBeenCalledWith({
+      text: `You are already inside HQ. Use "${COMMANDS.TELEPORT} return" to go back to your last location or "${COMMANDS.TELEPORT} random" to spawn at a safe spot.`,
+    });
   });
 });

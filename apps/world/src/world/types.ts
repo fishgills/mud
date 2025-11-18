@@ -1,4 +1,3 @@
-import { Settlement } from '@mud/database';
 import type { ChunkData } from './dto';
 
 export interface TileData {
@@ -56,25 +55,6 @@ export interface NoiseConfig {
   octaves: number;
   persistence: number;
   lacunarity: number;
-}
-
-export interface SettlementFootprint {
-  centerX: number;
-  centerY: number;
-  tiles: Array<{ x: number; y: number; intensity: number }>; // intensity 0-1 for settlement density
-  radius: number;
-}
-
-export interface SettlementTileInfo {
-  isSettlement: boolean;
-  settlementName?: string;
-  settlementType?: string;
-  intensity: number; // 0-1, how much of this tile is settlement
-}
-
-// Extended Settlement type for internal use with footprint
-export interface SettlementWithFootprint extends Settlement {
-  footprint?: SettlementFootprint;
 }
 
 export type { ChunkData };

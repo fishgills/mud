@@ -1,27 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { Settlement } from '@mud/database';
 import { WORLD_CHUNK_SIZE } from '@mud/constants';
 @Injectable()
 export class WorldUtilsService {
   static readonly CHUNK_SIZE = WORLD_CHUNK_SIZE;
-
-  /**
-   * Calculate the minimum distance required between settlements based on size
-   */
-  getMinDistanceBetweenSettlements(size: string): number {
-    switch (size) {
-      case 'large':
-        return 20; // Cities need lots of space
-      case 'medium':
-        return 15; // Towns need moderate space
-      case 'small':
-        return 10; // Villages need some space
-      case 'tiny':
-        return 8; // Hamlets/farms need minimal space
-      default:
-        return 8;
-    }
-  }
 
   /**
    * Calculate compass direction from one coordinate to another
@@ -78,29 +59,5 @@ export class WorldUtilsService {
   roundToDecimalPlaces(num: number, decimals: number): number {
     const factor = Math.pow(10, decimals);
     return Math.round(num * factor) / factor;
-  }
-
-  /**
-   * Check if settlements overlap based on their minimum distance requirements
-   */
-  checkSettlementOverlap(
-    newX: number,
-    newY: number,
-    newSize: string,
-    existingSettlements: Settlement[],
-  ): boolean {
-    return existingSettlements.some((settlement) => {
-      const distance = this.calculateDistance(
-        settlement.x,
-        settlement.y,
-        newX,
-        newY,
-      );
-      const minDistance = Math.max(
-        this.getMinDistanceBetweenSettlements(newSize),
-        this.getMinDistanceBetweenSettlements(settlement.size),
-      );
-      return distance < minDistance;
-    });
   }
 }

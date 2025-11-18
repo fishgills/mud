@@ -27,7 +27,7 @@ Kubernetes workloads can rely on the same paths regardless of hostname.
 
 - `GET /dm/location/players|monsters|items` – Inspect entities at a coordinate
 - `GET /dm/movement/look` – Rich description of the player’s current tile
-- `GET /dm/movement/sniff` – Nearby monsters/settlements summary
+- `GET /dm/movement/sniff` – Nearby monster detection summary
 
 ### Player actions
 

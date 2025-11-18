@@ -7,7 +7,6 @@ export interface TimingMetrics {
   tFilterTilesMs: number;
   tPeaksSortMs: number;
   tBiomeSummaryMs: number;
-  tSettlementsFilterMs: number;
   tAiMs: number;
   tilesCount: number;
   peaksCount: number;
@@ -25,14 +24,6 @@ export interface BiomeSummary {
   biomeName: string;
   proportion: number;
   predominantDirections: string[];
-}
-
-export interface VisibleSettlement {
-  name: string;
-  type: string;
-  size: string;
-  distance: number;
-  direction: string;
 }
 
 export interface Player {

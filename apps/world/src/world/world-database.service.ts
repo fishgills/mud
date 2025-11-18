@@ -54,48 +54,6 @@ export class WorldDatabaseService {
 
   // Removed tile persistence; tiles are computed on-the-fly
 
-  /** Persist only settlements; tiles are computed on-the-fly and not stored. */
-  async saveChunkSettlements(
-    settlements: Array<{
-      name: string;
-      type: string;
-      size: string;
-      population: number;
-      x: number;
-      y: number;
-      description: string;
-    }>,
-  ): Promise<void> {
-    if (!settlements?.length) return;
-    await this.prismaService.settlement.createMany({
-      data: settlements,
-      skipDuplicates: true,
-    });
-  }
-
-  async getSettlementsInRadius(x: number, y: number, radius: number) {
-    return await this.prismaService.settlement.findMany({
-      where: {
-        x: { gte: x - radius, lte: Number(x + radius) },
-        y: { gte: y - radius, lte: Number(y + radius) },
-      },
-    });
-  }
-
-  async getSettlementsInBounds(
-    minX: number,
-    minY: number,
-    maxX: number,
-    maxY: number,
-  ) {
-    return await this.prismaService.settlement.findMany({
-      where: {
-        x: { gte: minX, lte: maxX },
-        y: { gte: minY, lte: maxY },
-      },
-    });
-  }
-
   async getBiomeById(biomeId: number) {
     return await this.prismaService.biome.findUnique({
       where: { id: biomeId },

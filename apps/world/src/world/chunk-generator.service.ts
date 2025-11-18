@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ChunkData, TileData } from './types';
-import { SettlementGenerator } from '../settlement-generator/settlement-generator';
 import { WorldUtilsService } from './world-utils.service';
-import { Settlement } from '@mud/database';
 import type { WorldTile } from './dto';
 import { GridMapGenerator } from '../gridmap/gridmap-generator';
 import { DEFAULT_BIOMES } from '../gridmap/default-biomes';
@@ -37,10 +35,7 @@ export class ChunkGeneratorService {
       DEFAULT_BIOMES,
       seed,
     );
-    const settlementGenerator = new SettlementGenerator(seed);
-
     const tiles: Partial<WorldTile>[] = [];
-    const settlements: ChunkData['settlements'] = [];
     const stats = this.initializeStats();
 
     const startX = chunkX * WorldUtilsService.CHUNK_SIZE;
@@ -75,15 +70,6 @@ export class ChunkGeneratorService {
         tiles.push(worldTile);
 
         this.updateStats(stats, tileData);
-
-        // Check for settlement generation
-        this.tryGenerateSettlement(
-          worldX,
-          worldY,
-          tileData,
-          settlementGenerator,
-          settlements,
-        );
       }
     }
 
@@ -96,7 +82,6 @@ export class ChunkGeneratorService {
       chunkX,
       chunkY,
       tiles: tiles as WorldTile[],
-      settlements,
       stats: finalStats,
     };
   }
@@ -170,35 +155,6 @@ export class ChunkGeneratorService {
       averageTemperature: stats.totalTemperature / totalTiles,
       averageMoisture: stats.totalMoisture / totalTiles,
     };
-  }
-
-  private tryGenerateSettlement(
-    x: number,
-    y: number,
-    tile: TileData,
-    settlementGenerator: SettlementGenerator,
-    settlements: Settlement[],
-  ): void {
-    if (!settlementGenerator.shouldGenerateSettlement(x, y, tile)) {
-      return;
-    }
-
-    // Check for overlap with existing settlements
-    const hasOverlap = this.worldUtils.checkSettlementOverlap(
-      x,
-      y,
-      'medium', // Default size for checking, actual size determined by generator
-      settlements,
-    );
-
-    if (!hasOverlap) {
-      const settlement = settlementGenerator.generateSettlement(
-        x,
-        y,
-        tile.biome,
-      );
-      settlements.push(settlement);
-    }
   }
 }
 

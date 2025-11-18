@@ -3,7 +3,6 @@ import { WorldDatabaseService } from './world-database.service';
 import { WorldUtilsService } from './world-utils.service';
 import { ChunkData } from './types';
 import { ChunkGeneratorService } from './chunk-generator.service';
-import { SettlementGenerator } from '../settlement-generator/settlement-generator';
 import type { WorldTile, TileWithNearbyBiomes } from './dto';
 import { WORLD_CHUNK_SIZE } from '@mud/constants';
 
@@ -33,14 +32,9 @@ export class TileService {
     }
 
     const nearbyBiomes = await this.findNearbyBiomes(x, y, tile.biomeName);
-    const { nearbySettlements, currentSettlement } =
-      await this.analyzeSettlements(x, y);
-
     return {
       ...tile,
       nearbyBiomes,
-      nearbySettlements,
-      currentSettlement,
     };
   }
 
@@ -56,7 +50,6 @@ export class TileService {
         chunkX: 0,
         chunkY: 0,
         tiles: [],
-        settlements: [],
         stats: {
           biomes: {},
           averageHeight: 0,
@@ -87,7 +80,6 @@ export class TileService {
       chunkX,
       chunkY,
       tiles: tiles,
-      settlements: [], // Would need to fetch from Settlement table
       stats: {
         biomes: biomeCount,
         averageHeight: totalHeight / tiles.length,
@@ -150,90 +142,5 @@ export class TileService {
     }
 
     return nearbyBiomes.slice(0, 5);
-  }
-
-  async analyzeSettlements(x: number, y: number) {
-    const radius = WORLD_CHUNK_SIZE;
-    const settlements = await this.worldDatabase.getSettlementsInRadius(
-      x,
-      y,
-      radius,
-    );
-
-    // Check if the current tile is part of any settlement footprint
-    let currentSettlement: TileWithNearbyBiomes['currentSettlement'];
-    let currentSettlementId: number | undefined;
-
-    // Ensure we have the world seed for deterministic footprints
-    await this.ensureSeed();
-    const generator = new SettlementGenerator(this.currentSeed);
-
-    for (const settlement of settlements) {
-      // Check if this is the settlement center
-      if (settlement.x === x && settlement.y === y) {
-        currentSettlement = {
-          name: settlement.name,
-          type: settlement.type,
-          size: settlement.size,
-          intensity: 1.0,
-          isCenter: true,
-        };
-        currentSettlementId = settlement.id;
-        break;
-      }
-
-      // Deterministic footprint membership check (irregular blob)
-      try {
-        const footprint = generator.generateSettlementFootprint(
-          settlement.x,
-          settlement.y,
-          settlement.size as 'large' | 'medium' | 'small' | 'tiny',
-          () => 0.5, // rng not used by generator's deterministic shape logic
-          {
-            type: settlement.type ?? undefined,
-            population: settlement.population ?? undefined,
-          },
-        );
-
-        const tile = footprint.tiles.find((t) => t.x === x && t.y === y);
-        if (tile) {
-          currentSettlement = {
-            name: settlement.name,
-            type: settlement.type,
-            size: settlement.size,
-            intensity: tile.intensity,
-            isCenter: false,
-          };
-          currentSettlementId = settlement.id;
-          break;
-        }
-      } catch (e) {
-        this.logger.debug(
-          `Footprint check failed for settlement ${settlement.name} (${settlement.x},${settlement.y}): ${e instanceof Error ? e.message : e}`,
-        );
-      }
-    }
-
-    // Calculate distance for each settlement and filter by true radius
-    const nearbySettlements = settlements
-      .filter((s) => s.id !== currentSettlementId)
-      .map((s) => ({
-        ...s,
-        distance: this.worldUtils.calculateDistance(s.x, s.y, x, y),
-      }))
-      .filter((s) => s.distance <= radius)
-      .sort((a, b) => a.distance - b.distance)
-      .map((s) => ({
-        name: s.name,
-        type: s.type,
-        size: s.size,
-        population: s.population,
-        x: s.x,
-        y: s.y,
-        description: s.description,
-        distance: this.worldUtils.roundToDecimalPlaces(s.distance, 1),
-      }));
-
-    return { nearbySettlements, currentSettlement };
   }
 }

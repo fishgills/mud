@@ -3,7 +3,7 @@ import { COMMANDS } from '../commands';
 import { getOccupantsSummaryAt, sendItemsSummary } from './locationUtils';
 import { PlayerCommandHandler } from './base';
 
-export const lookHandlerHelp = `Look around with enhanced vision based on terrain height. Returns a panoramic description, visible peaks, nearby settlements, and biome summary. Example: Send 'look' or 'l'.`;
+export const lookHandlerHelp = `Look around with enhanced vision based on terrain height. Returns a panoramic description, visible peaks, and a biome summary. Example: Send 'look' or 'l'.`;
 
 type Perf = {
   totalMs: number;
@@ -14,14 +14,20 @@ type Perf = {
   tilesFilterMs: number;
   peaksSortMs: number;
   biomeSummaryMs: number;
-  settlementsFilterMs: number;
   aiMs: number;
+  tilesCount: number;
+  peaksCount: number;
   aiProvider: string;
 };
 
 export class LookHandler extends PlayerCommandHandler {
   constructor() {
-    super([COMMANDS.LOOK, COMMANDS.LOOK_SHORT], 'Failed to look around');
+    super([COMMANDS.LOOK, COMMANDS.LOOK_SHORT], 'Failed to look around', {
+      allowInHq: false,
+      hqCommand: COMMANDS.LOOK,
+      missingCharacterMessage:
+        'Could not find your player. Use "new CharacterName" to create one.',
+    });
   }
 
   protected async perform({ userId, say }: HandlerContext): Promise<void> {
@@ -71,7 +77,7 @@ export class LookHandler extends PlayerCommandHandler {
 
     const perf: Perf | undefined = res.perf as Perf | undefined;
     if (perf) {
-      const summary = `Perf: total ${perf.totalMs}ms (player ${perf.playerMs}ms, world center+nearby ${perf.worldCenterNearbyMs}ms, bounds ${perf.worldBoundsTilesMs}ms, ext ${perf.worldExtendedBoundsMs}ms, tiles filter ${perf.tilesFilterMs}ms, peaks ${perf.peaksSortMs}ms, biome ${perf.biomeSummaryMs}ms, settlements ${perf.settlementsFilterMs}ms, AI[${perf.aiProvider}] ${perf.aiMs}ms)`;
+      const summary = `Perf: total ${perf.totalMs}ms (player ${perf.playerMs}ms, world center+nearby ${perf.worldCenterNearbyMs}ms, bounds ${perf.worldBoundsTilesMs}ms, ext ${perf.worldExtendedBoundsMs}ms, tiles filter ${perf.tilesFilterMs}ms, peaks ${perf.peaksSortMs}ms, biome ${perf.biomeSummaryMs}ms, AI[${perf.aiProvider}] ${perf.aiMs}ms, tiles ${perf.tilesCount}, peaks ${perf.peaksCount})`;
       await say({ text: summary });
     }
   }

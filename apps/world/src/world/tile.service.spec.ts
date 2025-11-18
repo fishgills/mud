@@ -2,13 +2,9 @@ import { TileService } from './tile.service';
 import { WorldDatabaseService } from './world-database.service';
 import { WorldUtilsService } from './world-utils.service';
 import { ChunkGeneratorService } from './chunk-generator.service';
-import { Settlement } from '@mud/database';
-import type { WorldTile } from './models/world-tile.model';
+import type { WorldTile } from './dto';
 
-type WorldDatabaseMock = Pick<
-  WorldDatabaseService,
-  'loadWorldSeed' | 'getSettlementsInRadius'
->;
+type WorldDatabaseMock = Pick<WorldDatabaseService, 'loadWorldSeed'>;
 type WorldUtilsMock = Pick<
   WorldUtilsService,
   | 'calculateDistance'
@@ -20,22 +16,6 @@ type ChunkGeneratorMock = {
   generateTileAt: (
     ...args: Parameters<ChunkGeneratorService['generateTileAt']>
   ) => WorldTile | null;
-};
-
-const createSettlement = (overrides: Partial<Settlement> = {}): Settlement => {
-  const base = {
-    id: overrides.id ?? 1,
-    name: overrides.name ?? 'Settlement',
-    x: overrides.x ?? 0,
-    y: overrides.y ?? 0,
-    type: overrides.type ?? 'village',
-    size: overrides.size ?? 'small',
-    population: overrides.population ?? 0,
-    description: overrides.description ?? '',
-    createdAt: overrides.createdAt ?? new Date(),
-    updatedAt: overrides.updatedAt ?? new Date(),
-  };
-  return base as unknown as Settlement;
 };
 
 describe('TileService', () => {
@@ -68,10 +48,6 @@ describe('TileService', () => {
         ReturnType<WorldDatabaseService['loadWorldSeed']>,
         Parameters<WorldDatabaseService['loadWorldSeed']>
       >(() => Promise.resolve(12345)),
-      getSettlementsInRadius: jest.fn<
-        ReturnType<WorldDatabaseService['getSettlementsInRadius']>,
-        Parameters<WorldDatabaseService['getSettlementsInRadius']>
-      >(() => Promise.resolve([])),
     };
 
     worldUtils = {
@@ -145,7 +121,7 @@ describe('TileService', () => {
       chunkGenerator.generateTileAt.mockReturnValue(mockTile);
     });
 
-    it('should return tile with nearby biomes and settlements', async () => {
+    it('should return tile with nearby biomes', async () => {
       const nearbyTile = { ...mockTile, x: 11, y: 20, biomeName: 'Plains' };
       chunkGenerator.generateTileAt
         .mockReturnValueOnce(mockTile)
@@ -157,7 +133,6 @@ describe('TileService', () => {
       expect(result.x).toBe(10);
       expect(result.y).toBe(20);
       expect(result.nearbyBiomes).toBeDefined();
-      expect(result.nearbySettlements).toBeDefined();
     });
 
     it('should throw error if tile not found', async () => {
@@ -166,29 +141,6 @@ describe('TileService', () => {
       await expect(service.getTileWithNearbyBiomes(10, 20)).rejects.toThrow(
         'Tile not found at 10,20',
       );
-    });
-
-    it('should include current settlement if tile is at settlement center', async () => {
-      const settlement = createSettlement({
-        id: 1,
-        name: 'Test City',
-        x: 10,
-        y: 20,
-        type: 'city',
-        size: 'large',
-        population: 10000,
-        description: 'A test city',
-      });
-
-      worldDatabase.getSettlementsInRadius.mockResolvedValueOnce([settlement]);
-      chunkGenerator.generateTileAt.mockReturnValue(mockTile);
-
-      const result = await service.getTileWithNearbyBiomes(10, 20);
-
-      expect(result.currentSettlement).toBeDefined();
-      expect(result.currentSettlement?.name).toBe('Test City');
-      expect(result.currentSettlement?.isCenter).toBe(true);
-      expect(result.currentSettlement?.intensity).toBe(1.0);
     });
   });
 
@@ -255,112 +207,6 @@ describe('TileService', () => {
     });
   });
 
-  describe('analyzeSettlements', () => {
-    it('should return empty arrays when no settlements nearby', async () => {
-      worldDatabase.getSettlementsInRadius.mockResolvedValueOnce([]);
-
-      const result = await service.analyzeSettlements(10, 20);
-
-      expect(result.nearbySettlements).toEqual([]);
-      expect(result.currentSettlement).toBeUndefined();
-    });
-
-    it('should identify current settlement at center', async () => {
-      const settlement = createSettlement({
-        id: 1,
-        name: 'Central City',
-        x: 10,
-        y: 20,
-        type: 'city',
-        size: 'large',
-        population: 50000,
-        description: 'Main city',
-      });
-
-      worldDatabase.getSettlementsInRadius.mockResolvedValueOnce([settlement]);
-
-      const result = await service.analyzeSettlements(10, 20);
-
-      expect(result.currentSettlement).toBeDefined();
-      expect(result.currentSettlement?.name).toBe('Central City');
-      expect(result.currentSettlement?.isCenter).toBe(true);
-    });
-
-    it('should calculate distances for nearby settlements', async () => {
-      const settlements = [
-        createSettlement({
-          id: 1,
-          name: 'City A',
-          x: 15,
-          y: 20,
-          type: 'city',
-          size: 'medium',
-          population: 20000,
-          description: 'City A',
-        }),
-        createSettlement({
-          id: 2,
-          name: 'City B',
-          x: 20,
-          y: 25,
-          type: 'town',
-          size: 'small',
-          population: 5000,
-          description: 'City B',
-        }),
-      ];
-
-      worldDatabase.getSettlementsInRadius.mockResolvedValueOnce(settlements);
-
-      const result = await service.analyzeSettlements(10, 20);
-
-      expect(result.nearbySettlements.length).toBeGreaterThanOrEqual(1);
-      expect(result.nearbySettlements[0]).toHaveProperty('distance');
-      expect(result.nearbySettlements[0]).toHaveProperty('name');
-      expect(result.nearbySettlements[0]).toHaveProperty('x');
-      expect(result.nearbySettlements[0]).toHaveProperty('y');
-    });
-
-    it('should sort settlements by distance', async () => {
-      const settlements = [
-        createSettlement({
-          id: 1,
-          name: 'Near Town',
-          x: 12,
-          y: 22,
-          type: 'town',
-          size: 'medium',
-          population: 10000,
-          description: 'Near',
-        }),
-        createSettlement({
-          id: 2,
-          name: 'Medium Town',
-          x: 20,
-          y: 30,
-          type: 'town',
-          size: 'small',
-          population: 5000,
-          description: 'Medium distance',
-        }),
-      ];
-
-      worldDatabase.getSettlementsInRadius.mockResolvedValueOnce(settlements);
-
-      const result = await service.analyzeSettlements(10, 20);
-
-      // First settlement should be closer (Near Town) if multiple exist
-      if (result.nearbySettlements.length >= 2) {
-        expect(result.nearbySettlements[0].distance).toBeLessThan(
-          result.nearbySettlements[1].distance,
-        );
-      } else {
-        // At least one settlement should be returned
-        expect(result.nearbySettlements.length).toBeGreaterThanOrEqual(1);
-      }
-    });
-  });
-
   describe('reconstructChunkFromTiles', () => {
     it('should calculate correct biome distribution', () => {
       const tiles = [
@@ -395,12 +241,6 @@ describe('TileService', () => {
 
       expect(result.tiles).toEqual(tiles);
       expect(result.tiles.length).toBe(3);
-    });
-
-    it('should have empty settlements array', () => {
-      const result = service.reconstructChunkFromTiles([mockTile]);
-
-      expect(result.settlements).toEqual([]);
     });
   });
 });

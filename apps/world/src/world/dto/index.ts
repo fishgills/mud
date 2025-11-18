@@ -8,12 +8,9 @@ export {
 export { type CombatLog } from './combat-log.dto';
 export { type GameState } from './game-state.dto';
 export { type Landmark } from './landmark.dto';
-export { type Settlement } from './settlement.dto';
 export {
   type TileWithNearbyBiomes,
   type NearbyBiome,
-  type NearbySettlement,
-  type CurrentSettlement,
 } from './tile-with-nearby-biomes.dto';
 export { type TileUpdateResult } from './tile-update-result.dto';
 export { type WeatherState } from './weather-state.dto';
