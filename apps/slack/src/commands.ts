@@ -13,6 +13,8 @@ export const COMMANDS = {
   MOVE: 'move',
   TELEPORT: 'teleport',
   GUILD: 'guild',
+  BUY: 'buy',
+  SELL: 'sell',
   DELETE: 'delete',
   COMPLETE: 'complete',
   REROLL: 'reroll',

@@ -11,6 +11,8 @@ jest.mock('../dm-client', () => {
     rerollPlayerStats: jest.fn(),
     teleportPlayer: jest.fn(),
     guildTeleport: jest.fn(),
+    guildBuyItem: jest.fn(),
+    guildSellItem: jest.fn(),
   };
   return { dmClient };
 });
@@ -44,6 +46,8 @@ import { setSlackApp } from '../appContext';
 import type { App } from '@slack/bolt';
 import { teleportHandler } from './teleport';
 import { guildHandler } from './guild';
+import { buyHandler } from './buy';
+import { sellHandler } from './sell';
 import { getOccupantsSummaryAt } from './locationUtils';
 import { buildHqBlockedMessage } from './hqUtils';
 
@@ -59,6 +63,8 @@ const mockedDmClient = dmClient as unknown as {
   rerollPlayerStats: jest.Mock;
   teleportPlayer: jest.Mock;
   guildTeleport: jest.Mock;
+  guildBuyItem: jest.Mock;
+  guildSellItem: jest.Mock;
 };
 
 const mockedSendPngMap = sendPngMap as unknown as jest.MockedFunction<
@@ -79,6 +85,23 @@ type MockSlackClient = {
     update: jest.Mock<Promise<void>, [Record<string, unknown>]>;
   };
 };
+
+const defaultPlayerData = {
+  id: '1',
+  teamId: 'T1',
+  userId: 'U1',
+  slackUser: { teamId: 'T1', userId: 'U1', id: 101 },
+  name: 'Hero',
+  hp: 1,
+  maxHp: 10,
+  level: 1,
+  xp: 0,
+  skillPoints: 0,
+  x: 0,
+  y: 0,
+  nearbyMonsters: [],
+  isInHq: false,
+} as const;
 
 const makeSay = () =>
   jest.fn<Promise<void>, [SayMessage]>().mockResolvedValue(undefined);
@@ -117,22 +140,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockedDmClient.getPlayer.mockResolvedValue({
     success: true,
-    data: {
-      id: '1',
-      teamId: 'T1',
-      userId: 'U1',
-      slackUser: { teamId: 'T1', userId: 'U1', id: 101 },
-      name: 'Hero',
-      hp: 1,
-      maxHp: 10,
-      level: 1,
-      xp: 0,
-      skillPoints: 0,
-      x: 0,
-      y: 0,
-      nearbyMonsters: [],
-      isInHq: false,
-    },
+    data: { ...defaultPlayerData },
   });
   mockedGetOccupantsSummaryAt.mockResolvedValue(null);
 });
@@ -1338,5 +1346,71 @@ describe('guildHandler', () => {
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({ text: 'cooldown' });
+  });
+});
+
+describe('buyHandler', () => {
+  it('purchases an item through the guild shop', async () => {
+    const say = makeSay();
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
+      success: true,
+      data: { ...defaultPlayerData, isInHq: true },
+    });
+    mockedDmClient.guildBuyItem.mockResolvedValueOnce({
+      receiptId: '1',
+      goldDelta: -25,
+      remainingGold: 75,
+    });
+
+    await buyHandler.handle({
+      userId: 'U1',
+      text: `${COMMANDS.BUY} potion`,
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
+
+    expect(mockedDmClient.guildBuyItem).toHaveBeenCalledWith({
+      teamId: 'T1',
+      userId: 'U1',
+      item: 'potion',
+    });
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('Purchased'),
+      }),
+    );
+  });
+});
+
+describe('sellHandler', () => {
+  it('sells an item through the guild shop', async () => {
+    const say = makeSay();
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
+      success: true,
+      data: { ...defaultPlayerData, isInHq: true },
+    });
+    mockedDmClient.guildSellItem.mockResolvedValueOnce({
+      receiptId: '2',
+      goldDelta: 25,
+      remainingGold: 125,
+    });
+
+    await sellHandler.handle({
+      userId: 'U1',
+      text: `${COMMANDS.SELL} sword`,
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
+
+    expect(mockedDmClient.guildSellItem).toHaveBeenCalledWith({
+      teamId: 'T1',
+      userId: 'U1',
+      item: 'sword',
+    });
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('Sold'),
+      }),
+    );
   });
 });

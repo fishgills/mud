@@ -8,6 +8,7 @@ import type {
   PlayerItem,
   Prisma,
 } from '@mud/database';
+import type { GuildTradeResponse } from '@mud/api-contracts';
 import type { GuildTeleportResponse } from '@mud/api-contracts';
 
 export type JsonMap = Record<string, unknown>;
@@ -376,6 +377,40 @@ export async function teleportPlayer(params: {
   });
 }
 
+export async function guildBuyItem(params: {
+  teamId: string;
+  userId: string;
+  item: string;
+  quantity?: number;
+}): Promise<GuildTradeResponse> {
+  return dmRequest('/guild/shop/buy', HttpMethod.POST, {
+    body: {
+      teamId: params.teamId,
+      userId: params.userId,
+      item: params.item,
+      quantity: params.quantity,
+    },
+  });
+}
+
+export async function guildSellItem(params: {
+  teamId: string;
+  userId: string;
+  item?: string;
+  playerItemId?: number;
+  quantity?: number;
+}): Promise<GuildTradeResponse> {
+  return dmRequest('/guild/shop/sell', HttpMethod.POST, {
+    body: {
+      teamId: params.teamId,
+      userId: params.userId,
+      item: params.item,
+      playerItemId: params.playerItemId,
+      quantity: params.quantity,
+    },
+  });
+}
+
 export async function guildTeleport(params: {
   teamId: string;
   userId: string;
@@ -599,6 +634,8 @@ export const dmClient = {
   getPlayer,
   movePlayer,
   teleportPlayer,
+  guildBuyItem,
+  guildSellItem,
   guildTeleport,
   attack,
   spendSkillPoint,

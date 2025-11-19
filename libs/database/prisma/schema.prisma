@@ -31,48 +31,48 @@ model GameState {
 }
 
 model Player {
-  id           Int           @id @default(autoincrement())
-  name         String
-  x            Int // X coordinate
-  y            Int // Y coordinate
-  isInHq       Boolean       @default(false) // Indicates player is in the HQ zone outside the world map
-  lastWorldX   Int? // Last known world X position before entering HQ
-  lastWorldY   Int? // Last known world Y position before entering HQ
-  lastHqEnterAt DateTime? // Timestamp for most recent HQ entry
-  hp           Int // Hit points (current health)
-  maxHp        Int           @default(100) // Maximum health
-  strength     Int           @default(10) // Strength attribute (1-20)
-  agility      Int           @default(10) // Agility attribute (1-20)
-  health       Int           @default(10) // Health attribute (1-20, affects max HP)
-  gold         Int           @default(0)
-  xp           Int           @default(0)
-  level        Int           @default(1)
-  skillPoints  Int           @default(0)
-  isAlive      Boolean       @default(true)
-  isCreationComplete Boolean @default(false) // Tracks if character creation is complete (no more rerolls/complete allowed)
-  lastAction   DateTime      @default(now())
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  worldTile    WorldTile?    @relation("PlayerLocation", fields: [worldTileId], references: [id])
-  worldTileId  Int?
-  party        Party?        @relation(fields: [partyId], references: [id])
-  partyId      Int?
-  partyMembers PartyMember[]
-  playerItems  PlayerItem[]
-  slackUser    SlackUser?
-  guildState   PlayerGuildState?
-  guildReceipts TransactionReceipt[]
+  id                 Int                  @id @default(autoincrement())
+  name               String
+  x                  Int // X coordinate
+  y                  Int // Y coordinate
+  isInHq             Boolean              @default(false) // Indicates player is in the HQ zone outside the world map
+  lastWorldX         Int? // Last known world X position before entering HQ
+  lastWorldY         Int? // Last known world Y position before entering HQ
+  lastHqEnterAt      DateTime? // Timestamp for most recent HQ entry
+  hp                 Int // Hit points (current health)
+  maxHp              Int                  @default(100) // Maximum health
+  strength           Int                  @default(10) // Strength attribute (1-20)
+  agility            Int                  @default(10) // Agility attribute (1-20)
+  health             Int                  @default(10) // Health attribute (1-20, affects max HP)
+  gold               Int                  @default(0)
+  xp                 Int                  @default(0)
+  level              Int                  @default(1)
+  skillPoints        Int                  @default(0)
+  isAlive            Boolean              @default(true)
+  isCreationComplete Boolean              @default(false) // Tracks if character creation is complete (no more rerolls/complete allowed)
+  lastAction         DateTime             @default(now())
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  worldTile          WorldTile?           @relation("PlayerLocation", fields: [worldTileId], references: [id])
+  worldTileId        Int?
+  party              Party?               @relation(fields: [partyId], references: [id])
+  partyId            Int?
+  partyMembers       PartyMember[]
+  playerItems        PlayerItem[]
+  slackUser          SlackUser?
+  guildState         PlayerGuildState?
+  guildReceipts      TransactionReceipt[]
   // Future: discordUsers DiscordUser[], webUsers WebUser[], etc.
 }
 
 model SlackUser {
-  id          Int      @id @default(autoincrement())
-  teamId      String   // Slack workspace/team ID (e.g., "TB1QW3SQHU")
-  userId      String   // Slack user ID (e.g., "UB389SP46")
-  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  playerId    Int      @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
+  teamId    String // Slack workspace/team ID (e.g., "TB1QW3SQHU")
+  userId    String // Slack user ID (e.g., "UB389SP46")
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  Int      @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([teamId, userId])
   @@index([teamId])
@@ -103,11 +103,11 @@ model WorldSeed {
 }
 
 model WorldTile {
-  id          Int       @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   x           Int
   y           Int
   biomeId     Int
-  biome       Biome     @relation(fields: [biomeId], references: [id])
+  biome       Biome    @relation(fields: [biomeId], references: [id])
   biomeName   String // Store biome name for faster queries
   description String?
   height      Float // 0-1 height value from terrain noise
@@ -116,9 +116,9 @@ model WorldTile {
   seed        Int // World seed used to generate this tile
   chunkX      Int // Chunk X coordinate (x / 50)
   chunkY      Int // Chunk Y coordinate (y / 50)
-  players     Player[]  @relation("PlayerLocation")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  players     Player[] @relation("PlayerLocation")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@unique([x, y])
   @@index([chunkX, chunkY])
@@ -133,23 +133,23 @@ model Biome {
 }
 
 model Monster {
-  id          Int        @id @default(autoincrement())
-  name        String
-  type        String     @default("generic") // monster type/species
-  hp          Int
-  maxHp       Int        @default(50)
-  strength    Int        @default(8)
-  agility     Int        @default(8)
-  health      Int        @default(8)
-  x           Int
-  y           Int
-  isAlive     Boolean    @default(true)
-  lastMove    DateTime   @default(now())
-  spawnedAt   DateTime   @default(now())
-  biomeId     Int
-  biome       Biome      @relation(fields: [biomeId], references: [id])
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id        Int      @id @default(autoincrement())
+  name      String
+  type      String   @default("generic") // monster type/species
+  hp        Int
+  maxHp     Int      @default(50)
+  strength  Int      @default(8)
+  agility   Int      @default(8)
+  health    Int      @default(8)
+  x         Int
+  y         Int
+  isAlive   Boolean  @default(true)
+  lastMove  DateTime @default(now())
+  spawnedAt DateTime @default(now())
+  biomeId   Int
+  biome     Biome    @relation(fields: [biomeId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   // Add more fields as needed (type, loot, etc.)
 
   @@index([isAlive, x, y])
@@ -189,21 +189,21 @@ model CombatLog {
 }
 
 model Npc {
-  id           Int         @id @default(autoincrement())
-  name         String
-  role         String // merchant, quest_giver, guard, citizen, innkeeper
-  x            Int
-  y            Int
-  hp           Int
-  maxHp        Int         @default(50)
-  strength     Int         @default(10)
-  agility      Int         @default(10)
-  health       Int         @default(10)
-  isAlive      Boolean     @default(true)
-  isHostile    Boolean     @default(false)
-  dialogue     String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id        Int      @id @default(autoincrement())
+  name      String
+  role      String // merchant, quest_giver, guard, citizen, innkeeper
+  x         Int
+  y         Int
+  hp        Int
+  maxHp     Int      @default(50)
+  strength  Int      @default(10)
+  agility   Int      @default(10)
+  health    Int      @default(10)
+  isAlive   Boolean  @default(true)
+  isHostile Boolean  @default(false)
+  dialogue  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model GuildHall {
@@ -220,44 +220,48 @@ model GuildHall {
 }
 
 model PlayerGuildState {
-  playerId          Int      @id
-  player            Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId          Int       @id
+  player            Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
   lastTeleportAt    DateTime?
   cooldownExpiresAt DateTime?
   lastGuildLocation String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 
 model ShopCatalogItem {
-  id                      Int                  @id @default(autoincrement())
-  sku                     String               @unique
-  name                    String               @unique
-  description             String               @default("")
-  buyPriceGold            Int
-  sellPriceGold           Int
-  stockQuantity           Int                  @default(0)
-  maxStock                Int?
-  restockIntervalMinutes  Int?
-  tags                    String[]
-  isActive                Boolean              @default(true)
-  createdAt               DateTime             @default(now())
-  updatedAt               DateTime             @updatedAt
-  transactionReceipts     TransactionReceipt[]
+  id                     Int                  @id @default(autoincrement())
+  sku                    String               @unique
+  name                   String               @unique
+  description            String               @default("")
+  buyPriceGold           Int
+  sellPriceGold          Int
+  stockQuantity          Int                  @default(0)
+  maxStock               Int?
+  restockIntervalMinutes Int?
+  tags                   String[]
+  isActive               Boolean              @default(true)
+  itemTemplateId         Int?
+  itemTemplate           Item?                @relation(fields: [itemTemplateId], references: [id])
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  transactionReceipts    TransactionReceipt[]
 }
 
 model TransactionReceipt {
-  id                 Int                   @id @default(autoincrement())
-  playerId           Int
-  player             Player                @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  itemId             Int?
-  item               ShopCatalogItem?      @relation(fields: [itemId], references: [id], onDelete: SetNull)
-  direction          GuildTradeDirection
-  goldDelta          Int
-  quantity           Int                   @default(1)
-  correlationId      String?
-  eventBusMessageId  String?
-  createdAt          DateTime              @default(now())
+  id                Int                 @id @default(autoincrement())
+  playerId          Int
+  player            Player              @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  itemId            Int?
+  item              ShopCatalogItem?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  playerItemId      Int?
+  playerItem        PlayerItem?         @relation(fields: [playerItemId], references: [id], onDelete: SetNull)
+  direction         GuildTradeDirection
+  goldDelta         Int
+  quantity          Int                 @default(1)
+  correlationId     String?
+  eventBusMessageId String?
+  createdAt         DateTime            @default(now())
 
   @@index([playerId, createdAt])
 }
@@ -279,42 +283,43 @@ model AnnouncementRecord {
 }
 
 model Party {
-  id          Int           @id @default(autoincrement())
-  name        String
-  leaderId    Int
-  maxSize     Int           @default(6)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  players     Player[]
-  members     PartyMember[]
+  id        Int           @id @default(autoincrement())
+  name      String
+  leaderId  Int
+  maxSize   Int           @default(6)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  players   Player[]
+  members   PartyMember[]
 }
 
 model PartyMember {
-  id        Int      @id @default(autoincrement())
-  party     Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
-  partyId   Int
-  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  playerId  Int
-  isLeader  Boolean  @default(false)
-  joinedAt  DateTime @default(now())
+  id       Int      @id @default(autoincrement())
+  party    Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  partyId  Int
+  player   Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId Int
+  isLeader Boolean  @default(false)
+  joinedAt DateTime @default(now())
 
   @@unique([partyId, playerId])
 }
 
 model Item {
-  id          Int      @id @default(autoincrement())
-  name        String
-  type        String // weapon, armor, consumable, quest_item
-  description String
-  value       Int      @default(0) // Gold value
-  attack      Int?     @default(0) // Attack bonus for weapons
-  defense     Int?     @default(0) // Defense bonus for armor
-  healthBonus Int?     @default(0) // Health restoration for consumables
-  slot        PlayerSlot? // Optional equip slot for equippable items
-  playerItems  PlayerItem[]
-  worldItems   WorldItem[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              Int               @id @default(autoincrement())
+  name            String
+  type            String // weapon, armor, consumable, quest_item
+  description     String
+  value           Int               @default(0) // Gold value
+  attack          Int?              @default(0) // Attack bonus for weapons
+  defense         Int?              @default(0) // Defense bonus for armor
+  healthBonus     Int?              @default(0) // Health restoration for consumables
+  slot            PlayerSlot? // Optional equip slot for equippable items
+  playerItems     PlayerItem[]
+  worldItems      WorldItem[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  ShopCatalogItem ShopCatalogItem[]
 }
 
 // Inventory and loot enums/models
@@ -345,65 +350,67 @@ enum PlayerSlot {
 }
 
 model PlayerItem {
-  id         Int         @id @default(autoincrement())
-  player     Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  playerId   Int
-  item       Item        @relation(fields: [itemId], references: [id])
-  itemId     Int
-  quantity   Int         @default(1)
-  equipped   Boolean     @default(false)
-  slot       PlayerSlot?
-  quality    ItemQuality @default(Common)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id                 Int                  @id @default(autoincrement())
+  player             Player               @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId           Int
+  item               Item                 @relation(fields: [itemId], references: [id])
+  itemId             Int
+  quantity           Int                  @default(1)
+  equipped           Boolean              @default(false)
+  slot               PlayerSlot?
+  quality            ItemQuality          @default(Common)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  TransactionReceipt TransactionReceipt[]
 
-  @@index([playerId]) 
+  @@index([playerId])
 }
 
 model WorldItem {
-  id                Int         @id @default(autoincrement())
-  item              Item        @relation(fields: [itemId], references: [id])
-  itemId            Int
-  quality           ItemQuality @default(Common)
-  x                 Int
-  y                 Int
-  quantity          Int         @default(1)
+  id                 Int         @id @default(autoincrement())
+  item               Item        @relation(fields: [itemId], references: [id])
+  itemId             Int
+  quality            ItemQuality @default(Common)
+  x                  Int
+  y                  Int
+  quantity           Int         @default(1)
   spawnedByMonsterId Int?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 
   @@index([x, y])
 }
 
 model SlackAppInstallation {
-    @@map("slack_app_installation")
 
-    id                              Int       @id @default(autoincrement())
-    clientId                        String?   @map("client_id")
-    appId                           String?   @map("app_id")
-    enterpriseId                    String?   @map("enterprise_id")
-    enterpriseName                  String?   @map("enterprise_name")
-    enterpriseUrl                   String?   @map("enterprise_url")
-    teamId                          String?   @map("team_id")
-    teamName                        String?   @map("team_name")
-    botToken                        String?   @map("bot_token")
-    botId                           String?   @map("bot_id")
-    botUserId                       String?   @map("bot_user_id")
-    botScopes                       String?   @map("bot_scopes")
-    botRefreshToken                 String?   @map("bot_refresh_token")
-    botTokenExpiresAt               DateTime? @map("bot_token_expires_at")
-    userId                          String?   @map("user_id")
-    userToken                       String?   @map("user_token")
-    userScopes                      String?   @map("user_scopes")
-    userRefreshToken                String?   @map("user_refresh_token")
-    userTokenExpiresAt              DateTime? @map("user_token_expires_at")
-    incomingWebhookUrl              String?   @map("incoming_webhook_url")
-    incomingWebhookChannel          String?   @map("incoming_webhook_channel")
-    incomingWebhookChannelId        String?   @map("incoming_webhook_channel_id")
-    incomingWebhookConfigurationUrl String?   @map("incoming_webhook_configuration_url")
-    isEnterpriseInstall             Boolean   @default(false) @map("is_enterprise_install")
-    tokenType                       String    @default("bot") @map("token_type")
-    installedAt                     DateTime  @default(now()) @map("installed_at")
-    // This is an example custom property
-    memo                            String?
+  id                              Int       @id @default(autoincrement())
+  clientId                        String?   @map("client_id")
+  appId                           String?   @map("app_id")
+  enterpriseId                    String?   @map("enterprise_id")
+  enterpriseName                  String?   @map("enterprise_name")
+  enterpriseUrl                   String?   @map("enterprise_url")
+  teamId                          String?   @map("team_id")
+  teamName                        String?   @map("team_name")
+  botToken                        String?   @map("bot_token")
+  botId                           String?   @map("bot_id")
+  botUserId                       String?   @map("bot_user_id")
+  botScopes                       String?   @map("bot_scopes")
+  botRefreshToken                 String?   @map("bot_refresh_token")
+  botTokenExpiresAt               DateTime? @map("bot_token_expires_at")
+  userId                          String?   @map("user_id")
+  userToken                       String?   @map("user_token")
+  userScopes                      String?   @map("user_scopes")
+  userRefreshToken                String?   @map("user_refresh_token")
+  userTokenExpiresAt              DateTime? @map("user_token_expires_at")
+  incomingWebhookUrl              String?   @map("incoming_webhook_url")
+  incomingWebhookChannel          String?   @map("incoming_webhook_channel")
+  incomingWebhookChannelId        String?   @map("incoming_webhook_channel_id")
+  incomingWebhookConfigurationUrl String?   @map("incoming_webhook_configuration_url")
+  isEnterpriseInstall             Boolean   @default(false) @map("is_enterprise_install")
+  tokenType                       String    @default("bot") @map("token_type")
+  installedAt                     DateTime  @default(now()) @map("installed_at")
+  // This is an example custom property
+  memo                            String?
+
+  @@map("slack_app_installation")
 }

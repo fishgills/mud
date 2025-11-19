@@ -18,6 +18,9 @@ case "$SCENARIO" in
   guild-teleport)
     yarn workspace @mud/dm test --runInBand --testNamePattern="guild-teleport" "$@"
     ;;
+  guild-shop)
+    yarn workspace @mud/dm test --runInBand --testNamePattern="guild-shop" "$@"
+    ;;
   *)
     echo "Unknown scenario: $SCENARIO" >&2
     exit 1

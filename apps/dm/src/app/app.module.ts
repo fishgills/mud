@@ -16,6 +16,7 @@ import {
   LocationController,
 } from './api/controllers';
 import { TeleportController } from '../modules/teleport/teleport.controller';
+import { GuildShopController } from '../modules/guild-shop/guild-shop.controller';
 import { CoordinationService } from '../shared/coordination.service';
 import { EventBridgeService } from '../shared/event-bridge.service';
 import {
@@ -34,6 +35,9 @@ import { LootService } from './monster/loot.service';
 import { TeleportService } from '../modules/teleport/teleport.service';
 import { TeleportRepository } from '../modules/teleport/teleport.repository';
 import { TeleportPublisher } from '../modules/teleport/teleport.publisher';
+import { GuildShopService } from '../modules/guild-shop/guild-shop.service';
+import { GuildShopRepository } from '../modules/guild-shop/guild-shop.repository';
+import { GuildShopPublisher } from '../modules/guild-shop/guild-shop.publisher';
 
 @Module({
   imports: [AiModule],
@@ -45,6 +49,7 @@ import { TeleportPublisher } from '../modules/teleport/teleport.publisher';
     ItemController,
     LocationController,
     TeleportController,
+    GuildShopController,
   ],
   providers: [
     AppService,
@@ -70,6 +75,9 @@ import { TeleportPublisher } from '../modules/teleport/teleport.publisher';
     TeleportService,
     TeleportRepository,
     TeleportPublisher,
+    GuildShopService,
+    GuildShopRepository,
+    GuildShopPublisher,
   ],
 })
 export class AppModule {}

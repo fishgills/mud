@@ -62,20 +62,20 @@ description: 'Task list template for feature implementation'
 
 ### Tests
 
-- [ ] T021 [US2] Add Jest unit tests for shop service transaction flows in `apps/dm/src/modules/shop/shop.service.spec.ts`
-- [ ] T022 [P] [US2] Add integration tests for buy/sell via `apps/dm/test-dm.sh guild-shop`
-- [ ] T023 [P] [US2] Add contract tests for `/guild/shop/buy` and `/guild/shop/sell` in `libs/api-contracts/tests/guild.shop.spec.ts`
+- [x] T021 [US2] Add Jest unit tests for shop service transaction flows in `apps/dm/src/modules/shop/shop.service.spec.ts`
+- [x] T022 [P] [US2] Add integration tests for buy/sell via `apps/dm/test-dm.sh guild-shop`
+- [x] T023 [P] [US2] Add contract tests for `/guild/shop/buy` and `/guild/shop/sell` in `libs/api-contracts/tests/guild.shop.spec.ts`
 
 ### Implementation
 
-- [ ] T024 [US2] Implement shop service with Prisma transactions (catalog locking, gold checks) in `apps/dm/src/modules/shop/shop.service.ts`
-- [ ] T025 [US2] Implement `/guild/shop/buy` controller + DTOs in `apps/dm/src/modules/shop/shop.controller.ts`
-- [ ] T026 [US2] Implement `/guild/shop/sell` handler in same controller with validation reuse
-- [ ] T027 [US2] Add EventBus publisher for receipt events `apps/dm/src/modules/shop/shop.publisher.ts`
-- [ ] T028 [US2] Update Slack command handlers `apps/slack/src/commands/buy.ts` and `.../sell.ts`
-- [ ] T029 [US2] Generate Slack receipt templates (player + co-located summary) in `apps/slack/src/views/guild-shop.ts`
-- [ ] T030 [US2] Add logging for trade outcomes with correlation IDs `apps/dm/src/modules/shop/shop.logger.ts`
-- [ ] T031 [US2] Update quickstart with buy/sell testing instructions in `specs/001-hq-market-crier/quickstart.md`
+- [x] T024 [US2] Implement shop service with Prisma transactions (catalog locking, gold checks) in `apps/dm/src/modules/shop/shop.service.ts`
+- [x] T025 [US2] Implement `/guild/shop/buy` controller + DTOs in `apps/dm/src/modules/shop/shop.controller.ts`
+- [x] T026 [US2] Implement `/guild/shop/sell` handler in same controller with validation reuse
+- [x] T027 [US2] Add EventBus publisher for receipt events `apps/dm/src/modules/shop/shop.publisher.ts`
+- [x] T028 [US2] Update Slack command handlers `apps/slack/src/commands/buy.ts` and `.../sell.ts`
+- [x] T029 [US2] Generate Slack receipt templates (player + co-located summary) in `apps/slack/src/views/guild-shop.ts`
+- [x] T030 [US2] Add logging for trade outcomes with correlation IDs `apps/dm/src/modules/shop/shop.logger.ts`
+- [x] T031 [US2] Update quickstart with buy/sell testing instructions in `specs/001-hq-market-crier/quickstart.md`
 
 ## Phase 5: User Story 3 – Hear Town Crier Announcements (Priority: P3)
 
