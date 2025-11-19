@@ -12,6 +12,7 @@ export const COMMANDS = {
   SNIFF: 'sniff',
   MOVE: 'move',
   TELEPORT: 'teleport',
+  GUILD: 'guild',
   DELETE: 'delete',
   COMPLETE: 'complete',
   REROLL: 'reroll',

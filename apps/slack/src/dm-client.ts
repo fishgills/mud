@@ -8,6 +8,7 @@ import type {
   PlayerItem,
   Prisma,
 } from '@mud/database';
+import type { GuildTeleportResponse } from '@mud/api-contracts';
 
 export type JsonMap = Record<string, unknown>;
 type JsonBody = JsonMap | unknown;
@@ -375,6 +376,20 @@ export async function teleportPlayer(params: {
   });
 }
 
+export async function guildTeleport(params: {
+  teamId: string;
+  userId: string;
+}): Promise<GuildTeleportResponse> {
+  return dmRequest<GuildTeleportResponse>('/guild/teleport', HttpMethod.POST, {
+    body: {
+      teamId: params.teamId,
+      userId: params.userId,
+      requestedAt: new Date().toISOString(),
+      correlationId: `slack-${params.userId}-${Date.now()}`,
+    },
+  });
+}
+
 export async function attack(input: AttackRequest): Promise<CombatResponse> {
   return dmRequest<CombatResponse>('/players/attack', HttpMethod.POST, {
     body: input,
@@ -584,6 +599,7 @@ export const dmClient = {
   getPlayer,
   movePlayer,
   teleportPlayer,
+  guildTeleport,
   attack,
   spendSkillPoint,
   rerollPlayerStats,

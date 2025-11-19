@@ -57,7 +57,7 @@ yarn turbo run test --filter=@mud/dm -- teleport-guild
 
 ```bash
 yarn turbo run test --filter=@mud/dm -- shop
-yarn turbo run test --filter=@mud/slack -- guild-commands
+yarn workspace @mud/slack test -- commandHandlers
 ```
 
 5. Confirm `TransactionReceipt` rows and EventBus messages exist in DB/logs.

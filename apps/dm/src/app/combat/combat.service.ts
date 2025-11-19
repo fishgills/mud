@@ -89,6 +89,7 @@ export class CombatService {
   private prisma = getPrismaClient();
   private messenger: CombatMessenger;
   private readonly subscriptions: Array<() => void> = [];
+  private readonly activePlayerCombats = new Set<number>();
 
   constructor(
     private playerService: PlayerService,
@@ -628,6 +629,20 @@ export class CombatService {
     let messagePerf: CombatMessagePerformance | undefined;
     let messages: CombatMessage[] = [];
 
+    const trackedPlayers = new Set<number>();
+    const markInCombat = (combatant?: Combatant) => {
+      if (combatant && combatant.type === 'player') {
+        this.activePlayerCombats.add(combatant.id);
+        trackedPlayers.add(combatant.id);
+      }
+    };
+    const clearTracked = () => {
+      trackedPlayers.forEach((playerId) =>
+        this.activePlayerCombats.delete(playerId),
+      );
+      trackedPlayers.clear();
+    };
+
     try {
       const loadStart = Date.now();
       // Resolve attacker based on type with runtime checks to narrow the union type
@@ -689,6 +704,9 @@ export class CombatService {
       this.logger.debug(
         `Combatants loaded: ${attacker.name} (${attacker.hp} HP) vs ${defender.name} (${defender.hp} HP)`,
       );
+
+      markInCombat(attacker);
+      markInCombat(defender);
 
       const validationStart = Date.now();
       if (!attacker.isAlive || !defender.isAlive) {
@@ -884,6 +902,8 @@ export class CombatService {
         }),
       );
       throw error;
+    } finally {
+      clearTracked();
     }
   }
 
@@ -978,10 +998,8 @@ export class CombatService {
       return;
     }
 
-    const teamId =
-      combatant.slackUser?.teamId ?? combatant.identifier?.teamId;
-    const userId =
-      combatant.slackUser?.userId ?? combatant.identifier?.userId;
+    const teamId = combatant.slackUser?.teamId ?? combatant.identifier?.teamId;
+    const userId = combatant.slackUser?.userId ?? combatant.identifier?.userId;
 
     try {
       await EventBus.emit({
@@ -998,5 +1016,9 @@ export class CombatService {
         `Failed to emit player activity for combatant ${combatant.id} (${source}): ${error instanceof Error ? error.message : error}`,
       );
     }
+  }
+
+  isPlayerInCombat(playerId: number): boolean {
+    return this.activePlayerCombats.has(playerId);
   }
 }

@@ -40,20 +40,20 @@ description: 'Task list template for feature implementation'
 
 ### Tests
 
-- [ ] T010 [US1] Extend `apps/dm/test-dm.sh` with `guild-teleport` scenario covering cooldown/combat blocks
-- [ ] T011 [P] [US1] Add Jest unit tests for teleport service (`apps/dm/src/modules/teleport/teleport.service.spec.ts`)
-- [ ] T012 [P] [US1] Add contract tests for `/guild/teleport` in `libs/api-contracts/tests/guild.teleport.spec.ts`
+- [x] T010 [US1] Extend `apps/dm/test-dm.sh` with `guild-teleport` scenario covering cooldown/combat blocks
+- [x] T011 [P] [US1] Add Jest unit tests for teleport service (`apps/dm/src/modules/teleport/teleport.service.spec.ts`)
+- [x] T012 [P] [US1] Add contract tests for `/guild/teleport` in `libs/api-contracts/tests/guild.teleport.spec.ts`
 
 ### Implementation
 
-- [ ] T013 [US1] Implement teleport eligibility checks + cooldown writes in `apps/dm/src/modules/teleport/teleport.service.ts`
-- [ ] T014 [US1] Add Prisma repository for `PlayerGuildState` in `apps/dm/src/modules/teleport/teleport.repository.ts`
-- [ ] T015 [P] [US1] Implement `/guild/teleport` controller + DTO validation in `apps/dm/src/modules/teleport/teleport.controller.ts`
-- [ ] T016 [US1] Update EventBus publisher to emit `guild.teleport.arrived` and occupant notifications in `apps/dm/src/modules/teleport/teleport.publisher.ts`
-- [ ] T017 [US1] Implement Slack command handler `apps/slack/src/commands/guild.ts` with acknowledgement + DM copy
-- [ ] T018 [US1] Log teleport attempts (success/failure) with correlation IDs in `apps/dm/src/modules/teleport/teleport.logger.ts`
-- [ ] T019 [US1] Add monitoring metrics (Datadog span `guild.command`) in `apps/dm/src/modules/teleport/teleport.metrics.ts`
-- [ ] T020 [US1] Update quickstart with teleport troubleshooting section `specs/001-hq-market-crier/quickstart.md`
+- [x] T013 [US1] Implement teleport eligibility checks + cooldown writes in `apps/dm/src/modules/teleport/teleport.service.ts`
+- [x] T014 [US1] Add Prisma repository for `PlayerGuildState` in `apps/dm/src/modules/teleport/teleport.repository.ts`
+- [x] T015 [P] [US1] Implement `/guild/teleport` controller + DTO validation in `apps/dm/src/modules/teleport/teleport.controller.ts`
+- [x] T016 [US1] Update EventBus publisher to emit `guild.teleport.arrived` and occupant notifications in `apps/dm/src/modules/teleport/teleport.publisher.ts`
+- [x] T017 [US1] Implement Slack command handler `apps/slack/src/handlers/guild.ts` with acknowledgement + DM copy
+- [x] T018 [US1] Log teleport attempts (success/failure) with correlation IDs in `apps/dm/src/modules/teleport/teleport.service.ts`
+- [x] T019 [US1] Add monitoring metrics (Datadog span `guild.command`) in `apps/dm/src/modules/teleport/teleport.metrics.ts`
+- [x] T020 [US1] Update quickstart with teleport troubleshooting section `specs/001-hq-market-crier/quickstart.md`
 
 ## Phase 4: User Story 2 – Trade Items at Guild Market (Priority: P2)
 

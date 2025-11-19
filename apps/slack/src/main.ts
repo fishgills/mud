@@ -109,6 +109,7 @@ import './handlers/complete';
 import './handlers/delete';
 import './handlers/map';
 import './handlers/teleport';
+import './handlers/guild';
 import './handlers/stats';
 import './handlers/inventory';
 import './handlers/pickup';

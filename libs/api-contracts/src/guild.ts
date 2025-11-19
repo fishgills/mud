@@ -5,13 +5,17 @@ export interface GuildServicesStatus {
 }
 
 export interface GuildTeleportRequest {
-  playerId: string;
-  correlationId: string;
+  teamId: string;
+  userId: string;
+  playerId?: string;
+  correlationId?: string;
   sourceTileId?: string;
   requestedAt: string;
 }
 
 export interface GuildTeleportResponse {
+  success?: boolean;
+  message?: string;
   playerId: string;
   guildTileId: string;
   arrivalMessage: string;

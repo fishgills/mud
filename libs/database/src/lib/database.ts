@@ -41,6 +41,11 @@ export type {
   PlayerItem,
   WorldItem,
   SlackUser,
+  GuildHall,
+  PlayerGuildState,
+  ShopCatalogItem,
+  TransactionReceipt,
+  AnnouncementRecord,
 } from '@prisma/client';
 
 export type { ItemQuality as ItemQualityType } from '@prisma/client';

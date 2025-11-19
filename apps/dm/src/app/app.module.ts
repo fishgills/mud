@@ -15,6 +15,7 @@ import {
   ItemController,
   LocationController,
 } from './api/controllers';
+import { TeleportController } from '../modules/teleport/teleport.controller';
 import { CoordinationService } from '../shared/coordination.service';
 import { EventBridgeService } from '../shared/event-bridge.service';
 import {
@@ -30,6 +31,9 @@ import { PlayerNotificationService } from './player/player-notification.service'
 import { LocationNotificationService } from './notifications/location-notification.service';
 import { PlayerItemService } from './player/player-item.service';
 import { LootService } from './monster/loot.service';
+import { TeleportService } from '../modules/teleport/teleport.service';
+import { TeleportRepository } from '../modules/teleport/teleport.repository';
+import { TeleportPublisher } from '../modules/teleport/teleport.publisher';
 
 @Module({
   imports: [AiModule],
@@ -40,6 +44,7 @@ import { LootService } from './monster/loot.service';
     SystemController,
     ItemController,
     LocationController,
+    TeleportController,
   ],
   providers: [
     AppService,
@@ -62,6 +67,9 @@ import { LootService } from './monster/loot.service';
     LocationNotificationService,
     PlayerItemService,
     LootService,
+    TeleportService,
+    TeleportRepository,
+    TeleportPublisher,
   ],
 })
 export class AppModule {}

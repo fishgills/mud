@@ -20,8 +20,11 @@
   "dependencies": {
     "@dice-roller/rpg-dice-roller": "^5.5.1",
     "@google-cloud/vertexai": "^1.10.0",
+    "@mud/api-contracts": "*",
     "@mud/constants": "*",
     "@mud/database": "*",
+    "@mud/event-bus": "*",
+    "@mud/logging": "*",
     "@mud/redis-client": "*",
     "@mud/tracer": "*",
     "@nestjs/common": "^11.1.6",

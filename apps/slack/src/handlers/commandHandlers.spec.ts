@@ -10,6 +10,7 @@ jest.mock('../dm-client', () => {
     movePlayer: jest.fn(),
     rerollPlayerStats: jest.fn(),
     teleportPlayer: jest.fn(),
+    guildTeleport: jest.fn(),
   };
   return { dmClient };
 });
@@ -42,6 +43,7 @@ import type { HandlerContext, SayMessage } from './types';
 import { setSlackApp } from '../appContext';
 import type { App } from '@slack/bolt';
 import { teleportHandler } from './teleport';
+import { guildHandler } from './guild';
 import { getOccupantsSummaryAt } from './locationUtils';
 import { buildHqBlockedMessage } from './hqUtils';
 
@@ -56,6 +58,7 @@ const mockedDmClient = dmClient as unknown as {
   movePlayer: jest.Mock;
   rerollPlayerStats: jest.Mock;
   teleportPlayer: jest.Mock;
+  guildTeleport: jest.Mock;
 };
 
 const mockedSendPngMap = sendPngMap as unknown as jest.MockedFunction<
@@ -1284,5 +1287,56 @@ describe('teleportHandler', () => {
     expect(say).toHaveBeenCalledWith({
       text: `You are already inside HQ. Use "${COMMANDS.TELEPORT} return" to go back to your last location or "${COMMANDS.TELEPORT} random" to spawn at a safe spot.`,
     });
+  });
+});
+
+describe('guildHandler', () => {
+  it('teleports player to guild and reports services', async () => {
+    const say = makeSay();
+    mockedDmClient.guildTeleport.mockResolvedValueOnce({
+      success: true,
+      arrivalMessage: 'Welcome to the guild.',
+      services: { shop: true, crier: true, exits: ['return'] },
+      occupantsNotified: ['7'],
+      correlationId: 'corr',
+    });
+
+    await guildHandler.handle({
+      userId: 'U1',
+      text: COMMANDS.GUILD,
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
+
+    expect(mockedDmClient.guildTeleport).toHaveBeenCalledWith({
+      teamId: 'T1',
+      userId: 'U1',
+    });
+    expect(say).toHaveBeenCalledWith({
+      text: expect.stringContaining('Welcome to the guild.'),
+    });
+  });
+
+  it('surfaces DM errors', async () => {
+    const say = makeSay();
+    mockedDmClient.guildTeleport.mockResolvedValueOnce({
+      success: false,
+      message: 'cooldown',
+      occupantsNotified: [],
+      services: { shop: false, crier: false, exits: [] },
+      arrivalMessage: '',
+      playerId: '42',
+      guildTileId: 'guild',
+      correlationId: 'err',
+    });
+
+    await guildHandler.handle({
+      userId: 'U1',
+      text: COMMANDS.GUILD,
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
+
+    expect(say).toHaveBeenCalledWith({ text: 'cooldown' });
   });
 });
