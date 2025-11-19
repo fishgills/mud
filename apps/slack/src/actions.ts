@@ -8,6 +8,7 @@ import { registerPickupActions } from './actions/pickupActions';
 import { registerStatActions } from './actions/statActions';
 import { registerCombatLogActions } from './actions/combatLogActions';
 import { registerInspectActions } from './actions/inspectActions';
+import { registerGuildShopActions } from './actions/guildShopActions';
 
 export const registerActions = (app: App) => {
   registerHelpActions(app);
@@ -19,4 +20,5 @@ export const registerActions = (app: App) => {
   registerStatActions(app);
   registerCombatLogActions(app);
   registerInspectActions(app);
+  registerGuildShopActions(app);
 };

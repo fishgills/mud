@@ -4,7 +4,7 @@
 
 - Node.js 20+, Yarn 1.22+
 - Slack app credentials configured via existing `.env.local` conventions (do **not** commit secrets)
-- Invite the Slack bot to both a DM and a throwaway channel once `yarn serve` is running; guild commands are ignored when the bot is absent.
+- Invite the Slack bot to both a DM and a throwaway channel once `yarn serve` is running; commands like `guild`, `catalog`, and `inventory` are ignored when the bot is absent.
 - Export `SLACK_SIGNING_SECRET`, `SLACK_BOT_TOKEN`, and `DATABASE_URL` in your shell session (never commit them).
 - PostgreSQL + Redis instances available via `docker-compose` or shared dev cluster
 - Datadog API key configured for tracing/logging (optional locally)
@@ -32,9 +32,20 @@ node apps/dm/scripts/seed-guild.js \
   --reset
 ```
 
-- Catalog and announcement fixtures live in `apps/dm/scripts/data` and can be copied or extended for feature work.
-- The DM Docker entrypoint now runs the same seed command automatically during deployments (guarded by `GUILD_SEED_ENABLED`, `GUILD_SEED_CATALOG_PATH`, etc.), so production clusters stay consistent.
+- The catalog fixture now seeds base `Item` templates in the database; active shop inventory is built from those templates at runtime.
+- The DM Docker entrypoint runs the same seed command automatically during deployments (guarded by `GUILD_SEED_ENABLED`, `GUILD_SEED_CATALOG_PATH`, etc.), so production clusters stay consistent.
 - Use `--reset` to clear previous catalog + announcement rows before inserting the provided fixtures.
+
+⚙️ **Guild Shop Rotation**
+
+- A dedicated Nest worker (`GuildShopRotationService`) rotates six random catalog entries every 5 minutes, selecting from the global `Item` table.
+- For faster testing you can force a manual rotation:
+
+```bash
+curl -X POST http://localhost:3000/dm/guild/shop/rotate
+```
+
+- Active catalog entries are the ones with `isActive = true` in `ShopCatalogItem`; older entries are archived so historical receipts still resolve.
 
 ## 4. Test `guild` Teleport Flow
 
@@ -50,9 +61,9 @@ yarn turbo run test --filter=@mud/dm -- teleport-guild
 
 ## 5. Test Shop Commands
 
-1. While at the guild, issue `buy potion`.
-2. Validate Slack receipt + gold balance update.
-3. Issue `sell potion` to verify the reverse flow.
+1. While at the guild, issue `catalog` to see available items.
+2. Use the catalog buttons to purchase items and confirm gold/inventory changes.
+3. Open `inventory` while inside the guild and use the Sell buttons next to backpack items to offload loot.
 4. Run targeted tests:
 
 ```bash

@@ -1,1 +1,1 @@
-export * from './events/guild';
+export * from './events/guild.js';

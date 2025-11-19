@@ -1,7 +1,7 @@
 import type { KnownBlock } from '@slack/types';
 import { HandlerContext } from './types';
 import { COMMANDS, HELP_ACTIONS } from '../commands';
-import { SafeCommandHandler } from './base';
+import { PlayerCommandHandler } from './base';
 
 export const helpHandlerHelp = `Show instructions for using the bot with "help".`;
 
@@ -135,15 +135,45 @@ export const buildHelpBlocks = (): KnownBlock[] => [
   },
 ];
 
-export class HelpHandler extends SafeCommandHandler {
+const buildGuildHelpBlocks = (): KnownBlock[] => [
+  {
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: '🏰 *Guild Hall Services*\nYou are inside the Guild. Take advantage of the quick commands below:',
+    },
+  },
+  {
+    type: 'section',
+    fields: [
+      {
+        type: 'mrkdwn',
+        text: `• \`${COMMANDS.GUILD}\` - Teleport here from anywhere (cooldown applies)\n• \`${COMMANDS.CATALOG}\` - View the rotating shop list\n• Use \`${COMMANDS.CATALOG}\` buttons to buy and \`${COMMANDS.INVENTORY}\` buttons to sell items.`,
+      },
+      {
+        type: 'mrkdwn',
+        text: 'The catalog rotates every 5 minutes. Check the messages from the town crier and merchants for new arrivals.',
+      },
+    ],
+  },
+  { type: 'divider' },
+];
+
+export class HelpHandler extends PlayerCommandHandler {
   constructor() {
-    super(COMMANDS.HELP, 'Failed to show help');
+    super(COMMANDS.HELP, 'Failed to show help', {
+      loadPlayer: true,
+      requirePlayer: false,
+    });
   }
 
   protected async perform({ say }: HandlerContext): Promise<void> {
+    const blocks = this.player?.isInHq
+      ? [...buildGuildHelpBlocks(), ...buildHelpBlocks()]
+      : buildHelpBlocks();
     await say({
       text: 'MUD Bot Commands',
-      blocks: buildHelpBlocks(),
+      blocks,
     });
   }
 }

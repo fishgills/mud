@@ -41,6 +41,8 @@ export interface GuildTradeResponse {
   inventoryDelta: number;
   stockRemaining: number;
   correlationId: string;
+  itemName?: string;
+  itemQuality?: string;
 }
 
 export interface GuildErrorResponse {
@@ -75,4 +77,18 @@ export interface GuildAnnouncementPollResponse {
   announced: boolean;
   announcement?: GuildAnnouncementPayload;
   correlationId?: string;
+}
+
+export interface GuildCatalogItem {
+  sku: string;
+  name: string;
+  description?: string;
+  buyPriceGold: number;
+  sellPriceGold: number;
+  stockQuantity: number;
+  tags: string[];
+  attack?: number;
+  defense?: number;
+  healthBonus?: number;
+  quality?: string;
 }

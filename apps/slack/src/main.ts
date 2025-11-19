@@ -113,6 +113,7 @@ import './handlers/teleport';
 import './handlers/buy';
 import './handlers/sell';
 import './handlers/guild';
+import './handlers/catalog';
 import './handlers/stats';
 import './handlers/inventory';
 import './handlers/pickup';

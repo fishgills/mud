@@ -1372,7 +1372,7 @@ describe('buyHandler', () => {
     expect(mockedDmClient.guildBuyItem).toHaveBeenCalledWith({
       teamId: 'T1',
       userId: 'U1',
-      item: 'potion',
+      sku: 'potion',
     });
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1402,15 +1402,9 @@ describe('sellHandler', () => {
       teamId: 'T1',
     } as HandlerContext);
 
-    expect(mockedDmClient.guildSellItem).toHaveBeenCalledWith({
-      teamId: 'T1',
-      userId: 'U1',
-      item: 'sword',
+    expect(mockedDmClient.guildSellItem).not.toHaveBeenCalled();
+    expect(say).toHaveBeenCalledWith({
+      text: `Use the \`${COMMANDS.INVENTORY}\` sell buttons while inside the guild.`,
     });
-    expect(say).toHaveBeenCalledWith(
-      expect.objectContaining({
-        text: expect.stringContaining('Sold'),
-      }),
-    );
   });
 });

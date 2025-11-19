@@ -22,6 +22,7 @@ export const COMMANDS = {
   PICKUP: 'pickup',
   EQUIP: 'equip',
   LOOT: 'loot',
+  CATALOG: 'catalog',
   // Movement (text aliases)
   NORTH: 'north',
   SOUTH: 'south',
@@ -90,4 +91,9 @@ export const STAT_ACTIONS = {
 export const COMBAT_ACTIONS = {
   SHOW_LOG: 'combat_action_show_log',
   HIDE_LOG: 'combat_action_hide_log',
+} as const;
+
+export const GUILD_SHOP_ACTIONS = {
+  BUY: 'guild_shop_action_buy',
+  SELL: 'guild_shop_action_sell',
 } as const;

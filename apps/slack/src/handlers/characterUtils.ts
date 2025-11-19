@@ -6,7 +6,7 @@ import { dmClient } from '../dm-client';
 /**
  * Friendly message shown when a user doesn't have a character yet
  */
-export const MISSING_CHARACTER_MESSAGE = `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`;
+export const MISSING_CHARACTER_MESSAGE = `You don't have a character yet! Use \`${COMMANDS.NEW} CharacterName\` to create one.`;
 
 /**
  * Requires a character to exist for the current user.

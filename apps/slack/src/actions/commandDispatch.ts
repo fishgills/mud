@@ -8,11 +8,19 @@ export const dispatchCommandViaDM = async (
   command: string,
   teamId?: string,
 ) => {
-  const handler = getAllHandlers()[command];
+  const normalized = command.trim();
+  if (!normalized) return;
+  const [commandName] = normalized.split(/\s+/);
+  const handler = getAllHandlers()[commandName];
   if (!handler) return;
   const dm = await client.conversations.open({ users: userId });
   const channel = dm.channel?.id;
   if (!channel) return;
   const say = buildSayHelper(client, channel);
-  await handler({ userId, text: command, say, teamId: teamId! });
+  await handler({
+    userId,
+    text: normalized,
+    say,
+    teamId: teamId ?? 'unknown',
+  });
 };

@@ -85,6 +85,8 @@ Example: `Hero attack: d20 15 + 2 (Str) + 3 (Equipment) = 20 vs AC 10 + 1 (Agi) 
 - `GUILD_SEED_CATALOG_PATH` / `GUILD_SEED_ANNOUNCEMENTS_PATH`: Override the default fixture locations (`apps/dm/scripts/data/*.json`) when seeding.
 - `GUILD_SEED_TILE`, `GUILD_SEED_NAME`, `GUILD_SEED_COORDS`, `GUILD_SEED_ARRIVAL`, `GUILD_SEED_COOLDOWN_SECONDS`, `GUILD_SEED_POPULATION_LIMIT`: Customize guild metadata applied during seeding.
 - `GUILD_SEED_RESET`: Set to `true` only when you intentionally want to wipe and recreate catalog/announcement rows.
+- `GUILD_SHOP_ROTATION_SIZE`: Number of item templates to surface per rotation (default 6).
+- `GUILD_SHOP_ROTATION_INTERVAL_MS`: Interval between automatic catalog refreshes (default 300000 ms / 5 minutes).
 
 ## Deployment
 

@@ -8,8 +8,11 @@ import type {
   PlayerItem,
   Prisma,
 } from '@mud/database';
-import type { GuildTradeResponse } from '@mud/api-contracts';
-import type { GuildTeleportResponse } from '@mud/api-contracts';
+import type {
+  GuildTradeResponse,
+  GuildTeleportResponse,
+  GuildCatalogItem as GuildCatalogItemContract,
+} from '@mud/api-contracts';
 
 export type JsonMap = Record<string, unknown>;
 type JsonBody = JsonMap | unknown;
@@ -51,10 +54,21 @@ async function dmRequest<T>(
   });
 
   if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(
-      `DM ${method} ${url.pathname} failed: ${response.status} ${response.statusText} ${text}`,
-    );
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const data = (await response.json()) as Record<string, unknown>;
+      if (data && typeof data.message === 'string') {
+        message = data.message;
+      } else {
+        message = `${message} ${JSON.stringify(data)}`;
+      }
+    } catch {
+      const text = await response.text().catch(() => '');
+      if (text) {
+        message = text;
+      }
+    }
+    throw new Error(message);
   }
 
   return (await response.json()) as T;
@@ -380,14 +394,14 @@ export async function teleportPlayer(params: {
 export async function guildBuyItem(params: {
   teamId: string;
   userId: string;
-  item: string;
+  sku: string;
   quantity?: number;
 }): Promise<GuildTradeResponse> {
   return dmRequest('/guild/shop/buy', HttpMethod.POST, {
     body: {
       teamId: params.teamId,
       userId: params.userId,
-      item: params.item,
+      sku: params.sku,
       quantity: params.quantity,
     },
   });
@@ -396,15 +410,13 @@ export async function guildBuyItem(params: {
 export async function guildSellItem(params: {
   teamId: string;
   userId: string;
-  item?: string;
-  playerItemId?: number;
+  playerItemId: number;
   quantity?: number;
 }): Promise<GuildTradeResponse> {
   return dmRequest('/guild/shop/sell', HttpMethod.POST, {
     body: {
       teamId: params.teamId,
       userId: params.userId,
-      item: params.item,
       playerItemId: params.playerItemId,
       quantity: params.quantity,
     },
@@ -423,6 +435,12 @@ export async function guildTeleport(params: {
       correlationId: `slack-${params.userId}-${Date.now()}`,
     },
   });
+}
+
+export type GuildCatalogItem = GuildCatalogItemContract;
+
+export async function guildListCatalog(): Promise<GuildCatalogItem[]> {
+  return dmRequest<GuildCatalogItem[]>('/guild/shop/list', HttpMethod.GET);
 }
 
 export async function attack(input: AttackRequest): Promise<CombatResponse> {
@@ -637,6 +655,7 @@ export const dmClient = {
   guildBuyItem,
   guildSellItem,
   guildTeleport,
+  guildListCatalog,
   attack,
   spendSkillPoint,
   rerollPlayerStats,

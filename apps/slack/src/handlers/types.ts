@@ -15,9 +15,8 @@ export type HandlerContext = {
   // Allow plain text, Block Kit, or request a file upload
   say: (msg: SayMessage) => Promise<void>;
   text: string;
+  teamId: string;
   // Helper to resolve a Slack username or mention to a Slack user ID within this workspace
   resolveUserId?: (nameOrMention: string) => Promise<string | undefined>;
   client?: WebClient;
-  // Slack workspace team ID for multi-workspace support
-  teamId: string;
 };

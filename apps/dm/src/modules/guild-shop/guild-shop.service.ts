@@ -3,13 +3,14 @@ import { randomUUID } from 'crypto';
 import { PlayerService } from '../../app/player/player.service';
 import { GuildShopRepository } from './guild-shop.repository';
 import { GuildShopPublisher } from './guild-shop.publisher';
-import type { Player } from '@mud/database';
+import type { Player, Item } from '@mud/database';
 import type { GuildTradeResponse } from '@mud/api-contracts';
 
 interface BuyRequest {
   teamId: string;
   userId: string;
-  item: string;
+  sku?: string;
+  item?: string;
   quantity?: number;
 }
 
@@ -31,11 +32,53 @@ export class GuildShopService {
     private readonly publisher: GuildShopPublisher,
   ) {}
 
+  async listCatalog(): Promise<
+    Array<{
+      sku: string;
+      name: string;
+      description: string;
+      buyPriceGold: number;
+      sellPriceGold: number;
+      stockQuantity: number;
+      tags: string[];
+      attack?: number | null;
+      defense?: number | null;
+      healthBonus?: number | null;
+      quality?: string | null;
+    }>
+  > {
+    const entries = await this.repository.listActiveCatalog();
+    return entries.map((entry) => ({
+      sku: entry.sku,
+      name: entry.name,
+      description: entry.description ?? '',
+      buyPriceGold: entry.buyPriceGold,
+      sellPriceGold: entry.sellPriceGold ?? Math.floor(entry.buyPriceGold / 2),
+      stockQuantity: entry.stockQuantity ?? 0,
+      tags: entry.tags ?? [],
+      attack: entry.itemTemplate?.attack ?? null,
+      defense: entry.itemTemplate?.defense ?? null,
+      healthBonus: entry.itemTemplate?.healthBonus ?? null,
+      quality:
+        entry.itemTemplate && 'quality' in entry.itemTemplate
+          ? ((entry.itemTemplate as Item & { quality?: string | null })
+              .quality ?? null)
+          : null,
+    }));
+  }
+
   async buy(data: BuyRequest): Promise<GuildTradeResponse> {
     const player = await this.playerService.getPlayer(data.teamId, data.userId);
     this.ensurePlayerInsideGuild(player);
 
-    const catalogItem = await this.repository.findCatalogItemByTerm(data.item);
+    const searchTerm = data.sku ?? data.item;
+    if (!searchTerm) {
+      throw new BadRequestException('Select an item from the guild catalog.');
+    }
+
+    const catalogItem = data.sku
+      ? await this.repository.findCatalogItemBySku(data.sku)
+      : await this.repository.findCatalogItemByTerm(searchTerm);
     if (!catalogItem) {
       throw new BadRequestException('No guild shop item matches your request.');
     }
@@ -58,7 +101,7 @@ export class GuildShopService {
         goldDelta: purchase.receipt.goldDelta,
         remainingGold: purchase.updatedPlayer.gold,
         inventoryDelta: purchase.createdPlayerItem.quantity,
-        stockRemaining: catalogItem.stockQuantity - quantity,
+        stockRemaining: purchase.catalogItem.stockQuantity - quantity,
         correlationId,
       };
 
@@ -92,11 +135,7 @@ export class GuildShopService {
     const catalog = await this.repository.findCatalogByTemplate(
       playerItem.itemId,
     );
-    if (!catalog) {
-      throw new BadRequestException(
-        'The guild is not buying this type of item right now.',
-      );
-    }
+    // Removed check for catalog existence to allow selling unlisted items
 
     try {
       const result = await this.repository.sellItem(
@@ -110,13 +149,15 @@ export class GuildShopService {
       const response: GuildTradeResponse = {
         receiptId: result.receipt.id.toString(),
         playerId: player.id.toString(),
-        itemId: catalog.id.toString(),
+        itemId: catalog?.id.toString() ?? '0', // Use '0' for unlisted items
         direction: 'SELL',
         goldDelta: result.receipt.goldDelta,
         remainingGold: result.updatedPlayer.gold,
         inventoryDelta: -quantity,
-        stockRemaining: catalog.stockQuantity + quantity,
+        stockRemaining: (catalog?.stockQuantity ?? 0) + quantity,
         correlationId,
+        itemName: result.itemName,
+        itemQuality: result.itemQuality,
       };
 
       await this.publisher.publishReceipt(response);

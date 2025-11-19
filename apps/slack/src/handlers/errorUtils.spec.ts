@@ -9,7 +9,7 @@ describe('handlePlayerNotFoundError', () => {
     const error = new Error('Player not found');
 
     expect(handlePlayerNotFoundError(error)).toBe(
-      `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`,
+      `You don't have a character yet! Use \`${COMMANDS.NEW} CharacterName\` to create one.`,
     );
   });
 
@@ -25,7 +25,7 @@ describe('getUserFriendlyErrorMessage', () => {
     const error = new Error('Player not found');
 
     expect(getUserFriendlyErrorMessage(error, defaultMessage)).toBe(
-      `You don't have a character yet! Use "${COMMANDS.NEW} CharacterName" to create one.`,
+      `You don't have a character yet! Use \`${COMMANDS.NEW} CharacterName\` to create one.`,
     );
   });
 

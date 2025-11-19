@@ -39,6 +39,9 @@ import { TeleportPublisher } from '../modules/teleport/teleport.publisher';
 import { GuildShopService } from '../modules/guild-shop/guild-shop.service';
 import { GuildShopRepository } from '../modules/guild-shop/guild-shop.repository';
 import { GuildShopPublisher } from '../modules/guild-shop/guild-shop.publisher';
+import { GuildShopRotationService } from '../modules/guild-shop/guild-shop-rotation.service';
+import { GuildShopRotationScheduler } from '../modules/guild-shop/guild-shop-rotation.scheduler';
+import { GuildShopRotationInitializer } from '../modules/guild-shop/guild-shop-rotation.initializer';
 import { GuildAnnouncementsService } from '../modules/guild-announcements/guild-announcements.service';
 import { GuildAnnouncementsRepository } from '../modules/guild-announcements/guild-announcements.repository';
 import { GuildAnnouncementsPublisher } from '../modules/guild-announcements/guild-announcements.publisher';
@@ -84,6 +87,9 @@ import { GuildAnnouncementsScheduler } from '../modules/guild-announcements/guil
     GuildShopService,
     GuildShopRepository,
     GuildShopPublisher,
+    GuildShopRotationService,
+    GuildShopRotationScheduler,
+    GuildShopRotationInitializer,
     GuildAnnouncementsService,
     GuildAnnouncementsRepository,
     GuildAnnouncementsPublisher,

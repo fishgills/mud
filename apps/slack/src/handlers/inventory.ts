@@ -1,4 +1,4 @@
-import { COMMANDS } from '../commands';
+import { COMMANDS, GUILD_SHOP_ACTIONS } from '../commands';
 import { getPlayerItems, ItemRecord } from '../dm-client';
 import type { PlayerRecord } from '../dm-client';
 import { MISSING_CHARACTER_MESSAGE } from './characterUtils';
@@ -83,6 +83,7 @@ ${title}`,
 
 const createBackpackItemBlocks = (
   item: ItemRecord,
+  opts?: { allowSell?: boolean },
 ): Array<KnownBlock | Block> => {
   const playerItemId = resolvePlayerItemId(item);
   const badge = getQualityBadge(item.quality ?? defaultQuality);
@@ -115,6 +116,14 @@ const createBackpackItemBlocks = (
       action_id: 'inventory_drop',
       value: String(playerItemId),
     });
+    if (opts?.allowSell) {
+      actions.push({
+        type: 'button',
+        text: { type: 'plain_text', text: 'Sell' },
+        action_id: GUILD_SHOP_ACTIONS.SELL,
+        value: String(playerItemId),
+      });
+    }
   }
 
   const blocks: Array<KnownBlock | Block> = [
@@ -185,6 +194,7 @@ const formatSlotValue = (
 const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
   const equipment = player.equipment ?? {};
   const bag = (player as PlayerWithBag).bag ?? [];
+  const inGuild = Boolean(player.isInHq);
   const bagById = new Map<number, ItemRecord>();
   bag.forEach((item) => {
     if (typeof item.id === 'number') {
@@ -312,7 +322,7 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
     });
   } else {
     unequippedItems.forEach((item) => {
-      blocks.push(...createBackpackItemBlocks(item));
+      blocks.push(...createBackpackItemBlocks(item, { allowSell: inGuild }));
     });
   }
 

@@ -45,6 +45,10 @@ const buildEnv = () => {
     DM_OPENAI_TIMEOUT_MS: num({ default: 800 }),
     GUILD_TELEPORT_COOLDOWN: num({ default: 300 }),
     GUILD_POPULATION_LIMIT: num({ default: 50 }),
+    GUILD_SHOP_ROTATION_SIZE: num({ default: 6 }),
+    GUILD_SHOP_ROTATION_INTERVAL_MS: num({
+      default: 5 * 60 * 1000,
+    }),
   });
 };
 

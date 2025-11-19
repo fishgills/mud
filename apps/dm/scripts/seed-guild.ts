@@ -1,12 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 import process from 'process';
-import { PrismaClient } from '@mud/database';
+import { PrismaClient, type Item } from '@mud/database';
+import { env } from '../src/env';
+
+console.log(`Env database URL: ${env.DATABASE_URL}`);
 
 type SeedArgs = {
   tileSlug: string;
   tileName: string;
-  catalogFile: string;
+  catalogFile?: string;
   announcementsFile: string;
   coords?: string;
   arrivalMessage?: string;
@@ -26,6 +29,11 @@ type CatalogInput = {
   restockIntervalMinutes?: number;
   tags?: string[];
   isActive?: boolean;
+  itemType?: string;
+  slot?: string;
+  attack?: number;
+  defense?: number;
+  healthBonus?: number;
 };
 
 type AnnouncementInput = {
@@ -58,12 +66,12 @@ const parseArgs = (): SeedArgs => {
 
   const tileSlug = (args.tile as string) ?? 'guild-hall';
   const tileName = (args.name as string) ?? 'Adventurers Guild Hall';
-  const catalogFile = args.catalog as string;
+  const catalogFile = args.catalog as string | undefined;
   const announcementsFile = args.announcements as string;
 
-  if (!catalogFile || !announcementsFile) {
+  if (!announcementsFile) {
     throw new Error(
-      'Both --catalog <file> and --announcements <file> are required when seeding guild data.',
+      '--announcements <file> is required when seeding guild data.',
     );
   }
 
@@ -143,28 +151,93 @@ const seedGuildHall = async (args: SeedArgs) => {
   });
 };
 
-const seedCatalog = async (items: CatalogInput[], reset: boolean) => {
+const seedItemTemplates = async (
+  items: CatalogInput[],
+  reset: boolean,
+): Promise<void> => {
+  if (items.length === 0) return;
   if (reset) {
-    await prisma.transactionReceipt.deleteMany();
-    await prisma.shopCatalogItem.deleteMany();
+    await prisma.item.deleteMany({
+      where: {
+        name: { in: items.map((item) => item.name) },
+      },
+    });
   }
 
-  if (items.length === 0) return;
+  for (const [index, item] of items.entries()) {
+    const existing = await prisma.item.findFirst({
+      where: { name: item.name },
+    });
+    if (existing) {
+      continue;
+    }
+    await prisma.item.create({
+      data: {
+        name: item.name,
+        type: item.itemType ?? 'consumable',
+        description: item.description ?? '',
+        value: Math.max(1, item.buyPriceGold),
+        attack: item.attack ?? 0,
+        defense: item.defense ?? 0,
+        healthBonus: item.healthBonus ?? 0,
+        slot: item.slot ? (item.slot as never) : null,
+      },
+    });
+    if (index % 10 === 0) {
+      console.log(`  ➤ Ensured item template: ${item.name}`);
+    }
+  }
+};
+
+const computeBuyPrice = (item: Item): number => {
+  const base = Math.max(10, item.value ?? 0);
+  const variance = Math.round(base * 0.25 * Math.random());
+  return base + variance;
+};
+
+const computeSellPrice = (buyPrice: number): number =>
+  Math.max(1, Math.floor(buyPrice * 0.5));
+
+const computeStockQuantity = (): number =>
+  Math.max(1, 2 + Math.floor(Math.random() * 4));
+
+const seedInitialCatalogRotation = async (
+  rotationSize: number,
+): Promise<void> => {
+  const items = await prisma.$queryRaw<Item[]>`
+    SELECT *
+    FROM "Item"
+    WHERE "value" >= 0
+    ORDER BY RANDOM()
+    LIMIT ${Math.max(1, rotationSize)}
+  `;
+  if (!items.length) {
+    console.warn(
+      '⚠️  Skipping initial guild shop rotation - no items available.',
+    );
+    return;
+  }
 
   await prisma.shopCatalogItem.createMany({
-    data: items.map((item, index) => ({
-      sku: item.sku ?? `guild-item-${index + 1}`,
-      name: item.name,
-      description: item.description ?? '',
-      buyPriceGold: item.buyPriceGold,
-      sellPriceGold: item.sellPriceGold ?? Math.floor(item.buyPriceGold / 2),
-      stockQuantity: item.stockQuantity ?? 0,
-      maxStock: item.maxStock ?? item.stockQuantity ?? 0,
-      restockIntervalMinutes: item.restockIntervalMinutes ?? null,
-      tags: item.tags ?? [],
-      isActive: item.isActive ?? true,
-    })),
-    skipDuplicates: true,
+    data: items.map((item, index) => {
+      const buyPrice = computeBuyPrice(item);
+      const stockQuantity = computeStockQuantity();
+      return {
+        sku: `seed-${item.id}-${Date.now()}-${index}`,
+        name: item.name,
+        description: item.description ?? '',
+        buyPriceGold: buyPrice,
+        sellPriceGold: computeSellPrice(buyPrice),
+        stockQuantity,
+        maxStock: stockQuantity,
+        restockIntervalMinutes: Math.floor(
+          env.GUILD_SHOP_ROTATION_INTERVAL_MS / 60_000,
+        ),
+        tags: item.type ? [item.type] : [],
+        isActive: true,
+        itemTemplateId: item.id,
+      };
+    }),
   });
 };
 
@@ -198,17 +271,26 @@ const seedAnnouncements = async (
 (async () => {
   try {
     const args = parseArgs();
-    const catalog = readJsonFile<CatalogInput[]>(args.catalogFile);
+    const catalog = args.catalogFile
+      ? readJsonFile<CatalogInput[]>(args.catalogFile)
+      : [];
     const announcements = readJsonFile<AnnouncementInput[]>(
       args.announcementsFile,
     );
 
     await seedGuildHall(args);
-    await seedCatalog(catalog, args.reset);
+    if (catalog.length > 0) {
+      await seedItemTemplates(catalog, args.reset);
+    }
     await seedAnnouncements(announcements, args.reset);
+    if (args.reset) {
+      await prisma.transactionReceipt.deleteMany();
+      await prisma.shopCatalogItem.deleteMany();
+    }
+    await seedInitialCatalogRotation(env.GUILD_SHOP_ROTATION_SIZE);
 
     console.log(
-      `✅ Seeded guild hall (${args.tileSlug}) with ${catalog.length} catalog items and ${announcements.length} announcements`,
+      `✅ Seeded guild hall (${args.tileSlug}) with ${catalog.length} template items and ${announcements.length} announcements`,
     );
   } catch (error) {
     console.error('Guild seed failed:', error);

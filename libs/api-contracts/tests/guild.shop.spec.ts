@@ -3,10 +3,10 @@ describe('guild-shop contracts', () => {
     const request = {
       teamId: 'T1',
       userId: 'U1',
-      item: 'potion',
+      sku: 'potion',
       quantity: 2,
     };
-    expect(request.item).toBe('potion');
+    expect(request.sku).toBe('potion');
   });
 
   it('describes trade response shape', () => {
@@ -21,5 +21,23 @@ describe('guild-shop contracts', () => {
       stockRemaining: 5,
     };
     expect(response.direction).toBe('BUY');
+  });
+
+  it('supports catalog listing responses', () => {
+    const item = {
+      sku: 'guild-1',
+      name: 'Elixir',
+      description: 'Restores health',
+      buyPriceGold: 100,
+      sellPriceGold: 50,
+      stockQuantity: 3,
+      tags: ['consumable'],
+      attack: 0,
+      defense: 0,
+      healthBonus: 25,
+      quality: 'Fine',
+    };
+    expect(item.tags).toContain('consumable');
+    expect(item.healthBonus).toBeGreaterThan(0);
   });
 });
