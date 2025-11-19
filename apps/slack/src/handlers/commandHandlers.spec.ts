@@ -1133,7 +1133,7 @@ describe('moveHandler', () => {
       teamId: 'T1',
     } as HandlerContext);
 
-    expect(say).toHaveBeenCalledWith({ text: 'Move failed: blocked' });
+    expect(say).toHaveBeenCalledWith({ text: 'blocked' });
   });
 
   it('handles unexpected move errors', async () => {
@@ -1293,7 +1293,7 @@ describe('teleportHandler', () => {
     expect(mockedSendPngMap).not.toHaveBeenCalled();
     expect(mockedGetOccupantsSummaryAt).not.toHaveBeenCalled();
     expect(say).toHaveBeenCalledWith({
-      text: `You are already inside HQ. Use "${COMMANDS.TELEPORT} return" to go back to your last location or "${COMMANDS.TELEPORT} random" to spawn at a safe spot.`,
+      text: 'You are already inside HQ. Use `return` to go back to your last location or `random` to spawn at a safe spot.',
     });
   });
 });

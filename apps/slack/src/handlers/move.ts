@@ -119,7 +119,7 @@ export class MoveHandler extends PlayerCommandHandler {
       });
       dmMs = Date.now() - tDmStart;
       if (!result.success) {
-        await say({ text: `Move failed: ${result.message}` });
+        await say({ text: result.message ?? 'You cannot move right now.' });
         totalMs = Date.now() - t0;
         this.app.logger.info(
           { userId, movementLabel, dmMs, totalMs },

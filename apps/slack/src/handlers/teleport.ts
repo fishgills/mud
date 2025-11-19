@@ -20,7 +20,7 @@ const RANDOM_KEYWORDS = new Set(['random', 'fresh', 'new', 'wild']);
 
 const HQ_TILE_RADIUS = 8; // matches the move handler map radius for consistency
 
-export const teleportHandlerHelp = `Enter the HQ safe zone with "${COMMANDS.TELEPORT}". While inside, use "${COMMANDS.TELEPORT} return" to go back to your last location or "${COMMANDS.TELEPORT} random" for a fresh spawn.`;
+export const teleportHandlerHelp = `Enter the HQ safe zone with "${COMMANDS.TELEPORT}". While inside, use \`${COMMANDS.TELEPORT} return\` to go back to your last location or \`${COMMANDS.TELEPORT} random\` for a fresh spawn.`;
 
 function resolveRequestedMode(text: string): HqExitMode | undefined {
   const tokens = text.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -48,7 +48,7 @@ function fallbackTeleportMessage(result: TeleportResponse): string {
       return `You arrive inside HQ. ${coordText}`;
     }
     case 'awaiting_choice':
-      return `You are already inside HQ. Use "${COMMANDS.TELEPORT} return" to go back to your last location or "${COMMANDS.TELEPORT} random" to spawn at a safe spot.`;
+      return `You are already inside HQ. Use \`return\` to go back to your last location or \`random\` to spawn at a safe spot.`;
     case 'exited': {
       const dest = result.destination;
       if (dest && typeof dest.x === 'number' && typeof dest.y === 'number') {
