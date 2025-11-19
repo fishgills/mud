@@ -81,6 +81,10 @@ Example: `Hero attack: d20 15 + 2 (Str) + 3 (Equipment) = 20 vs AC 10 + 1 (Agi) 
 - `DATABASE_URL`: PostgreSQL connection string
 - `WORLD_SERVICE_URL`: URL for the world service (default: https://closet.battleforge.app/world)
 - `PORT`: Service port (default: 3000)
+- `GUILD_SEED_ENABLED`: When `true` (default) the Docker entrypoint seeds guild hall data on startup.
+- `GUILD_SEED_CATALOG_PATH` / `GUILD_SEED_ANNOUNCEMENTS_PATH`: Override the default fixture locations (`apps/dm/scripts/data/*.json`) when seeding.
+- `GUILD_SEED_TILE`, `GUILD_SEED_NAME`, `GUILD_SEED_COORDS`, `GUILD_SEED_ARRIVAL`, `GUILD_SEED_COOLDOWN_SECONDS`, `GUILD_SEED_POPULATION_LIMIT`: Customize guild metadata applied during seeding.
+- `GUILD_SEED_RESET`: Set to `true` only when you intentionally want to wipe and recreate catalog/announcement rows.
 
 ## Deployment
 

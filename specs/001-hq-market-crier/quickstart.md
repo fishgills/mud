@@ -25,15 +25,15 @@ yarn serve            # spins up dm, slack, world, tick
 # Seed guild hall tile + catalog + announcements
 node apps/dm/scripts/seed-guild.js \
   --tile "guild-hall" \
-  --catalog ./data/guild-catalog.json \
-  --announcements ./data/guild-announcements.json \
+  --catalog ./apps/dm/scripts/data/guild-catalog.json \
+  --announcements ./apps/dm/scripts/data/guild-announcements.json \
   --coords "0,0,0" \
   --arrival "✨ Welcome back to the guild hall." \
   --reset
 ```
 
-- Catalog file must include `name`, `buy_price_gold`, `sell_price_gold`, `stock_quantity` per entry.
-- Announcements file lists `title`, `body`, `digest`, `priority`, `visible_from`.
+- Catalog and announcement fixtures live in `apps/dm/scripts/data` and can be copied or extended for feature work.
+- The DM Docker entrypoint now runs the same seed command automatically during deployments (guarded by `GUILD_SEED_ENABLED`, `GUILD_SEED_CATALOG_PATH`, etc.), so production clusters stay consistent.
 - Use `--reset` to clear previous catalog + announcement rows before inserting the provided fixtures.
 
 ## 4. Test `guild` Teleport Flow

@@ -1,0 +1,23 @@
+[
+  {
+    "title": "Guild Hall Restoration Complete",
+    "body": "Master artisans have finished restoring the main hall. Claim a chair by the hearth and compare battle scars with fellow adventurers.",
+    "digest": "Guild hall renovated—drop by for camaraderie and quests.",
+    "priority": 10,
+    "visibleFrom": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "title": "Merchants Unpack New Wares",
+    "body": "Caravans from the southern dunes arrived at dawn. Limited-run curios and reagents are now available at the counter.",
+    "digest": "Fresh caravan goods stocked inside the guild shop.",
+    "priority": 7,
+    "visibleFrom": "2025-01-02T00:00:00.000Z"
+  },
+  {
+    "title": "Town Crier Seeking Tales",
+    "body": "Bring noteworthy discoveries back to the guild so the crier can spread the news across the realm. Fame favors the talkative.",
+    "digest": "Share exploits with the crier to gain renown.",
+    "priority": 4,
+    "visibleFrom": "2025-01-03T00:00:00.000Z"
+  }
+]
