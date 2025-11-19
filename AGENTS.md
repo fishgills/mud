@@ -16,6 +16,10 @@
 - Slack bot communication note:
   - All player-facing Slack communications are delivered via direct message (DM) with the bot. Commands that affect nearby players (for example, `pickup`) DM the acting player with detailed results and DM other players at the same x/y with a short, vague notification.
 
+## Coding Standards
+
+- **Database Access**: Always use the `@mud/database` library for database interactions. Do NOT use `prisma` directly in application code.
+
 ## Debugging and Logs
 
 - **Unified log files**: When running services locally (`yarn serve`), all logs are written to `logs/` at the workspace root:
