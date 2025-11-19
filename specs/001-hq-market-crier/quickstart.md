@@ -4,6 +4,8 @@
 
 - Node.js 20+, Yarn 1.22+
 - Slack app credentials configured via existing `.env.local` conventions (do **not** commit secrets)
+- Invite the Slack bot to both a DM and a throwaway channel once `yarn serve` is running; guild commands are ignored when the bot is absent.
+- Export `SLACK_SIGNING_SECRET`, `SLACK_BOT_TOKEN`, and `DATABASE_URL` in your shell session (never commit them).
 - PostgreSQL + Redis instances available via `docker-compose` or shared dev cluster
 - Datadog API key configured for tracing/logging (optional locally)
 
@@ -24,11 +26,15 @@ yarn serve            # spins up dm, slack, world, tick
 node apps/dm/scripts/seed-guild.js \
   --tile "guild-hall" \
   --catalog ./data/guild-catalog.json \
-  --announcements ./data/guild-announcements.json
+  --announcements ./data/guild-announcements.json \
+  --coords "0,0,0" \
+  --arrival "✨ Welcome back to the guild hall." \
+  --reset
 ```
 
 - Catalog file must include `name`, `buy_price_gold`, `sell_price_gold`, `stock_quantity` per entry.
 - Announcements file lists `title`, `body`, `digest`, `priority`, `visible_from`.
+- Use `--reset` to clear previous catalog + announcement rows before inserting the provided fixtures.
 
 ## 4. Test `guild` Teleport Flow
 

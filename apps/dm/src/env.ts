@@ -43,6 +43,8 @@ const buildEnv = () => {
     DM_OPENAI_CACHE_TTL_MS: num({ default: 300_000 }),
     DM_OPENAI_CACHE_MAX: num({ default: 200 }),
     DM_OPENAI_TIMEOUT_MS: num({ default: 800 }),
+    GUILD_TELEPORT_COOLDOWN: num({ default: 300 }),
+    GUILD_POPULATION_LIMIT: num({ default: 50 }),
   });
 };
 

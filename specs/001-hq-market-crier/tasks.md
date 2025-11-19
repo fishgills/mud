@@ -20,18 +20,18 @@ description: 'Task list template for feature implementation'
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Ensure local services run via `yarn serve` and update guild seed script path references in `apps/dm/scripts/seed-guild.js`
-- [ ] T002 Document Slack bot invite + environment notes in `specs/001-hq-market-crier/quickstart.md` (confirm accuracy)
+- [x] T001 Ensure local services run via `yarn serve` and update guild seed script path references in `apps/dm/scripts/seed-guild.js`
+- [x] T002 Document Slack bot invite + environment notes in `specs/001-hq-market-crier/quickstart.md` (confirm accuracy)
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-- [ ] T003 Create Prisma migration for guild tables (`GuildHall`, `ShopCatalogItem`, `AnnouncementRecord`, `TransactionReceipt`) in `libs/database/prisma/schema.prisma`
-- [ ] T004 Update DM configuration to load guild hall metadata and cooldown defaults in `apps/dm/src/config/guild.config.ts`
-- [ ] T005 Add shared DTOs for teleport/buy/sell/announcements in `libs/api-contracts/src/guild.ts`
-- [ ] T006 Add EventBus payload definitions + enums for guild events in `libs/event-bus/src/events/guild.ts`
-- [ ] T007 Add logging/tracing helpers (correlation fields) in `libs/logging/src/guild.ts`
-- [ ] T008 Seed default catalog + announcements data via `apps/dm/scripts/seed-guild.ts`
-- [ ] T009 Update quickstart to reflect new seed command (already partially done)
+- [x] T003 Create Prisma migration for guild tables (`GuildHall`, `ShopCatalogItem`, `AnnouncementRecord`, `TransactionReceipt`) in `libs/database/prisma/schema.prisma`
+- [x] T004 Update DM configuration to load guild hall metadata and cooldown defaults in `apps/dm/src/config/guild.config.ts`
+- [x] T005 Add shared DTOs for teleport/buy/sell/announcements in `libs/api-contracts/src/guild.ts`
+- [x] T006 Add EventBus payload definitions + enums for guild events in `libs/event-bus/src/events/guild.ts`
+- [x] T007 Add logging/tracing helpers (correlation fields) in `libs/logging/src/guild.ts`
+- [x] T008 Seed default catalog + announcements data via `apps/dm/scripts/seed-guild.ts`
+- [x] T009 Update quickstart to reflect new seed command (already partially done)
 
 ## Phase 3: User Story 1 – Teleport to Guild Hall (Priority: P1) 🎯 MVP
 
