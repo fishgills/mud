@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PlayerService } from '../../app/player/player.service';
 import { GuildShopRepository } from './guild-shop.repository';
 import { GuildShopPublisher } from './guild-shop.publisher';
@@ -48,6 +49,7 @@ export class GuildShopService {
         quantity,
       );
 
+      const correlationId = purchase.receipt.correlationId ?? randomUUID();
       const response: GuildTradeResponse = {
         receiptId: purchase.receipt.id.toString(),
         playerId: player.id.toString(),
@@ -57,7 +59,7 @@ export class GuildShopService {
         remainingGold: purchase.updatedPlayer.gold,
         inventoryDelta: purchase.createdPlayerItem.quantity,
         stockRemaining: catalogItem.stockQuantity - quantity,
-        correlationId: purchase.receipt.correlationId ?? undefined,
+        correlationId,
       };
 
       await this.publisher.publishReceipt(response);
@@ -104,6 +106,7 @@ export class GuildShopService {
         quantity,
       );
 
+      const correlationId = result.receipt.correlationId ?? randomUUID();
       const response: GuildTradeResponse = {
         receiptId: result.receipt.id.toString(),
         playerId: player.id.toString(),
@@ -113,7 +116,7 @@ export class GuildShopService {
         remainingGold: result.updatedPlayer.gold,
         inventoryDelta: -quantity,
         stockRemaining: catalog.stockQuantity + quantity,
-        correlationId: result.receipt.correlationId ?? undefined,
+        correlationId,
       };
 
       await this.publisher.publishReceipt(response);

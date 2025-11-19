@@ -16,6 +16,33 @@ import type {
 import { withGuildLogFields } from '@mud/logging';
 import { recordGuildTeleportMetric } from './teleport.metrics';
 
+const DEFAULT_GUILD_SERVICES: GuildServicesStatus = {
+  shop: true,
+  crier: true,
+  exits: ['return'],
+};
+
+const normalizeGuildServices = (value: unknown): GuildServicesStatus => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    return {
+      shop:
+        typeof record.shop === 'boolean'
+          ? record.shop
+          : DEFAULT_GUILD_SERVICES.shop,
+      crier:
+        typeof record.crier === 'boolean'
+          ? record.crier
+          : DEFAULT_GUILD_SERVICES.crier,
+      exits: Array.isArray(record.exits)
+        ? record.exits.map((exit) => String(exit))
+        : [...DEFAULT_GUILD_SERVICES.exits],
+    };
+  }
+
+  return { ...DEFAULT_GUILD_SERVICES };
+};
+
 export interface TeleportRequest {
   teamId: string;
   userId: string;
@@ -77,11 +104,7 @@ export class TeleportService {
       cooldownExpiresAt,
     });
 
-    const services = (guild.services ?? {
-      shop: true,
-      crier: true,
-      exits: ['return'],
-    }) as GuildServicesStatus;
+    const services = normalizeGuildServices(guild.services);
 
     const response: GuildTeleportResponse = {
       success: true,

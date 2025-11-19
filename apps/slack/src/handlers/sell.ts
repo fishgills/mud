@@ -23,7 +23,7 @@ export class SellHandler extends PlayerCommandHandler {
     const response = await this.dm.guildSellItem({ teamId, userId, item });
 
     if (!response?.receiptId) {
-      await say({ text: response?.message ?? 'Sale failed.' });
+      await say({ text: 'Sale failed. Check the item name or inventory.' });
       return;
     }
 

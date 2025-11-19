@@ -3,6 +3,8 @@ import {
   Prisma,
   ItemQuality,
   PlayerSlot,
+  AnnouncementStatus,
+  GuildTradeDirection,
   type Player,
   type SlackUser,
   type Monster,
@@ -27,7 +29,14 @@ export async function disconnectPrisma(): Promise<void> {
 }
 
 // Re-export PrismaClient class and types from Prisma for convenience
-export { PrismaClient, Prisma, ItemQuality, PlayerSlot };
+export {
+  PrismaClient,
+  Prisma,
+  ItemQuality,
+  PlayerSlot,
+  AnnouncementStatus,
+  GuildTradeDirection,
+};
 
 export type {
   Player,

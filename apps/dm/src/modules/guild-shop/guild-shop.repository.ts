@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import {
   getPrismaClient,
   GuildTradeDirection,
@@ -125,6 +126,7 @@ export class GuildShopRepository {
           direction: GuildTradeDirection.BUY,
           goldDelta: -totalCost,
           quantity,
+          correlationId: randomUUID(),
         },
       });
 
@@ -186,6 +188,7 @@ export class GuildShopRepository {
           direction: GuildTradeDirection.SELL,
           goldDelta: goldGain,
           quantity,
+          correlationId: randomUUID(),
         },
       });
 

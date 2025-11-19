@@ -23,7 +23,7 @@ export class BuyHandler extends PlayerCommandHandler {
     const response = await this.dm.guildBuyItem({ teamId, userId, item });
 
     if (!response?.receiptId) {
-      await say({ text: response?.message ?? 'Purchase failed.' });
+      await say({ text: 'Purchase failed. Confirm the item is in stock.' });
       return;
     }
 

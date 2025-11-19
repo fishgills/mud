@@ -208,8 +208,7 @@ export class NotificationService {
         }
 
         // Send the message. Prefer provided blocks (rich content) if available.
-        const hasBlocks = Array.isArray(finalBlocks) && finalBlocks.length > 0;
-        if (hasBlocks) {
+        if (Array.isArray(finalBlocks) && finalBlocks.length > 0) {
           const blocksCount = finalBlocks.length;
           this.options.logger.debug(
             {
