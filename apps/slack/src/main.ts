@@ -122,7 +122,8 @@ import './handlers/loot';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { COMMANDS } from './commands';
 import { registerActions } from './actions';
-import { SayMessage } from './handlers/types';
+import { HandlerContext, SayMessage } from './handlers/types';
+import { helpHandler } from './handlers/help';
 import { registerAppHome } from './handlers/appHome';
 
 app.event('app_mention', async ({ event, say }) => {
@@ -194,6 +195,24 @@ app.message(async ({ message, say, client, context }) => {
   };
 
   const lowerText = text.toLowerCase();
+  const resolveUserId = async (nameOrMention: string) => {
+    app.logger.debug({ input: nameOrMention }, 'Resolve user ID input');
+    const m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
+    if (m) {
+      const result = m[1];
+      app.logger.debug({ result }, 'Resolve matched ID format');
+      return result;
+    }
+    const usernameMatch = nameOrMention.trim().match(/^@?([a-zA-Z0-9_.-]+)$/);
+    if (usernameMatch) {
+      app.logger.debug(
+        { username: usernameMatch[1] },
+        'Resolve matched username format but cannot resolve without API call',
+      );
+    }
+    app.logger.debug('Resolve user ID: no match found');
+    return undefined;
+  };
   for (const [key, handler] of Object.entries(getAllHandlers())) {
     // Check if the message starts with the command or contains it as a whole word
     app.logger.debug({ command: key, userId, teamId }, 'Inspecting handler');
@@ -204,31 +223,6 @@ app.message(async ({ message, say, client, context }) => {
       lowerText.endsWith(' ' + key.toLowerCase())
     ) {
       app.logger.debug({ command: key, userId, teamId }, 'Dispatching handler');
-      // Minimal resolver: supports both <@U123> and @username formats from Slack
-      const resolveUserId = async (nameOrMention: string) => {
-        app.logger.debug({ input: nameOrMention }, 'Resolve user ID input');
-        // Try <@U123> format first
-        const m = nameOrMention.trim().match(/^<@([A-Z0-9]+)>$/i);
-        if (m) {
-          const result = m[1];
-          app.logger.debug({ result }, 'Resolve matched ID format');
-          return result;
-        }
-        // If not ID format, it might be a plain username like @CharliTest or CharliTest
-        // For now, we can't resolve usernames without calling Slack's users.list API
-        // Just extract the username part if it looks like @username
-        const usernameMatch = nameOrMention
-          .trim()
-          .match(/^@?([a-zA-Z0-9_.-]+)$/);
-        if (usernameMatch) {
-          app.logger.debug(
-            { username: usernameMatch[1] },
-            'Resolve matched username format but cannot resolve without API call',
-          );
-        }
-        app.logger.debug('Resolve user ID: no match found');
-        return undefined;
-      };
       await handler({
         userId,
         say: sayVoid,
@@ -242,31 +236,18 @@ app.message(async ({ message, say, client, context }) => {
   }
   app.logger.debug({ userId, text }, 'No handler resolved');
 
-  // Help message for unknown input
   await say(
-    `Hi <@${userId}>! I didn't understand that command. Here are the main commands:
-
-🎮 **Character Creation:**
-• "${COMMANDS.NEW} CharacterName" - Create a new character
-• "${COMMANDS.REROLL}" - Reroll your stats during creation
-• "${COMMANDS.COMPLETE}" - Complete character creation
-
-🏃 **Movement:**
-• "${COMMANDS.NORTH}", "${COMMANDS.SOUTH}", "${COMMANDS.EAST}", "${COMMANDS.WEST}" - Move using directions
-• "${COMMANDS.UP}", "${COMMANDS.DOWN}", "${COMMANDS.LEFT}", "${COMMANDS.RIGHT}" - Alternative direction words
-
-⚔️ **Actions:**
-• "${COMMANDS.ATTACK}" - Attack nearby monsters
-• "${COMMANDS.SNIFF}" - Sniff for nearby monsters
-• "${COMMANDS.STATS}" - View your character stats
-
-📋 **Other:**
-• "${COMMANDS.HELP}" - Show full command list
-• "${COMMANDS.MAP}" - View the world map
-• "${COMMANDS.INVENTORY}" - See your equipped gear
-
-💡 **New here?** Start with "${COMMANDS.NEW} YourName" to create your character!`,
+    `Hi <@${userId}>! I didn't understand that command, so here's the help menu instead.`,
   );
+
+  await helpHandler.handle({
+    userId,
+    say: sayVoid,
+    text,
+    resolveUserId,
+    client,
+    teamId: teamId ?? 'unknown',
+  } as HandlerContext);
 });
 
 // Centralize all Slack actions and view handlers

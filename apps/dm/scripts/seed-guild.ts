@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import process from 'process';
-import { PrismaClient, type Item } from '@mud/database';
+import { PrismaClient } from '@mud/database';
 import { env } from '../src/env';
 
 console.log(`Env database URL: ${env.DATABASE_URL}`);
@@ -189,58 +189,6 @@ const seedItemTemplates = async (
   }
 };
 
-const computeBuyPrice = (item: Item): number => {
-  const base = Math.max(10, item.value ?? 0);
-  const variance = Math.round(base * 0.25 * Math.random());
-  return base + variance;
-};
-
-const computeSellPrice = (buyPrice: number): number =>
-  Math.max(1, Math.floor(buyPrice * 0.5));
-
-const computeStockQuantity = (): number =>
-  Math.max(1, 2 + Math.floor(Math.random() * 4));
-
-const seedInitialCatalogRotation = async (
-  rotationSize: number,
-): Promise<void> => {
-  const items = await prisma.$queryRaw<Item[]>`
-    SELECT *
-    FROM "Item"
-    WHERE "value" >= 0
-    ORDER BY RANDOM()
-    LIMIT ${Math.max(1, rotationSize)}
-  `;
-  if (!items.length) {
-    console.warn(
-      '⚠️  Skipping initial guild shop rotation - no items available.',
-    );
-    return;
-  }
-
-  await prisma.shopCatalogItem.createMany({
-    data: items.map((item, index) => {
-      const buyPrice = computeBuyPrice(item);
-      const stockQuantity = computeStockQuantity();
-      return {
-        sku: `seed-${item.id}-${Date.now()}-${index}`,
-        name: item.name,
-        description: item.description ?? '',
-        buyPriceGold: buyPrice,
-        sellPriceGold: computeSellPrice(buyPrice),
-        stockQuantity,
-        maxStock: stockQuantity,
-        restockIntervalMinutes: Math.floor(
-          env.GUILD_SHOP_ROTATION_INTERVAL_MS / 60_000,
-        ),
-        tags: item.type ? [item.type] : [],
-        isActive: true,
-        itemTemplateId: item.id,
-      };
-    }),
-  });
-};
-
 const seedAnnouncements = async (
   entries: AnnouncementInput[],
   reset: boolean,
@@ -287,7 +235,6 @@ const seedAnnouncements = async (
       await prisma.transactionReceipt.deleteMany();
       await prisma.shopCatalogItem.deleteMany();
     }
-    await seedInitialCatalogRotation(env.GUILD_SHOP_ROTATION_SIZE);
 
     console.log(
       `✅ Seeded guild hall (${args.tileSlug}) with ${catalog.length} template items and ${announcements.length} announcements`,

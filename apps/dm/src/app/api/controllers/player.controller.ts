@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   Logger,
+  NotFoundException,
   Param,
   Post,
   Query,
@@ -63,6 +64,9 @@ interface AttackPayload {
   userId?: string;
   input: AttackRequest;
 }
+
+const PLAYER_NOT_FOUND_MESSAGE =
+  'Player not found. DM the Slack bot with "new YourName" to create a character, then finish creation with "complete".';
 
 @Controller('players')
 export class PlayersController {
@@ -153,7 +157,12 @@ export class PlayersController {
       );
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Player not found',
+        message:
+          error instanceof NotFoundException
+            ? PLAYER_NOT_FOUND_MESSAGE
+            : error instanceof Error
+              ? error.message
+              : 'Player not found',
       };
     }
   }
