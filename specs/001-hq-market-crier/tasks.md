@@ -84,18 +84,18 @@ description: 'Task list template for feature implementation'
 
 ### Tests
 
-- [ ] T032 [US3] Add Jest tests for announcement scheduler logic in `apps/dm/src/modules/announcements/announcements.scheduler.spec.ts`
-- [ ] T033 [P] [US3] Add integration tests for cron-driven broadcasts in `apps/dm/test-dm.sh guild-crier`
-- [ ] T034 [P] [US3] Add contract tests for `/guild/announcements/next` in `libs/api-contracts/tests/guild.announcements.spec.ts`
+- [x] T032 [US3] Add Jest tests for announcement scheduler logic in `apps/dm/src/modules/guild-announcements/guild-announcements.scheduler.spec.ts`
+- [x] T033 [P] [US3] Add integration tests for cron-driven broadcasts in `apps/dm/test-dm.sh guild-crier`
+- [x] T034 [P] [US3] Add contract tests for `/guild/announcements/next` in `libs/api-contracts/tests/guild.announcements.spec.ts`
 
 ### Implementation
 
-- [ ] T035 [US3] Implement announcement scheduler job reading `AnnouncementRecord` in `apps/dm/src/modules/announcements/announcements.scheduler.ts`
-- [ ] T036 [US3] Implement `/guild/announcements/next` endpoint to support manual/cron polling `apps/dm/src/modules/announcements/announcements.controller.ts`
-- [ ] T037 [US3] Implement EventBus publisher + Slack digest formatting `apps/dm/src/modules/announcements/announcements.publisher.ts`
-- [ ] T038 [US3] Implement Slack listener for broadcast/digest messages `apps/slack/src/services/guild-crier.service.ts`
-- [ ] T039 [US3] Add logging + metrics for crier job outcomes `apps/dm/src/modules/announcements/announcements.logger.ts`
-- [ ] T040 [US3] Update quickstart with crier testing steps `specs/001-hq-market-crier/quickstart.md`
+- [x] T035 [US3] Implement announcement scheduler job reading `AnnouncementRecord` in `apps/dm/src/modules/guild-announcements/guild-announcements.scheduler.ts`
+- [x] T036 [US3] Implement `/guild/announcements/next` endpoint to support manual/cron polling `apps/dm/src/modules/guild-announcements/guild-announcements.controller.ts`
+- [x] T037 [US3] Implement EventBus publisher + Slack digest formatting `apps/dm/src/modules/guild-announcements/guild-announcements.publisher.ts`
+- [x] T038 [US3] Implement Slack listener for broadcast/digest messages `apps/slack/src/services/guild-crier.service.ts`
+- [x] T039 [US3] Add logging + metrics for crier job outcomes `apps/dm/src/modules/guild-announcements/guild-announcements.metrics.ts`
+- [x] T040 [US3] Update quickstart with crier testing steps `specs/001-hq-market-crier/quickstart.md`
 
 ## Phase 6: Polish & Cross-Cutting
 

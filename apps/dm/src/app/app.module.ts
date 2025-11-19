@@ -17,6 +17,7 @@ import {
 } from './api/controllers';
 import { TeleportController } from '../modules/teleport/teleport.controller';
 import { GuildShopController } from '../modules/guild-shop/guild-shop.controller';
+import { GuildAnnouncementsController } from '../modules/guild-announcements/guild-announcements.controller';
 import { CoordinationService } from '../shared/coordination.service';
 import { EventBridgeService } from '../shared/event-bridge.service';
 import {
@@ -38,6 +39,10 @@ import { TeleportPublisher } from '../modules/teleport/teleport.publisher';
 import { GuildShopService } from '../modules/guild-shop/guild-shop.service';
 import { GuildShopRepository } from '../modules/guild-shop/guild-shop.repository';
 import { GuildShopPublisher } from '../modules/guild-shop/guild-shop.publisher';
+import { GuildAnnouncementsService } from '../modules/guild-announcements/guild-announcements.service';
+import { GuildAnnouncementsRepository } from '../modules/guild-announcements/guild-announcements.repository';
+import { GuildAnnouncementsPublisher } from '../modules/guild-announcements/guild-announcements.publisher';
+import { GuildAnnouncementsScheduler } from '../modules/guild-announcements/guild-announcements.scheduler';
 
 @Module({
   imports: [AiModule],
@@ -50,6 +55,7 @@ import { GuildShopPublisher } from '../modules/guild-shop/guild-shop.publisher';
     LocationController,
     TeleportController,
     GuildShopController,
+    GuildAnnouncementsController,
   ],
   providers: [
     AppService,
@@ -78,6 +84,10 @@ import { GuildShopPublisher } from '../modules/guild-shop/guild-shop.publisher';
     GuildShopService,
     GuildShopRepository,
     GuildShopPublisher,
+    GuildAnnouncementsService,
+    GuildAnnouncementsRepository,
+    GuildAnnouncementsPublisher,
+    GuildAnnouncementsScheduler,
   ],
 })
 export class AppModule {}

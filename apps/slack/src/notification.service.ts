@@ -9,20 +9,24 @@ import { RedisEventBridge, NotificationMessage } from '@mud/redis-client';
 import { env } from './env';
 import type { InstallationStore, InstallationQuery } from '@slack/oauth';
 import { Logger, WebClient } from '@slack/web-api';
+import { GuildCrierService } from './services/guild-crier.service';
 
 interface NotificationServiceOptions {
   installationStore?: InstallationStore;
   fallbackBotToken?: string | null;
   logger: Logger;
+  guildCrierService?: GuildCrierService;
 }
 
 export class NotificationService {
   private bridge: RedisEventBridge;
   private readonly options: NotificationServiceOptions;
   private readonly webClients = new Map<string, WebClient>();
+  private readonly guildCrier?: GuildCrierService;
 
   constructor(options: NotificationServiceOptions) {
     this.options = options;
+    this.guildCrier = options.guildCrierService;
     this.bridge = new RedisEventBridge({
       redisUrl: env.REDIS_URL,
       channelPrefix: 'game',
@@ -182,29 +186,46 @@ export class NotificationService {
           continue;
         }
 
+        // Allow guild crier service to enrich the payload
+        let finalMessage = recipient.message;
+        let finalBlocks = recipient.blocks;
+        if (this.guildCrier) {
+          try {
+            const override = this.guildCrier.formatRecipient(
+              notification,
+              recipient,
+            );
+            if (override) {
+              finalMessage = override.message;
+              finalBlocks = override.blocks;
+            }
+          } catch (error) {
+            this.options.logger.debug(
+              { error },
+              'guild-crier formatting failed; using original payload',
+            );
+          }
+        }
+
         // Send the message. Prefer provided blocks (rich content) if available.
-        const hasBlocks =
-          Array.isArray(recipient.blocks) && recipient.blocks.length > 0;
+        const hasBlocks = Array.isArray(finalBlocks) && finalBlocks.length > 0;
         if (hasBlocks) {
-          const blocksCount = Array.isArray(recipient.blocks)
-            ? recipient.blocks.length
-            : 0;
+          const blocksCount = finalBlocks.length;
           this.options.logger.debug(
             {
               channel: channelId,
               textPreview:
-                typeof recipient.message === 'string' &&
-                recipient.message.length > 120
-                  ? `${recipient.message.slice(0, 117)}...`
-                  : recipient.message,
+                typeof finalMessage === 'string' && finalMessage.length > 120
+                  ? `${finalMessage.slice(0, 117)}...`
+                  : finalMessage,
               blocksCount,
             },
             'Posting message with blocks',
           );
           await web.chat.postMessage({
             channel: channelId,
-            text: recipient.message,
-            blocks: (recipient.blocks || []) as unknown as (
+            text: finalMessage,
+            blocks: (finalBlocks || []) as unknown as (
               | import('@slack/types').KnownBlock
               | import('@slack/types').Block
             )[],
@@ -212,10 +233,9 @@ export class NotificationService {
         } else {
           // Add a minimal block wrapper for high-priority messages when no blocks provided
           const textPreview =
-            typeof recipient.message === 'string' &&
-            recipient.message.length > 120
-              ? `${recipient.message.slice(0, 117)}...`
-              : recipient.message;
+            typeof finalMessage === 'string' && finalMessage.length > 120
+              ? `${finalMessage.slice(0, 117)}...`
+              : finalMessage;
 
           this.options.logger.debug(
             {
@@ -227,14 +247,14 @@ export class NotificationService {
           );
           await web.chat.postMessage({
             channel: channelId,
-            text: recipient.message,
+            text: finalMessage,
             ...(recipient.priority === 'high' && {
               blocks: [
                 {
                   type: 'section',
                   text: {
                     type: 'mrkdwn',
-                    text: `⚔️ *${notification.type.toUpperCase()}*\n\n${recipient.message}`,
+                    text: `⚔️ *${notification.type.toUpperCase()}*\n\n${finalMessage}`,
                   },
                 },
               ],

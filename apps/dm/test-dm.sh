@@ -7,6 +7,8 @@ Usage: ./apps/dm/test-dm.sh <scenario> [jest-args]
 
 Scenarios:
   guild-teleport   Run Jest suites tagged with "guild-teleport"
+  guild-shop       Run Jest suites tagged with "guild-shop"
+  guild-crier      Run Jest suites tagged with "guild-announcement"
 USAGE
   exit 1
 fi
@@ -20,6 +22,9 @@ case "$SCENARIO" in
     ;;
   guild-shop)
     yarn workspace @mud/dm test --runInBand --testNamePattern="guild-shop" "$@"
+    ;;
+  guild-crier)
+    yarn workspace @mud/dm test --runInBand --testNamePattern="guild-announcement" "$@"
     ;;
   *)
     echo "Unknown scenario: $SCENARIO" >&2

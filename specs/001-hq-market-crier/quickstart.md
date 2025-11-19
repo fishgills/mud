@@ -65,14 +65,20 @@ yarn workspace @mud/slack test -- commandHandlers
 ## 6. Test Town Crier Automation
 
 1. Insert a new announcement row via Prisma seed or SQL.
-2. Trigger the scheduler manually:
+2. Run the guild-specific Jest suites to ensure scheduler/service/publisher logic fails before code changes:
+
+```bash
+./apps/dm/test-dm.sh guild-crier
+```
+
+3. Trigger the scheduler manually to exercise the Nest worker in real time:
 
 ```bash
 yarn turbo run start --filter=@mud/dm -- --cron=town-crier
 ```
 
-3. Observe Slack broadcast in the guild channel and digest DMs elsewhere.
-4. Verify `last_announced_at` updated and duplicate runs skip the same message.
+4. Observe Slack broadcasts (guild occupants receive Town Crier blocks, others get digest summaries) and confirm logs mention `guild.crier.formatted`.
+5. Verify `last_announced_at` updated and duplicate runs skip the same message.
 
 ## 7. Full Test Suite & Lint
 

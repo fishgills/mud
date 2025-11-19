@@ -179,4 +179,56 @@ describe('NotificationService', () => {
     await service.stop();
     expect(__redisMocks.disconnectMock).toHaveBeenCalled();
   });
+
+  it('applies guild crier formatting overrides', async () => {
+    const guildCrier = {
+      formatRecipient: jest.fn().mockReturnValue({
+        message: '📣 *Heroic News*',
+        blocks: [
+          { type: 'section', text: { type: 'mrkdwn', text: '*Heroic News*' } },
+        ],
+      }),
+    };
+    const service = new NotificationService({
+      logger: createLogger(),
+      fallbackBotToken: 'xoxb-fallback',
+      guildCrierService: guildCrier as never,
+    });
+    await service.start();
+
+    const notification: NotificationMessage = {
+      type: 'world',
+      recipients: [
+        {
+          clientType: 'slack',
+          teamId: 'T1',
+          userId: 'U2',
+          message: 'Original text',
+        },
+      ],
+      event: {
+        eventType: 'guild.announcement.delivered',
+        payload: {
+          id: '1',
+          title: 'Heroic News',
+          body: 'The guild celebrates.',
+          digest: 'Guild celebrates.',
+          priority: 1,
+        },
+        audience: 'guild',
+        timestamp: new Date(),
+      } as NotificationMessage['event'],
+    };
+
+    await getSubscriptionHandler()(notification);
+
+    expect(guildCrier.formatRecipient).toHaveBeenCalled();
+    expect(__webMocks.postMessageMock).toHaveBeenCalledWith({
+      channel: 'D123',
+      text: '📣 *Heroic News*',
+      blocks: [
+        { type: 'section', text: { type: 'mrkdwn', text: '*Heroic News*' } },
+      ],
+    });
+  });
 });

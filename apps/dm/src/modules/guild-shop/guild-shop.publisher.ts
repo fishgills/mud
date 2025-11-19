@@ -10,10 +10,10 @@ export class GuildShopPublisher {
   async publishReceipt(response: GuildTradeResponse): Promise<void> {
     try {
       await EventBus.emit({
-        eventType: GuildEventType.ShopReceipt as never,
+        eventType: GuildEventType.ShopReceipt,
         receipt: response,
         timestamp: new Date(),
-      } as never);
+      });
     } catch (error) {
       this.logger.warn('Failed to emit guild shop receipt', error as Error);
     }

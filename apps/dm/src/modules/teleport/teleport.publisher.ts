@@ -10,7 +10,7 @@ export class TeleportPublisher {
   async emitTeleport(response: GuildTeleportResponse): Promise<void> {
     try {
       await EventBus.emit({
-        eventType: GuildEventType.TeleportArrived as never,
+        eventType: GuildEventType.TeleportArrived,
         playerId: Number(response.playerId),
         occupantIds: response.occupantsNotified
           .map((id) => Number(id))
@@ -19,7 +19,7 @@ export class TeleportPublisher {
         arrivalMessage: response.arrivalMessage,
         correlationId: response.correlationId,
         timestamp: new Date(),
-      } as never);
+      });
     } catch (error) {
       this.logger.warn('Failed to emit guild teleport event', error as Error);
     }

@@ -6,6 +6,7 @@ import { getPrismaClient } from '@mud/database';
 import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
 import { NotificationService } from './notification.service';
 import { setSlackApp } from './appContext';
+import { GuildCrierService } from './services/guild-crier.service';
 
 // Decode any env values that were accidentally base64-encoded so the app
 // always receives raw strings. We create `decodedEnv` from `env` and use it
@@ -275,10 +276,12 @@ async function start() {
   app.logger.info({ port: env.PORT, host: '0.0.0.0' }, 'Slack MUD bot ready');
 
   // Start notification service to receive game events
+  const guildCrier = new GuildCrierService(app.logger);
   const notificationService = new NotificationService({
     installationStore,
     fallbackBotToken: decodedEnv.SLACK_BOT_TOKEN ?? env.SLACK_BOT_TOKEN ?? null,
     logger: app.logger,
+    guildCrierService: guildCrier,
   });
   await notificationService.start();
 }

@@ -14,8 +14,9 @@
     }
   },
   "dependencies": {
-    "redis": "^4.7.0",
+    "@mud/api-contracts": "*",
     "@mud/database": "*",
+    "redis": "^4.7.0",
     "tslib": "^2.3.0"
   },
   "scripts": {
