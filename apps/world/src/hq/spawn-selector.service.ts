@@ -81,13 +81,10 @@ export class SpawnSelectorService {
   private generateCandidate(
     players: Array<{ x: number; y: number }>,
   ): { x: number; y: number } | null {
-    let candidateX: number;
-    let candidateY: number;
-
     const angle = Math.random() * 2 * Math.PI;
     const distance = Math.random() * HQ_RESPAWN_SEARCH_RADIUS;
-    candidateX = Math.floor(Math.cos(angle) * distance);
-    candidateY = Math.floor(Math.sin(angle) * distance);
+    const candidateX = Math.floor(Math.cos(angle) * distance);
+    const candidateY = Math.floor(Math.sin(angle) * distance);
 
     const farEnough = players.every((existing) => {
       const dx = candidateX - existing.x;

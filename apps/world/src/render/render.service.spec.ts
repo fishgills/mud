@@ -49,6 +49,12 @@ import { RenderService } from './render.service';
 import { WorldService } from '../world/world-refactored.service';
 import { CacheService } from '../shared/cache.service';
 
+type ChunkPngBase64Method = (
+  chunkX: number,
+  chunkY: number,
+  scale: number,
+) => Promise<string>;
+
 type WorldServiceMock = Pick<WorldService, 'getCurrentSeed'>;
 
 type CacheServiceMock = Pick<CacheService, 'get' | 'set'>;
@@ -203,7 +209,7 @@ describe('RenderService', () => {
       mockCache.get.mockResolvedValue(null);
 
       await (
-        service as unknown as { getChunkPngBase64: Function }
+        service as unknown as { getChunkPngBase64: ChunkPngBase64Method }
       ).getChunkPngBase64(0, 0, 4);
 
       expect(mockCache.set).toHaveBeenCalledWith(
@@ -218,7 +224,7 @@ describe('RenderService', () => {
       mockCache.set.mockResolvedValue(undefined);
 
       await (
-        service as unknown as { getChunkPngBase64: Function }
+        service as unknown as { getChunkPngBase64: ChunkPngBase64Method }
       ).getChunkPngBase64(0, 0, 4);
 
       const key = mockCache.set.mock.calls[0]?.[0];

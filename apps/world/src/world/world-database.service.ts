@@ -101,7 +101,9 @@ export class WorldDatabaseService {
   private buildItemCreateInput(
     template: ItemTemplateSeed,
   ): Prisma.ItemCreateInput {
-    const { rarity: _rarity, dropWeight: _dropWeight, ...data } = template;
+    const { rarity, dropWeight, ...data } = template;
+    void rarity;
+    void dropWeight;
     return data as Prisma.ItemCreateInput;
   }
 }

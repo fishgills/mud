@@ -1,9 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  getPrismaClient,
-  CombatLog as PrismaCombatLog,
-  PlayerSlot,
-} from '@mud/database';
+import { getPrismaClient, CombatLog as PrismaCombatLog } from '@mud/database';
 import type { Item, PlayerWithSlackUser, ItemQualityType } from '@mud/database';
 import { EventBus, type PlayerRespawnEvent } from '../../shared/event-bus';
 import { PlayerService } from '../player/player.service';

@@ -72,11 +72,17 @@ describe('WorldService', () => {
       generateChunk: jest.fn<
         ReturnType<ChunkGeneratorService['generateChunk']>,
         Parameters<ChunkGeneratorService['generateChunk']>
-      >((chunkX, chunkY, _seed) => createChunkData({ chunkX, chunkY })),
+      >((chunkX, chunkY, seed) => {
+        void seed;
+        return createChunkData({ chunkX, chunkY });
+      }),
       generateTileAt: jest.fn<
         ReturnType<ChunkGeneratorService['generateTileAt']>,
         Parameters<ChunkGeneratorService['generateTileAt']>
-      >((x, y, _seed) => createWorldTile({ x, y })),
+      >((x, y, seed) => {
+        void seed;
+        return createWorldTile({ x, y });
+      }),
     } as jest.Mocked<ChunkGeneratorMock>;
 
     tileService = {

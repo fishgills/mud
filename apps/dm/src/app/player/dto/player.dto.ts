@@ -1,6 +1,3 @@
-// Use Prisma types directly for DTOs to maintain single source of truth
-import { Prisma } from '@mud/database';
-
 export type CreatePlayerDto = {
   userId?: string;
   teamId?: string;

@@ -201,8 +201,7 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     let existing: Player | undefined;
     try {
       existing = await this.getPlayer(teamId, userId);
-    } catch (err) {
-      // Player doesn't exist yet, which is expected for new players
+    } catch {
       existing = undefined;
     }
 

@@ -4,7 +4,6 @@ import { WorldUtilsService } from './world-utils.service';
 import { ChunkData } from './types';
 import { ChunkGeneratorService } from './chunk-generator.service';
 import type { WorldTile, TileWithNearbyBiomes } from './dto';
-import { WORLD_CHUNK_SIZE } from '@mud/constants';
 
 @Injectable()
 export class TileService {

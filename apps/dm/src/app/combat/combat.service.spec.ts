@@ -57,15 +57,9 @@ describe('CombatService', () => {
   let playerService: ReturnType<typeof createPlayerService>;
   let aiService: ReturnType<typeof createAiService>;
   let eventBridge: ReturnType<typeof createEventBridge>;
-const { runCombat } = jest.requireMock('./engine') as {
-  runCombat: jest.Mock;
-};
-const { applyCombatResults } = jest.requireMock('./results') as {
-  applyCombatResults: jest.Mock;
-};
-const { EventBus } = jest.requireMock('../../shared/event-bus') as {
-  EventBus: { emit: jest.Mock };
-};
+  const { EventBus } = jest.requireMock('../../shared/event-bus') as {
+    EventBus: { emit: jest.Mock };
+  };
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2024-01-01T00:00:00Z'));
@@ -78,7 +72,9 @@ const { EventBus } = jest.requireMock('../../shared/event-bus') as {
       eventBridge as never,
     );
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
-    jest.spyOn(Math, 'floor').mockImplementation((n) => Number.parseInt(String(n), 10));
+    jest
+      .spyOn(Math, 'floor')
+      .mockImplementation((n) => Number.parseInt(String(n), 10));
   });
 
   afterEach(() => {
@@ -88,7 +84,9 @@ const { EventBus } = jest.requireMock('../../shared/event-bus') as {
     EventBus.emit.mockClear();
   });
 
-  const buildCombatant = (overrides: Partial<Record<string, unknown>> = {}) => ({
+  const buildCombatant = (
+    overrides: Partial<Record<string, unknown>> = {},
+  ) => ({
     id: 1,
     name: 'Hero',
     type: 'player',
@@ -107,8 +105,11 @@ const { EventBus } = jest.requireMock('../../shared/event-bus') as {
   describe('playerAttackPlayer', () => {
     it('invokes initiateCombat for player vs player attacks', async () => {
       const mockResult = { winner: 'Hero' };
+      const serviceWithInitiate = service as unknown as {
+        initiateCombat: jest.Mock;
+      };
       jest
-        .spyOn(service as unknown as { initiateCombat: Function }, 'initiateCombat')
+        .spyOn(serviceWithInitiate, 'initiateCombat')
         .mockResolvedValue(mockResult);
 
       const response = await service.playerAttackPlayer(
@@ -119,9 +120,7 @@ const { EventBus } = jest.requireMock('../../shared/event-bus') as {
       );
 
       expect(response).toBe(mockResult);
-      expect(
-        (service as unknown as { initiateCombat: jest.Mock }).initiateCombat,
-      ).toHaveBeenCalledWith(
+      expect(serviceWithInitiate.initiateCombat).toHaveBeenCalledWith(
         { teamId: 'T1', userId: 'U1' },
         'player',
         { teamId: 'T2', userId: 'U2' },
@@ -192,7 +191,11 @@ const { EventBus } = jest.requireMock('../../shared/event-bus') as {
   describe('fallback narrative', () => {
     it('builds a readable narrative when AI summary is unavailable', () => {
       const attacker = buildCombatant({ name: 'Hero' });
-      const defender = buildCombatant({ name: 'Goblin', id: 2, type: 'monster' });
+      const defender = buildCombatant({
+        name: 'Goblin',
+        id: 2,
+        type: 'monster',
+      });
       const combatLog = {
         combatId: 'c1',
         winner: 'Hero',

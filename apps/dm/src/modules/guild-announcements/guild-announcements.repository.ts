@@ -3,7 +3,6 @@ import {
   AnnouncementStatus,
   getPrismaClient,
   type AnnouncementRecord,
-  type Player,
 } from '@mud/database';
 
 @Injectable()

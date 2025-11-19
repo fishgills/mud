@@ -3,7 +3,6 @@ import type { PlayerService } from '../player/player.service';
 import type { PopulationService } from '../monster/population.service';
 import type { MonsterService } from '../monster/monster.service';
 import { EventBus } from '../../shared/event-bus';
-import { env } from '../../env';
 
 const mockPrisma = {
   gameState: {
@@ -19,9 +18,8 @@ const mockPrisma = {
 };
 
 jest.mock('@mud/database', () => {
-  const actual = jest.requireActual<typeof import('@mud/database')>(
-    '@mud/database',
-  );
+  const actual =
+    jest.requireActual<typeof import('@mud/database')>('@mud/database');
   return {
     ...actual,
     getPrismaClient: () => mockPrisma,
@@ -43,7 +41,9 @@ describe('GameTickService', () => {
       getAllPlayers: jest.fn(),
     } as unknown as jest.Mocked<PlayerService>;
     populationService = {
-      enforceDensityAround: jest.fn().mockResolvedValue({ spawned: 0, report: [] }),
+      enforceDensityAround: jest
+        .fn()
+        .mockResolvedValue({ spawned: 0, report: [] }),
     } as unknown as jest.Mocked<PopulationService>;
     monsterService = {
       getMonstersInBounds: jest.fn().mockResolvedValue([]),
@@ -104,7 +104,10 @@ describe('GameTickService', () => {
     });
     const weatherChange = { oldState: 'sunny', newState: 'rain' };
     jest
-      .spyOn(service as unknown as { updateWeather: () => Promise<any> }, 'updateWeather')
+      .spyOn(
+        service as unknown as { updateWeather: () => Promise<any> },
+        'updateWeather',
+      )
       .mockResolvedValueOnce(weatherChange);
 
     playerService.getActivePlayers.mockResolvedValueOnce([

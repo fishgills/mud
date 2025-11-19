@@ -4,6 +4,7 @@ import {
   sanitizeDescription,
   sendOccupantsSummary,
 } from './locationUtils';
+import type { PlayerRecord } from '../dm-client';
 
 const hasContextElements = (
   block: unknown,
@@ -108,23 +109,62 @@ describe('buildLocationBlocks', () => {
 describe('sendOccupantsSummary', () => {
   it('omits the current Slack user when slackUser relation is present', async () => {
     const say = jest.fn();
-    await sendOccupantsSummary(
-      say,
-      [
-        {
-          id: 1,
-          name: 'Self Player',
-          slackUser: { userId: 'U1', teamId: 'T1' },
-        } as unknown as any,
-        {
-          id: 2,
-          name: 'Other Player',
-          slackUser: { userId: 'U2', teamId: 'T1' },
-        } as unknown as any,
-      ],
-      [],
-      { currentSlackUserId: 'U1', currentSlackTeamId: 'T1' },
-    );
+    const players: PlayerRecord[] = [
+      {
+        id: 1,
+        name: 'Self Player',
+        slackUser: { userId: 'U1', teamId: 'T1' },
+        userId: 'U1',
+        teamId: 'T1',
+        isInHq: true,
+        x: 0,
+        y: 0,
+        z: 0,
+        gold: 0,
+        xp: 0,
+        level: 1,
+        hp: 10,
+        maxHp: 10,
+        strength: 5,
+        agility: 5,
+        health: 5,
+        isAlive: true,
+        skillPoints: 0,
+        isCreationComplete: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastAction: new Date(),
+      } as unknown as PlayerRecord,
+      {
+        id: 2,
+        name: 'Other Player',
+        slackUser: { userId: 'U2', teamId: 'T1' },
+        userId: 'U2',
+        teamId: 'T1',
+        isInHq: true,
+        x: 0,
+        y: 0,
+        z: 0,
+        gold: 0,
+        xp: 0,
+        level: 1,
+        hp: 10,
+        maxHp: 10,
+        strength: 5,
+        agility: 5,
+        health: 5,
+        isAlive: true,
+        skillPoints: 0,
+        isCreationComplete: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastAction: new Date(),
+      } as unknown as PlayerRecord,
+    ];
+    await sendOccupantsSummary(say, players, [], {
+      currentSlackUserId: 'U1',
+      currentSlackTeamId: 'T1',
+    });
 
     expect(say).toHaveBeenCalledTimes(1);
     const [{ text }] = say.mock.calls[0];

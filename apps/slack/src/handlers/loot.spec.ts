@@ -1,3 +1,5 @@
+import type { HandlerContext } from './types';
+
 jest.mock('./handlerRegistry', () => ({
   registerHandler: jest.fn(),
 }));
@@ -24,7 +26,7 @@ describe('lootHandler', () => {
       text: 'loot 5',
       userId: 'U1',
       teamId: 'T1',
-    } as any);
+    } as HandlerContext);
 
     expect(randomSpy).toHaveBeenCalled();
     expect(say).toHaveBeenCalledWith(
