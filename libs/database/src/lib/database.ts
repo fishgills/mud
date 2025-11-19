@@ -5,6 +5,7 @@ import {
   PlayerSlot,
   AnnouncementStatus,
   GuildTradeDirection,
+  ItemType,
   type Player,
   type SlackUser,
   type Monster,
@@ -36,6 +37,7 @@ export {
   PlayerSlot,
   AnnouncementStatus,
   GuildTradeDirection,
+  ItemType,
 };
 
 export type {

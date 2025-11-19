@@ -1,4 +1,4 @@
-import { PlayerSlot } from '@mud/database';
+import { ItemType, PlayerSlot } from '@mud/database';
 
 export const WORLD_CHUNK_SIZE = 50;
 
@@ -54,7 +54,7 @@ export type ItemSpawnRarity =
 
 export interface ItemTemplateSeed {
   name: string;
-  type: string;
+  type: ItemType;
   description: string;
   value: number;
   attack?: number;
@@ -68,7 +68,7 @@ export interface ItemTemplateSeed {
 export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
   {
     name: 'Rusty Dagger',
-    type: 'weapon',
+    type: ItemType.WEAPON,
     description: 'A pitted dagger favored by desperate highwaymen.',
     value: 4,
     attack: 2,
@@ -78,7 +78,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
   },
   {
     name: 'Shortsword',
-    type: 'weapon',
+    type: ItemType.WEAPON,
     description: 'A basic shortsword. Reliable and cheap.',
     value: 10,
     attack: 3,
@@ -87,9 +87,10 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     slot: PlayerSlot.weapon,
   },
   {
-    name: 'Traveler\'s Cloak',
-    type: 'armor',
-    description: 'A weathered cloak that offers modest protection from the elements.',
+    name: "Traveler's Cloak",
+    type: ItemType.ARMOR,
+    description:
+      'A weathered cloak that offers modest protection from the elements.',
     value: 8,
     defense: 1,
     rarity: 'Common',
@@ -98,7 +99,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
   },
   {
     name: 'Leather Boots',
-    type: 'armor',
+    type: ItemType.ARMOR,
     description: 'Soft boots that keep the dust off your feet.',
     value: 6,
     defense: 1,
@@ -108,7 +109,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
   },
   {
     name: 'Oak Staff',
-    type: 'weapon',
+    type: ItemType.WEAPON,
     description: 'A sturdy staff engraved with simple runes.',
     value: 12,
     attack: 2,
@@ -117,26 +118,10 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     dropWeight: 8,
     slot: PlayerSlot.weapon,
   },
-  {
-    name: 'Minor Healing Draught',
-    type: 'consumable',
-    description: 'Restores a small amount of health when consumed.',
-    value: 5,
-    healthBonus: 20,
-    rarity: 'Common',
-    dropWeight: 10,
-  },
-  {
-    name: 'Copper Coin',
-    type: 'currency',
-    description: 'A small copper coin. Used as currency.',
-    value: 1,
-    rarity: 'Common',
-    dropWeight: 12,
-  },
+
   {
     name: 'Tempered Longsword',
-    type: 'weapon',
+    type: ItemType.WEAPON,
     description: 'A well-balanced blade favored by veteran guards.',
     value: 35,
     attack: 5,
@@ -145,8 +130,8 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     slot: PlayerSlot.weapon,
   },
   {
-    name: 'Hunter\'s Recurve Bow',
-    type: 'weapon',
+    name: "Hunter's Recurve Bow",
+    type: ItemType.WEAPON,
     description: 'Curved limbs deliver a powerful, silent shot.',
     value: 32,
     attack: 4,
@@ -156,7 +141,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
   },
   {
     name: 'Reinforced Leather',
-    type: 'armor',
+    type: ItemType.ARMOR,
     description: 'Layered hide stitched over chain links.',
     value: 30,
     defense: 4,
@@ -166,7 +151,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
   },
   {
     name: 'Ember Wand',
-    type: 'weapon',
+    type: ItemType.WEAPON,
     description: 'Warm to the touch and eager to spit sparks.',
     value: 34,
     attack: 3,
@@ -175,18 +160,10 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     dropWeight: 4,
     slot: PlayerSlot.weapon,
   },
+
   {
-    name: 'Greater Healing Potion',
-    type: 'consumable',
-    description: 'A concentrated tonic that mends deep wounds.',
-    value: 25,
-    healthBonus: 45,
-    rarity: 'Uncommon',
-    dropWeight: 6,
-  },
-  {
-    name: 'Stormcaller\'s Blade',
-    type: 'weapon',
+    name: "Stormcaller's Blade",
+    type: ItemType.WEAPON,
     description: 'Crackles with barely contained lightning.',
     value: 85,
     attack: 7,
@@ -196,7 +173,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
   },
   {
     name: 'Frostguard Plate',
-    type: 'armor',
+    type: ItemType.ARMOR,
     description: 'Heavy plate lined with glimmering frostglass.',
     value: 90,
     defense: 6,
@@ -206,7 +183,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
   },
   {
     name: 'Shadowstep Boots',
-    type: 'armor',
+    type: ItemType.ARMOR,
     description: 'Silent leather that seems to blur at the edges.',
     value: 70,
     defense: 3,
@@ -215,18 +192,10 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     dropWeight: 2.8,
     slot: PlayerSlot.legs,
   },
-  {
-    name: 'Phoenix Plume',
-    type: 'consumable',
-    description: 'A blazing feather that reignites fallen courage.',
-    value: 60,
-    healthBonus: 80,
-    rarity: 'Rare',
-    dropWeight: 2,
-  },
+
   {
     name: 'Dragonsoul Greatsword',
-    type: 'weapon',
+    type: ItemType.WEAPON,
     description: 'Forged from the bones of an ancient wyrm.',
     value: 150,
     attack: 12,
@@ -236,7 +205,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
   },
   {
     name: 'Umbral Shroud',
-    type: 'armor',
+    type: ItemType.ARMOR,
     description: 'A mantle that drinks in the light around it.',
     value: 140,
     defense: 5,
@@ -247,7 +216,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
   },
   {
     name: 'Celestial Scepter',
-    type: 'weapon',
+    type: ItemType.WEAPON,
     description: 'Stars wink within the crystal atop this staff.',
     value: 145,
     attack: 8,
@@ -258,7 +227,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
   },
   {
     name: 'Worldrender Halberd',
-    type: 'weapon',
+    type: ItemType.WEAPON,
     description: 'Said to have split a continent in mythic wars.',
     value: 250,
     attack: 16,
@@ -268,7 +237,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
   },
   {
     name: 'Crown of the First Flame',
-    type: 'armor',
+    type: ItemType.ARMOR,
     description: 'An ornate circlet that glows with eternal fire.',
     value: 220,
     defense: 4,
@@ -282,10 +251,13 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
 export const ITEM_RARITY_LOOKUP: Record<
   string,
   { rarity: ItemSpawnRarity; dropWeight: number }
-> = ITEM_TEMPLATES.reduce((acc, template) => {
-  acc[template.name] = {
-    rarity: template.rarity,
-    dropWeight: template.dropWeight,
-  };
-  return acc;
-}, {} as Record<string, { rarity: ItemSpawnRarity; dropWeight: number }>);
+> = ITEM_TEMPLATES.reduce(
+  (acc, template) => {
+    acc[template.name] = {
+      rarity: template.rarity,
+      dropWeight: template.dropWeight,
+    };
+    return acc;
+  },
+  {} as Record<string, { rarity: ItemSpawnRarity; dropWeight: number }>,
+);

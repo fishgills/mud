@@ -43,7 +43,7 @@ const pickTemplate = (level: number): ItemTemplateSeed => {
 };
 
 const formatTemplate = (template: ItemTemplateSeed) => {
-  const parts = [template.type];
+  const parts = [template.type.toLowerCase()];
   if (template.slot) parts.push(`slot: ${template.slot}`);
   if (typeof template.attack === 'number' && template.attack !== 0) {
     parts.push(`atk ${template.attack}`);
@@ -74,9 +74,10 @@ const buildRaritySummary = () => {
 registerHandler(COMMANDS.LOOT, async ({ say, text }: HandlerContext) => {
   const args = (text || '').trim().split(/\s+/).slice(1);
   const requestedLevel = Number(args[0]);
-  const level = Number.isFinite(requestedLevel) && requestedLevel > 0
-    ? Math.min(100, Math.floor(requestedLevel))
-    : 1;
+  const level =
+    Number.isFinite(requestedLevel) && requestedLevel > 0
+      ? Math.min(100, Math.floor(requestedLevel))
+      : 1;
 
   if (ITEM_TEMPLATES.length === 0) {
     await say({ text: 'No loot templates registered yet.' });
@@ -84,8 +85,8 @@ registerHandler(COMMANDS.LOOT, async ({ say, text }: HandlerContext) => {
   }
 
   const samples = Array.from({ length: 5 }, () => pickTemplate(level));
-  const sampleLines = samples.map((template, index) =>
-    `${index + 1}. ${formatTemplate(template)}`,
+  const sampleLines = samples.map(
+    (template, index) => `${index + 1}. ${formatTemplate(template)}`,
   );
 
   const summary = buildRaritySummary();

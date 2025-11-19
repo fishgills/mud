@@ -9,7 +9,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { PlayerSlot } from '@mud/database';
+import { PlayerSlot, ItemType } from '@mud/database';
 import type { PlayerItem, Item, Player } from '@mud/database';
 import { Prisma } from '@mud/database';
 import { PlayerService } from '../../player/player.service';
@@ -542,10 +542,14 @@ export class PlayersController {
         (pi: PlayerItem & { item?: Item | null }) => {
           const item = pi.item ?? null;
           const allowedSlots: string[] = [];
+          const rawItemType = item?.type;
           if (item && item.slot) {
             // item.slot is a PlayerSlot enum value
             allowedSlots.push(String(item.slot));
-          } else if (item && item.type === 'weapon') {
+          } else if (
+            typeof rawItemType === 'string' &&
+            rawItemType.toUpperCase() === ItemType.WEAPON
+          ) {
             // fallback: weapons equip to weapon slot
             allowedSlots.push(PlayerSlot.weapon);
           }

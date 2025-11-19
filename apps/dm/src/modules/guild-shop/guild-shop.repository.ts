@@ -9,6 +9,7 @@ import {
   type PlayerItem,
   type ShopCatalogItem,
   type TransactionReceipt,
+  ItemQuality,
 } from '@mud/database';
 
 interface PurchaseResult {
@@ -121,6 +122,7 @@ export class GuildShopRepository {
           playerId: player.id,
           itemId: freshCatalog.itemTemplateId,
           quantity,
+          quality: freshCatalog.quality,
         },
       });
 
@@ -288,7 +290,8 @@ export class GuildShopRepository {
     });
     await this.prisma.shopCatalogItem.createMany({
       data: uniqueItems.map((item, index) => {
-        const buyPrice = this.computeBuyPrice(item);
+        const quality = this.rollQuality();
+        const buyPrice = this.computeBuyPrice(item, quality);
         const sellPrice = this.computeSellPrice(buyPrice);
         const stockQuantity = this.computeStockQuantity();
         return {
@@ -303,15 +306,40 @@ export class GuildShopRepository {
           tags: item.type ? [item.type] : [],
           isActive: true,
           itemTemplateId: item.id,
+          quality,
         };
       }),
     });
   }
 
-  private computeBuyPrice(item: Item): number {
+  private rollQuality(): ItemQuality {
+    const r = Math.random();
+    if (r < 0.6) return ItemQuality.Common;
+    if (r < 0.85) return ItemQuality.Uncommon;
+    if (r < 0.95) return ItemQuality.Rare;
+    if (r < 0.99) return ItemQuality.Epic;
+    return ItemQuality.Legendary;
+  }
+
+  private computeBuyPrice(item: Item, quality: ItemQuality): number {
     const base = Math.max(10, item.value ?? 0);
     const variance = Math.round(base * 0.25 * Math.random());
-    return base + variance;
+    let multiplier = 1;
+    switch (quality) {
+      case ItemQuality.Uncommon:
+        multiplier = 1.5;
+        break;
+      case ItemQuality.Rare:
+        multiplier = 3.0;
+        break;
+      case ItemQuality.Epic:
+        multiplier = 10.0;
+        break;
+      case ItemQuality.Legendary:
+        multiplier = 50.0;
+        break;
+    }
+    return Math.floor((base + variance) * multiplier);
   }
 
   private computeSellPrice(buyPrice: number): number {

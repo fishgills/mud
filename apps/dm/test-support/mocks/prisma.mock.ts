@@ -14,6 +14,11 @@ export const PlayerSlot = {
   feet: 'feet',
 } as const;
 
+export const ItemType = {
+  WEAPON: 'WEAPON',
+  ARMOR: 'ARMOR',
+} as const;
+
 export const ItemQuality = {
   Trash: 'Trash',
   Poor: 'Poor',

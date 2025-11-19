@@ -15,6 +15,11 @@ enum GuildTradeDirection {
   SELL
 }
 
+enum ItemType {
+  WEAPON
+  ARMOR
+}
+
 enum AnnouncementStatus {
   PENDING
   ANNOUNCED
@@ -240,6 +245,7 @@ model ShopCatalogItem {
   maxStock               Int?
   restockIntervalMinutes Int?
   tags                   String[]
+  quality                ItemQuality          @default(Common)
   isActive               Boolean              @default(true)
   itemTemplateId         Int?
   itemTemplate           Item?                @relation(fields: [itemTemplateId], references: [id])
@@ -308,7 +314,7 @@ model PartyMember {
 model Item {
   id              Int               @id @default(autoincrement())
   name            String
-  type            String // weapon, armor, consumable, quest_item
+  type            ItemType // weapon, armor
   description     String
   value           Int               @default(0) // Gold value
   attack          Int?              @default(0) // Attack bonus for weapons

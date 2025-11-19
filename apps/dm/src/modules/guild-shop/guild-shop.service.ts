@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { PlayerService } from '../../app/player/player.service';
 import { GuildShopRepository } from './guild-shop.repository';
 import { GuildShopPublisher } from './guild-shop.publisher';
-import type { Player, Item } from '@mud/database';
+import type { Player } from '@mud/database';
 import type { GuildTradeResponse } from '@mud/api-contracts';
 
 interface BuyRequest {
@@ -59,11 +59,7 @@ export class GuildShopService {
       attack: entry.itemTemplate?.attack ?? null,
       defense: entry.itemTemplate?.defense ?? null,
       healthBonus: entry.itemTemplate?.healthBonus ?? null,
-      quality:
-        entry.itemTemplate && 'quality' in entry.itemTemplate
-          ? ((entry.itemTemplate as Item & { quality?: string | null })
-              .quality ?? null)
-          : null,
+      quality: entry.quality ?? null,
     }));
   }
 

@@ -174,7 +174,7 @@ const seedItemTemplates = async (
     await prisma.item.create({
       data: {
         name: item.name,
-        type: item.itemType ?? 'consumable',
+        type: (item.itemType as never) ?? 'weapon',
         description: item.description ?? '',
         value: Math.max(1, item.buyPriceGold),
         attack: item.attack ?? 0,
