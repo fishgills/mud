@@ -1,8 +1,9 @@
 import { ItemQuality, PrismaClient, Item } from '@mud/database';
 import {
   ITEM_TEMPLATES,
+  ITEM_QUALITY_ORDER,
+  ITEM_QUALITY_PRIORITY,
   type ItemTemplateSeed,
-  type ItemSpawnRarity,
 } from '@mud/constants';
 
 export class LootGenerator {
@@ -65,7 +66,7 @@ export class LootGenerator {
   private pickTemplate(level: number): ItemTemplateSeed {
     const levelBias = Math.min(0.6, Math.max(0, (level - 1) * 0.02));
     const weighted = ITEM_TEMPLATES.map((template) => {
-      const rarityRank = RARITY_PRIORITY[template.rarity] ?? 0;
+      const rarityRank = ITEM_QUALITY_PRIORITY[template.rarity] ?? 0;
       const levelBoost = 1 + levelBias * rarityRank;
       const rarityPenalty = 1 + rarityRank * 0.8;
       const weight = Math.max(
@@ -89,19 +90,23 @@ export class LootGenerator {
 
   private rollQuality(level: number): ItemQuality {
     const bias = Math.min(0.2, Math.max(0, (level - 1) * 0.01));
-    const r = Math.random();
-    if (r < 0.6 - bias) return 'Common';
-    if (r < 0.85 - bias / 2) return 'Uncommon';
-    if (r < 0.95) return 'Rare';
-    if (r < 0.985) return 'Epic';
-    return 'Legendary';
+    const weights = ITEM_QUALITY_ORDER.map((quality) => {
+      const rank = ITEM_QUALITY_PRIORITY[quality] ?? 0;
+      const rarityPenalty = 1 + rank * 0.75;
+      const bonus = 1 + bias * rank * 1.45;
+      return {
+        quality,
+        weight: Math.max(0.01, (1 / rarityPenalty) * bonus),
+      };
+    });
+    const totalWeight = weights.reduce((sum, entry) => sum + entry.weight, 0);
+    let roll = Math.random() * totalWeight;
+    for (const entry of weights) {
+      if (roll <= entry.weight) {
+        return entry.quality;
+      }
+      roll -= entry.weight;
+    }
+    return weights[weights.length - 1]?.quality ?? ItemQuality.Common;
   }
 }
-
-const RARITY_PRIORITY: Record<ItemSpawnRarity, number> = {
-  Common: 0,
-  Uncommon: 1,
-  Rare: 2,
-  Epic: 3,
-  Legendary: 4,
-};

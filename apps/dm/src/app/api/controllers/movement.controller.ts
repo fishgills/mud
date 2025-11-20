@@ -132,7 +132,9 @@ export class MovementController {
     @Query('userId') userId: string,
   ): Promise<SniffResponse> {
     try {
-      const player = await this.playerService.getPlayer(teamId, userId);
+      const player = await this.playerService.getPlayer(teamId, userId, {
+        requireCreationComplete: true,
+      });
 
       if (player) {
         this.recordPlayerActivity(player.id, 'movement:sniff', {
@@ -284,7 +286,9 @@ export class MovementController {
       };
 
       const tPlayerStart = Date.now();
-      const basePlayer = await this.playerService.getPlayer(teamId, userId);
+      const basePlayer = await this.playerService.getPlayer(teamId, userId, {
+        requireCreationComplete: true,
+      });
       const player = basePlayer as HqAwarePlayer;
       this.recordPlayerActivity(player.id, 'movement:look', {
         teamId,

@@ -1,4 +1,5 @@
-import { ItemType, PlayerSlot } from '@mud/database';
+import { ItemType, ItemQuality, PlayerSlot } from '@mud/database';
+import type { ItemQualityType } from '@mud/database';
 
 export const WORLD_CHUNK_SIZE = 50;
 
@@ -45,12 +46,34 @@ export function formatQualityLabel(quality: string | undefined): string {
   return QUALITY_BADGES[norm] ? norm : 'Common';
 }
 
-export type ItemSpawnRarity =
-  | 'Common'
-  | 'Uncommon'
-  | 'Rare'
-  | 'Epic'
-  | 'Legendary';
+export type ItemSpawnRarity = ItemQualityType;
+
+export const ITEM_QUALITY_ORDER: ItemQualityType[] = [
+  ItemQuality.Trash,
+  ItemQuality.Poor,
+  ItemQuality.Common,
+  ItemQuality.Uncommon,
+  ItemQuality.Fine,
+  ItemQuality.Superior,
+  ItemQuality.Rare,
+  ItemQuality.Epic,
+  ItemQuality.Legendary,
+  ItemQuality.Mythic,
+  ItemQuality.Artifact,
+  ItemQuality.Ascended,
+  ItemQuality.Transcendent,
+  ItemQuality.Primal,
+  ItemQuality.Divine,
+];
+
+export const ITEM_QUALITY_PRIORITY: Record<ItemQualityType, number> =
+  ITEM_QUALITY_ORDER.reduce(
+    (acc, quality, index) => {
+      acc[quality] = index;
+      return acc;
+    },
+    {} as Record<ItemQualityType, number>,
+  );
 
 export interface ItemTemplateSeed {
   name: string;

@@ -6,7 +6,9 @@ export const rerollHandlerHelp = `Reroll your character's stats with "reroll". E
 
 export class RerollHandler extends PlayerCommandHandler {
   constructor() {
-    super(COMMANDS.REROLL, 'Failed to reroll stats');
+    super(COMMANDS.REROLL, 'Failed to reroll stats', {
+      allowDuringCreation: true,
+    });
   }
 
   protected async perform({ userId, say }: HandlerContext): Promise<void> {

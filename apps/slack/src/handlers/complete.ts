@@ -6,7 +6,9 @@ export const completeHandlerHelp = `Complete your character creation with "compl
 
 export class CompleteHandler extends PlayerCommandHandler {
   constructor() {
-    super(COMMANDS.COMPLETE, 'Failed to complete character');
+    super(COMMANDS.COMPLETE, 'Failed to complete character', {
+      allowDuringCreation: true,
+    });
   }
 
   protected async perform({ userId, say }: HandlerContext): Promise<void> {

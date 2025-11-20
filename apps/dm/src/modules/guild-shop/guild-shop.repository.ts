@@ -322,24 +322,15 @@ export class GuildShopRepository {
   }
 
   private computeBuyPrice(item: Item, quality: ItemQuality): number {
-    const base = Math.max(10, item.value ?? 0);
-    const variance = Math.round(base * 0.25 * Math.random());
-    let multiplier = 1;
-    switch (quality) {
-      case ItemQuality.Uncommon:
-        multiplier = 1.5;
-        break;
-      case ItemQuality.Rare:
-        multiplier = 3.0;
-        break;
-      case ItemQuality.Epic:
-        multiplier = 10.0;
-        break;
-      case ItemQuality.Legendary:
-        multiplier = 50.0;
-        break;
-    }
-    return Math.floor((base + variance) * multiplier);
+    const baseValue = Math.max(5, item.value ?? 0);
+    const statBonus =
+      (item.attack ?? 0) * 12 +
+      (item.defense ?? 0) * 10 +
+      (item.healthBonus ?? 0) * 2;
+    const effectiveBase = baseValue + statBonus;
+    const variance = Math.round(effectiveBase * 0.15 * Math.random());
+    const multiplier = QUALITY_MULTIPLIERS[quality] ?? 1;
+    return Math.max(1, Math.floor((effectiveBase + variance) * multiplier));
   }
 
   private computeSellPrice(buyPrice: number): number {
@@ -350,3 +341,21 @@ export class GuildShopRepository {
     return Math.max(1, 2 + Math.floor(Math.random() * 4));
   }
 }
+
+const QUALITY_MULTIPLIERS: Record<ItemQuality, number> = {
+  [ItemQuality.Trash]: 0.6,
+  [ItemQuality.Poor]: 0.8,
+  [ItemQuality.Common]: 1,
+  [ItemQuality.Uncommon]: 1.15,
+  [ItemQuality.Fine]: 1.3,
+  [ItemQuality.Superior]: 1.5,
+  [ItemQuality.Rare]: 1.8,
+  [ItemQuality.Epic]: 2.2,
+  [ItemQuality.Legendary]: 2.8,
+  [ItemQuality.Mythic]: 3.5,
+  [ItemQuality.Artifact]: 4.3,
+  [ItemQuality.Ascended]: 5.3,
+  [ItemQuality.Transcendent]: 6.4,
+  [ItemQuality.Primal]: 7.6,
+  [ItemQuality.Divine]: 9,
+};

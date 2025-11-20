@@ -101,6 +101,7 @@ const defaultPlayerData = {
   y: 0,
   nearbyMonsters: [],
   isInHq: false,
+  isCreationComplete: true,
 } as const;
 
 const makeSay = () =>
@@ -1065,6 +1066,28 @@ describe('moveHandler', () => {
     expect(say).toHaveBeenCalledWith({
       text: 'You moved north. You are now at (1, 2).',
     });
+  });
+
+  it('blocks movement when character creation is incomplete', async () => {
+    const say = makeSay();
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
+      success: true,
+      data: { ...defaultPlayerData, isCreationComplete: false },
+    });
+
+    await moveHandler.handle({
+      userId: 'U1',
+      text: COMMANDS.NORTH,
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
+
+    expect(mockedDmClient.movePlayer).not.toHaveBeenCalled();
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('Finish character creation'),
+      }),
+    );
   });
 
   it('moves multiple spaces when requested and reports the distance', async () => {

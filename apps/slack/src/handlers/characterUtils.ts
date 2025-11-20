@@ -8,6 +8,9 @@ import { dmClient } from '../dm-client';
  */
 export const MISSING_CHARACTER_MESSAGE = `You don't have a character yet! Use \`${COMMANDS.NEW} CharacterName\` to create one.`;
 
+export const CREATION_INCOMPLETE_MESSAGE =
+  'Finish character creation before trying other commands. Use `reroll` to reroll stats and `complete` when you are satisfied.';
+
 /**
  * Requires a character to exist for the current user.
  * If the character doesn't exist, sends a friendly message and returns null.

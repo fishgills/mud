@@ -109,7 +109,7 @@ describe('PlayerService', () => {
       gold: 0,
       skillPoints: 0,
       isAlive: true,
-      isCreationComplete: false,
+      isCreationComplete: true,
       lastAction: null,
       ...overrides,
     }) as HqAwarePlayer;
@@ -192,6 +192,19 @@ describe('PlayerService', () => {
   });
 
   describe('movePlayer', () => {
+    it('rejects movement until character creation is complete', async () => {
+      jest
+        .spyOn(service, 'getPlayer')
+        .mockResolvedValue(makePlayer({ isCreationComplete: false }));
+
+      await expect(
+        service.movePlayer('T1', 'U1', { direction: 'north' }),
+      ).rejects.toThrow(
+        'Finish character creation before performing this action. Use "reroll" to adjust stats or "complete" when you are ready.',
+      );
+      expect(worldService.getTileInfo).not.toHaveBeenCalled();
+    });
+
     it('throws when requested distance exceeds agility', async () => {
       jest
         .spyOn(service, 'getPlayer')

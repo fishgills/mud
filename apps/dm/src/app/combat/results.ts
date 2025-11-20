@@ -150,6 +150,7 @@ export async function applyCombatResults(
     const currentPlayer = await playerService.getPlayer(
       slackTeamId,
       slackUserId,
+      { requireCreationComplete: true },
     );
     const newXp = currentPlayer.xp + combatLog.xpAwarded;
     const goldAwarded = Math.max(0, combatLog.goldAwarded ?? 0);

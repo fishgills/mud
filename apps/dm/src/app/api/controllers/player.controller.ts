@@ -441,6 +441,10 @@ export class PlayersController {
       (targetType === TargetType.MONSTER
         ? AttackOrigin.TEXT_PVE
         : AttackOrigin.TEXT_PVP);
+
+    await this.playerService.getPlayer(teamId, userId, {
+      requireCreationComplete: true,
+    });
     const perf: AttackPerformanceStats = {
       totalMs: 0,
       preCombatMs: 0,

@@ -64,7 +64,13 @@ export class GuildShopService {
   }
 
   async buy(data: BuyRequest): Promise<GuildTradeResponse> {
-    const player = await this.playerService.getPlayer(data.teamId, data.userId);
+    const player = await this.playerService.getPlayer(
+      data.teamId,
+      data.userId,
+      {
+        requireCreationComplete: true,
+      },
+    );
     this.ensurePlayerInsideGuild(player);
 
     const searchTerm = data.sku ?? data.item;
@@ -113,7 +119,13 @@ export class GuildShopService {
   }
 
   async sell(data: SellRequest): Promise<GuildTradeResponse> {
-    const player = await this.playerService.getPlayer(data.teamId, data.userId);
+    const player = await this.playerService.getPlayer(
+      data.teamId,
+      data.userId,
+      {
+        requireCreationComplete: true,
+      },
+    );
     this.ensurePlayerInsideGuild(player);
 
     const quantity = data.quantity && data.quantity > 0 ? data.quantity : 1;

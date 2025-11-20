@@ -114,7 +114,9 @@ describe('applyCombatResults', () => {
       { attackOrigin: AttackOrigin.TEXT_PVE },
     );
 
-    expect(playerService.getPlayer).toHaveBeenCalledWith('T1', 'U1');
+    expect(playerService.getPlayer).toHaveBeenCalledWith('T1', 'U1', {
+      requireCreationComplete: true,
+    });
     expect(playerService.updatePlayerStats).toHaveBeenCalledWith(
       'T1',
       'U1',
@@ -235,7 +237,9 @@ describe('applyCombatResults', () => {
 
     expect(playerService.respawnPlayer).toHaveBeenCalledWith('T2', 'U2');
     expect(playerService.restorePlayerHealth).toHaveBeenCalledWith('T1', 'U1');
-    expect(playerService.getPlayer).toHaveBeenCalledWith('T1', 'U1');
+    expect(playerService.getPlayer).toHaveBeenCalledWith('T1', 'U1', {
+      requireCreationComplete: true,
+    });
     expect(prisma.combatLog.create).toHaveBeenCalled();
   });
 });

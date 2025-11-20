@@ -3,17 +3,11 @@ import { registerHandler } from './handlerRegistry';
 import type { HandlerContext } from './types';
 import {
   ITEM_TEMPLATES,
+  ITEM_QUALITY_ORDER,
+  ITEM_QUALITY_PRIORITY,
   type ItemTemplateSeed,
   type ItemSpawnRarity,
 } from '@mud/constants';
-
-const RARITY_PRIORITY: Record<ItemSpawnRarity, number> = {
-  Common: 0,
-  Uncommon: 1,
-  Rare: 2,
-  Epic: 3,
-  Legendary: 4,
-};
 
 const pickTemplate = (level: number): ItemTemplateSeed => {
   if (ITEM_TEMPLATES.length === 0) {
@@ -21,7 +15,7 @@ const pickTemplate = (level: number): ItemTemplateSeed => {
   }
   const levelBias = Math.min(0.6, Math.max(0, (level - 1) * 0.02));
   const weighted = ITEM_TEMPLATES.map((template) => {
-    const rarityRank = RARITY_PRIORITY[template.rarity] ?? 0;
+    const rarityRank = ITEM_QUALITY_PRIORITY[template.rarity] ?? 0;
     const levelBoost = 1 + levelBias * rarityRank;
     const rarityPenalty = 1 + rarityRank * 0.8;
     const weight = Math.max(
@@ -57,17 +51,27 @@ const formatTemplate = (template: ItemTemplateSeed) => {
   return `${template.name} (${template.rarity}, weight ${template.dropWeight}) — ${parts.join(', ')}`;
 };
 
+const createRarityTotals = (): Record<ItemSpawnRarity, number> =>
+  ITEM_QUALITY_ORDER.reduce<Record<ItemSpawnRarity, number>>(
+    (acc, rarity) => {
+      acc[rarity] = 0;
+      return acc;
+    },
+    {} as Record<ItemSpawnRarity, number>,
+  );
+
 const buildRaritySummary = () => {
   const totals = ITEM_TEMPLATES.reduce<Record<ItemSpawnRarity, number>>(
     (acc, template) => {
-      acc[template.rarity] = (acc[template.rarity] ?? 0) + template.dropWeight;
+      acc[template.rarity] += template.dropWeight;
       return acc;
     },
-    { Common: 0, Uncommon: 0, Rare: 0, Epic: 0, Legendary: 0 },
+    createRarityTotals(),
   );
-  const lines = Object.entries(totals)
-    .map(([rarity, weight]) => `${rarity}: total weight ${weight.toFixed(1)}`)
-    .join('\n');
+  const lines = ITEM_QUALITY_ORDER.map((rarity) => {
+    const weight = totals[rarity];
+    return `${rarity}: total weight ${weight.toFixed(1)}`;
+  }).join('\n');
   return lines;
 };
 

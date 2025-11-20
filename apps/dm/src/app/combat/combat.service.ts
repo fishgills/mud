@@ -415,7 +415,7 @@ export class CombatService {
   ): Promise<Combatant> {
     let firstError: unknown;
     const player = await this.playerService
-      .getPlayer(teamId, userId)
+      .getPlayer(teamId, userId, { requireCreationComplete: true })
       .catch((err) => {
         firstError = err;
         return null;

@@ -6,7 +6,10 @@ import { registerHandler } from './handlerRegistry';
 import { HandlerContext } from './types';
 import { getSlackApp } from '../appContext';
 import { buildHqBlockedMessage } from './hqUtils';
-import { MISSING_CHARACTER_MESSAGE } from './characterUtils';
+import {
+  CREATION_INCOMPLETE_MESSAGE,
+  MISSING_CHARACTER_MESSAGE,
+} from './characterUtils';
 
 type CommandRegistration = string | string[];
 
@@ -95,6 +98,7 @@ export abstract class PlayerCommandHandler extends SafeCommandHandler {
       allowInHq: options.allowInHq ?? true,
       missingCharacterMessage:
         options.missingCharacterMessage ?? MISSING_CHARACTER_MESSAGE,
+      allowDuringCreation: options.allowDuringCreation ?? false,
       hqCommand: options.hqCommand,
     };
   }
@@ -131,6 +135,15 @@ export abstract class PlayerCommandHandler extends SafeCommandHandler {
 
     this.player = playerResult.data;
 
+    if (
+      this.player &&
+      this.player.isCreationComplete === false &&
+      !this.options.allowDuringCreation
+    ) {
+      await ctx.say({ text: CREATION_INCOMPLETE_MESSAGE });
+      return false;
+    }
+
     if (!this.options.allowInHq && this.player.isInHq) {
       const commandName = this.options.hqCommand ?? this.commands[0];
       await ctx.say({ text: buildHqBlockedMessage(commandName) });
@@ -151,6 +164,7 @@ interface PlayerCommandHandlerOptions {
   allowInHq?: boolean;
   missingCharacterMessage?: string;
   hqCommand?: string;
+  allowDuringCreation?: boolean;
 }
 
 interface PlayerCommandHandlerResolvedOptions {
@@ -158,5 +172,6 @@ interface PlayerCommandHandlerResolvedOptions {
   requirePlayer: boolean;
   allowInHq: boolean;
   missingCharacterMessage: string;
+  allowDuringCreation: boolean;
   hqCommand?: string;
 }

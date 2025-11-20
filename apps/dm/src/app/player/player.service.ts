@@ -29,6 +29,10 @@ import { DiceRoll } from '@dice-roller/rpg-dice-roller';
 import { PlayerItemService } from './player-item.service';
 import { env } from '../../env';
 
+interface GetPlayerOptions {
+  requireCreationComplete?: boolean;
+}
+
 @Injectable()
 export class PlayerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlayerService.name);
@@ -42,6 +46,8 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
 
   private readonly HQ_MOVEMENT_ERROR =
     'You cannot move while inside HQ. Use the teleport command to return to the world.';
+  private readonly CREATION_INCOMPLETE_ERROR =
+    'Finish character creation before performing this action. Use "reroll" to adjust stats or "complete" when you are ready.';
 
   constructor(
     private readonly worldService: WorldService,
@@ -58,6 +64,12 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     if (this.activityUnsubscribe) {
       this.activityUnsubscribe();
       this.activityUnsubscribe = undefined;
+    }
+  }
+
+  private ensureCreationComplete(player: Player): void {
+    if (player.isCreationComplete === false) {
+      throw new BadRequestException(this.CREATION_INCOMPLETE_ERROR);
     }
   }
 
@@ -248,7 +260,11 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     return player;
   }
 
-  async getPlayer(teamId: string, userId: string): Promise<Player> {
+  async getPlayer(
+    teamId: string,
+    userId: string,
+    options?: GetPlayerOptions,
+  ): Promise<Player> {
     this.logger.debug(
       `Looking up player for teamId=${teamId}, userId=${userId}`,
     );
@@ -258,6 +274,9 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
         `Player not found for teamId=${teamId}, userId=${userId}`,
       );
       throw new NotFoundException('Player not found');
+    }
+    if (options?.requireCreationComplete) {
+      this.ensureCreationComplete(player);
     }
     return player;
   }
@@ -323,6 +342,7 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     moveDto: MovePlayerDto,
   ): Promise<Player> {
     const player = await this.getPlayer(teamId, userId);
+    this.ensureCreationComplete(player);
     const hqAware = player as Player & {
       isInHq?: boolean | null;
     };
@@ -467,6 +487,7 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     mode?: HqExitMode;
   }> {
     const player = await this.getPlayer(teamId, userId);
+    this.ensureCreationComplete(player);
     const hqAware = player as Player & {
       isInHq?: boolean | null;
       lastWorldX?: number | null;
@@ -617,6 +638,7 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     attribute: 'strength' | 'agility' | 'health',
   ): Promise<Player> {
     const player = await this.getPlayer(teamId, userId);
+    this.ensureCreationComplete(player);
     const equipmentHealthBonus = await this.getEquipmentHealthBonus(player.id);
 
     if (player.skillPoints <= 0) {

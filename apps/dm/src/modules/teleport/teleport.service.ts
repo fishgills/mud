@@ -65,6 +65,7 @@ export class TeleportService {
     const player = await this.playerService.getPlayer(
       request.teamId,
       request.userId,
+      { requireCreationComplete: true },
     );
 
     if (!player?.isAlive) {

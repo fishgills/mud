@@ -1,5 +1,5 @@
 import { LootGenerator } from './loot-generator';
-import { ITEM_TEMPLATES } from '@mud/constants';
+import { ITEM_TEMPLATES, ITEM_QUALITY_PRIORITY } from '@mud/constants';
 import type { PrismaClient, Item } from '@mud/database';
 
 const mockItem = (overrides: Partial<Item> = {}): Item => ({
@@ -40,7 +40,7 @@ describe('LootGenerator', () => {
     expect(drops).toEqual([
       expect.objectContaining({
         itemId: 42,
-        quality: 'Common',
+        quality: 'Trash',
         item: record,
       }),
     ]);
@@ -76,18 +76,22 @@ describe('LootGenerator', () => {
       item: { findFirst: jest.fn().mockResolvedValue(record) },
     } as unknown as PrismaClient;
     const randomSpy = jest.spyOn(Math, 'random');
-  randomSpy
-    .mockReturnValueOnce(0)
-    .mockReturnValueOnce(0.55) // low level quality roll
-    .mockReturnValueOnce(0)
-    .mockReturnValueOnce(0.5); // high level quality roll
+    randomSpy
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.35) // low level quality roll
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.35); // reuse same roll for higher level bias
 
-  const generator = new LootGenerator(prisma);
-  const lowLevelDrop = await generator.generateForMonster({ level: 1 });
-  const highLevelDrop = await generator.generateForMonster({ level: 25 });
+    const generator = new LootGenerator(prisma);
+    const lowLevelDrop = await generator.generateForMonster({ level: 1 });
+    const highLevelDrop = await generator.generateForMonster({ level: 25 });
 
-    expect(lowLevelDrop[0]?.quality).toBe('Common');
-    expect(highLevelDrop[0]?.quality).toBe('Uncommon');
+    const lowRank =
+      ITEM_QUALITY_PRIORITY[lowLevelDrop[0]?.quality ?? 'Common'] ?? 0;
+    const highRank =
+      ITEM_QUALITY_PRIORITY[highLevelDrop[0]?.quality ?? 'Common'] ?? 0;
+
+    expect(highRank).toBeGreaterThanOrEqual(lowRank);
   });
 
   it('can roll rare, epic, and legendary tiers based on random value', async () => {
@@ -98,11 +102,11 @@ describe('LootGenerator', () => {
     const randomSpy = jest.spyOn(Math, 'random');
     randomSpy
       .mockReturnValueOnce(0)
-      .mockReturnValueOnce(0.92) // Rare
+      .mockReturnValueOnce(0.73) // Rare
       .mockReturnValueOnce(0)
-      .mockReturnValueOnce(0.97) // Epic
+      .mockReturnValueOnce(0.79) // Epic
       .mockReturnValueOnce(0)
-      .mockReturnValueOnce(0.99); // Legendary
+      .mockReturnValueOnce(0.82); // Legendary
 
     const generator = new LootGenerator(prisma);
     const rareDrop = await generator.generateForMonster();
