@@ -1,6 +1,7 @@
 // server.ts
 import '@mud/tracer/register'; // must come before importing any instrumented module.
 import { App } from '@slack/bolt';
+import { ConsoleLogger as SlackConsoleLogger, LogLevel } from '@slack/logger';
 import { env } from './env';
 import { getPrismaClient } from '@mud/database';
 import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
@@ -45,6 +46,13 @@ const installationStore = new PrismaInstallationStore({
   prismaTable: getPrismaClient().slackAppInstallation,
 });
 
+const runningInGke = Boolean(process.env.KUBERNETES_SERVICE_HOST);
+const slackLogger = runningInGke ? new SlackConsoleLogger() : null;
+if (slackLogger) {
+  slackLogger.setLevel(LogLevel.INFO);
+  slackLogger.setName('slack');
+}
+
 const app = new App({
   signingSecret: decodedEnv.SLACK_SIGNING_SECRET,
   socketMode: false,
@@ -65,6 +73,7 @@ const app = new App({
     directInstall: true,
   },
   installationStore: installationStore,
+  ...(slackLogger ? { logger: slackLogger } : {}),
   customRoutes: [
     {
       path: '/health-check',

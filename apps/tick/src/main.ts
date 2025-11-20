@@ -214,6 +214,7 @@ export function startTickService(options: TickServiceOptions = {}) {
   runTick().catch(() => void 0);
   const interval: NodeJS.Timeout = setInterval(runTick, tickIntervalMs);
 
+  const runningInGke = Boolean(process.env.KUBERNETES_SERVICE_HOST);
   const server = httpModule.createServer((req, res) => {
     if (!req.url) {
       res.statusCode = 400;
@@ -224,10 +225,12 @@ export function startTickService(options: TickServiceOptions = {}) {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ ok: true }));
-      logger.debug(
-        { url: req.url, method: req.method },
-        'Health probe handled',
-      );
+      if (!runningInGke) {
+        logger.debug(
+          { url: req.url, method: req.method },
+          'Health probe handled',
+        );
+      }
       return;
     }
     res.statusCode = 404;

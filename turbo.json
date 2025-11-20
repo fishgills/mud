@@ -24,7 +24,8 @@
         "GCP_REGION",
         "VERTEX_LOCATION",
         "WORLD_RENDER_CACHE_TTL_MS",
-        "GOOGLE_CLOUD_REGION"
+        "GOOGLE_CLOUD_REGION",
+        "KUBERNETES_SERVICE_HOST"
       ],
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
@@ -58,7 +59,8 @@
         "REDIS_URL",
         "SLACK_TEST_ID",
         "SLACK_TEST_MESSAGE",
-        "GOOGLE_CLOUD_REGION"
+        "GOOGLE_CLOUD_REGION",
+        "KUBERNETES_SERVICE_HOST"
       ]
     },
     "test": {
