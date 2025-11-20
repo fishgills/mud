@@ -6,7 +6,9 @@ echo "🚀 DM Service startup..."
 # Run database migrations
 echo "📦 Running database migrations..."
 cd libs/database
+echo "⏳ Executing: npx prisma migrate deploy"
 npx prisma migrate deploy
+echo "✅ Database migrations complete"
 
 cd /app
 
@@ -22,6 +24,7 @@ if [ "$GUILD_SEED_ENABLED" = "true" ]; then
       RESET_ARG="--reset"
     fi
 
+    echo "🛠️  Running guild seed script with catalog=$SEED_CATALOG announcements=$SEED_ANNOUNCEMENTS"
     node apps/dm/scripts/seed-guild.js \
       --tile "${GUILD_SEED_TILE:-guild-hall}" \
       --name "${GUILD_SEED_NAME:-Adventurers Guild Hall}" \
@@ -32,6 +35,7 @@ if [ "$GUILD_SEED_ENABLED" = "true" ]; then
       --cooldown "${GUILD_SEED_COOLDOWN_SECONDS:-300}" \
       --population "${GUILD_SEED_POPULATION_LIMIT:-50}" \
       $RESET_ARG
+    echo "✅ Guild seed completed"
   else
     echo "⚠️  Guild seed skipped: missing fixture files ($SEED_CATALOG / $SEED_ANNOUNCEMENTS)"
   fi
