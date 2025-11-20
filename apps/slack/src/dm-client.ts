@@ -112,6 +112,7 @@ export type PlayerRecord = Player &
       weapon?: { id: number; quality: string } | null;
     };
     equipmentTotals?: EquipmentTotals;
+    xpToNextLevel?: number;
   };
 
 // Use Monster directly from Prisma

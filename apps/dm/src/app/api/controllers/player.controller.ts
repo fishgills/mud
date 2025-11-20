@@ -34,6 +34,7 @@ import type {
   PlayerStatsRequest,
 } from '../dto/player-requests.dto';
 import { TargetType, AttackOrigin } from '../dto/player-requests.dto';
+import { getXpThresholdForLevel, getXpToNextLevel } from '@mud/constants';
 
 interface StatsUpdatePayload {
   teamId?: string;
@@ -145,10 +146,14 @@ export class PlayersController {
       const equipmentTotals = await this.playerItemService.getEquipmentTotals(
         player.id,
       );
+      const xpToNextLevel =
+        typeof player.level === 'number' && typeof player.xp === 'number'
+          ? getXpToNextLevel(player.level, player.xp)
+          : undefined;
 
       return {
         success: true,
-        data: { ...player, equipmentTotals },
+        data: { ...player, equipmentTotals, xpToNextLevel },
       };
     } catch (error) {
       this.logger.error(
@@ -392,10 +397,9 @@ export class PlayersController {
     const baseDamage = `1d6${strengthModifier >= 0 ? '+' : ''}${strengthModifier}`;
     const armorClass = 10 + agilityModifier;
 
-    const xpThreshold = (lvl: number) =>
-      Math.floor((100 * (lvl * (lvl + 1))) / 2);
-    const xpForNextLevel = xpThreshold(player.level);
-    const prevThreshold = player.level > 1 ? xpThreshold(player.level - 1) : 0;
+    const xpForNextLevel = getXpThresholdForLevel(player.level);
+    const prevThreshold =
+      player.level > 1 ? getXpThresholdForLevel(player.level - 1) : 0;
     const xpProgress = Math.max(0, player.xp - prevThreshold);
     const xpNeeded = Math.max(0, xpForNextLevel - player.xp);
 

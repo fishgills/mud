@@ -12,6 +12,7 @@ export interface EquipmentTotalsDto {
 
 export type PlayerWithEquipmentTotals = Player & {
   equipmentTotals?: EquipmentTotalsDto;
+  xpToNextLevel?: number;
 };
 
 export interface LocationInfo {

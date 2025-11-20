@@ -10,7 +10,9 @@ type PlayerStatsFormatOptions = {
 const displayValue = (value: unknown) =>
   value === undefined || value === null ? '—' : String(value);
 
-const getAbilityModifier = (value: number | null | undefined): number | null => {
+const getAbilityModifier = (
+  value: number | null | undefined,
+): number | null => {
   if (value == null) {
     return null;
   }
@@ -121,6 +123,18 @@ const buildActionsBlock = (skillPoints: number): (KnownBlock | Block)[] => {
   ];
 };
 
+const resolveXpToNextLevel = (
+  player: PlayerStatsSource,
+): { needed: number; nextLevel: number } | null => {
+  if (
+    typeof player.level !== 'number' ||
+    typeof player.xpToNextLevel !== 'number'
+  ) {
+    return null;
+  }
+  return { needed: player.xpToNextLevel, nextLevel: player.level + 1 };
+};
+
 export function buildPlayerStatsMessage(
   player: PlayerStatsSource,
   options: PlayerStatsFormatOptions = {},
@@ -129,6 +143,8 @@ export function buildPlayerStatsMessage(
   const name = displayValue(player.name);
   const title = `${name} — Level ${displayValue(player.level)}`;
   const hpText = `${displayValue(player.hp)}/${displayValue(player.maxHp)}`;
+  const xpInfo = resolveXpToNextLevel(player);
+  const xpFieldValue = xpInfo ? `${xpInfo.needed} XP` : '—';
 
   const blocks: (KnownBlock | Block)[] = [
     {
@@ -166,6 +182,7 @@ export function buildPlayerStatsMessage(
         type: 'mrkdwn',
         text: `*Location*\n${displayValue(player.x)}/${displayValue(player.y)}`,
       },
+      { type: 'mrkdwn', text: `*XP to Next Level*\n${xpFieldValue}` },
     ],
   });
 
@@ -222,21 +239,16 @@ export function buildPlayerStatsMessage(
     ],
   });
 
-  if (typeof player.level === 'number' && typeof player.xp === 'number') {
-    const xpForNextLevel = player.level * 100;
-    const xpNeeded = xpForNextLevel - player.xp;
-
-    if (xpNeeded > 0) {
-      blocks.push({
-        type: 'context',
-        elements: [
-          {
-            type: 'mrkdwn',
-            text: `🏅 ${xpNeeded} XP needed for level ${player.level + 1}.`,
-          },
-        ],
-      });
-    }
+  if (xpInfo) {
+    blocks.push({
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: `🏅 ${xpInfo.needed} XP needed for level ${xpInfo.nextLevel}.`,
+        },
+      ],
+    });
   }
 
   if (options.isSelf) {

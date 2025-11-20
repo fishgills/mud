@@ -28,6 +28,7 @@ describe('buildPlayerStatsMessage', () => {
     level: 2,
     skillPoints: 0,
     isAlive: true,
+    xpToNextLevel: 250,
     ...overrides,
   });
 
@@ -147,12 +148,37 @@ describe('buildPlayerStatsMessage', () => {
       expect(armorField).toContain('10 (base 10)');
     });
   });
+
+  describe('XP progression display', () => {
+    it('includes xp remaining and context details', () => {
+      const player = createMockPlayer({ level: 2, xpToNextLevel: 250 });
+      const result = buildPlayerStatsMessage(player);
+
+      const xpField = findFieldText(result.blocks, '*XP to Next Level*');
+      expect(xpField).toContain('250 XP');
+      const contextTexts = findContextTexts(result.blocks);
+      expect(contextTexts.some((text) => text.includes('level 3'))).toBe(true);
+    });
+
+    it('gracefully handles missing xp data', () => {
+      const player = createMockPlayer({ xpToNextLevel: undefined });
+      const result = buildPlayerStatsMessage(player);
+
+      const xpField = findFieldText(result.blocks, '*XP to Next Level*');
+      expect(xpField).toContain('—');
+      const contextTexts = findContextTexts(result.blocks);
+      expect(contextTexts.length).toBe(0);
+    });
+  });
 });
 const isActionsBlock = (block: KnownBlock | Block): block is ActionsBlock =>
   block.type === 'actions';
 
 const isSectionBlock = (block: KnownBlock | Block): block is SectionBlock =>
   block.type === 'section';
+
+const isContextBlock = (block: KnownBlock | Block): block is Block =>
+  block.type === 'context';
 
 const findFieldText = (
   blocks: (KnownBlock | Block)[] | undefined,
@@ -168,4 +194,20 @@ const findFieldText = (
     }
   }
   return undefined;
+};
+
+const findContextTexts = (
+  blocks: (KnownBlock | Block)[] | undefined,
+): string[] => {
+  if (!blocks) return [];
+  const texts: string[] = [];
+  for (const block of blocks) {
+    if (!isContextBlock(block)) continue;
+    for (const element of block.elements ?? []) {
+      if ('text' in element && typeof element.text === 'string') {
+        texts.push(element.text);
+      }
+    }
+  }
+  return texts;
 };
