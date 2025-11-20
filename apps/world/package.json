@@ -20,6 +20,7 @@
   "dependencies": {
     "@mud/constants": "*",
     "@mud/database": "*",
+    "@mud/logging": "*",
     "@mud/tracer": "*",
     "@nestjs/common": "^11.1.6",
     "@nestjs/core": "^11.1.6",
