@@ -571,7 +571,7 @@ export class MovementController {
           player: result.player,
           lastWorldPosition: result.lastWorldPosition,
           message:
-            'You are already inside HQ. Choose “return” to go back to your last location or “random” for a fresh spawn.',
+            'You are already inside HQ. Choose `return` to go back to your last location or `random` for a fresh spawn.',
         };
       case 'exited':
       default:
