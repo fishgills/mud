@@ -1,11 +1,15 @@
-import { sniffNearestMonster, SniffProximity } from '../dm-client';
+import {
+  sniffNearestMonster,
+  SniffProximity,
+  type SniffData,
+} from '../dm-client';
 import type { KnownBlock, Block } from '@slack/types';
 import { HandlerContext } from './types';
 import { registerHandler } from './handlerRegistry';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { COMMANDS } from '../commands';
 
-export const sniffHandlerHelp = `Sniff out the nearest monster within range of your agility. Example: Send "${COMMANDS.SNIFF}".`;
+export const sniffHandlerHelp = `Sniff out the nearest monster (and any nearby players) within range of your agility. Example: Send "${COMMANDS.SNIFF}".`;
 
 const proximityPhrases: Record<SniffProximity, string> = {
   immediate: 'right under your nose',
@@ -64,6 +68,23 @@ const buildMonsterBlockText = (data?: {
   return `:japanese_goblin: *Monster* • ${data.monsterName} — _${distanceText}_${dirText ? `${dirText}` : ''} ${arrow}`.trim();
 };
 
+const buildPlayerBlockText = (data?: {
+  playerName?: string;
+  playerDistanceLabel?: string;
+  playerProximity?: SniffProximity;
+  playerDirection?: string;
+}): string | undefined => {
+  if (!data || !data.playerName) return undefined;
+  const distanceText = resolveDistanceLabel(
+    data.playerDistanceLabel,
+    data.playerProximity,
+  );
+  const dir = data.playerDirection?.trim();
+  const arrow = arrowForDirection(dir);
+  const dirText = dir && dir !== 'here' ? ` to the ${dir}` : '';
+  return `:bust_in_silhouette: *Player* • ${data.playerName} — _${distanceText}_${dirText ? `${dirText}` : ''} ${arrow}`.trim();
+};
+
 export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
   try {
     const response = await sniffNearestMonster({
@@ -78,16 +99,27 @@ export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
       return;
     }
 
-    const data = response.data;
+    const data: Partial<SniffData> = response.data ?? {};
 
-    if (!data || !data.monsterName) {
-      const radius = data?.detectionRadius;
-      const radiusLabel =
-        typeof radius === 'number'
-          ? `${radius} tile${radius === 1 ? '' : 's'}`
-          : 'your range';
-      const fallbackMessage = `You sniff the air but can't catch any monster scent within ${radiusLabel}.`;
-      const text = response.message ?? fallbackMessage;
+    const monsterRadius = data?.detectionRadius;
+    const playerRadius = data?.playerDetectionRadius;
+    const monsterRadiusLabel =
+      typeof monsterRadius === 'number'
+        ? `${monsterRadius} tile${monsterRadius === 1 ? '' : 's'}`
+        : 'your range';
+    const playerRadiusLabel =
+      typeof playerRadius === 'number'
+        ? `${playerRadius} tile${playerRadius === 1 ? '' : 's'}`
+        : 'your extended range';
+
+    const hasMonster = Boolean(data?.monsterName);
+    const hasPlayer = Boolean(data?.playerName);
+
+    if (!hasMonster && !hasPlayer) {
+      const fallbackMessage =
+        response.message ??
+        `You sniff the air but can't catch any monster scent within ${monsterRadiusLabel} or any players within ${playerRadiusLabel}.`;
+      const text = fallbackMessage;
       // Build a richer Block Kit layout
       const blocks: (KnownBlock | Block)[] = [
         {
@@ -98,7 +130,7 @@ export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
           type: 'section' as const,
           text: {
             type: 'mrkdwn' as const,
-            text: `:nose: _No monster scent within ${radiusLabel}_.`,
+            text: `:nose: _No monster scent within ${monsterRadiusLabel} or players within ${playerRadiusLabel}_.`,
           },
         },
       ];
@@ -106,15 +138,30 @@ export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
       return;
     }
 
-    const direction = data.direction ? ` to the ${data.direction}` : '';
-    const distanceText = resolveDistanceLabel(
+    const monsterDirection = data.direction ? ` to the ${data.direction}` : '';
+    const monsterDistanceText = resolveDistanceLabel(
       data.distanceLabel,
       data.proximity,
     );
-    const fallbackMessage = `You catch the scent of ${data.monsterName} ${distanceText}${direction}.`;
-    const text = response.message ?? fallbackMessage;
+    const playerDirection = data.playerDirection
+      ? ` to the ${data.playerDirection}`
+      : '';
+    const playerDistanceText = resolveDistanceLabel(
+      data.playerDistanceLabel,
+      data.playerProximity,
+    );
+    const fallbackMessageParts = [
+      data.monsterName
+        ? `You catch the scent of ${data.monsterName} ${monsterDistanceText}${monsterDirection}.`
+        : null,
+      data.playerName
+        ? `You smell ${data.playerName} ${playerDistanceText}${playerDirection}.`
+        : null,
+    ].filter(Boolean);
+    const text = response.message ?? fallbackMessageParts.join(' ');
 
     const monsterText = buildMonsterBlockText(data);
+    const playerText = buildPlayerBlockText(data);
     const blocks: (KnownBlock | Block)[] = [
       {
         type: 'header' as const,
@@ -125,6 +172,14 @@ export const sniffHandler = async ({ userId, say, teamId }: HandlerContext) => {
             {
               type: 'section' as const,
               text: { type: 'mrkdwn' as const, text: monsterText },
+            },
+          ] as const)
+        : []),
+      ...(playerText
+        ? ([
+            {
+              type: 'section' as const,
+              text: { type: 'mrkdwn' as const, text: playerText },
             },
           ] as const)
         : []),
@@ -144,6 +199,7 @@ export const __private__ = {
   resolveDistanceLabel,
   arrowForDirection,
   buildMonsterBlockText,
+  buildPlayerBlockText,
 };
 
 registerHandler(COMMANDS.SNIFF, sniffHandler);

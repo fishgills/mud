@@ -15,6 +15,7 @@ const createPlayerService = () => ({
   getPlayersAtLocation: jest.fn(),
   updateLastAction: jest.fn().mockResolvedValue(undefined),
   teleportPlayer: jest.fn(),
+  findNearestPlayerWithinRadius: jest.fn(),
 });
 
 const createWorldService = () => ({
@@ -64,16 +65,19 @@ describe('MovementController', () => {
   });
 
   describe('sniffNearestMonster', () => {
-    it('returns detection radius when no monsters detected', async () => {
+    it('returns detection radius when no monsters or players detected', async () => {
       const player = { id: 1, x: 0, y: 0, agility: 2 };
       playerService.getPlayer.mockResolvedValue(player);
       monsterService.findNearestMonsterWithinRadius.mockResolvedValue(null);
+      playerService.findNearestPlayerWithinRadius.mockResolvedValue(null);
 
       const response = await controller.sniffNearestMonster('T1', 'U1');
 
       expect(response.success).toBe(true);
       expect(response.message).toContain("can't catch any monster scent");
+      expect(response.message).toContain('any other player');
       expect(response.data?.detectionRadius).toBe(2);
+      expect(response.data?.playerDetectionRadius).toBe(4);
       expect(eventBusEmit).toHaveBeenCalledWith(
         expect.objectContaining({
           eventType: 'player:activity',
@@ -90,12 +94,31 @@ describe('MovementController', () => {
         monster: { name: 'Goblin', x: 1, y: 0 },
         distance: 1,
       });
+      playerService.findNearestPlayerWithinRadius.mockResolvedValue(null);
 
       const response = await controller.sniffNearestMonster('T1', 'U1');
 
       expect(response.success).toBe(true);
       expect(response.message).toContain('Goblin');
       expect(response.data?.direction).toBe('east');
+      expect(response.data?.playerDetectionRadius).toBe(6);
+    });
+
+    it('includes nearest player details when found', async () => {
+      const player = { id: 10, x: 0, y: 0, agility: 2 } as Player;
+      playerService.getPlayer.mockResolvedValue(player);
+      monsterService.findNearestMonsterWithinRadius.mockResolvedValue(null);
+      playerService.findNearestPlayerWithinRadius.mockResolvedValue({
+        player: { id: 11, name: 'Rival', x: 0, y: -2 } as Player,
+        distance: 2,
+      });
+
+      const response = await controller.sniffNearestMonster('T1', 'U1');
+
+      expect(response.success).toBe(true);
+      expect(response.message).toContain('Rival');
+      expect(response.data?.playerDirection).toBe('south');
+      expect(response.data?.playerDetectionRadius).toBe(4);
     });
 
     it('handles service errors gracefully', async () => {

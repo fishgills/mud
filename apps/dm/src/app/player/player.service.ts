@@ -954,6 +954,48 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     }));
   }
 
+  async findNearestPlayerWithinRadius(
+    x: number,
+    y: number,
+    radius: number,
+    options?: { excludePlayerId?: number },
+  ): Promise<{ player: Player; distance: number } | null> {
+    if (!Number.isFinite(radius) || radius <= 0) {
+      return null;
+    }
+
+    const searchRadius = Math.max(1, Math.ceil(radius));
+    const players = await this.prisma.player.findMany({
+      where: {
+        isAlive: true,
+        NOT: options?.excludePlayerId
+          ? { id: options.excludePlayerId }
+          : undefined,
+        x: { gte: x - searchRadius, lte: x + searchRadius },
+        y: { gte: y - searchRadius, lte: y + searchRadius },
+      },
+    });
+
+    let closest: { player: Player; distance: number } | null = null;
+
+    for (const player of players) {
+      if (options?.excludePlayerId && player.id === options.excludePlayerId) {
+        continue;
+      }
+      const dx = player.x - x;
+      const dy = player.y - y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance > radius) {
+        continue;
+      }
+      if (!closest || distance < closest.distance) {
+        closest = { player, distance };
+      }
+    }
+
+    return closest;
+  }
+
   // direction util now imported from shared/direction.util
 
   private async findValidSpawnPosition(
