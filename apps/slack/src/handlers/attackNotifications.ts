@@ -54,6 +54,10 @@ export const buildAttackFailureMessage = (
     return `${targetName} is down right now. Wait for them to respawn before trying again.`;
   }
 
+  if (message.includes('finish character creation')) {
+    return `${targetName} hasn't finished character creation yet. Ask them to use \`${COMMANDS.COMPLETE}\` once they're ready.`;
+  }
+
   if (isMissingTargetCharacterMessage(rawMessage)) {
     return buildMissingCharacterGuidance(targetName);
   }

@@ -223,7 +223,7 @@ describe('PlayerService', () => {
       await expect(
         service.movePlayer('T1', 'U1', { direction: 'north' }),
       ).rejects.toThrow(
-        'You cannot move while inside HQ. Use the guild command to return to the world.',
+        'You cannot move while inside HQ. Use `guild return` or `guild random` to head back into the world.',
       );
       expect(worldService.getTileInfo).not.toHaveBeenCalled();
     });

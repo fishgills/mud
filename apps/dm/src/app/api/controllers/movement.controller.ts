@@ -301,7 +301,7 @@ export class MovementController {
         return {
           success: true,
           message:
-            'You are within the HQ safe zone. Use the guild command to return to the world when ready.',
+            'You are within the HQ safe zone. Use `guild return` or `guild random` to head back into the world when ready.',
           data: {
             location: {
               x: player.lastWorldX ?? player.x,
