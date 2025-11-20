@@ -5,22 +5,12 @@
 import { Player, Monster, Prisma } from '@mud/database';
 import type {
   GuildAnnouncementPayload,
-  GuildServicesStatus,
   GuildTradeResponse,
 } from '@mud/api-contracts';
 
 export interface BaseGameEvent {
   timestamp: Date;
   eventType: string;
-}
-
-export interface GuildTeleportArrivedEvent extends BaseGameEvent {
-  eventType: 'guild.teleport.arrived';
-  playerId: number;
-  occupantIds: number[];
-  services: GuildServicesStatus;
-  arrivalMessage?: string;
-  correlationId?: string;
 }
 
 export interface GuildShopReceiptEvent extends BaseGameEvent {
@@ -264,7 +254,6 @@ export type GameEvent =
   | WeatherChangeEvent
   | LootSpawnEvent
   | TimeTickEvent
-  | GuildTeleportArrivedEvent
   | GuildShopReceiptEvent
   | GuildAnnouncementDeliveredEvent;
 

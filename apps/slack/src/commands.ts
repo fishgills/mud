@@ -11,7 +11,6 @@ export const COMMANDS = {
   MAP: 'map',
   SNIFF: 'sniff',
   MOVE: 'move',
-  TELEPORT: 'teleport',
   GUILD: 'guild',
   BUY: 'buy',
   SELL: 'sell',

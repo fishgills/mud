@@ -4,26 +4,6 @@ export interface GuildServicesStatus {
   exits: string[];
 }
 
-export interface GuildTeleportRequest {
-  teamId: string;
-  userId: string;
-  playerId?: string;
-  correlationId?: string;
-  sourceTileId?: string;
-  requestedAt: string;
-}
-
-export interface GuildTeleportResponse {
-  success?: boolean;
-  message?: string;
-  playerId: string;
-  guildTileId: string;
-  arrivalMessage: string;
-  services: GuildServicesStatus;
-  occupantsNotified: string[];
-  correlationId: string;
-}
-
 export interface GuildTradeRequest {
   playerId: string;
   itemId: string;

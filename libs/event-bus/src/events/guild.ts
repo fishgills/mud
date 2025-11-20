@@ -1,11 +1,9 @@
 import type {
   GuildAnnouncementPayload,
   GuildTradeResponse,
-  GuildServicesStatus,
 } from '@mud/api-contracts';
 
 export enum GuildEventType {
-  TeleportArrived = 'guild.teleport.arrived',
   ShopReceipt = 'guild.shop.receipt',
   AnnouncementDelivered = 'guild.announcement.delivered',
 }
@@ -14,13 +12,6 @@ export interface GuildEventBase {
   type: GuildEventType;
   correlationId?: string;
   timestamp?: Date;
-}
-
-export interface GuildTeleportArrivedEvent extends GuildEventBase {
-  type: GuildEventType.TeleportArrived;
-  playerId: number;
-  occupantIds: number[];
-  services: GuildServicesStatus;
 }
 
 export interface GuildShopReceiptEvent extends GuildEventBase {
@@ -34,7 +25,4 @@ export interface GuildAnnouncementEvent extends GuildEventBase {
   audience: 'guild' | 'global';
 }
 
-export type GuildEvent =
-  | GuildTeleportArrivedEvent
-  | GuildShopReceiptEvent
-  | GuildAnnouncementEvent;
+export type GuildEvent = GuildShopReceiptEvent | GuildAnnouncementEvent;

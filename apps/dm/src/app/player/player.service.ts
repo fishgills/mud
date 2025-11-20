@@ -45,7 +45,7 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
   private activityUnsubscribe?: () => void;
 
   private readonly HQ_MOVEMENT_ERROR =
-    'You cannot move while inside HQ. Use the teleport command to return to the world.';
+    'You cannot move while inside HQ. Use the guild command to return to the world.';
   private readonly CREATION_INCOMPLETE_ERROR =
     'Finish character creation before performing this action. Use "reroll" to adjust stats or "complete" when you are ready.';
 

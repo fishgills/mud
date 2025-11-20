@@ -10,7 +10,6 @@ import type {
 } from '@mud/database';
 import type {
   GuildTradeResponse,
-  GuildTeleportResponse,
   GuildCatalogItem as GuildCatalogItemContract,
 } from '@mud/api-contracts';
 
@@ -423,20 +422,6 @@ export async function guildSellItem(params: {
   });
 }
 
-export async function guildTeleport(params: {
-  teamId: string;
-  userId: string;
-}): Promise<GuildTeleportResponse> {
-  return dmRequest<GuildTeleportResponse>('/guild/teleport', HttpMethod.POST, {
-    body: {
-      teamId: params.teamId,
-      userId: params.userId,
-      requestedAt: new Date().toISOString(),
-      correlationId: `slack-${params.userId}-${Date.now()}`,
-    },
-  });
-}
-
 export type GuildCatalogItem = GuildCatalogItemContract;
 
 export async function guildListCatalog(): Promise<GuildCatalogItem[]> {
@@ -654,7 +639,6 @@ export const dmClient = {
   teleportPlayer,
   guildBuyItem,
   guildSellItem,
-  guildTeleport,
   guildListCatalog,
   attack,
   spendSkillPoint,

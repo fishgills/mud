@@ -15,7 +15,6 @@ import {
   ItemController,
   LocationController,
 } from './api/controllers';
-import { TeleportController } from '../modules/teleport/teleport.controller';
 import { GuildShopController } from '../modules/guild-shop/guild-shop.controller';
 import { GuildAnnouncementsController } from '../modules/guild-announcements/guild-announcements.controller';
 import { CoordinationService } from '../shared/coordination.service';
@@ -33,9 +32,6 @@ import { PlayerNotificationService } from './player/player-notification.service'
 import { LocationNotificationService } from './notifications/location-notification.service';
 import { PlayerItemService } from './player/player-item.service';
 import { LootService } from './monster/loot.service';
-import { TeleportService } from '../modules/teleport/teleport.service';
-import { TeleportRepository } from '../modules/teleport/teleport.repository';
-import { TeleportPublisher } from '../modules/teleport/teleport.publisher';
 import { GuildShopService } from '../modules/guild-shop/guild-shop.service';
 import { GuildShopRepository } from '../modules/guild-shop/guild-shop.repository';
 import { GuildShopPublisher } from '../modules/guild-shop/guild-shop.publisher';
@@ -56,7 +52,6 @@ import { GuildAnnouncementsScheduler } from '../modules/guild-announcements/guil
     SystemController,
     ItemController,
     LocationController,
-    TeleportController,
     GuildShopController,
     GuildAnnouncementsController,
   ],
@@ -81,9 +76,6 @@ import { GuildAnnouncementsScheduler } from '../modules/guild-announcements/guil
     LocationNotificationService,
     PlayerItemService,
     LootService,
-    TeleportService,
-    TeleportRepository,
-    TeleportPublisher,
     GuildShopService,
     GuildShopRepository,
     GuildShopPublisher,

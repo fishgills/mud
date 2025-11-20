@@ -10,7 +10,6 @@ jest.mock('../dm-client', () => {
     movePlayer: jest.fn(),
     rerollPlayerStats: jest.fn(),
     teleportPlayer: jest.fn(),
-    guildTeleport: jest.fn(),
     guildBuyItem: jest.fn(),
     guildSellItem: jest.fn(),
   };
@@ -44,7 +43,6 @@ import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import type { HandlerContext, SayMessage } from './types';
 import { setSlackApp } from '../appContext';
 import type { App } from '@slack/bolt';
-import { teleportHandler } from './teleport';
 import { guildHandler } from './guild';
 import { buyHandler } from './buy';
 import { sellHandler } from './sell';
@@ -62,7 +60,6 @@ const mockedDmClient = dmClient as unknown as {
   movePlayer: jest.Mock;
   rerollPlayerStats: jest.Mock;
   teleportPlayer: jest.Mock;
-  guildTeleport: jest.Mock;
   guildBuyItem: jest.Mock;
   guildSellItem: jest.Mock;
 };
@@ -1231,7 +1228,7 @@ describe('rerollHandler', () => {
   });
 });
 
-describe('teleportHandler', () => {
+describe('guildHandler', () => {
   it('enters HQ by default and confirms the saved location', async () => {
     const say = makeSay();
     mockedDmClient.teleportPlayer.mockResolvedValueOnce({
@@ -1240,9 +1237,9 @@ describe('teleportHandler', () => {
       lastWorldPosition: { x: 12, y: -4 },
     });
 
-    await teleportHandler.handle({
+    await guildHandler.handle({
       userId: 'U1',
-      text: COMMANDS.TELEPORT,
+      text: COMMANDS.GUILD,
       say,
       teamId: 'T1',
     } as HandlerContext);
@@ -1270,9 +1267,9 @@ describe('teleportHandler', () => {
     });
     mockedGetOccupantsSummaryAt.mockResolvedValueOnce(occupantSummary);
 
-    await teleportHandler.handle({
+    await guildHandler.handle({
       userId: 'U1',
-      text: `${COMMANDS.TELEPORT} return`,
+      text: `${COMMANDS.GUILD} return`,
       say,
       teamId: 'T1',
     } as HandlerContext);
@@ -1301,9 +1298,9 @@ describe('teleportHandler', () => {
       state: 'awaiting_choice',
     });
 
-    await teleportHandler.handle({
+    await guildHandler.handle({
       userId: 'U1',
-      text: `${COMMANDS.TELEPORT} leave`,
+      text: `${COMMANDS.GUILD} leave`,
       say,
       teamId: 'T1',
     } as HandlerContext);
@@ -1319,46 +1316,12 @@ describe('teleportHandler', () => {
       text: 'You are already inside HQ. Use `return` to go back to your last location or `random` to spawn at a safe spot.',
     });
   });
-});
-
-describe('guildHandler', () => {
-  it('teleports player to guild and reports services', async () => {
-    const say = makeSay();
-    mockedDmClient.guildTeleport.mockResolvedValueOnce({
-      success: true,
-      arrivalMessage: 'Welcome to the guild.',
-      services: { shop: true, crier: true, exits: ['return'] },
-      occupantsNotified: ['7'],
-      correlationId: 'corr',
-    });
-
-    await guildHandler.handle({
-      userId: 'U1',
-      text: COMMANDS.GUILD,
-      say,
-      teamId: 'T1',
-    } as HandlerContext);
-
-    expect(mockedDmClient.guildTeleport).toHaveBeenCalledWith({
-      teamId: 'T1',
-      userId: 'U1',
-    });
-    expect(say).toHaveBeenCalledWith({
-      text: expect.stringContaining('Welcome to the guild.'),
-    });
-  });
 
   it('surfaces DM errors', async () => {
     const say = makeSay();
-    mockedDmClient.guildTeleport.mockResolvedValueOnce({
+    mockedDmClient.teleportPlayer.mockResolvedValueOnce({
       success: false,
-      message: 'cooldown',
-      occupantsNotified: [],
-      services: { shop: false, crier: false, exits: [] },
-      arrivalMessage: '',
-      playerId: '42',
-      guildTileId: 'guild',
-      correlationId: 'err',
+      message: 'blocked',
     });
 
     await guildHandler.handle({
@@ -1368,7 +1331,7 @@ describe('guildHandler', () => {
       teamId: 'T1',
     } as HandlerContext);
 
-    expect(say).toHaveBeenCalledWith({ text: 'cooldown' });
+    expect(say).toHaveBeenCalledWith({ text: 'blocked' });
   });
 });
 
