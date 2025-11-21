@@ -171,7 +171,7 @@ export class MovementController {
       if (!nearestMonster && !nearestPlayer) {
         return {
           success: true,
-          message: `You sniff the air but can't catch any monster scent within ${radiusLabel} or any other player within ${playerRadiusLabel}.`,
+          message: `You sniff the air but can't catch any monster scent within ${radiusLabel} or any players within ${playerRadiusLabel}.`,
           data: {
             detectionRadius,
             playerDetectionRadius,
