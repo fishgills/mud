@@ -145,46 +145,108 @@ export class MovementController {
 
       const agility = player.agility ?? 0;
       const detectionRadius = Math.max(1, agility);
+      const playerDetectionRadius = detectionRadius * 2;
 
-      const nearest = await this.monsterService.findNearestMonsterWithinRadius(
-        player.x,
-        player.y,
-        detectionRadius,
-      );
+      const [nearestMonster, nearestPlayer] = await Promise.all([
+        this.monsterService.findNearestMonsterWithinRadius(
+          player.x,
+          player.y,
+          detectionRadius,
+        ),
+        this.playerService.findNearestPlayerWithinRadius(
+          player.x,
+          player.y,
+          playerDetectionRadius,
+          { excludePlayerId: player.id },
+        ),
+      ]);
 
-      if (!nearest) {
-        const radiusLabel =
-          detectionRadius === 1 ? '1 tile' : `${detectionRadius} tiles`;
+      const radiusLabel =
+        detectionRadius === 1 ? '1 tile' : `${detectionRadius} tiles`;
+      const playerRadiusLabel =
+        playerDetectionRadius === 1
+          ? '1 tile'
+          : `${playerDetectionRadius} tiles`;
+
+      if (!nearestMonster && !nearestPlayer) {
         return {
           success: true,
-          message: `You sniff the air but can't catch any monster scent within ${radiusLabel}.`,
+          message: `You sniff the air but can't catch any monster scent within ${radiusLabel} or any other players within ${playerRadiusLabel}.`,
           data: {
             detectionRadius,
+            playerDetectionRadius,
           },
         };
       }
 
-      const direction = calculateDirection(
-        player.x,
-        player.y,
-        nearest.monster.x,
-        nearest.monster.y,
-      );
-      const distanceDescriptor = this.describeDistance(nearest.distance);
-      const directionFragment = direction ? ` to the ${direction}` : '';
+      const data: SniffResponse['data'] = {
+        detectionRadius,
+        playerDetectionRadius,
+      };
+      const messageParts: string[] = [];
+
+      if (nearestMonster) {
+        const direction = calculateDirection(
+          player.x,
+          player.y,
+          nearestMonster.monster.x,
+          nearestMonster.monster.y,
+        );
+        const distanceDescriptor = this.describeDistance(
+          nearestMonster.distance,
+        );
+        const directionFragment = direction ? ` to the ${direction}` : '';
+
+        data.monsterName = nearestMonster.monster.name;
+        data.direction = direction;
+        data.monsterX = nearestMonster.monster.x;
+        data.monsterY = nearestMonster.monster.y;
+        data.proximity = distanceDescriptor.proximity;
+        data.distanceLabel = distanceDescriptor.label;
+
+        messageParts.push(
+          `You catch the scent of ${nearestMonster.monster.name} ${distanceDescriptor.phrase}${directionFragment}.`,
+        );
+      }
+
+      if (nearestPlayer) {
+        const direction = calculateDirection(
+          player.x,
+          player.y,
+          nearestPlayer.player.x,
+          nearestPlayer.player.y,
+        );
+        const distanceDescriptor = this.describeDistance(
+          nearestPlayer.distance,
+        );
+        const directionFragment = direction ? ` to the ${direction}` : '';
+
+        data.playerName = nearestPlayer.player.name
+          ? nearestPlayer.player.name
+          : 'Unknown Player';
+        data.playerDirection = direction;
+        data.playerX = nearestPlayer.player.x;
+        data.playerY = nearestPlayer.player.y;
+        data.playerProximity = distanceDescriptor.proximity;
+        data.playerDistanceLabel = distanceDescriptor.label;
+
+        if (nearestPlayer.player.name) {
+          messageParts.push(
+            `You smell ${nearestPlayer.player.name} ${distanceDescriptor.phrase}${directionFragment}.`,
+          );
+        } else {
+          messageParts.push(
+            `You sense another player ${distanceDescriptor.phrase}${directionFragment}.`,
+          );
+        }
+      }
+
+      const message = messageParts.join(' ');
 
       return {
         success: true,
-        data: {
-          detectionRadius,
-          monsterName: nearest.monster.name,
-          direction,
-          monsterX: nearest.monster.x,
-          monsterY: nearest.monster.y,
-          proximity: distanceDescriptor.proximity,
-          distanceLabel: distanceDescriptor.label,
-        },
-        message: `You catch the scent of ${nearest.monster.name} ${distanceDescriptor.phrase}${directionFragment}.`,
+        data,
+        message,
       };
     } catch (error) {
       return {

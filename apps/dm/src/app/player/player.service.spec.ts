@@ -713,6 +713,30 @@ describe('PlayerService', () => {
         expect.objectContaining({ direction: 'south', distance: 4 }),
       ]);
     });
+
+    it('finds the nearest player within a radius while excluding the seeker', async () => {
+      mockPrisma.player.findMany.mockResolvedValue([
+        { id: 2, x: 2, y: 0, isAlive: true },
+        { id: 3, x: 0, y: 3, isAlive: true },
+      ]);
+
+      const nearest = await service.findNearestPlayerWithinRadius(0, 0, 5, {
+        excludePlayerId: 1,
+      });
+
+      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
+        where: {
+          isAlive: true,
+          NOT: { id: 1 },
+          x: { gte: -5, lte: 5 },
+          y: { gte: -5, lte: 5 },
+        },
+      });
+      expect(nearest).toEqual({
+        player: expect.objectContaining({ id: 2 }),
+        distance: 2,
+      });
+    });
   });
 
   describe('updateLastAction', () => {

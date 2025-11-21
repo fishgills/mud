@@ -61,12 +61,19 @@ export type SniffProximity =
 
 export interface SniffData {
   detectionRadius: number;
+  playerDetectionRadius: number;
   monsterName?: string;
   distanceLabel?: string;
   proximity?: SniffProximity;
   direction?: string;
   monsterX?: number;
   monsterY?: number;
+  playerName?: string;
+  playerDistanceLabel?: string;
+  playerProximity?: SniffProximity;
+  playerDirection?: string;
+  playerX?: number;
+  playerY?: number;
 }
 
 export interface SniffResponse extends SuccessResponse {

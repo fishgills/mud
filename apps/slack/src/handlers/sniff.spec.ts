@@ -24,6 +24,7 @@ describe('sniff handler', () => {
         monsterName: 'Goblin',
         distanceLabel: 'nearby',
         direction: 'north',
+        playerDetectionRadius: 8,
       },
       message: 'You catch the scent of Goblin nearby to the north.',
     });
@@ -58,6 +59,7 @@ describe('sniff handler', () => {
       success: true,
       data: {
         detectionRadius: 2,
+        playerDetectionRadius: 4,
       },
     });
 
@@ -73,9 +75,41 @@ describe('sniff handler', () => {
 
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: "You sniff the air but can't catch any monster scent within 2 tiles.",
+        text: "You sniff the air but can't catch any monster scent within 2 tiles or any players within 4 tiles.",
         blocks: expect.arrayContaining([
           expect.objectContaining({ type: 'header' }),
+          expect.objectContaining({ type: 'section' }),
+        ]),
+      }),
+    );
+  });
+
+  it('includes player details when returned by DM', async () => {
+    mockedSniffNearestMonster.mockResolvedValue({
+      success: true,
+      data: {
+        detectionRadius: 3,
+        playerDetectionRadius: 6,
+        playerName: 'Rival',
+        playerDistanceLabel: 'very close',
+        playerDirection: 'west',
+      },
+    });
+
+    const say = jest
+      .fn<Promise<void>, Parameters<HandlerContext['say']>>()
+      .mockResolvedValue();
+
+    await sniffHandler({
+      userId: 'U777',
+      teamId: 'T7',
+      say,
+    } as unknown as HandlerContext);
+
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('Rival'),
+        blocks: expect.arrayContaining([
           expect.objectContaining({ type: 'section' }),
         ]),
       }),
@@ -105,8 +139,12 @@ describe('sniff handler', () => {
 });
 
 describe('sniff private helpers', () => {
-  const { resolveDistanceLabel, arrowForDirection, buildMonsterBlockText } =
-    __private__;
+  const {
+    resolveDistanceLabel,
+    arrowForDirection,
+    buildMonsterBlockText,
+    buildPlayerBlockText,
+  } = __private__;
 
   it('returns readable distance labels', () => {
     expect(resolveDistanceLabel('nearby', 'near')).toBe('nearby');
@@ -131,5 +169,17 @@ describe('sniff private helpers', () => {
       }),
     ).toContain('*Monster* • Goblin');
     expect(buildMonsterBlockText({})).toBeUndefined();
+  });
+
+  it('builds player block markdown when data is complete', () => {
+    expect(
+      buildPlayerBlockText({
+        playerName: 'Rival',
+        playerDistanceLabel: 'very close',
+        playerDirection: 'east',
+        playerProximity: 'close',
+      }),
+    ).toContain('*Player* • Rival');
+    expect(buildPlayerBlockText({})).toBeUndefined();
   });
 });
