@@ -4,37 +4,11 @@ import type { HandlerContext } from './types';
 import {
   ITEM_TEMPLATES,
   ITEM_QUALITY_ORDER,
-  ITEM_QUALITY_PRIORITY,
+  computeTemplateWeights,
+  pickTemplateForLevel,
   type ItemTemplateSeed,
   type ItemSpawnRarity,
 } from '@mud/constants';
-
-const pickTemplate = (level: number): ItemTemplateSeed => {
-  if (ITEM_TEMPLATES.length === 0) {
-    throw new Error('No loot templates configured');
-  }
-  const levelBias = Math.min(0.6, Math.max(0, (level - 1) * 0.02));
-  const weighted = ITEM_TEMPLATES.map((template) => {
-    const rarityRank = ITEM_QUALITY_PRIORITY[template.rarity] ?? 0;
-    const levelBoost = 1 + levelBias * rarityRank;
-    const rarityPenalty = 1 + rarityRank * 0.8;
-    const weight = Math.max(
-      0.05,
-      (template.dropWeight / rarityPenalty) * levelBoost,
-    );
-    return { template, weight };
-  });
-  const total = weighted.reduce((sum, entry) => sum + entry.weight, 0);
-  const roll = Math.random() * total;
-  let cumulative = 0;
-  for (const entry of weighted) {
-    cumulative += entry.weight;
-    if (roll <= cumulative) {
-      return entry.template;
-    }
-  }
-  return weighted[weighted.length - 1]?.template ?? ITEM_TEMPLATES[0];
-};
 
 const formatTemplate = (template: ItemTemplateSeed) => {
   const parts = [template.type.toLowerCase()];
@@ -60,10 +34,11 @@ const createRarityTotals = (): Record<ItemSpawnRarity, number> =>
     {} as Record<ItemSpawnRarity, number>,
   );
 
-const buildRaritySummary = () => {
-  const totals = ITEM_TEMPLATES.reduce<Record<ItemSpawnRarity, number>>(
-    (acc, template) => {
-      acc[template.rarity] += template.dropWeight;
+const buildRaritySummary = (level: number) => {
+  const weighted = computeTemplateWeights(level);
+  const totals = weighted.reduce<Record<ItemSpawnRarity, number>>(
+    (acc, entry) => {
+      acc[entry.template.rarity] += entry.weight;
       return acc;
     },
     createRarityTotals(),
@@ -88,12 +63,12 @@ registerHandler(COMMANDS.LOOT, async ({ say, text }: HandlerContext) => {
     return;
   }
 
-  const samples = Array.from({ length: 5 }, () => pickTemplate(level));
+  const samples = Array.from({ length: 5 }, () => pickTemplateForLevel(level));
   const sampleLines = samples.map(
     (template, index) => `${index + 1}. ${formatTemplate(template)}`,
   );
 
-  const summary = buildRaritySummary();
+  const summary = buildRaritySummary(level);
   await say({
     text: `Loot preview for level ${level}:\n${sampleLines.join('\n')}\n\n${summary}\nUse \`${COMMANDS.LOOT} <level>\` to sample a different level.`,
   });

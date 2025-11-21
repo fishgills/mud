@@ -81,6 +81,79 @@ export const ITEM_QUALITY_PRIORITY: Record<ItemQualityType, number> =
     {} as Record<ItemQualityType, number>,
   );
 
+export interface WeightedItemTemplate {
+  template: ItemTemplateSeed;
+  weight: number;
+}
+
+export interface WeightedQuality {
+  quality: ItemQualityType;
+  weight: number;
+}
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+export function computeTemplateWeights(level: number): WeightedItemTemplate[] {
+  const levelBias = clamp((level - 1) * 0.02, 0, 0.6);
+  return ITEM_TEMPLATES.map((template) => {
+    const rarityRank = ITEM_QUALITY_PRIORITY[template.rarity] ?? 0;
+    const levelBoost = 1 + levelBias * rarityRank;
+    const rarityPenalty = 1 + rarityRank * 0.8;
+    const weight = Math.max(
+      0.05,
+      (template.dropWeight / rarityPenalty) * levelBoost,
+    );
+    return { template, weight };
+  });
+}
+
+export function pickTemplateForLevel(
+  level: number,
+  rng: () => number = Math.random,
+): ItemTemplateSeed {
+  const weighted = computeTemplateWeights(level);
+  const total = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+  const roll = rng() * total;
+  let cumulative = 0;
+  for (const entry of weighted) {
+    cumulative += entry.weight;
+    if (roll <= cumulative) {
+      return entry.template;
+    }
+  }
+  return weighted[weighted.length - 1]?.template ?? ITEM_TEMPLATES[0];
+}
+
+export function computeQualityWeights(level: number): WeightedQuality[] {
+  const bias = clamp((level - 1) * 0.01, 0, 0.2);
+  return ITEM_QUALITY_ORDER.map((quality) => {
+    const rank = ITEM_QUALITY_PRIORITY[quality] ?? 0;
+    const rarityPenalty = 1 + rank * 0.75;
+    const bonus = 1 + bias * rank * 1.45;
+    return {
+      quality,
+      weight: Math.max(0.01, (1 / rarityPenalty) * bonus),
+    };
+  });
+}
+
+export function rollQualityForLevel(
+  level: number,
+  rng: () => number = Math.random,
+): ItemQualityType {
+  const weights = computeQualityWeights(level);
+  const totalWeight = weights.reduce((sum, entry) => sum + entry.weight, 0);
+  let roll = rng() * totalWeight;
+  for (const entry of weights) {
+    if (roll <= entry.weight) {
+      return entry.quality;
+    }
+    roll -= entry.weight;
+  }
+  return weights[weights.length - 1]?.quality ?? ItemQuality.Common;
+}
+
 export interface ItemTemplateSeed {
   name: string;
   type: ItemType;
