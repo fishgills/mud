@@ -979,9 +979,6 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     let closest: { player: Player; distance: number } | null = null;
 
     for (const player of players) {
-      if (options?.excludePlayerId && player.id === options.excludePlayerId) {
-        continue;
-      }
       const dx = player.x - x;
       const dy = player.y - y;
       const distance = Math.sqrt(dx * dx + dy * dy);

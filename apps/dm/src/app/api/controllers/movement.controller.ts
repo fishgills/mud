@@ -228,11 +228,15 @@ export class MovementController {
         data.playerProximity = distanceDescriptor.proximity;
         data.playerDistanceLabel = distanceDescriptor.label;
 
-        messageParts.push(
-          `${nearestPlayer.player.name ? 'You smell' : 'You sense another player'} ${
-            nearestPlayer.player.name || 'someone'
-          } ${distanceDescriptor.phrase}${directionFragment}.`,
-        );
+        if (nearestPlayer.player.name) {
+          messageParts.push(
+            `You smell ${nearestPlayer.player.name} ${distanceDescriptor.phrase}${directionFragment}.`,
+          );
+        } else {
+          messageParts.push(
+            `You sense another player ${distanceDescriptor.phrase}${directionFragment}.`,
+          );
+        }
       }
 
       const message = messageParts.join(' ');

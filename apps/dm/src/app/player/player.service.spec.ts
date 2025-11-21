@@ -716,7 +716,6 @@ describe('PlayerService', () => {
 
     it('finds the nearest player within a radius while excluding the seeker', async () => {
       mockPrisma.player.findMany.mockResolvedValue([
-        { id: 1, x: 0, y: 0, isAlive: true },
         { id: 2, x: 2, y: 0, isAlive: true },
         { id: 3, x: 0, y: 3, isAlive: true },
       ]);
