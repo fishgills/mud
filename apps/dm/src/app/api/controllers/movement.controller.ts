@@ -221,7 +221,7 @@ export class MovementController {
         );
         const directionFragment = direction ? ` to the ${direction}` : '';
 
-        data.playerName = nearestPlayer.player.name;
+        data.playerName = nearestPlayer.player.name ? nearestPlayer.player.name : "Unknown Player";
         data.playerDirection = direction;
         data.playerX = nearestPlayer.player.x;
         data.playerY = nearestPlayer.player.y;
