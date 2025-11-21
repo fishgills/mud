@@ -35,6 +35,12 @@ const createRarityTotals = (): Record<ItemSpawnRarity, number> =>
     {} as Record<ItemSpawnRarity, number>,
   );
 
+const countTemplatesByRarity = (): Record<ItemSpawnRarity, number> =>
+  ITEM_TEMPLATES.reduce<Record<ItemSpawnRarity, number>>((acc, template) => {
+    acc[template.rarity] = (acc[template.rarity] ?? 0) + 1;
+    return acc;
+  }, createRarityTotals());
+
 const buildRaritySummary = (level: number) => {
   const weighted = computeTemplateWeights(level);
   const totals = weighted.reduce<Record<ItemSpawnRarity, number>>(
@@ -44,9 +50,14 @@ const buildRaritySummary = (level: number) => {
     },
     createRarityTotals(),
   );
+  const counts = countTemplatesByRarity();
   const lines = ITEM_QUALITY_ORDER.map((rarity) => {
     const weight = totals[rarity];
-    return `${rarity}: total weight ${weight.toFixed(1)}`;
+    const count = counts[rarity];
+    const suffix = count
+      ? ` (${count} template${count === 1 ? '' : 's'})`
+      : ' (no base templates)';
+    return `${rarity}: total weight ${weight.toFixed(1)}${suffix}`;
   }).join('\n');
   return lines;
 };
@@ -83,6 +94,6 @@ registerHandler(COMMANDS.LOOT, async ({ say, text }: HandlerContext) => {
   const templateSummary = buildRaritySummary(level);
   const qualitySummary = buildQualitySummary(level);
   await say({
-    text: `Loot preview for level ${level}:\n${sampleLines.join('\n')}\n\nBase item weights (by template rarity):\n${templateSummary}\n\nQuality roll weights (final drop quality):\n${qualitySummary}\nUse \`${COMMANDS.LOOT} <level>\` to sample a different level.`,
+    text: `Loot preview for level ${level}:\n${sampleLines.join('\n')}\n\nBase item weights (by template rarity — 0 means no templates at that tier):\n${templateSummary}\n\nQuality roll weights (final drop quality):\n${qualitySummary}\nUse \`${COMMANDS.LOOT} <level>\` to sample a different level.`,
   });
 });
