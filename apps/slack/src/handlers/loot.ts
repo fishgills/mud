@@ -5,6 +5,7 @@ import {
   ITEM_TEMPLATES,
   ITEM_QUALITY_ORDER,
   computeTemplateWeights,
+  computeQualityWeights,
   pickTemplateForLevel,
   type ItemTemplateSeed,
   type ItemSpawnRarity,
@@ -50,6 +51,17 @@ const buildRaritySummary = (level: number) => {
   return lines;
 };
 
+const buildQualitySummary = (level: number) => {
+  const weights = computeQualityWeights(level);
+  const totalWeight = weights.reduce((sum, entry) => sum + entry.weight, 0);
+  return weights
+    .map(({ quality, weight }) => {
+      const percent = totalWeight > 0 ? (weight / totalWeight) * 100 : 0;
+      return `${quality}: weight ${weight.toFixed(2)} (${percent.toFixed(1)}%)`;
+    })
+    .join('\n');
+};
+
 registerHandler(COMMANDS.LOOT, async ({ say, text }: HandlerContext) => {
   const args = (text || '').trim().split(/\s+/).slice(1);
   const requestedLevel = Number(args[0]);
@@ -68,8 +80,9 @@ registerHandler(COMMANDS.LOOT, async ({ say, text }: HandlerContext) => {
     (template, index) => `${index + 1}. ${formatTemplate(template)}`,
   );
 
-  const summary = buildRaritySummary(level);
+  const templateSummary = buildRaritySummary(level);
+  const qualitySummary = buildQualitySummary(level);
   await say({
-    text: `Loot preview for level ${level}:\n${sampleLines.join('\n')}\n\n${summary}\nUse \`${COMMANDS.LOOT} <level>\` to sample a different level.`,
+    text: `Loot preview for level ${level}:\n${sampleLines.join('\n')}\n\nBase item weights (by template rarity):\n${templateSummary}\n\nQuality roll weights (final drop quality):\n${qualitySummary}\nUse \`${COMMANDS.LOOT} <level>\` to sample a different level.`,
   });
 });
