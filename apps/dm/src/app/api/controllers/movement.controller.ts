@@ -171,7 +171,7 @@ export class MovementController {
       if (!nearestMonster && !nearestPlayer) {
         return {
           success: true,
-          message: `You sniff the air but can't catch any monster scent within ${radiusLabel} or any players within ${playerRadiusLabel}.`,
+          message: `You sniff the air but can't catch any monster scent within ${radiusLabel} or any other players within ${playerRadiusLabel}.`,
           data: {
             detectionRadius,
             playerDetectionRadius,
@@ -221,7 +221,9 @@ export class MovementController {
         );
         const directionFragment = direction ? ` to the ${direction}` : '';
 
-        data.playerName = nearestPlayer.player.name ? nearestPlayer.player.name : "Unknown Player";
+        data.playerName = nearestPlayer.player.name
+          ? nearestPlayer.player.name
+          : 'Unknown Player';
         data.playerDirection = direction;
         data.playerX = nearestPlayer.player.x;
         data.playerY = nearestPlayer.player.y;
