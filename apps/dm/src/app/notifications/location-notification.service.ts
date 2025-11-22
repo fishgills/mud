@@ -402,8 +402,9 @@ export class LocationNotificationService
   public static hasSlackUser(
     player: { name: string } & Record<string, unknown>,
   ): player is { name: string; slackUser: { teamId: string; userId: string } } {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const slackUser = (player as any).slackUser;
+    const slackUser = (
+      player as { slackUser?: { teamId?: string; userId?: string } }
+    ).slackUser;
     return (
       typeof slackUser === 'object' &&
       slackUser !== null &&

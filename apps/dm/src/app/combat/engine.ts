@@ -33,8 +33,18 @@ export function rollInitiative(agility: number): {
   return { roll, modifier, total: roll + modifier };
 }
 
-export function calculateDamage(strength: number): number {
-  const baseDamage = Math.floor(Math.random() * 6) + 1;
+export function parseDice(dice: string): { count: number; sides: number } {
+  const parts = dice.toLowerCase().split('d');
+  if (parts.length !== 2) return { count: 1, sides: 4 };
+  const count = parseInt(parts[0], 10);
+  const sides = parseInt(parts[1], 10);
+  if (isNaN(count) || isNaN(sides)) return { count: 1, sides: 4 };
+  return { count, sides };
+}
+
+export function calculateDamage(strength: number, damageRoll = '1d4'): number {
+  const { count, sides } = parseDice(damageRoll);
+  const baseDamage = rollDice(count, sides);
   const modifier = getModifier(strength);
   return Math.max(1, baseDamage + modifier);
 }
@@ -77,7 +87,7 @@ type EngineOverrides = Partial<{
     modifier: number;
     total: number;
   };
-  calculateDamage: (strength: number) => number;
+  calculateDamage: (strength: number, damageRoll?: string) => number;
   calculateXpGain: (winnerLevel: number, loserLevel: number) => number;
   calculateGoldReward: (victorLevel: number, targetLevel: number) => number;
 }>;
@@ -161,11 +171,12 @@ export async function runCombat(
     if (hit) {
       baseDamage = (overrides?.calculateDamage ?? useCalculateDamage)(
         attacker.strength,
+        attacker.damageRoll,
       );
       const damageBonus = attacker.damageBonus ?? 0;
       damage = Math.max(1, baseDamage + damageBonus);
       logger.debug(
-        `⚔️ ${attacker.name} hit! Base damage: ${baseDamage}, Weapon/Equipment bonus: +${damageBonus}, Total: ${damage}`,
+        `⚔️ ${attacker.name} hit! Base damage (${attacker.damageRoll ?? '1d4'}): ${baseDamage}, Weapon/Equipment bonus: +${damageBonus}, Total: ${damage}`,
       );
       defender.hp = Math.max(0, defender.hp - damage);
       if (defender.hp <= 0) {

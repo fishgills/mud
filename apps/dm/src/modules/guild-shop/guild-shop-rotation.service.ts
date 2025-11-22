@@ -40,9 +40,17 @@ export class GuildShopRotationService {
     }
 
     try {
-      const items = await this.repository.pickRandomItems(
-        env.GUILD_SHOP_ROTATION_SIZE,
+      // Choose a rotation size between 6 and 10 for variety
+      // Choose a rotation size randomly between 6 and 10 for variety
+      const rotationCount = Math.max(
+        6,
+        Math.min(10, env.GUILD_SHOP_ROTATION_SIZE ?? 6),
       );
+      const randomCount = Math.min(
+        rotationCount,
+        6 + Math.floor(Math.random() * 5),
+      );
+      const items = await this.repository.pickRandomItems(randomCount);
       if (!items.length) {
         this.logger.warn(
           'Guild shop rotation skipped; no eligible items were found.',

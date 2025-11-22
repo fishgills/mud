@@ -22,7 +22,7 @@ export class GuildShopController {
       sellPriceGold: item.sellPriceGold,
       stockQuantity: item.stockQuantity,
       tags: item.tags,
-      attack: item.attack ?? undefined,
+      damageRoll: item.damageRoll ?? undefined,
       defense: item.defense ?? undefined,
       healthBonus: item.healthBonus ?? undefined,
       quality: item.quality ?? undefined,

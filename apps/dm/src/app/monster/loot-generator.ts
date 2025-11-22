@@ -18,6 +18,7 @@ export class LootGenerator {
       quality: ItemQuality;
       quantity?: number;
       item?: Item | null;
+      baseRank?: number;
     }>
   > {
     const drops: Array<{
@@ -25,6 +26,7 @@ export class LootGenerator {
       quality: ItemQuality;
       quantity?: number;
       item?: Item | null;
+      baseRank?: number;
     }> = [];
     if (!ITEM_TEMPLATES.length) {
       return drops;
@@ -40,7 +42,21 @@ export class LootGenerator {
       return drops;
     }
 
-    drops.push({ itemId: record.id, quality, quantity: 1, item: record });
+    // Try to enrich response with the base template rank if available
+    const baseTemplate = ITEM_TEMPLATES.find(
+      (t) => t.name.toLowerCase() === template.name.toLowerCase(),
+    );
+    const baseRank =
+      ((record as unknown as { rank?: number })?.rank as number | undefined) ??
+      baseTemplate?.rank ??
+      undefined;
+    drops.push({
+      itemId: record.id,
+      quality,
+      quantity: 1,
+      item: record,
+      baseRank,
+    });
     return drops;
   }
 

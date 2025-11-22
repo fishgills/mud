@@ -1,4 +1,0 @@
-#!/usr/bin/env node
-/* eslint-disable @typescript-eslint/no-require-imports, no-undef */
-require('ts-node/register');
-require('./seed-guild');

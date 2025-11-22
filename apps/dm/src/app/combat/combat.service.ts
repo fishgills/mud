@@ -13,7 +13,7 @@ import type {
   CombatMessagePerformance,
 } from '../api';
 import { AttackOrigin } from '../api/dto/player-requests.dto';
-import { runCombat as engineRunCombat } from './engine';
+import { runCombat as engineRunCombat, parseDice } from './engine';
 import { CombatMessenger } from './messages';
 import { applyCombatResults, type CombatResultEffects } from './results';
 import {
@@ -75,6 +75,7 @@ export interface Combatant {
   };
   attackBonus?: number;
   damageBonus?: number;
+  damageRoll?: string;
   armorBonus?: number;
   equippedItems?: CombatantEquipment[];
 }
@@ -153,13 +154,14 @@ export class CombatService {
     return { roll, modifier, total };
   }
 
-  // Calculate damage (1d6 + Str modifier, minimum 1)
-  private calculateDamage(strength: number): number {
-    const baseDamage = Math.floor(Math.random() * 6) + 1;
+  // Calculate damage (Weapon Dice + Str modifier, minimum 1)
+  private calculateDamage(strength: number, damageRoll = '1d4'): number {
+    const { count, sides } = parseDice(damageRoll);
+    const baseDamage = this.rollDice(count, sides);
     const modifier = this.getModifier(strength);
     const totalDamage = Math.max(1, baseDamage + modifier);
     this.logger.debug(
-      `Damage: ${baseDamage} + ${modifier} (Str) = ${totalDamage} (min 1)`,
+      `Damage (${damageRoll}): ${baseDamage} + ${modifier} (Str) = ${totalDamage} (min 1)`,
     );
     return totalDamage;
   }
@@ -470,6 +472,9 @@ export class CombatService {
     if (equipmentTotals.armorBonus > 0) {
       combatant.armorBonus = equipmentTotals.armorBonus;
     }
+    if (equipmentTotals.weaponDamageRoll) {
+      combatant.damageRoll = equipmentTotals.weaponDamageRoll;
+    }
 
     if (Array.isArray(equippedItems) && equippedItems.length > 0) {
       const itemSummaries = equippedItems
@@ -525,6 +530,7 @@ export class CombatService {
       agility: monster.agility,
       level: 1, // Default to level 1 for monsters
       isAlive: monster.isAlive,
+      damageRoll: monster.damageRoll,
       x: monster.x,
       y: monster.y,
     };

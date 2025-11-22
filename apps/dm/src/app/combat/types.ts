@@ -50,6 +50,7 @@ export interface Combatant {
   };
   attackBonus?: number;
   damageBonus?: number;
+  damageRoll?: string;
   armorBonus?: number;
   equippedItems?: CombatantEquipment[];
 }

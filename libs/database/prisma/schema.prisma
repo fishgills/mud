@@ -65,7 +65,6 @@ model Player {
   partyMembers       PartyMember[]
   playerItems        PlayerItem[]
   slackUser          SlackUser?
-  guildState         PlayerGuildState?
   guildReceipts      TransactionReceipt[]
   // Future: discordUsers DiscordUser[], webUsers WebUser[], etc.
 }
@@ -146,6 +145,7 @@ model Monster {
   strength  Int      @default(8)
   agility   Int      @default(8)
   health    Int      @default(8)
+  damageRoll String  @default("1d6")
   x         Int
   y         Int
   isAlive   Boolean  @default(true)
@@ -209,29 +209,6 @@ model Npc {
   dialogue  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
-
-model GuildHall {
-  id                      Int      @id @default(autoincrement())
-  slug                    String   @unique
-  displayName             String
-  tileCoordinates         Json
-  populationLimit         Int      @default(50)
-  services                Json     @default("{}")
-  teleportCooldownSeconds Int      @default(300)
-  arrivalMessage          String
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
-}
-
-model PlayerGuildState {
-  playerId          Int       @id
-  player            Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  lastTeleportAt    DateTime?
-  cooldownExpiresAt DateTime?
-  lastGuildLocation String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
 }
 
 model ShopCatalogItem {
@@ -317,10 +294,11 @@ model Item {
   type            ItemType // weapon, armor
   description     String
   value           Int               @default(0) // Gold value
-  attack          Int?              @default(0) // Attack bonus for weapons
+  damageRoll      String            @default("1d4") // Damage dice (e.g. "1d8")
   defense         Int?              @default(0) // Defense bonus for armor
   healthBonus     Int?              @default(0) // Health restoration for consumables
   slot            PlayerSlot? // Optional equip slot for equippable items
+  rank            Int?
   playerItems     PlayerItem[]
   worldItems      WorldItem[]
   createdAt       DateTime          @default(now())
@@ -365,6 +343,7 @@ model PlayerItem {
   equipped           Boolean              @default(false)
   slot               PlayerSlot?
   quality            ItemQuality          @default(Common)
+  rank               Int?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   TransactionReceipt TransactionReceipt[]
@@ -377,6 +356,7 @@ model WorldItem {
   item               Item        @relation(fields: [itemId], references: [id])
   itemId             Int
   quality            ItemQuality @default(Common)
+  rank               Int?
   x                  Int
   y                  Int
   quantity           Int         @default(1)

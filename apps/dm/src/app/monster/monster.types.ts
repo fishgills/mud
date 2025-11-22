@@ -5,6 +5,7 @@ export interface MonsterTemplate {
   strength: number;
   agility: number;
   health: number;
+  damageRoll: string;
 }
 
 export const MONSTER_TEMPLATES: MonsterTemplate[] = [
@@ -16,6 +17,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 6,
     agility: 12,
     health: 6,
+    damageRoll: '1d6',
   },
   {
     name: 'Hobgoblin',
@@ -24,6 +26,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 10,
     agility: 10,
     health: 8,
+    damageRoll: '1d8',
   },
   {
     name: 'Kobold',
@@ -32,6 +35,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 5,
     agility: 13,
     health: 5,
+    damageRoll: '1d4',
   },
   {
     name: 'Bandit',
@@ -40,6 +44,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 9,
     agility: 11,
     health: 8,
+    damageRoll: '1d6',
   },
   {
     name: 'Cultist',
@@ -48,6 +53,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 7,
     agility: 9,
     health: 9,
+    damageRoll: '1d4',
   },
   {
     name: 'Orc',
@@ -56,6 +62,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 12,
     agility: 8,
     health: 10,
+    damageRoll: '1d12',
   },
   {
     name: 'Gnoll',
@@ -64,6 +71,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 11,
     agility: 9,
     health: 9,
+    damageRoll: '1d8',
   },
 
   // Beasts
@@ -74,6 +82,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 10,
     agility: 14,
     health: 8,
+    damageRoll: '2d4',
   },
   {
     name: 'Dire Wolf',
@@ -82,6 +91,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 13,
     agility: 13,
     health: 10,
+    damageRoll: '2d6',
   },
   {
     name: 'Wild Boar',
@@ -90,6 +100,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 12,
     agility: 7,
     health: 10,
+    damageRoll: '1d8',
   },
   {
     name: 'Black Bear',
@@ -98,6 +109,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 16,
     agility: 6,
     health: 14,
+    damageRoll: '2d6',
   },
   {
     name: 'Giant Spider',
@@ -106,6 +118,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 10,
     agility: 12,
     health: 9,
+    damageRoll: '1d8',
   },
   {
     name: 'Giant Scorpion',
@@ -114,6 +127,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 12,
     agility: 10,
     health: 11,
+    damageRoll: '1d10',
   },
   {
     name: 'Crocodile',
@@ -122,6 +136,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 15,
     agility: 6,
     health: 12,
+    damageRoll: '1d10',
   },
   {
     name: 'Harpy',
@@ -130,6 +145,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 9,
     agility: 14,
     health: 8,
+    damageRoll: '2d4',
   },
   {
     name: 'Giant Wasp',
@@ -138,6 +154,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 7,
     agility: 15,
     health: 6,
+    damageRoll: '1d6',
   },
 
   // Undead
@@ -148,6 +165,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 8,
     agility: 10,
     health: 6,
+    damageRoll: '1d6',
   },
   {
     name: 'Zombie',
@@ -156,6 +174,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 10,
     agility: 4,
     health: 12,
+    damageRoll: '1d6',
   },
   {
     name: 'Ghoul',
@@ -164,6 +183,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 9,
     agility: 12,
     health: 9,
+    damageRoll: '2d4',
   },
   {
     name: 'Wight',
@@ -172,6 +192,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 12,
     agility: 10,
     health: 12,
+    damageRoll: '1d8',
   },
 
   // Elemental/Arcane
@@ -182,6 +203,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 7,
     agility: 14,
     health: 6,
+    damageRoll: '1d4',
   },
   {
     name: 'Water Wisp',
@@ -190,6 +212,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 6,
     agility: 13,
     health: 7,
+    damageRoll: '1d4',
   },
   {
     name: 'Air Mote',
@@ -198,6 +221,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 5,
     agility: 16,
     health: 6,
+    damageRoll: '1d4',
   },
   {
     name: 'Earth Golem',
@@ -206,6 +230,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 18,
     agility: 4,
     health: 16,
+    damageRoll: '2d8',
   },
   {
     name: 'Slime',
@@ -214,6 +239,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 7,
     agility: 6,
     health: 12,
+    damageRoll: '1d6',
   },
   {
     name: 'Ooze',
@@ -222,6 +248,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 9,
     agility: 5,
     health: 13,
+    damageRoll: '2d6',
   },
   {
     name: 'Mimic',
@@ -230,6 +257,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 13,
     agility: 6,
     health: 12,
+    damageRoll: '1d8',
   },
 
   // Cold/Arctic
@@ -240,6 +268,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 11,
     agility: 13,
     health: 10,
+    damageRoll: '2d4',
   },
   {
     name: 'Frost Wight',
@@ -248,6 +277,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 13,
     agility: 10,
     health: 12,
+    damageRoll: '1d8',
   },
 
   // Swamp/Marsh
@@ -258,6 +288,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 12,
     agility: 9,
     health: 11,
+    damageRoll: '1d6',
   },
   {
     name: 'Swamp Hag',
@@ -266,6 +297,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 14,
     agility: 8,
     health: 12,
+    damageRoll: '2d6',
   },
 
   // Jungle
@@ -276,6 +308,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 12,
     agility: 15,
     health: 9,
+    damageRoll: '1d8',
   },
   {
     name: 'Giant Python',
@@ -284,6 +317,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 16,
     agility: 7,
     health: 12,
+    damageRoll: '2d6',
   },
 
   // Desert
@@ -294,6 +328,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 11,
     agility: 13,
     health: 10,
+    damageRoll: '1d8',
   },
   {
     name: 'Dune Stalker',
@@ -302,6 +337,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     strength: 10,
     agility: 14,
     health: 9,
+    damageRoll: '1d6',
   },
 ];
 

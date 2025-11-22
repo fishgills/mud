@@ -95,14 +95,19 @@ const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
 export function computeTemplateWeights(level: number): WeightedItemTemplate[] {
-  const levelBias = clamp((level - 1) * 0.02, 0, 0.6);
+  const clampedLevel = Math.max(1, Math.min(level, MAX_PLAYER_SCALE));
+  const levelBias = clamp((clampedLevel - 1) * 0.02, 0, 0.6);
+  const expected = expectedRankForLevel(clampedLevel);
   return ITEM_TEMPLATES.map((template) => {
     const rarityRank = ITEM_QUALITY_PRIORITY[template.rarity] ?? 0;
-    const levelBoost = 1 + levelBias * rarityRank;
+    const r = template.rank ?? 1;
+    const rankDistance = Math.abs(r - expected);
+    const rankPenalty = 1 + rankDistance * 0.9;
+    const levelBoost = 1 + levelBias * (r / MAX_ITEM_RANK);
     const rarityPenalty = 1 + rarityRank * 0.8;
     const weight = Math.max(
-      0.05,
-      (template.dropWeight / rarityPenalty) * levelBoost,
+      0.02,
+      (template.dropWeight / (rarityPenalty * rankPenalty)) * levelBoost,
     );
     return { template, weight };
   });
@@ -159,12 +164,48 @@ export interface ItemTemplateSeed {
   type: ItemType;
   description: string;
   value: number;
-  attack?: number;
+  damageRoll?: string;
   defense?: number;
   healthBonus?: number;
   slot?: PlayerSlot;
   rarity: ItemSpawnRarity;
   dropWeight: number;
+  rank?: number; // 1..MAX_ITEM_RANK
+}
+
+export const MAX_ITEM_RANK = 10;
+export const MAX_PLAYER_SCALE = 20;
+
+export function expectedRankForLevel(level: number): number {
+  const clamped = Math.max(1, Math.min(MAX_PLAYER_SCALE, Math.floor(level)));
+  // Map 1..MAX_PLAYER_SCALE -> 1..MAX_ITEM_RANK
+  const rank = Math.ceil((clamped / MAX_PLAYER_SCALE) * MAX_ITEM_RANK);
+  return Math.max(1, Math.min(MAX_ITEM_RANK, rank));
+}
+
+export function pickTemplatesForLevel(
+  level: number,
+  count: number,
+  rng: () => number = Math.random,
+): ItemTemplateSeed[] {
+  const weighted = computeTemplateWeights(level);
+  // Sample unique templates without replacement based on weights
+  const picks: ItemTemplateSeed[] = [];
+  const entries = [...weighted];
+  const totalOriginal = entries.reduce((s, e) => s + e.weight, 0);
+  for (let i = 0; i < Math.max(1, count) && entries.length > 0; i++) {
+    const total = entries.reduce((s, e) => s + e.weight, 0);
+    let roll = rng() * total;
+    let idx = 0;
+    for (; idx < entries.length; idx++) {
+      roll -= entries[idx].weight;
+      if (roll <= 0) break;
+    }
+    if (idx >= entries.length) idx = entries.length - 1;
+    picks.push(entries[idx].template);
+    entries.splice(idx, 1);
+  }
+  return picks;
 }
 
 export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
@@ -173,8 +214,9 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'A broken length of wood barely fit for a fight.',
     value: 1,
-    attack: 1,
+    damageRoll: '1d4',
     rarity: 'Trash',
+    rank: 1,
     dropWeight: 14,
     slot: PlayerSlot.weapon,
   },
@@ -185,6 +227,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     value: 2,
     defense: 0,
     rarity: 'Poor',
+    rank: 1,
     dropWeight: 12,
     slot: PlayerSlot.chest,
   },
@@ -193,8 +236,9 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'A pitted dagger favored by desperate highwaymen.',
     value: 4,
-    attack: 2,
+    damageRoll: '1d4',
     rarity: 'Common',
+    rank: 2,
     dropWeight: 11,
     slot: PlayerSlot.weapon,
   },
@@ -203,8 +247,9 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'A basic shortsword. Reliable and cheap.',
     value: 10,
-    attack: 3,
+    damageRoll: '1d6',
     rarity: 'Common',
+    rank: 3,
     dropWeight: 9,
     slot: PlayerSlot.weapon,
   },
@@ -216,6 +261,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     value: 8,
     defense: 1,
     rarity: 'Common',
+    rank: 2,
     dropWeight: 10,
     slot: PlayerSlot.chest,
   },
@@ -226,6 +272,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     value: 6,
     defense: 1,
     rarity: 'Common',
+    rank: 2,
     dropWeight: 10,
     slot: PlayerSlot.legs,
   },
@@ -234,9 +281,10 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'A sturdy staff engraved with simple runes.',
     value: 12,
-    attack: 2,
+    damageRoll: '1d6',
     healthBonus: 5,
     rarity: 'Common',
+    rank: 3,
     dropWeight: 8,
     slot: PlayerSlot.weapon,
   },
@@ -246,8 +294,9 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'A well-balanced blade favored by veteran guards.',
     value: 35,
-    attack: 5,
+    damageRoll: '1d8',
     rarity: 'Uncommon',
+    rank: 4,
     dropWeight: 6,
     slot: PlayerSlot.weapon,
   },
@@ -256,8 +305,9 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'Curved limbs deliver a powerful, silent shot.',
     value: 32,
-    attack: 4,
+    damageRoll: '1d8',
     rarity: 'Uncommon',
+    rank: 4,
     dropWeight: 5,
     slot: PlayerSlot.weapon,
   },
@@ -268,6 +318,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     value: 30,
     defense: 4,
     rarity: 'Uncommon',
+    rank: 4,
     dropWeight: 5,
     slot: PlayerSlot.chest,
   },
@@ -276,9 +327,10 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'Warm to the touch and eager to spit sparks.',
     value: 34,
-    attack: 3,
+    damageRoll: '1d6',
     healthBonus: 5,
     rarity: 'Uncommon',
+    rank: 4,
     dropWeight: 4,
     slot: PlayerSlot.weapon,
   },
@@ -288,8 +340,9 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'A featherlight blade that slices the air itself.',
     value: 115,
-    attack: 6,
+    damageRoll: '1d8',
     rarity: 'Fine',
+    rank: 5,
     dropWeight: 3.5,
     slot: PlayerSlot.weapon,
   },
@@ -301,6 +354,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     defense: 5,
     healthBonus: 8,
     rarity: 'Superior',
+    rank: 5,
     dropWeight: 2.8,
     slot: PlayerSlot.chest,
   },
@@ -310,8 +364,9 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'Crackles with barely contained lightning.',
     value: 85,
-    attack: 7,
+    damageRoll: '1d10',
     rarity: 'Rare',
+    rank: 6,
     dropWeight: 2.5,
     slot: PlayerSlot.weapon,
   },
@@ -322,6 +377,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     value: 90,
     defense: 6,
     rarity: 'Rare',
+    rank: 6,
     dropWeight: 2.3,
     slot: PlayerSlot.chest,
   },
@@ -333,6 +389,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     defense: 3,
     healthBonus: 10,
     rarity: 'Rare',
+    rank: 6,
     dropWeight: 2.8,
     slot: PlayerSlot.legs,
   },
@@ -342,8 +399,9 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'Forged from the bones of an ancient wyrm.',
     value: 150,
-    attack: 12,
+    damageRoll: '2d6',
     rarity: 'Epic',
+    rank: 8,
     dropWeight: 1.2,
     slot: PlayerSlot.weapon,
   },
@@ -355,6 +413,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     defense: 5,
     healthBonus: 20,
     rarity: 'Epic',
+    rank: 7,
     dropWeight: 1,
     slot: PlayerSlot.chest,
   },
@@ -363,9 +422,10 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'Stars wink within the crystal atop this staff.',
     value: 145,
-    attack: 8,
+    damageRoll: '1d8',
     healthBonus: 15,
     rarity: 'Epic',
+    rank: 8,
     dropWeight: 0.9,
     slot: PlayerSlot.weapon,
   },
@@ -374,8 +434,9 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'Said to have split a continent in mythic wars.',
     value: 250,
-    attack: 16,
+    damageRoll: '1d12',
     rarity: 'Legendary',
+    rank: 9,
     dropWeight: 0.45,
     slot: PlayerSlot.weapon,
   },
@@ -387,6 +448,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     defense: 4,
     healthBonus: 25,
     rarity: 'Legendary',
+    rank: 9,
     dropWeight: 0.4,
     slot: PlayerSlot.head,
   },
@@ -395,9 +457,10 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'A blade forged to channel ancestral draconic power.',
     value: 320,
-    attack: 18,
+    damageRoll: '2d8',
     healthBonus: 20,
     rarity: 'Mythic',
+    rank: 10,
     dropWeight: 0.28,
     slot: PlayerSlot.weapon,
   },
@@ -406,9 +469,10 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'Radiates ancient sunlight that burns through armor.',
     value: 380,
-    attack: 14,
+    damageRoll: '2d6',
     healthBonus: 35,
     rarity: 'Artifact',
+    rank: 10,
     dropWeight: 0.2,
     slot: PlayerSlot.weapon,
   },
@@ -420,6 +484,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     defense: 10,
     healthBonus: 40,
     rarity: 'Ascended',
+    rank: 10,
     dropWeight: 0.12,
     slot: PlayerSlot.arms,
   },
@@ -428,8 +493,9 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     type: ItemType.WEAPON,
     description: 'Tuned to skewer foes across planes of existence.',
     value: 520,
-    attack: 22,
+    damageRoll: '2d10',
     rarity: 'Transcendent',
+    rank: 10,
     dropWeight: 0.08,
     slot: PlayerSlot.weapon,
   },
@@ -441,6 +507,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     defense: 12,
     healthBonus: 55,
     rarity: 'Primal',
+    rank: 10,
     dropWeight: 0.05,
     slot: PlayerSlot.chest,
   },
@@ -452,6 +519,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     defense: 9,
     healthBonus: 70,
     rarity: 'Divine',
+    rank: 10,
     dropWeight: 0.03,
     slot: PlayerSlot.chest,
   },
@@ -470,3 +538,10 @@ export const ITEM_RARITY_LOOKUP: Record<
   },
   {} as Record<string, { rarity: ItemSpawnRarity; dropWeight: number }>,
 );
+
+// Ensure backward compat: drop `rank` when creating database entries
+export function stripTemplateForDb(
+  template: ItemTemplateSeed,
+): ItemTemplateSeed {
+  return template;
+}

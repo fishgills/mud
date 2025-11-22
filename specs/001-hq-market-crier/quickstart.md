@@ -19,22 +19,10 @@ yarn serve            # spins up dm, slack, world, tick
 - Confirm `logs/mud-combined.log` shows DM + Slack online.
 - Ensure Slack bot is invited to a test channel or DM.
 
-## 3. Seed Guild Data
+## 3. Guild Setup
 
-```bash
-# Seed guild hall tile + catalog + announcements
-node apps/dm/scripts/seed-guild.js \
-  --tile "guild-hall" \
-  --catalog ./apps/dm/scripts/data/guild-catalog.json \
-  --announcements ./apps/dm/scripts/data/guild-announcements.json \
-  --coords "0,0,0" \
-  --arrival "✨ Welcome back to the guild hall." \
-  --reset
-```
-
-- The catalog fixture now seeds base `Item` templates in the database; active shop inventory is built from those templates at runtime.
-- The DM Docker entrypoint runs the same seed command automatically during deployments (guarded by `GUILD_SEED_ENABLED`, `GUILD_SEED_CATALOG_PATH`, etc.), so production clusters stay consistent.
-- Use `--reset` to clear previous catalog + announcement rows before inserting the provided fixtures.
+- No database seeding is required; the guild hall is defined in code and there is only one destination.
+- Shop rotation will populate catalog entries automatically at runtime from existing `Item` templates.
 
 ⚙️ **Guild Shop Rotation**
 

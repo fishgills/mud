@@ -52,8 +52,6 @@ export type {
   PlayerItem,
   WorldItem,
   SlackUser,
-  GuildHall,
-  PlayerGuildState,
   ShopCatalogItem,
   TransactionReceipt,
   AnnouncementRecord,

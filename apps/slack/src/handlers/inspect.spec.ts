@@ -260,7 +260,7 @@ describe('inspectHandler.handleInspectAction', () => {
         id: 200,
         name: 'Sword of Testing',
         type: 'weapon',
-        attack: 5,
+        damageRoll: '1d8',
         defense: 0,
         healthBonus: 0,
         value: 50,

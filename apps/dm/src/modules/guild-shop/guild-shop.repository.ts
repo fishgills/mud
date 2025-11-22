@@ -11,6 +11,7 @@ import {
   type TransactionReceipt,
   ItemQuality,
 } from '@mud/database';
+import { pickTemplatesForLevel, ITEM_TEMPLATES } from '@mud/constants';
 
 interface PurchaseResult {
   updatedPlayer: Player;
@@ -117,13 +118,18 @@ export class GuildShopRepository {
         },
       });
 
+      const templateRow = await tx.item.findUnique({
+        where: { id: freshCatalog.itemTemplateId },
+      });
+
       const createdPlayerItem = await tx.playerItem.create({
         data: {
           playerId: player.id,
           itemId: freshCatalog.itemTemplateId,
           quantity,
           quality: freshCatalog.quality,
-        },
+          rank: templateRow?.rank ?? undefined,
+        } as Prisma.PlayerItemUncheckedCreateInput,
       });
 
       await tx.shopCatalogItem.update({
@@ -254,15 +260,45 @@ export class GuildShopRepository {
   }
 
   async pickRandomItems(count: number): Promise<Item[]> {
-    const limit = Math.max(1, count);
-    const rows = await this.prisma.$queryRaw<Item[]>`
-      SELECT *
-      FROM "Item"
-      WHERE "value" >= 0
-      ORDER BY RANDOM()
-      LIMIT ${limit}
-    `;
-    return rows;
+    const limit = Math.max(1, Math.min(10, count));
+    // Choose merchant level midpoint for the shop — could be made configurable
+    const merchantLevel = 10;
+    const templates = pickTemplatesForLevel(merchantLevel, limit);
+
+    const items: Item[] = [];
+    for (const template of templates) {
+      const record = await this.prisma.item.findFirst({
+        where: { name: template.name },
+      });
+      if (record) items.push(record);
+    }
+
+    // If we couldn't find any matches in the DB, fall back to random selection
+    if (items.length === 0) {
+      const rows = await this.prisma.$queryRaw<Item[]>`
+        SELECT *
+        FROM "Item"
+        WHERE "value" >= 0
+        ORDER BY RANDOM()
+        LIMIT ${limit}
+      `;
+      return rows;
+    }
+
+    // Ensure we return exactly `limit` items by filling with random items
+    if (items.length < limit) {
+      const rows = await this.prisma.item.findMany({
+        where: {
+          value: { gte: 0 },
+          NOT: { name: { in: items.map((i) => i.name) } },
+        },
+        orderBy: { id: 'asc' },
+        take: Math.max(0, limit - items.length),
+      });
+      return items.concat(rows);
+    }
+
+    return items.slice(0, limit);
   }
 
   async createCatalogEntriesFromItems(
@@ -294,6 +330,11 @@ export class GuildShopRepository {
         const buyPrice = this.computeBuyPrice(item, quality);
         const sellPrice = this.computeSellPrice(buyPrice);
         const stockQuantity = this.computeStockQuantity();
+        const template = ITEM_TEMPLATES.find(
+          (t) =>
+            (t.name ?? '').toLowerCase() === (item.name ?? '').toLowerCase(),
+        );
+        const rankTag = template?.rank ? [`rank:${template.rank}`] : [];
         return {
           sku: `guild-${item.id}-${timestamp}-${index}`,
           name: item.name,
@@ -303,7 +344,7 @@ export class GuildShopRepository {
           stockQuantity,
           maxStock: stockQuantity,
           restockIntervalMinutes: options.rotationIntervalMinutes,
-          tags: item.type ? [item.type] : [],
+          tags: item.type ? [item.type, ...rankTag] : rankTag,
           isActive: true,
           itemTemplateId: item.id,
           quality,
@@ -323,10 +364,21 @@ export class GuildShopRepository {
 
   private computeBuyPrice(item: Item, quality: ItemQuality): number {
     const baseValue = Math.max(5, item.value ?? 0);
+
+    let avgDamage = 0;
+    if (item.damageRoll) {
+      const parts = item.damageRoll.toLowerCase().split('d');
+      if (parts.length === 2) {
+        const count = parseInt(parts[0], 10);
+        const sides = parseInt(parts[1], 10);
+        if (!isNaN(count) && !isNaN(sides)) {
+          avgDamage = (count * (sides + 1)) / 2;
+        }
+      }
+    }
+
     const statBonus =
-      (item.attack ?? 0) * 12 +
-      (item.defense ?? 0) * 10 +
-      (item.healthBonus ?? 0) * 2;
+      avgDamage * 12 + (item.defense ?? 0) * 10 + (item.healthBonus ?? 0) * 2;
     const effectiveBase = baseValue + statBonus;
     const variance = Math.round(effectiveBase * 0.15 * Math.random());
     const multiplier = QUALITY_MULTIPLIERS[quality] ?? 1;

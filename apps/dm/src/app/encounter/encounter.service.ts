@@ -48,6 +48,7 @@ export class EncounterService implements OnModuleInit {
           createdAt: m.createdAt,
           updatedAt: m.updatedAt,
           type: m.type,
+          damageRoll: m.damageRoll,
           lastMove: m.lastMove,
           spawnedAt: m.spawnedAt,
           biomeId: m.biomeId,
@@ -64,7 +65,10 @@ export class EncounterService implements OnModuleInit {
         timestamp: new Date(),
       });
     } catch (error) {
-      this.logger.error('Error handling monster encounter event', error as Error);
+      this.logger.error(
+        'Error handling monster encounter event',
+        error as Error,
+      );
     }
   }
 }

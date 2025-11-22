@@ -33,9 +33,7 @@ export class PlayerItemService {
     });
   }
 
-  async listEquipped(
-    playerId: number,
-  ): Promise<Array<EquippedPlayerItem>> {
+  async listEquipped(playerId: number): Promise<Array<EquippedPlayerItem>> {
     return this.prisma.playerItem.findMany({
       where: { playerId, equipped: true },
       include: { item: true },
@@ -192,7 +190,8 @@ export class PlayerItemService {
               equipped: false,
               slot: null,
               quality: worldItem.quality,
-            },
+              rank: worldItem.rank ?? undefined,
+            } as Prisma.PlayerItemUncheckedCreateInput,
           });
 
           // Remove world item
@@ -237,11 +236,12 @@ export class PlayerItemService {
         data: {
           itemId: pi.itemId,
           quality: pi.quality,
+          rank: pi.rank ?? undefined,
           x: player.x,
           y: player.y,
           quantity: pi.quantity ?? 1,
           spawnedByMonsterId: null,
-        },
+        } as Prisma.WorldItemUncheckedCreateInput,
         include: { item: true },
       });
 

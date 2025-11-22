@@ -2,6 +2,7 @@ import { EventBus } from '../../shared/event-bus';
 import { Logger } from '@nestjs/common';
 import { LootGenerator } from './loot-generator';
 import { PrismaClient, WorldItem } from '@mud/database';
+import type { Prisma } from '@mud/database';
 import { Injectable } from '@nestjs/common';
 
 type MonsterDeathEvent = {
@@ -88,11 +89,12 @@ export class LootService {
           data: {
             itemId: drop.itemId,
             quality: drop.quality,
+            rank: drop.baseRank ?? undefined,
             x: event.x,
             y: event.y,
             quantity: drop.quantity ?? 1,
             spawnedByMonsterId: monster.id,
-          },
+          } as Prisma.WorldItemUncheckedCreateInput,
         });
         this.logger.debug(
           `Created WorldItem id=${droppedItem.id} itemId=${droppedItem.itemId} qty=${droppedItem.quantity}`,

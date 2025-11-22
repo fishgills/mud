@@ -206,6 +206,7 @@ export class MonsterService {
         strength: entity.strength,
         agility: entity.agility,
         health: entity.health,
+        damageRoll: entity.damageRoll,
         x: entity.x,
         y: entity.y,
         isAlive: entity.isAlive,
@@ -320,6 +321,7 @@ export class MonsterService {
         y,
         biomeId: biomeId,
         isAlive: true,
+        damageRoll: monsterTemplate.damageRoll,
       },
     });
 

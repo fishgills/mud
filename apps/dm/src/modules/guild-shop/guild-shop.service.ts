@@ -41,7 +41,7 @@ export class GuildShopService {
       sellPriceGold: number;
       stockQuantity: number;
       tags: string[];
-      attack?: number | null;
+      damageRoll?: string | null;
       defense?: number | null;
       healthBonus?: number | null;
       quality?: string | null;
@@ -56,7 +56,7 @@ export class GuildShopService {
       sellPriceGold: entry.sellPriceGold ?? Math.floor(entry.buyPriceGold / 2),
       stockQuantity: entry.stockQuantity ?? 0,
       tags: entry.tags ?? [],
-      attack: entry.itemTemplate?.attack ?? null,
+      damageRoll: entry.itemTemplate?.damageRoll ?? null,
       defense: entry.itemTemplate?.defense ?? null,
       healthBonus: entry.itemTemplate?.healthBonus ?? null,
       quality: entry.quality ?? null,

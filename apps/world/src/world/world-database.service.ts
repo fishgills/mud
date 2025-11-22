@@ -100,10 +100,18 @@ export class WorldDatabaseService {
 
   private buildItemCreateInput(
     template: ItemTemplateSeed,
-  ): Prisma.ItemCreateInput {
-    const { rarity, dropWeight, ...data } = template;
-    void rarity;
-    void dropWeight;
-    return data as Prisma.ItemCreateInput;
+  ): Prisma.ItemUncheckedCreateInput {
+    const data: Prisma.ItemUncheckedCreateInput = {
+      name: template.name,
+      type: template.type,
+      description: template.description,
+      value: template.value,
+      attack: template.attack ?? undefined,
+      defense: template.defense ?? undefined,
+      healthBonus: template.healthBonus ?? undefined,
+      slot: template.slot ?? undefined,
+      rank: template.rank ?? undefined,
+    };
+    return data;
   }
 }

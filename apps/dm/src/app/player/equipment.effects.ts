@@ -13,6 +13,7 @@ export type EquipmentTotals = {
   damageBonus: number;
   armorBonus: number;
   vitalityBonus: number;
+  weaponDamageRoll: string | null;
 };
 
 export type EquipmentEffectDetail = {
@@ -22,7 +23,7 @@ export type EquipmentEffectDetail = {
   slot: string | null | undefined;
   quality: ItemQualityType | null | undefined;
   multiplier: number;
-  base: { attack: number; defense: number; health: number };
+  base: { damageRoll: string; defense: number; health: number };
   applied: EquipmentTotals;
 };
 
@@ -60,6 +61,7 @@ export function calculateEquipmentEffects(items: EquippedPlayerItem[]): {
     damageBonus: 0,
     armorBonus: 0,
     vitalityBonus: 0,
+    weaponDamageRoll: null,
   };
 
   const details: EquipmentEffectDetail[] = [];
@@ -81,7 +83,7 @@ export function calculateEquipmentEffects(items: EquippedPlayerItem[]): {
       return undefined;
     })();
 
-    const baseAttack = item.attack ?? 0;
+    const baseDamageRoll = item.damageRoll ?? '1d4';
     const baseDefense = item.defense ?? 0;
     const baseHealth = item.healthBonus ?? 0;
 
@@ -90,22 +92,12 @@ export function calculateEquipmentEffects(items: EquippedPlayerItem[]): {
       damageBonus: 0,
       armorBonus: 0,
       vitalityBonus: 0,
+      weaponDamageRoll: null,
     };
 
-    if (normalizedSlot === PlayerSlot.weapon && baseAttack > 0) {
-      const scaledAttack = baseAttack * multiplier;
-      const scaledToHit = baseAttack * multiplier * 0.5;
-      const toHit = scaledToHit > 0 ? Math.max(1, Math.round(scaledToHit)) : 0;
-      const damage =
-        scaledAttack > 0 ? Math.max(1, Math.round(scaledAttack)) : 0;
-      if (toHit !== 0) {
-        totals.attackBonus += toHit;
-        applied.attackBonus = toHit;
-      }
-      if (damage !== 0) {
-        totals.damageBonus += damage;
-        applied.damageBonus = damage;
-      }
+    if (normalizedSlot === PlayerSlot.weapon) {
+      totals.weaponDamageRoll = baseDamageRoll;
+      applied.weaponDamageRoll = baseDamageRoll;
     }
 
     if (normalizedSlot !== PlayerSlot.weapon && baseDefense > 0) {
@@ -132,7 +124,11 @@ export function calculateEquipmentEffects(items: EquippedPlayerItem[]): {
         normalizedSlot ?? (typeof item.slot === 'string' ? item.slot : null),
       quality: record.quality ?? null,
       multiplier: Number(multiplier.toFixed(2)),
-      base: { attack: baseAttack, defense: baseDefense, health: baseHealth },
+      base: {
+        damageRoll: baseDamageRoll,
+        defense: baseDefense,
+        health: baseHealth,
+      },
       applied,
     });
   }

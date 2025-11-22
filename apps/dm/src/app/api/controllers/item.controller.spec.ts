@@ -33,7 +33,7 @@ describe('ItemController', () => {
       type: 'weapon',
       description: 'Sharp',
       value: 10,
-      attack: 3,
+      damageRoll: '1d6',
       defense: 0,
       healthBonus: 0,
       slot: 'weapon',

@@ -40,8 +40,8 @@ const buildCatalogBlocks = (items: GuildCatalogItem[]): KnownBlock[] => {
 
   items.forEach((item) => {
     const bonusLines: string[] = [];
-    if (typeof item.attack === 'number' && item.attack !== 0) {
-      bonusLines.push(`*Attack*: ${item.attack}`);
+    if (item.damageRoll) {
+      bonusLines.push(`*Damage*: ${item.damageRoll}`);
     }
     if (typeof item.defense === 'number' && item.defense !== 0) {
       bonusLines.push(`*Defense*: ${item.defense}`);

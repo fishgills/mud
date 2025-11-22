@@ -35,7 +35,7 @@ describe('GuildShopRotationService', () => {
         description: 'desc',
         value: 50,
         type: 'consumable',
-        attack: 0,
+        damageRoll: '1d4',
         defense: 0,
         healthBonus: 0,
         slot: null,

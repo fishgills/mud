@@ -432,8 +432,8 @@ const buildItemInspectMessage = (
   }
 
   const bonusLines: string[] = [];
-  if (typeof details?.attack === 'number' && details.attack !== 0) {
-    bonusLines.push(`• Attack ${formatSigned(details.attack)}`);
+  if (details?.damageRoll) {
+    bonusLines.push(`• Damage ${details.damageRoll}`);
   }
   if (typeof details?.defense === 'number' && details.defense !== 0) {
     bonusLines.push(`• Defense ${formatSigned(details.defense)}`);

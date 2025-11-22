@@ -92,9 +92,9 @@ repo/
 
 ### Deliverables
 
-1. **Data Model (`data-model.md`)** – Entities for Guild Hall, Player Session, Shop Catalog, Transaction Receipt, Announcement Payload with validation rules + relationships.
+1. **Data Model (`data-model.md`)** – In-code Guild Hall configuration plus Player session, Shop Catalog, Transaction Receipt, Announcement Payload with validation rules + relationships.
 2. **API Contracts (`contracts/guild-openapi.yaml`)** – OpenAPI snippet describing DM endpoints for teleport, buy, sell, and announcement polling hooks including schemas + error payloads.
-3. **Quickstart (`quickstart.md`)** – Step-by-step instructions to run DM + Slack services locally, seed shop/announcement data, invoke commands, and execute Jest + integration suites.
+3. **Quickstart (`quickstart.md`)** – Step-by-step instructions to run DM + Slack services locally, invoke commands, and execute Jest + integration suites (no guild seeding required).
 4. **Agent Context Update** – Run `.specify/scripts/bash/update-agent-context.sh codex` to register new technology/process notes for future agents.
 
 ### Design Tasks

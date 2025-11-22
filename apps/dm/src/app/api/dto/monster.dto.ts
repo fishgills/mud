@@ -2,6 +2,7 @@ export interface Monster {
   id: number;
   name: string;
   type: string;
+  damageRoll: string;
   hp: number;
   maxHp: number;
   strength: number;

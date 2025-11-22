@@ -154,7 +154,7 @@ export interface ItemActionResponse extends SuccessResponse {
 // Extended Item type for detailed item information
 export type ItemDetails = Item & {
   value?: number;
-  attack?: number | null;
+  damageRoll?: string | null;
   defense?: number | null;
   healthBonus?: number | null;
   slot?: string | null;

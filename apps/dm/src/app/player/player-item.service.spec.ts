@@ -61,9 +61,8 @@ const mockPrisma = {
 };
 
 jest.mock('@mud/database', () => {
-  const actual = jest.requireActual<typeof import('@mud/database')>(
-    '@mud/database',
-  );
+  const actual =
+    jest.requireActual<typeof import('@mud/database')>('@mud/database');
   return {
     ...actual,
     getPrismaClient: () => mockPrisma,
@@ -249,9 +248,7 @@ describe('PlayerItemService.equip validations', () => {
 
   describe('bag and world item helpers', () => {
     it('lists bag items with item details', async () => {
-      const bagItems = [{ id: 1 }, { id: 2 }] as Array<
-        Record<string, unknown>
-      >;
+      const bagItems = [{ id: 1 }, { id: 2 }] as Array<Record<string, unknown>>;
       mockPrisma.playerItem.findMany.mockResolvedValueOnce(bagItems);
 
       const result = await svc.listBag(7);
@@ -283,31 +280,47 @@ describe('PlayerItemService.equip validations', () => {
           playerId: 9,
           slot: PlayerSlot.weapon,
           quality: ItemQuality.Uncommon,
-          item: { attack: 4, defense: 0, healthBonus: 0, slot: PlayerSlot.weapon },
+          item: {
+            damageRoll: '1d8',
+            defense: 0,
+            healthBonus: 0,
+            slot: PlayerSlot.weapon,
+          },
         },
         {
           id: 2,
           playerId: 9,
           slot: PlayerSlot.chest,
           quality: ItemQuality.Rare,
-          item: { attack: 0, defense: 3, healthBonus: 0, slot: PlayerSlot.chest },
+          item: {
+            damageRoll: null,
+            defense: 3,
+            healthBonus: 0,
+            slot: PlayerSlot.chest,
+          },
         },
         {
           id: 3,
           playerId: 9,
           slot: PlayerSlot.head,
           quality: ItemQuality.Common,
-          item: { attack: 0, defense: 0, healthBonus: 10, slot: PlayerSlot.head },
+          item: {
+            damageRoll: null,
+            defense: 0,
+            healthBonus: 10,
+            slot: PlayerSlot.head,
+          },
         },
       ] as unknown as EquippedPlayerItem[]);
 
       const totals = await svc.getEquipmentTotals(9);
 
       expect(totals).toEqual({
-        attackBonus: 2,
-        damageBonus: 5,
+        attackBonus: 0,
+        damageBonus: 0,
         armorBonus: 5,
         vitalityBonus: 10,
+        weaponDamageRoll: '1d8',
       });
     });
 

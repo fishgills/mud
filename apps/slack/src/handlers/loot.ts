@@ -13,9 +13,10 @@ import {
 
 const formatTemplate = (template: ItemTemplateSeed) => {
   const parts = [template.type.toLowerCase()];
+  if (typeof template.rank === 'number') parts.unshift(`rank ${template.rank}`);
   if (template.slot) parts.push(`slot: ${template.slot}`);
-  if (typeof template.attack === 'number' && template.attack !== 0) {
-    parts.push(`atk ${template.attack}`);
+  if (template.damageRoll) {
+    parts.push(`dmg ${template.damageRoll}`);
   }
   if (typeof template.defense === 'number' && template.defense !== 0) {
     parts.push(`def ${template.defense}`);
@@ -23,7 +24,7 @@ const formatTemplate = (template: ItemTemplateSeed) => {
   if (typeof template.healthBonus === 'number' && template.healthBonus !== 0) {
     parts.push(`hp ${template.healthBonus}`);
   }
-  return `${template.name} (${template.rarity}, weight ${template.dropWeight}) — ${parts.join(', ')}`;
+  return `${template.name} (rank ${template.rank ?? '—'} ${template.rarity}, weight ${template.dropWeight}) — ${parts.join(', ')}`;
 };
 
 const createRarityTotals = (): Record<ItemSpawnRarity, number> =>
