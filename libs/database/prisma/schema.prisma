@@ -294,7 +294,7 @@ model Item {
   type            ItemType // weapon, armor
   description     String
   value           Int               @default(0) // Gold value
-  damageRoll      String            @default("1d4") // Damage dice (e.g. "1d8")
+  damageRoll      String?           // Damage dice (e.g. "1d8")
   defense         Int?              @default(0) // Defense bonus for armor
   healthBonus     Int?              @default(0) // Health restoration for consumables
   slot            PlayerSlot? // Optional equip slot for equippable items

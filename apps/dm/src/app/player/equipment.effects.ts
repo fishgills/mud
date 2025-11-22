@@ -83,7 +83,7 @@ export function calculateEquipmentEffects(items: EquippedPlayerItem[]): {
       return undefined;
     })();
 
-    const baseDamageRoll = item.damageRoll ?? '1d4';
+    const baseDamageRoll = item.damageRoll;
     const baseDefense = item.defense ?? 0;
     const baseHealth = item.healthBonus ?? 0;
 
@@ -95,11 +95,12 @@ export function calculateEquipmentEffects(items: EquippedPlayerItem[]): {
       weaponDamageRoll: null,
     };
 
-    if (normalizedSlot === PlayerSlot.weapon) {
+    if (normalizedSlot === PlayerSlot.weapon && baseDamageRoll) {
       totals.weaponDamageRoll = baseDamageRoll;
       applied.weaponDamageRoll = baseDamageRoll;
     }
 
+    // Only apply defense if it's not a weapon
     if (normalizedSlot !== PlayerSlot.weapon && baseDefense > 0) {
       const defense = Math.round(baseDefense * multiplier);
       if (defense !== 0) {
@@ -125,7 +126,7 @@ export function calculateEquipmentEffects(items: EquippedPlayerItem[]): {
       quality: record.quality ?? null,
       multiplier: Number(multiplier.toFixed(2)),
       base: {
-        damageRoll: baseDamageRoll,
+        damageRoll: baseDamageRoll ?? '1d4',
         defense: baseDefense,
         health: baseHealth,
       },
