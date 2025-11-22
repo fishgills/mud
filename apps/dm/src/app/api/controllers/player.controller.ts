@@ -67,7 +67,7 @@ interface AttackPayload {
 }
 
 const PLAYER_NOT_FOUND_MESSAGE =
-  'Player not found. DM the Slack bot with "new YourName" to create a character, then finish creation with "complete".';
+  'Player not found. DM the Slack bot with `new YourName` to create a character, then finish creation with `complete`.';
 
 @Controller('players')
 export class PlayersController {

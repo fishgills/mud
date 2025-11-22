@@ -51,7 +51,7 @@ export class CreateHandler extends PlayerCommandHandler {
       if (result.success && result.data) {
         const introText = `Welcome <@${userId}>! Your character creation has started.`;
         const instructions =
-          'Use "reroll" to reroll your stats, and "complete" when you are done.';
+          'Use `reroll` to reroll your stats, and `complete` when you are done.';
         const statsMessage = buildPlayerStatsMessage(result.data, {
           isSelf: true,
         });

@@ -106,7 +106,7 @@ export class WorldDatabaseService {
       type: template.type,
       description: template.description,
       value: template.value,
-      attack: template.attack ?? undefined,
+      damageRoll: template.damageRoll ?? undefined,
       defense: template.defense ?? undefined,
       healthBonus: template.healthBonus ?? undefined,
       slot: template.slot ?? undefined,
