@@ -243,6 +243,35 @@ export class MonsterService {
     });
   }
 
+  async pruneMonstersFarFromPlayers(
+    players: Array<{ x: number; y: number }>,
+    maxDistance: number,
+  ): Promise<number> {
+    if (!players.length || !Number.isFinite(maxDistance) || maxDistance <= 0) {
+      return 0;
+    }
+    const radius = Math.ceil(Math.max(1, maxDistance));
+    const keepZones = players.map((player) => ({
+      AND: [
+        { x: { gte: player.x - radius } },
+        { x: { lte: player.x + radius } },
+        { y: { gte: player.y - radius } },
+        { y: { lte: player.y + radius } },
+      ],
+    }));
+
+    const { count } = await this.prisma.monster.deleteMany({
+      where: {
+        isAlive: true,
+        NOT: {
+          OR: keepZones,
+        },
+      },
+    });
+
+    return count;
+  }
+
   async spawnMonstersInArea(
     centerX: number,
     centerY: number,

@@ -8,13 +8,18 @@ WORKDIR /app
 RUN yarn global add turbo
 COPY . .
 RUN turbo prune @mud/slack --docker && \
+  mkdir -p out/full out/full/apps/slack && \
   if [ -f CHANGELOG.md ]; then \
-    mkdir -p out/full && cp CHANGELOG.md out/full/CHANGELOG.md; \
+    cp CHANGELOG.md out/full/CHANGELOG.md; \
+  else \
+    echo "### Latest Updates\n\n* No changelog entries available.\n" > out/full/CHANGELOG.md; \
   fi && \
   if [ -f apps/slack/CHANGELOG.md ]; then \
-    mkdir -p out/full/apps/slack && cp apps/slack/CHANGELOG.md out/full/apps/slack/CHANGELOG.md; \
+    cp apps/slack/CHANGELOG.md out/full/apps/slack/CHANGELOG.md; \
   elif [ -f CHANGELOG.md ]; then \
-    mkdir -p out/full/apps/slack && cp CHANGELOG.md out/full/apps/slack/CHANGELOG.md; \
+    cp CHANGELOG.md out/full/apps/slack/CHANGELOG.md; \
+  else \
+    cp out/full/CHANGELOG.md out/full/apps/slack/CHANGELOG.md; \
   fi
 
 # Add lockfile and package.json's of isolated subworkspace

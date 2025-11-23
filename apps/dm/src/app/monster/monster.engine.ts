@@ -24,6 +24,10 @@ export interface IMonsterEngine {
   moveMonster(monsterId: number): Promise<Monster>;
   damageMonster(monsterId: number, damage: number): Promise<Monster>;
   cleanupDeadMonsters(): Promise<void>;
+  pruneMonstersFarFromPlayers(
+    players: Array<{ x: number; y: number }>,
+    maxDistance: number,
+  ): Promise<number>;
 }
 
 export const MONSTER_ENGINE = Symbol('MONSTER_ENGINE');

@@ -34,6 +34,7 @@ const buildEnv = () => {
     MOVEMENT_CONCURRENCY: num({ default: 25 }),
     MOVEMENT_CHANCE: num({ default: 0.4 }),
     MOVEMENT_BUDGET: num({ default: 1000 }),
+    MONSTER_PRUNE_DISTANCE: num({ default: 150 }),
     DM_USE_VERTEX_AI: boolFlexible({ default: false }),
     ACTIVE_PLAYER_WINDOW_MINUTES: num({ default: 30 }),
     SPAWN_COOLDOWN_TICKS: num({ default: 3 }),

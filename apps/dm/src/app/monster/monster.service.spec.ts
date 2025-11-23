@@ -51,14 +51,48 @@ const mockPrisma = {
       monsters[idx] = { ...monsters[idx], ...data };
       return monsters[idx];
     }),
-    deleteMany: jest.fn(async ({ where: { updatedAt } }) => {
+    deleteMany: jest.fn(async ({ where }) => {
       const before = monsters.length;
-      for (let i = monsters.length - 1; i >= 0; i--) {
-        if (
-          monsters[i].isAlive === false &&
-          monsters[i].updatedAt < updatedAt.lt
-        ) {
-          monsters.splice(i, 1);
+      if (where?.updatedAt) {
+        for (let i = monsters.length - 1; i >= 0; i--) {
+          if (
+            monsters[i].isAlive === false &&
+            monsters[i].updatedAt < where.updatedAt.lt
+          ) {
+            monsters.splice(i, 1);
+          }
+        }
+      } else if (where?.NOT?.OR) {
+        const zones = where.NOT.OR;
+        for (let i = monsters.length - 1; i >= 0; i--) {
+          const monster = monsters[i];
+          if (
+            where.isAlive !== undefined &&
+            monster.isAlive !== where.isAlive
+          ) {
+            continue;
+          }
+          const withinAny = zones.some((zone: any) => {
+            const checks = zone.AND ?? [];
+            return checks.every((check: any) => {
+              if (check.x) {
+                if (check.x.gte !== undefined && monster.x < check.x.gte)
+                  return false;
+                if (check.x.lte !== undefined && monster.x > check.x.lte)
+                  return false;
+              }
+              if (check.y) {
+                if (check.y.gte !== undefined && monster.y < check.y.gte)
+                  return false;
+                if (check.y.lte !== undefined && monster.y > check.y.lte)
+                  return false;
+              }
+              return true;
+            });
+          });
+          if (!withinAny) {
+            monsters.splice(i, 1);
+          }
         }
       }
       return { count: before - monsters.length };
@@ -183,5 +217,45 @@ describe('MonsterService', () => {
     });
 
     expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('prunes monsters beyond the allowed distance from players', async () => {
+    const service = new MonsterService(worldService);
+    monsters.push(
+      {
+        id: 3,
+        x: 0,
+        y: 0,
+        hp: 10,
+        maxHp: 10,
+        strength: 5,
+        agility: 5,
+        health: 5,
+        biomeId: 1,
+        isAlive: true,
+        updatedAt: new Date(),
+      },
+      {
+        id: 4,
+        x: 500,
+        y: 500,
+        hp: 10,
+        maxHp: 10,
+        strength: 5,
+        agility: 5,
+        health: 5,
+        biomeId: 1,
+        isAlive: true,
+        updatedAt: new Date(),
+      },
+    );
+
+    const removed = await service.pruneMonstersFarFromPlayers(
+      [{ x: 0, y: 0 }],
+      50,
+    );
+    expect(removed).toBe(1);
+    expect(monsters.find((m) => m.id === 4)).toBeUndefined();
+    expect(monsters.find((m) => m.id === 3)).toBeDefined();
   });
 });

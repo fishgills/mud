@@ -60,6 +60,7 @@ export class GameTickService {
     let monstersSpawned = 0;
     let monstersMoved = 0;
     let weatherUpdated = false;
+    let monstersPruned = 0;
 
     // Configurable movement parameters for scalability
     const ACTIVE_RADIUS = env.MOVEMENT_ACTIVE_RADIUS;
@@ -102,6 +103,26 @@ export class GameTickService {
     this.logger.debug(
       `Tick ${newTick}: ${activePlayers.length} active player(s) in last ${activityWindowMinutes} minutes.`,
     );
+
+    const prunePlayers =
+      activePlayers.length > 0
+        ? activePlayers
+        : await this.playerService.getAllPlayers();
+    try {
+      monstersPruned = await this.monsterService.pruneMonstersFarFromPlayers(
+        prunePlayers,
+        env.MONSTER_PRUNE_DISTANCE,
+      );
+      if (monstersPruned > 0) {
+        this.logger.debug(
+          `Tick ${newTick}: Pruned ${monstersPruned} monster(s) beyond ${env.MONSTER_PRUNE_DISTANCE} tiles from players.`,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Tick ${newTick}: Failed to prune distant monsters: ${err instanceof Error ? err.message : err}`,
+      );
+    }
 
     if (activePlayers.length === 0) {
       this.logger.debug(
@@ -201,7 +222,14 @@ export class GameTickService {
       });
     }
 
-    // 3) Cleanup dead monsters periodically
+    // 3) Cleanup/prune world monsters every tick to prevent stale records
+    try {
+      await this.monsterService.cleanupDeadMonsters();
+    } catch (err) {
+      this.logger.warn(
+        `Tick ${newTick}: Failed to cleanup dead monsters: ${err instanceof Error ? err.message : err}`,
+      );
+    }
 
     if (newTick % 4 === 0) {
       const weatherChange = await this.updateWeather();
@@ -217,7 +245,7 @@ export class GameTickService {
     }
 
     this.logger.debug(
-      `Tick ${newTick} summary: spawned=${monstersSpawned}, moved=${monstersMoved}, weatherUpdated=${weatherUpdated}.`,
+      `Tick ${newTick} summary: spawned=${monstersSpawned}, moved=${monstersMoved}, pruned=${monstersPruned}, weatherUpdated=${weatherUpdated}.`,
     );
 
     return {
@@ -227,6 +255,7 @@ export class GameTickService {
       monstersSpawned,
       monstersMoved,
       weatherUpdated,
+      monstersPruned,
     };
   }
 

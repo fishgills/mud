@@ -38,7 +38,7 @@ describe('GameTickService', () => {
     jest.spyOn(Math, 'random').mockReturnValue(1);
     playerService = {
       getActivePlayers: jest.fn().mockResolvedValue([]),
-      getAllPlayers: jest.fn(),
+      getAllPlayers: jest.fn().mockResolvedValue([]),
     } as unknown as jest.Mocked<PlayerService>;
     populationService = {
       enforceDensityAround: jest
@@ -48,6 +48,8 @@ describe('GameTickService', () => {
     monsterService = {
       getMonstersInBounds: jest.fn().mockResolvedValue([]),
       moveMonster: jest.fn(),
+      cleanupDeadMonsters: jest.fn().mockResolvedValue(undefined),
+      pruneMonstersFarFromPlayers: jest.fn().mockResolvedValue(0),
     } as unknown as jest.Mocked<MonsterService>;
     service = new GameTickService(
       playerService,
@@ -88,11 +90,18 @@ describe('GameTickService', () => {
       expect.objectContaining({
         tick: 1,
         weatherUpdated: false,
+        monstersPruned: 0,
       }),
     );
     expect(emitSpy).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: 'world:time:tick', tick: 1 }),
     );
+    expect(monsterService.cleanupDeadMonsters).toHaveBeenCalled();
+    expect(monsterService.pruneMonstersFarFromPlayers).toHaveBeenCalledWith(
+      [],
+      expect.any(Number),
+    );
+    expect(playerService.getAllPlayers).toHaveBeenCalled();
   });
 
   it('handles hourly/day rollover, density enforcement, and weather updates', async () => {
@@ -118,6 +127,7 @@ describe('GameTickService', () => {
       report: [],
     });
     monsterService.getMonstersInBounds.mockResolvedValueOnce([]);
+    monsterService.pruneMonstersFarFromPlayers.mockResolvedValueOnce(3);
 
     const result = await service.processTick();
 
@@ -127,9 +137,16 @@ describe('GameTickService', () => {
     });
     expect(populationService.enforceDensityAround).toHaveBeenCalled();
     expect(result.weatherUpdated).toBe(true);
+    expect(result.monstersPruned).toBe(3);
     expect(emitSpy).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: 'world:weather:change' }),
     );
+    expect(monsterService.cleanupDeadMonsters).toHaveBeenCalled();
+    expect(monsterService.pruneMonstersFarFromPlayers).toHaveBeenCalledWith(
+      [{ isAlive: true, x: 0, y: 0 }],
+      expect.any(Number),
+    );
+    expect(playerService.getAllPlayers).not.toHaveBeenCalled();
   });
 
   it('skips monster updates when no players are recently active', async () => {
@@ -147,5 +164,9 @@ describe('GameTickService', () => {
     expect(monsterService.getMonstersInBounds).not.toHaveBeenCalled();
     expect(result.monstersSpawned).toBe(0);
     expect(result.monstersMoved).toBe(0);
+    expect(result.monstersPruned).toBe(0);
+    expect(monsterService.cleanupDeadMonsters).toHaveBeenCalled();
+    expect(monsterService.pruneMonstersFarFromPlayers).toHaveBeenCalled();
+    expect(playerService.getAllPlayers).toHaveBeenCalled();
   });
 });

@@ -30,6 +30,7 @@ export interface TickResult {
   gameDay: number;
   monstersSpawned: number;
   monstersMoved: number;
+  monstersPruned: number;
   weatherUpdated: boolean;
 }
 
