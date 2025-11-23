@@ -3,6 +3,7 @@ import type { KnownBlock } from '@slack/types';
 import { COMMANDS } from '../commands';
 import { buildHelpBlocks } from './help';
 import { getLeaderboard } from '../dm-client';
+import { getRecentChangelogEntries } from '../services/changelog.service';
 
 const buildLeaderboardBlocks = async (
   teamId?: string,
@@ -95,11 +96,84 @@ const buildLeaderboardBlocks = async (
   }
 };
 
+const buildChangelogBlocks = async (): Promise<KnownBlock[]> => {
+  try {
+    const entries = await getRecentChangelogEntries(10);
+    if (entries.length === 0) {
+      return [
+        {
+          type: 'header',
+          text: {
+            type: 'plain_text',
+            text: '🆕 Latest Updates',
+            emoji: true,
+          },
+        },
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: '_No recent Conventional Commits found._',
+          },
+        },
+      ];
+    }
+
+    const formatted = entries
+      .map((entry) => {
+        const scopeText = entry.scope ? ` (${entry.scope})` : '';
+        const breakingPrefix = entry.breaking ? '⚠️ ' : '';
+        const shortHash = entry.hash ? entry.hash.slice(0, 7) : '';
+        return `• ${breakingPrefix}*${entry.type}${scopeText}*: ${entry.description}${
+          shortHash ? ` \`${shortHash}\`` : ''
+        }`;
+      })
+      .join('\n');
+
+    return [
+      {
+        type: 'header',
+        text: {
+          type: 'plain_text',
+          text: '🆕 Latest Updates',
+          emoji: true,
+        },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: formatted,
+        },
+      },
+    ];
+  } catch {
+    return [
+      {
+        type: 'header',
+        text: {
+          type: 'plain_text',
+          text: '🆕 Latest Updates',
+          emoji: true,
+        },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '_Unable to load changelog entries._',
+        },
+      },
+    ];
+  }
+};
+
 export const buildAppHomeBlocks = async (
   teamId?: string,
 ): Promise<KnownBlock[]> => {
   const helpBlocks = buildHelpBlocks();
   const leaderboardBlocks = await buildLeaderboardBlocks(teamId);
+  const changelogBlocks = await buildChangelogBlocks();
 
   return [
     {
@@ -128,6 +202,8 @@ export const buildAppHomeBlocks = async (
     },
     { type: 'divider' },
     ...leaderboardBlocks,
+    { type: 'divider' },
+    ...changelogBlocks,
     { type: 'divider' },
     ...helpBlocks,
   ];

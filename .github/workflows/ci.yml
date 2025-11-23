@@ -6,6 +6,25 @@ permissions:
   contents: read
 
 jobs:
+  changelog:
+    name: Changelog
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'yarn'
+      - run: yarn install --frozen-lockfile
+      - name: Generate changelog
+        run: yarn changelog
+      - name: Ensure changelog committed
+        run: |
+          if ! git diff --exit-code CHANGELOG.md > /dev/null; then
+            echo "::error::CHANGELOG.md has uncommitted changes. Please run 'yarn changelog', commit the updated CHANGELOG.md, and push your changes."
+            exit 1
+          fi
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
