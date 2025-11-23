@@ -32,4 +32,7 @@ cd /app
 
 # Start the application
 echo "✅ Starting DM service..."
-exec node apps/dm/dist/src/main.js
+# Nest builds DM into apps/dm/dist/main.js (not dist/src/main.js). Running the
+# wrong path caused MODULE_NOT_FOUND in production, so point directly to the
+# emitted entrypoint.
+exec node apps/dm/dist/main.js
