@@ -30,6 +30,7 @@ import {
   calculateEquipmentEffects,
   type EquippedPlayerItem,
 } from '../player/equipment.effects';
+import { computePlayerCombatStats } from '../player/player-stats.util';
 
 type CombatantEquipment = {
   name: string;
@@ -438,17 +439,21 @@ export class CombatService {
       },
     };
 
-    if (equipmentTotals.attackBonus > 0) {
-      combatant.attackBonus = equipmentTotals.attackBonus;
+    const snapshot = computePlayerCombatStats({
+      ...player,
+      equipmentTotals,
+    });
+    if (snapshot.gear.attackBonus > 0) {
+      combatant.attackBonus = snapshot.gear.attackBonus;
     }
-    if (equipmentTotals.damageBonus > 0) {
-      combatant.damageBonus = equipmentTotals.damageBonus;
+    if (snapshot.gear.damageBonus > 0) {
+      combatant.damageBonus = snapshot.gear.damageBonus;
     }
-    if (equipmentTotals.armorBonus > 0) {
-      combatant.armorBonus = equipmentTotals.armorBonus;
+    if (snapshot.gear.armorBonus > 0) {
+      combatant.armorBonus = snapshot.gear.armorBonus;
     }
-    if (equipmentTotals.weaponDamageRoll) {
-      combatant.damageRoll = equipmentTotals.weaponDamageRoll;
+    if (snapshot.damageRoll) {
+      combatant.damageRoll = snapshot.damageRoll;
     }
 
     if (Array.isArray(equippedItems) && equippedItems.length > 0) {

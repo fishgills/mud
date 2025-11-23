@@ -18,6 +18,7 @@ import {
   type EquippedPlayerItem,
   type EquipmentTotals,
 } from '../../player/equipment.effects';
+import { computePlayerCombatStats } from '../../player/player-stats.util';
 import { PlayerService } from '../../player/player.service';
 import { PlayerItemService } from '../../player/player-item.service';
 import { MonsterService } from '../../monster/monster.service';
@@ -627,6 +628,10 @@ export class PlayersController {
         data: {
           ...player,
           equipmentTotals,
+          computedStats: computePlayerCombatStats({
+            ...player,
+            equipmentTotals,
+          }),
           bag,
         },
       };
