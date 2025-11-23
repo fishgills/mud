@@ -71,6 +71,7 @@ const resolveChangelogCandidates = (explicitPath?: string): string[] => {
   }
   return [
     path.resolve(process.cwd(), 'CHANGELOG.md'),
+    path.resolve(__dirname, '../../CHANGELOG.md'),
     path.resolve(__dirname, '../../../../CHANGELOG.md'),
   ];
 };
