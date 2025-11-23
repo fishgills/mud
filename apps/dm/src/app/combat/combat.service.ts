@@ -13,7 +13,17 @@ import type {
   CombatMessagePerformance,
 } from '../api';
 import { AttackOrigin } from '../api/dto/player-requests.dto';
-import { runCombat as engineRunCombat, parseDice } from './engine';
+import {
+  calculateAC as engineCalculateAC,
+  calculateDamage as engineCalculateDamage,
+  calculateGoldReward as engineCalculateGoldReward,
+  calculateXpGain as engineCalculateXpGain,
+  getModifier as engineGetModifier,
+  rollD20 as engineRollD20,
+  rollDice as engineRollDice,
+  rollInitiative as engineRollInitiative,
+  runCombat as engineRunCombat,
+} from './engine';
 import { CombatMessenger } from './messages';
 import { applyCombatResults, type CombatResultEffects } from './results';
 import {
@@ -106,38 +116,29 @@ export class CombatService {
 
   // Roll 1d20
   private rollD20(): number {
-    const roll = Math.floor(Math.random() * 20) + 1;
+    const roll = engineRollD20();
     this.logger.debug(`Rolled 1d20: ${roll}`);
     return roll;
   }
 
   // Roll multiple dice (e.g., "20d10" for XP calculation)
   private rollDice(count: number, sides: number): number {
-    let total = 0;
-    const rolls: number[] = [];
-    for (let i = 0; i < count; i++) {
-      const roll = Math.floor(Math.random() * sides) + 1;
-      rolls.push(roll);
-      total += roll;
-    }
-    this.logger.debug(
-      `Rolled ${count}d${sides}: ${rolls.join(', ')} = ${total}`,
-    );
+    const total = engineRollDice(count, sides);
+    this.logger.debug(`Rolled ${count}d${sides}: total=${total}`);
     return total;
   }
 
   // Calculate ability modifier (D&D 3e style: (ability - 10) / 2)
   private getModifier(ability: number): number {
-    const modifier = Math.floor((ability - 10) / 2);
+    const modifier = engineGetModifier(ability);
     this.logger.debug(`Ability ${ability} -> modifier ${modifier}`);
     return modifier;
   }
 
   // Calculate Armor Class (10 + Dex modifier)
   private calculateAC(agility: number): number {
-    const dexMod = this.getModifier(agility);
-    const ac = 10 + dexMod;
-    this.logger.debug(`AC calculation: 10 + ${dexMod} (Dex) = ${ac}`);
+    const ac = engineCalculateAC(agility);
+    this.logger.debug(`AC calculation: ${ac} (10 + Dex mod)`);
     return ac;
   }
 
@@ -147,22 +148,17 @@ export class CombatService {
     modifier: number;
     total: number;
   } {
-    const roll = this.rollD20();
-    const modifier = this.getModifier(agility);
-    const total = roll + modifier;
-    this.logger.debug(`Initiative: ${roll} + ${modifier} (Dex) = ${total}`);
-    return { roll, modifier, total };
+    const result = engineRollInitiative(agility);
+    this.logger.debug(
+      `Initiative: ${result.roll} + ${result.modifier} (Dex) = ${result.total}`,
+    );
+    return result;
   }
 
   // Calculate damage (Weapon Dice + Str modifier, minimum 1)
   private calculateDamage(strength: number, damageRoll = '1d4'): number {
-    const { count, sides } = parseDice(damageRoll);
-    const baseDamage = this.rollDice(count, sides);
-    const modifier = this.getModifier(strength);
-    const totalDamage = Math.max(1, baseDamage + modifier);
-    this.logger.debug(
-      `Damage (${damageRoll}): ${baseDamage} + ${modifier} (Str) = ${totalDamage} (min 1)`,
-    );
+    const totalDamage = engineCalculateDamage(strength, damageRoll);
+    this.logger.debug(`Damage (${damageRoll ?? '1d4'}): total ${totalDamage}`);
     return totalDamage;
   }
 
@@ -172,25 +168,9 @@ export class CombatService {
   // - More XP for defeating higher-level foes, less for lower-level
   // - Naturally discourage high-level farming of level-1 monsters
   private calculateXpGain(winnerLevel: number, loserLevel: number): number {
-    // Base scales modestly with opponent level; add small variability
-    const base = 20 + 5 * Math.max(1, loserLevel);
-    const variability = this.rollDice(2, 6) - 2; // 0–10 swing
-
-    // Positive when opponent is higher level, negative when lower
-    const levelDiff = loserLevel - winnerLevel;
-    let multiplier: number;
-    if (levelDiff >= 0) {
-      // Reward upsets: +20% per level difference, capped at +200%
-      multiplier = 1 + Math.min(2, levelDiff * 0.2);
-    } else {
-      // Penalize bullying: -10% per level, floored at 0.25x
-      multiplier = Math.max(0.25, 1 + levelDiff * 0.1);
-    }
-
-    const rawXp = (base + variability) * multiplier;
-    const finalXp = Math.max(5, Math.floor(rawXp));
+    const finalXp = engineCalculateXpGain(winnerLevel, loserLevel);
     this.logger.debug(
-      `XP calc: base ~${base}+${variability}, diff=${levelDiff}, mult=${multiplier.toFixed(2)} => ${finalXp}`,
+      `XP calc: winner lvl ${winnerLevel}, loser lvl ${loserLevel} => ${finalXp}`,
     );
     return finalXp;
   }
@@ -199,14 +179,9 @@ export class CombatService {
     victorLevel: number,
     targetLevel: number,
   ): number {
-    const baseGold = this.rollDice(5, 6); // 5d6 baseline treasure
-    const levelDifference = targetLevel - victorLevel;
-    const modifier = Math.max(0.5, 1 + levelDifference * 0.1);
-    const finalGold = Math.max(5, Math.floor(baseGold * modifier));
+    const finalGold = engineCalculateGoldReward(victorLevel, targetLevel);
     this.logger.debug(
-      `Gold calculation: base ${baseGold}, level diff ${levelDifference} -> modifier ${modifier.toFixed(
-        2,
-      )}, final ${finalGold}`,
+      `Gold calculation: winner lvl ${victorLevel}, target lvl ${targetLevel} => ${finalGold}`,
     );
     return finalGold;
   }

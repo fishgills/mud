@@ -120,31 +120,34 @@ export type MonsterRecord = Monster;
 
 // ItemRecord supports both PlayerItem (inventory) and WorldItem (world items)
 // This type is flexible to work with both API responses
+type ItemDisplayMetadata = {
+  // Include item relation when available
+  item?: Item | null;
+  // Convenience display helpers
+  itemName?: string | null;
+  name?: string;
+  allowedSlots?: string[];
+  slot?: string | null;
+  equipped?: boolean;
+  damageRoll?: string | null;
+  defense?: number | null;
+  healthBonus?: number | null;
+  value?: number | null;
+  description?: string | null;
+  itemType?: string | null;
+  computedBonuses?: EquipmentTotals;
+};
+
 export type ItemRecord =
-  | (WorldItem & {
-      // Include item details from relation if available
-      item?: Item | null;
-      // Convenience properties for display
-      itemName?: string | null;
-      name?: string; // from item.name when item relation is loaded
-      allowedSlots?: string[];
-      // PlayerItem-specific fields when used as inventory item
-      slot?: string | null;
-      equipped?: boolean;
-    })
-  | (PlayerItem & {
-      // Include item details when available
-      item?: Item | null;
-      itemName?: string | null;
-      name?: string; // convenience mapping
-      allowedSlots?: string[];
-    });
+  | (WorldItem & ItemDisplayMetadata)
+  | (PlayerItem & ItemDisplayMetadata);
 
 export type EquipmentTotals = {
   attackBonus: number;
   damageBonus: number;
   armorBonus: number;
   vitalityBonus: number;
+  weaponDamageRoll: string | null;
 };
 
 export interface ItemActionResponse extends SuccessResponse {

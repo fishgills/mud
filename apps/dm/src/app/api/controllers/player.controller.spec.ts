@@ -218,9 +218,7 @@ describe('PlayersController', () => {
     ).toEqual({ success: true, data: { ...player, hp: 0 } });
 
     playerService.respawnPlayer.mockResolvedValue(player as never);
-    expect(
-      await controller.respawn({ teamId: 'T1', userId: 'U1' }),
-    ).toEqual({
+    expect(await controller.respawn({ teamId: 'T1', userId: 'U1' })).toEqual({
       success: true,
       data: player,
       message: 'You have been resurrected at the starting location!',
@@ -236,7 +234,11 @@ describe('PlayersController', () => {
 
   it('validates numeric payloads for heal/damage', async () => {
     await expect(
-      controller.healPlayer({ teamId: 'T1', userId: 'U1', amount: 'x' } as never),
+      controller.healPlayer({
+        teamId: 'T1',
+        userId: 'U1',
+        amount: 'x',
+      } as never),
     ).rejects.toThrow('amount must be a number');
 
     await expect(
@@ -337,14 +339,25 @@ describe('PlayersController', () => {
     playerService.getPlayer.mockResolvedValue(player as never);
     playerItemService.getEquipmentTotals.mockResolvedValue({ armorBonus: 1 });
     playerItemService.listBag.mockResolvedValue([
-      { id: 10, playerId: 1, itemId: 5, equipped: false, item: { type: 'weapon', name: 'Sword' } },
-    ]);
+      {
+        id: 10,
+        playerId: 1,
+        itemId: 5,
+        equipped: false,
+        quality: 'Common',
+        item: { type: 'weapon', name: 'Sword', damageRoll: '1d6' },
+      },
+    ] as never);
 
     const response = await controller.getPlayerItems('T1', 'U1');
     expect(response.success).toBe(true);
     expect(response.data?.bag?.[0]).toMatchObject({
       allowedSlots: ['weapon'],
       itemName: 'Sword',
+      damageRoll: '1d6',
+      computedBonuses: {
+        weaponDamageRoll: '1d6',
+      },
     });
   });
 
@@ -367,7 +380,9 @@ describe('PlayersController', () => {
       playerItemId: 21,
       slot: 'weapon',
     });
-    expect(playerService.recalculatePlayerHitPointsFromEquipment).toHaveBeenCalledWith(1);
+    expect(
+      playerService.recalculatePlayerHitPointsFromEquipment,
+    ).toHaveBeenCalledWith(1);
     expect(equip.success).toBe(true);
 
     playerItemService.drop.mockResolvedValue({ id: 30 });

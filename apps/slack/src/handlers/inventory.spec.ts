@@ -139,6 +139,59 @@ describe('inventory handler', () => {
     expect(weaponSections).toHaveLength(1);
   });
 
+  it('renders armor stats for items in the backpack', () => {
+    const { buildInventoryMessage } = __private__;
+    const message = buildInventoryMessage({
+      id: 1,
+      name: 'Hero',
+      level: 2,
+      gold: 5,
+      hp: 8,
+      maxHp: 12,
+      x: 0,
+      y: 0,
+      equipment: {
+        head: null,
+        chest: null,
+        legs: null,
+        arms: null,
+        weapon: null,
+      },
+      bag: [
+        {
+          id: 201,
+          itemId: 99,
+          itemName: 'Reinforced Leather',
+          quality: 'Uncommon',
+          equipped: false,
+          slot: null,
+          allowedSlots: ['chest'],
+          computedBonuses: {
+            attackBonus: 0,
+            damageBonus: 0,
+            armorBonus: 4,
+            vitalityBonus: 0,
+            weaponDamageRoll: null,
+          },
+        },
+      ],
+    } as never);
+
+    const armorContext = (message.blocks ?? []).find(
+      (block) =>
+        block.type === 'context' &&
+        Array.isArray(block.elements) &&
+        block.elements.some(
+          (element) =>
+            element.type === 'mrkdwn' &&
+            typeof element.text === 'string' &&
+            element.text.includes('Armor +4'),
+        ),
+    );
+
+    expect(armorContext).toBeDefined();
+  });
+
   it('notifies when the player has no character', async () => {
     mockedGetPlayer.mockResolvedValue({
       success: false,

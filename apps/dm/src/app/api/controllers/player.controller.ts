@@ -13,6 +13,11 @@ import {
 import { PlayerSlot, ItemType } from '@mud/database';
 import type { PlayerItem, Item, Player } from '@mud/database';
 import { Prisma } from '@mud/database';
+import {
+  calculateEquipmentEffects,
+  type EquippedPlayerItem,
+  type EquipmentTotals,
+} from '../../player/equipment.effects';
 import { PlayerService } from '../../player/player.service';
 import { PlayerItemService } from '../../player/player-item.service';
 import { MonsterService } from '../../monster/monster.service';
@@ -554,6 +559,20 @@ export class PlayersController {
 
       // Fetch bag items
       const bagItems = await this.playerItemService.listBag(player.id);
+      const bagEffects = calculateEquipmentEffects(
+        bagItems as EquippedPlayerItem[],
+      );
+      const perItemBonuses = bagEffects.details.reduce((acc, detail) => {
+        acc.set(detail.playerItemId, detail.applied);
+        return acc;
+      }, new Map<number, EquipmentTotals>());
+      const emptyBonuses: EquipmentTotals = {
+        attackBonus: 0,
+        damageBonus: 0,
+        armorBonus: 0,
+        vitalityBonus: 0,
+        weaponDamageRoll: null,
+      };
 
       const bag = (bagItems || []).map(
         (pi: PlayerItem & { item?: Item | null }) => {
@@ -571,6 +590,8 @@ export class PlayersController {
             allowedSlots.push(PlayerSlot.weapon);
           }
 
+          const applied = { ...(perItemBonuses.get(pi.id) ?? emptyBonuses) };
+
           return {
             id: pi.id,
             playerId: pi.playerId,
@@ -581,6 +602,19 @@ export class PlayersController {
             equipped: Boolean(pi.equipped ?? false),
             slot: pi.slot ?? null,
             allowedSlots,
+            damageRoll: item?.damageRoll ?? null,
+            defense: item?.defense ?? null,
+            healthBonus: item?.healthBonus ?? null,
+            value: item?.value ?? null,
+            description: item?.description ?? null,
+            itemType: item?.type ?? null,
+            computedBonuses: {
+              attackBonus: applied.attackBonus ?? 0,
+              damageBonus: applied.damageBonus ?? 0,
+              armorBonus: applied.armorBonus ?? 0,
+              vitalityBonus: applied.vitalityBonus ?? 0,
+              weaponDamageRoll: applied.weaponDamageRoll ?? null,
+            },
             createdAt:
               pi.createdAt instanceof Date
                 ? pi.createdAt.toISOString()

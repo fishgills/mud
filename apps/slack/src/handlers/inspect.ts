@@ -1,6 +1,7 @@
 import type { BlockAction, AckFn } from '@slack/bolt';
 import type { KnownBlock } from '@slack/types';
 import type { WebClient } from '@slack/web-api';
+import { ItemType, PlayerSlot } from '@mud/database';
 import { getQualityBadge, formatQualityLabel } from '@mud/constants';
 import { COMMANDS, INSPECT_ACTIONS } from '../commands';
 import { PlayerCommandHandler } from './base';
@@ -383,6 +384,164 @@ const parseItemSelection = (
   };
 };
 
+type ItemCategory = 'weapon' | 'armor' | 'unknown';
+
+type InspectableItemWithMetadata = InspectableItem & {
+  itemType?: string | null;
+  slot?: string | null;
+  allowedSlots?: string[];
+  damageRoll?: string | null;
+  defense?: number | null;
+  healthBonus?: number | null;
+  item?: {
+    type?: string | null;
+    slot?: string | null;
+    damageRoll?: string | null;
+    defense?: number | null;
+    healthBonus?: number | null;
+  } | null;
+  computedBonuses?: EquipmentTotals | null;
+};
+
+type ItemEffectSummary = {
+  kind: ItemCategory;
+  damageRoll?: string | null;
+  attackBonus?: number | null;
+  damageBonus?: number | null;
+  armorBonus?: number | null;
+  vitalityBonus?: number | null;
+};
+
+const ARMOR_SLOTS = new Set<string>([
+  PlayerSlot.head,
+  PlayerSlot.chest,
+  PlayerSlot.legs,
+  PlayerSlot.arms,
+]);
+
+const normalizeItemType = (raw?: string | null): ItemCategory | null => {
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  if (lower === ItemType.WEAPON.toLowerCase()) return 'weapon';
+  if (lower === ItemType.ARMOR.toLowerCase()) return 'armor';
+  return null;
+};
+
+const normalizeSlot = (slot?: string | null): string | null => {
+  if (!slot) return null;
+  const normalized = slot.toLowerCase();
+  if (
+    normalized === PlayerSlot.weapon ||
+    normalized === PlayerSlot.head ||
+    normalized === PlayerSlot.chest ||
+    normalized === PlayerSlot.legs ||
+    normalized === PlayerSlot.arms
+  ) {
+    return normalized;
+  }
+  return null;
+};
+
+const resolveItemCategory = (
+  details?: ItemDetails,
+  item?: InspectableItem | null,
+): ItemCategory => {
+  const enriched = (item ?? {}) as InspectableItemWithMetadata;
+  const type =
+    normalizeItemType(details?.type ?? enriched.itemType) ??
+    normalizeItemType(enriched.item?.type);
+  if (type) return type;
+
+  const slot =
+    normalizeSlot(details?.slot) ??
+    normalizeSlot(enriched.slot) ??
+    normalizeSlot(enriched.allowedSlots?.[0]) ??
+    normalizeSlot(enriched.item?.slot);
+
+  if (slot === PlayerSlot.weapon) return 'weapon';
+  if (slot && ARMOR_SLOTS.has(slot)) return 'armor';
+  return 'unknown';
+};
+
+const pickFirstNumber = (
+  ...values: Array<number | null | undefined>
+): number | null => {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return null;
+};
+
+const pickFirstString = (
+  ...values: Array<string | null | undefined>
+): string | null => {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+
+const extractComputedBonuses = (
+  item?: InspectableItem | null,
+): EquipmentTotals | null => {
+  if (!item) return null;
+  const enriched = item as InspectableItemWithMetadata;
+  const computed = enriched.computedBonuses;
+  if (computed && typeof computed === 'object') {
+    return computed;
+  }
+  return null;
+};
+
+const deriveItemEffects = (
+  details?: ItemDetails,
+  item?: InspectableItem | null,
+): ItemEffectSummary => {
+  const enriched = (item ?? {}) as InspectableItemWithMetadata;
+  const computed = extractComputedBonuses(item);
+  const kind = resolveItemCategory(details, item);
+
+  const damageRoll = pickFirstString(
+    computed?.weaponDamageRoll ?? undefined,
+    details?.damageRoll ?? undefined,
+    enriched.damageRoll ?? undefined,
+    enriched.item?.damageRoll ?? undefined,
+  );
+
+  const armorBonus = pickFirstNumber(
+    computed?.armorBonus,
+    details?.defense ?? undefined,
+    enriched.defense ?? undefined,
+    enriched.item?.defense ?? undefined,
+  );
+
+  const vitalityBonus = pickFirstNumber(
+    computed?.vitalityBonus,
+    details?.healthBonus ?? undefined,
+    enriched.healthBonus ?? undefined,
+    enriched.item?.healthBonus ?? undefined,
+  );
+
+  return {
+    kind,
+    damageRoll,
+    attackBonus: pickFirstNumber(computed?.attackBonus),
+    damageBonus: pickFirstNumber(computed?.damageBonus),
+    armorBonus,
+    vitalityBonus,
+  };
+};
+
+const hasNumberValue = (value: number | null | undefined): value is number =>
+  typeof value === 'number' && !Number.isNaN(value);
+
+const hasNonZeroBonus = (value: number | null | undefined): value is number =>
+  hasNumberValue(value) && value !== 0;
+
 const buildItemInspectMessage = (
   item: InspectableItem | null,
   details?: ItemDetails,
@@ -431,21 +590,63 @@ const buildItemInspectMessage = (
     blocks.push({ type: 'section', fields: primaryFields });
   }
 
+  const effects = deriveItemEffects(details, item);
   const bonusLines: string[] = [];
-  if (details?.damageRoll) {
-    bonusLines.push(`• Damage ${details.damageRoll}`);
-  }
-  if (typeof details?.defense === 'number' && details.defense !== 0) {
-    bonusLines.push(`• Defense ${formatSigned(details.defense)}`);
-  }
-  if (typeof details?.healthBonus === 'number' && details.healthBonus !== 0) {
-    bonusLines.push(`• Vitality ${formatSigned(details.healthBonus)}`);
+  if (effects.kind === 'weapon') {
+    if (effects.damageRoll) {
+      bonusLines.push(`• Damage ${effects.damageRoll}`);
+    }
+    if (hasNonZeroBonus(effects.attackBonus)) {
+      bonusLines.push(`• Attack ${formatSigned(effects.attackBonus)}`);
+    }
+    if (hasNonZeroBonus(effects.damageBonus)) {
+      bonusLines.push(`• Damage Bonus ${formatSigned(effects.damageBonus)}`);
+    }
+    if (hasNonZeroBonus(effects.vitalityBonus)) {
+      bonusLines.push(`• Vitality ${formatSigned(effects.vitalityBonus)}`);
+    }
+  } else if (effects.kind === 'armor') {
+    if (hasNumberValue(effects.armorBonus)) {
+      bonusLines.push(`• Armor Class ${formatSigned(effects.armorBonus)}`);
+    }
+    if (hasNonZeroBonus(effects.vitalityBonus)) {
+      bonusLines.push(`• Vitality ${formatSigned(effects.vitalityBonus)}`);
+    }
+  } else {
+    if (effects.damageRoll) {
+      bonusLines.push(`• Damage ${effects.damageRoll}`);
+    }
+    if (hasNumberValue(effects.armorBonus)) {
+      bonusLines.push(`• Armor Class ${formatSigned(effects.armorBonus)}`);
+    }
+    if (hasNonZeroBonus(effects.vitalityBonus)) {
+      bonusLines.push(`• Vitality ${formatSigned(effects.vitalityBonus)}`);
+    }
   }
 
   if (bonusLines.length > 0) {
+    const heading =
+      effects.kind === 'weapon'
+        ? '*Weapon effects*'
+        : effects.kind === 'armor'
+          ? '*Armor effects*'
+          : '*Item effects*';
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: `*Bonuses*\n${bonusLines.join('\n')}` },
+      text: { type: 'mrkdwn', text: `${heading}\n${bonusLines.join('\n')}` },
+    });
+  }
+
+  const rulesHint =
+    effects.kind === 'weapon'
+      ? '_Attack: d20 + STR modifier (plus weapon bonuses) vs target AC. Damage: weapon die + STR modifier._'
+      : effects.kind === 'armor'
+        ? '_Armor raises your AC and never boosts attack rolls or damage._'
+        : null;
+  if (rulesHint) {
+    blocks.push({
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: rulesHint }],
     });
   }
 

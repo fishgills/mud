@@ -1,5 +1,6 @@
 import type { BlockAction } from '@slack/bolt';
 import type { WebClient } from '@slack/web-api';
+import { ItemType } from '@mud/database';
 import { inspectHandler, INSPECT_SELECTION_BLOCK_ID } from './inspect';
 import { INSPECT_ACTIONS, COMMANDS } from '../commands';
 import { dmClient } from '../dm-client';
@@ -284,6 +285,138 @@ describe('inspectHandler.handleInspectAction', () => {
         text: expect.stringContaining('Sword of Testing'),
       }),
     );
+  });
+
+  it('only surfaces weapon-focused stats for weapons', async () => {
+    mockedDmClient.getPlayer.mockResolvedValue({
+      data: {
+        id: 10,
+        name: 'Inspector',
+        teamId: 'T1',
+        userId: 'U123',
+        slackUser: { teamId: 'T1', userId: 'U123' },
+        x: 0,
+        y: 0,
+        isInHq: false,
+      },
+      success: true,
+    } as never);
+
+    mockedDmClient.getLocationEntities.mockResolvedValue({
+      players: [],
+      monsters: [],
+      items: [
+        {
+          id: 111,
+          itemId: 200,
+          itemName: 'Sword',
+          quality: 'Epic',
+        },
+      ],
+    });
+
+    mockedDmClient.getItemDetails.mockResolvedValue({
+      success: true,
+      data: {
+        id: 200,
+        name: 'Sword of Testing',
+        type: ItemType.WEAPON,
+        damageRoll: '1d8',
+        defense: 3,
+        healthBonus: 0,
+        value: 50,
+        description: 'Sharp!',
+      },
+    });
+
+    const body = buildActionBody('I:111|200');
+    const client = mockClient();
+
+    await inspectHandler.handleInspectAction({
+      ack: mockAck(),
+      body,
+      client: client as unknown as WebClient,
+    });
+
+    const posted = (client.chat.postMessage as jest.Mock).mock.calls[0]?.[0];
+    const blocks = (posted?.blocks ?? []) as Array<{
+      type?: string;
+      text?: { text?: string };
+    }>;
+    const bonusBlock = blocks.find((b) =>
+      b.text?.text?.includes('Weapon effects'),
+    );
+    const bonusText = bonusBlock?.text?.text ?? '';
+
+    expect(bonusText).toContain('Weapon effects');
+    expect(bonusText).toContain('Damage 1d8');
+    expect(bonusText.toLowerCase()).not.toContain('armor class');
+  });
+
+  it('only surfaces armor-focused stats for armor', async () => {
+    mockedDmClient.getPlayer.mockResolvedValue({
+      data: {
+        id: 10,
+        name: 'Inspector',
+        teamId: 'T1',
+        userId: 'U123',
+        slackUser: { teamId: 'T1', userId: 'U123' },
+        x: 0,
+        y: 0,
+        isInHq: false,
+      },
+      success: true,
+    } as never);
+
+    mockedDmClient.getLocationEntities.mockResolvedValue({
+      players: [],
+      monsters: [],
+      items: [
+        {
+          id: 222,
+          itemId: 300,
+          itemName: 'Tunic',
+          quality: 'Common',
+        },
+      ],
+    });
+
+    mockedDmClient.getItemDetails.mockResolvedValue({
+      success: true,
+      data: {
+        id: 300,
+        name: 'Threadbare Tunic',
+        type: ItemType.ARMOR,
+        damageRoll: '1d6',
+        defense: 2,
+        healthBonus: 1,
+        value: 2,
+        description: 'Barely holds together.',
+      },
+    });
+
+    const body = buildActionBody('I:222|300');
+    const client = mockClient();
+
+    await inspectHandler.handleInspectAction({
+      ack: mockAck(),
+      body,
+      client: client as unknown as WebClient,
+    });
+
+    const posted = (client.chat.postMessage as jest.Mock).mock.calls[0]?.[0];
+    const blocks = (posted?.blocks ?? []) as Array<{
+      type?: string;
+      text?: { text?: string };
+    }>;
+    const bonusBlock = blocks.find((b) =>
+      b.text?.text?.includes('Armor effects'),
+    );
+    const bonusText = bonusBlock?.text?.text ?? '';
+
+    expect(bonusText).toContain('Armor effects');
+    expect(bonusText).toContain('Armor Class +2');
+    expect(bonusText).not.toContain('Damage 1d6');
   });
 
   it('blocks inspection actions while the player is in HQ', async () => {

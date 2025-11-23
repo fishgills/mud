@@ -30,6 +30,94 @@ const resolvePlayerItemId = (item: ItemRecord | undefined): number | null => {
   return typeof id === 'number' ? id : null;
 };
 
+const formatSignedStat = (value: number): string => {
+  if (!Number.isFinite(value)) {
+    return '0';
+  }
+  return value >= 0 ? `+${value}` : `${value}`;
+};
+
+const buildItemStatLines = (item: ItemRecord | undefined): string[] => {
+  if (!item) return [];
+  const stats: string[] = [];
+  const bonuses = item.computedBonuses;
+  const fallbackRoll =
+    typeof item.damageRoll === 'string' && item.damageRoll.trim().length > 0
+      ? item.damageRoll
+      : (item.item?.damageRoll ?? null);
+  const damageRoll = bonuses?.weaponDamageRoll ?? fallbackRoll;
+  if (damageRoll) {
+    stats.push(`Damage ${damageRoll}`);
+  }
+  if (bonuses) {
+    if (bonuses.attackBonus) {
+      stats.push(`Attack ${formatSignedStat(bonuses.attackBonus)}`);
+    }
+    if (bonuses.damageBonus) {
+      stats.push(`Damage Bonus ${formatSignedStat(bonuses.damageBonus)}`);
+    }
+    if (bonuses.armorBonus) {
+      stats.push(`Armor ${formatSignedStat(bonuses.armorBonus)}`);
+    } else {
+      const rawDefense =
+        typeof item.defense === 'number' && item.defense !== 0
+          ? item.defense
+          : (item.item?.defense ?? null);
+      if (typeof rawDefense === 'number' && rawDefense !== 0) {
+        stats.push(`Armor ${formatSignedStat(rawDefense)}`);
+      }
+    }
+    if (bonuses.vitalityBonus) {
+      stats.push(`Vitality ${formatSignedStat(bonuses.vitalityBonus)}`);
+    } else {
+      const rawVitality =
+        typeof item.healthBonus === 'number' && item.healthBonus !== 0
+          ? item.healthBonus
+          : (item.item?.healthBonus ?? null);
+      if (typeof rawVitality === 'number' && rawVitality !== 0) {
+        stats.push(`Vitality ${formatSignedStat(rawVitality)}`);
+      }
+    }
+  } else {
+    const rawDefense =
+      typeof item.defense === 'number' && item.defense !== 0
+        ? item.defense
+        : (item.item?.defense ?? null);
+    if (typeof rawDefense === 'number' && rawDefense !== 0) {
+      stats.push(`Armor ${formatSignedStat(rawDefense)}`);
+    }
+    const rawVitality =
+      typeof item.healthBonus === 'number' && item.healthBonus !== 0
+        ? item.healthBonus
+        : (item.item?.healthBonus ?? null);
+    if (typeof rawVitality === 'number' && rawVitality !== 0) {
+      stats.push(`Vitality ${formatSignedStat(rawVitality)}`);
+    }
+  }
+
+  return stats;
+};
+
+const appendItemStatsContext = (
+  blocks: Array<KnownBlock | Block>,
+  item: ItemRecord | undefined,
+): void => {
+  const statLines = buildItemStatLines(item);
+  if (statLines.length === 0) {
+    return;
+  }
+
+  blocks.push({
+    type: 'context',
+    elements: [
+      {
+        type: 'mrkdwn',
+        text: statLines.map((line) => `• ${line}`).join('\n'),
+      },
+    ],
+  });
+};
+
 const formatItemDisplay = (item: ItemRecord | undefined): string => {
   if (!item) return '_Empty_';
   const badge = getQualityBadge(item.quality ?? defaultQuality);
@@ -55,6 +143,8 @@ ${title}`,
       },
     },
   ];
+
+  appendItemStatsContext(blocks, item);
 
   if (playerItemId !== null) {
     blocks.push({
@@ -135,6 +225,8 @@ const createBackpackItemBlocks = (
       },
     },
   ];
+
+  appendItemStatsContext(blocks, item);
 
   if (actions.length > 0) {
     blocks.push({
