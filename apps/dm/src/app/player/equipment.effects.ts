@@ -85,7 +85,7 @@ export function calculateEquipmentEffects(items: EquippedPlayerItem[]): {
 
     const baseDamageRoll = item.damageRoll;
     const baseDefense = item.defense ?? 0;
-    const baseHealth = item.healthBonus ?? 0;
+    const baseHealth = 0;
 
     const applied: EquipmentTotals = {
       attackBonus: 0,
@@ -109,13 +109,7 @@ export function calculateEquipmentEffects(items: EquippedPlayerItem[]): {
       }
     }
 
-    if (baseHealth > 0) {
-      const vitality = Math.round(baseHealth * multiplier);
-      if (vitality !== 0) {
-        totals.vitalityBonus += vitality;
-        applied.vitalityBonus = vitality;
-      }
-    }
+    // Health bonuses are disabled; no vitality is applied from items.
 
     details.push({
       playerItemId: record.id,

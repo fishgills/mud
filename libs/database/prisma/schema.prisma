@@ -296,7 +296,6 @@ model Item {
   value           Int               @default(0) // Gold value
   damageRoll      String?           // Damage dice (e.g. "1d8")
   defense         Int?              @default(0) // Defense bonus for armor
-  healthBonus     Int?              @default(0) // Health restoration for consumables
   slot            PlayerSlot? // Optional equip slot for equippable items
   rank            Int?
   playerItems     PlayerItem[]

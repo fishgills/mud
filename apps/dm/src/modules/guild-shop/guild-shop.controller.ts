@@ -24,7 +24,6 @@ export class GuildShopController {
       tags: item.tags,
       damageRoll: item.damageRoll ?? undefined,
       defense: item.defense ?? undefined,
-      healthBonus: item.healthBonus ?? undefined,
       quality: item.quality ?? undefined,
     }));
   }

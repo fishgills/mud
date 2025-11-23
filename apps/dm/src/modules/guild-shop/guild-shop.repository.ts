@@ -377,8 +377,7 @@ export class GuildShopRepository {
       }
     }
 
-    const statBonus =
-      avgDamage * 12 + (item.defense ?? 0) * 10 + (item.healthBonus ?? 0) * 2;
+    const statBonus = avgDamage * 12 + (item.defense ?? 0) * 10;
     const effectiveBase = baseValue + statBonus;
     const variance = Math.round(effectiveBase * 0.15 * Math.random());
     const multiplier = QUALITY_MULTIPLIERS[quality] ?? 1;

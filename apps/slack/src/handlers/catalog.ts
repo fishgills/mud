@@ -46,9 +46,6 @@ const buildCatalogBlocks = (items: GuildCatalogItem[]): KnownBlock[] => {
     if (typeof item.defense === 'number' && item.defense !== 0) {
       bonusLines.push(`*Defense*: ${item.defense}`);
     }
-    if (typeof item.healthBonus === 'number' && item.healthBonus !== 0) {
-      bonusLines.push(`*Health*: ${item.healthBonus}`);
-    }
     const qualityBadge = getQualityBadge(item.quality);
     const qualityLabel = formatQualityLabel(item.quality);
 

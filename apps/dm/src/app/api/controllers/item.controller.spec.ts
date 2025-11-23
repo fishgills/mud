@@ -35,7 +35,6 @@ describe('ItemController', () => {
       value: 10,
       damageRoll: '1d6',
       defense: 0,
-      healthBonus: 0,
       slot: 'weapon',
     });
 

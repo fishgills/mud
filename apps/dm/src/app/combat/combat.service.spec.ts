@@ -36,9 +36,13 @@ jest.mock('@mud/database', () => {
   };
 });
 
-jest.mock('./engine', () => ({
-  runCombat: jest.fn(),
-}));
+jest.mock('./engine', () => {
+  const actual = jest.requireActual('./engine');
+  return {
+    ...actual,
+    runCombat: jest.fn(),
+  };
+});
 
 jest.mock('./messages', () => ({
   CombatMessenger: jest.fn().mockImplementation(() => ({
@@ -160,7 +164,6 @@ describe('CombatService', () => {
           name: 'Sword',
           damageRoll: '1d8',
           defense: 0,
-          healthBonus: 0,
           slot: 'weapon',
           type: 'weapon',
         },
@@ -175,7 +178,6 @@ describe('CombatService', () => {
           name: 'Armor',
           damageRoll: '1d4',
           defense: 3,
-          healthBonus: 5,
           slot: 'chest',
         },
       };
@@ -183,7 +185,7 @@ describe('CombatService', () => {
       const result = calculateEquipmentEffects([weapon as any, armor as any]);
       expect(result.totals.weaponDamageRoll).toBe('1d8');
       expect(result.totals.armorBonus).toBeGreaterThan(0);
-      expect(result.totals.vitalityBonus).toBeGreaterThan(0);
+      expect(result.totals.vitalityBonus).toBe(0);
     });
   });
 

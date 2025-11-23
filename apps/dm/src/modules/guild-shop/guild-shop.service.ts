@@ -43,7 +43,6 @@ export class GuildShopService {
       tags: string[];
       damageRoll?: string | null;
       defense?: number | null;
-      healthBonus?: number | null;
       quality?: string | null;
     }>
   > {
@@ -58,7 +57,6 @@ export class GuildShopService {
       tags: entry.tags ?? [],
       damageRoll: entry.itemTemplate?.damageRoll ?? null,
       defense: entry.itemTemplate?.defense ?? null,
-      healthBonus: entry.itemTemplate?.healthBonus ?? null,
       quality: entry.quality ?? null,
     }));
   }

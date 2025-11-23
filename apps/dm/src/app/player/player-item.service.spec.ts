@@ -283,7 +283,6 @@ describe('PlayerItemService.equip validations', () => {
           item: {
             damageRoll: '1d8',
             defense: 0,
-            healthBonus: 0,
             slot: PlayerSlot.weapon,
           },
         },
@@ -295,7 +294,6 @@ describe('PlayerItemService.equip validations', () => {
           item: {
             damageRoll: null,
             defense: 3,
-            healthBonus: 0,
             slot: PlayerSlot.chest,
           },
         },
@@ -307,7 +305,6 @@ describe('PlayerItemService.equip validations', () => {
           item: {
             damageRoll: null,
             defense: 0,
-            healthBonus: 10,
             slot: PlayerSlot.head,
           },
         },
@@ -319,7 +316,7 @@ describe('PlayerItemService.equip validations', () => {
         attackBonus: 0,
         damageBonus: 0,
         armorBonus: 5,
-        vitalityBonus: 10,
+        vitalityBonus: 0,
         weaponDamageRoll: '1d8',
       });
     });

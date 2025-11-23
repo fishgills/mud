@@ -21,9 +21,6 @@ const formatTemplate = (template: ItemTemplateSeed) => {
   if (typeof template.defense === 'number' && template.defense !== 0) {
     parts.push(`def ${template.defense}`);
   }
-  if (typeof template.healthBonus === 'number' && template.healthBonus !== 0) {
-    parts.push(`hp ${template.healthBonus}`);
-  }
   return `${template.name} (rank ${template.rank ?? '—'} ${template.rarity}, weight ${template.dropWeight}) — ${parts.join(', ')}`;
 };
 

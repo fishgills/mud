@@ -67,17 +67,6 @@ const buildItemStatLines = (item: ItemRecord | undefined): string[] => {
         stats.push(`Armor ${formatSignedStat(rawDefense)}`);
       }
     }
-    if (bonuses.vitalityBonus) {
-      stats.push(`Vitality ${formatSignedStat(bonuses.vitalityBonus)}`);
-    } else {
-      const rawVitality =
-        typeof item.healthBonus === 'number' && item.healthBonus !== 0
-          ? item.healthBonus
-          : (item.item?.healthBonus ?? null);
-      if (typeof rawVitality === 'number' && rawVitality !== 0) {
-        stats.push(`Vitality ${formatSignedStat(rawVitality)}`);
-      }
-    }
   } else {
     const rawDefense =
       typeof item.defense === 'number' && item.defense !== 0
@@ -85,13 +74,6 @@ const buildItemStatLines = (item: ItemRecord | undefined): string[] => {
         : (item.item?.defense ?? null);
     if (typeof rawDefense === 'number' && rawDefense !== 0) {
       stats.push(`Armor ${formatSignedStat(rawDefense)}`);
-    }
-    const rawVitality =
-      typeof item.healthBonus === 'number' && item.healthBonus !== 0
-        ? item.healthBonus
-        : (item.item?.healthBonus ?? null);
-    if (typeof rawVitality === 'number' && rawVitality !== 0) {
-      stats.push(`Vitality ${formatSignedStat(rawVitality)}`);
     }
   }
 

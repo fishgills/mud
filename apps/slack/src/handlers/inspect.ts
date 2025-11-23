@@ -392,13 +392,11 @@ type InspectableItemWithMetadata = InspectableItem & {
   allowedSlots?: string[];
   damageRoll?: string | null;
   defense?: number | null;
-  healthBonus?: number | null;
   item?: {
     type?: string | null;
     slot?: string | null;
     damageRoll?: string | null;
     defense?: number | null;
-    healthBonus?: number | null;
   } | null;
   computedBonuses?: EquipmentTotals | null;
 };
@@ -409,7 +407,6 @@ type ItemEffectSummary = {
   attackBonus?: number | null;
   damageBonus?: number | null;
   armorBonus?: number | null;
-  vitalityBonus?: number | null;
 };
 
 const ARMOR_SLOTS = new Set<string>([
@@ -463,23 +460,23 @@ const resolveItemCategory = (
   return 'unknown';
 };
 
-const pickFirstNumber = (
-  ...values: Array<number | null | undefined>
-): number | null => {
-  for (const value of values) {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value;
-    }
-  }
-  return null;
-};
-
 const pickFirstString = (
   ...values: Array<string | null | undefined>
 ): string | null => {
   for (const value of values) {
     if (typeof value === 'string' && value.trim().length > 0) {
       return value.trim();
+    }
+  }
+  return null;
+};
+
+const pickFirstNumber = (
+  ...values: Array<number | null | undefined>
+): number | null => {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
     }
   }
   return null;
@@ -512,19 +509,14 @@ const deriveItemEffects = (
     enriched.item?.damageRoll ?? undefined,
   );
 
-  const armorBonus = pickFirstNumber(
-    computed?.armorBonus,
-    details?.defense ?? undefined,
-    enriched.defense ?? undefined,
-    enriched.item?.defense ?? undefined,
-  );
-
-  const vitalityBonus = pickFirstNumber(
-    computed?.vitalityBonus,
-    details?.healthBonus ?? undefined,
-    enriched.healthBonus ?? undefined,
-    enriched.item?.healthBonus ?? undefined,
-  );
+  const armorBonus =
+    typeof computed?.armorBonus === 'number'
+      ? computed.armorBonus
+      : pickFirstNumber(
+          details?.defense ?? undefined,
+          enriched.defense ?? undefined,
+          enriched.item?.defense ?? undefined,
+        );
 
   return {
     kind,
@@ -532,7 +524,6 @@ const deriveItemEffects = (
     attackBonus: pickFirstNumber(computed?.attackBonus),
     damageBonus: pickFirstNumber(computed?.damageBonus),
     armorBonus,
-    vitalityBonus,
   };
 };
 
@@ -602,15 +593,9 @@ const buildItemInspectMessage = (
     if (hasNonZeroBonus(effects.damageBonus)) {
       bonusLines.push(`• Damage Bonus ${formatSigned(effects.damageBonus)}`);
     }
-    if (hasNonZeroBonus(effects.vitalityBonus)) {
-      bonusLines.push(`• Vitality ${formatSigned(effects.vitalityBonus)}`);
-    }
   } else if (effects.kind === 'armor') {
     if (hasNumberValue(effects.armorBonus)) {
       bonusLines.push(`• Armor Class ${formatSigned(effects.armorBonus)}`);
-    }
-    if (hasNonZeroBonus(effects.vitalityBonus)) {
-      bonusLines.push(`• Vitality ${formatSigned(effects.vitalityBonus)}`);
     }
   } else {
     if (effects.damageRoll) {
@@ -618,9 +603,6 @@ const buildItemInspectMessage = (
     }
     if (hasNumberValue(effects.armorBonus)) {
       bonusLines.push(`• Armor Class ${formatSigned(effects.armorBonus)}`);
-    }
-    if (hasNonZeroBonus(effects.vitalityBonus)) {
-      bonusLines.push(`• Vitality ${formatSigned(effects.vitalityBonus)}`);
     }
   }
 

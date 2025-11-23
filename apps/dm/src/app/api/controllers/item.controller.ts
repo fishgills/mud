@@ -17,16 +17,8 @@ export class ItemController {
         return { success: false, message: 'Item not found' };
       }
 
-      const {
-        name,
-        type,
-        description,
-        value,
-        damageRoll,
-        defense,
-        healthBonus,
-        slot,
-      } = item;
+      const { name, type, description, value, damageRoll, defense, slot } =
+        item;
 
       return {
         success: true,
@@ -38,7 +30,6 @@ export class ItemController {
           value,
           damageRoll,
           defense,
-          healthBonus,
           slot,
         },
       };

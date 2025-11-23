@@ -166,7 +166,6 @@ export interface ItemTemplateSeed {
   value: number;
   damageRoll?: string;
   defense?: number;
-  healthBonus?: number;
   slot?: PlayerSlot;
   rarity: ItemSpawnRarity;
   dropWeight: number;
@@ -282,7 +281,6 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     description: 'A sturdy staff engraved with simple runes.',
     value: 12,
     damageRoll: '1d6',
-    healthBonus: 5,
     rarity: 'Common',
     rank: 3,
     dropWeight: 8,
@@ -328,7 +326,6 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     description: 'Warm to the touch and eager to spit sparks.',
     value: 34,
     damageRoll: '1d6',
-    healthBonus: 5,
     rarity: 'Uncommon',
     rank: 4,
     dropWeight: 4,
@@ -352,7 +349,6 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     description: 'Inset plates hum softly with reinforcing sigils.',
     value: 95,
     defense: 5,
-    healthBonus: 8,
     rarity: 'Superior',
     rank: 5,
     dropWeight: 2.8,
@@ -387,7 +383,6 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     description: 'Silent leather that seems to blur at the edges.',
     value: 70,
     defense: 3,
-    healthBonus: 10,
     rarity: 'Rare',
     rank: 6,
     dropWeight: 2.8,
@@ -411,7 +406,6 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     description: 'A mantle that drinks in the light around it.',
     value: 140,
     defense: 5,
-    healthBonus: 20,
     rarity: 'Epic',
     rank: 7,
     dropWeight: 1,
@@ -423,7 +417,6 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     description: 'Stars wink within the crystal atop this staff.',
     value: 145,
     damageRoll: '1d8',
-    healthBonus: 15,
     rarity: 'Epic',
     rank: 8,
     dropWeight: 0.9,
@@ -446,7 +439,6 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     description: 'An ornate circlet that glows with eternal fire.',
     value: 220,
     defense: 4,
-    healthBonus: 25,
     rarity: 'Legendary',
     rank: 9,
     dropWeight: 0.4,
@@ -458,7 +450,6 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     description: 'A blade forged to channel ancestral draconic power.',
     value: 320,
     damageRoll: '2d8',
-    healthBonus: 20,
     rarity: 'Mythic',
     rank: 10,
     dropWeight: 0.28,
@@ -470,7 +461,6 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     description: 'Radiates ancient sunlight that burns through armor.',
     value: 380,
     damageRoll: '2d6',
-    healthBonus: 35,
     rarity: 'Artifact',
     rank: 10,
     dropWeight: 0.2,
@@ -482,7 +472,6 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     description: 'A towering shield that shifts to intercept any blow.',
     value: 440,
     defense: 10,
-    healthBonus: 40,
     rarity: 'Ascended',
     rank: 10,
     dropWeight: 0.12,
@@ -505,7 +494,6 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     description: 'Beats in time with the world, strengthening its bearer.',
     value: 610,
     defense: 12,
-    healthBonus: 55,
     rarity: 'Primal',
     rank: 10,
     dropWeight: 0.05,
@@ -517,7 +505,6 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     description: 'Cloth that sings softly, warding danger away.',
     value: 720,
     defense: 9,
-    healthBonus: 70,
     rarity: 'Divine',
     rank: 10,
     dropWeight: 0.03,

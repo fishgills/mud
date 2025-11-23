@@ -37,7 +37,6 @@ describe('GuildShopRotationService', () => {
         type: 'consumable',
         damageRoll: '1d4',
         defense: 0,
-        healthBonus: 0,
         slot: null,
         createdAt: new Date(),
         updatedAt: new Date(),

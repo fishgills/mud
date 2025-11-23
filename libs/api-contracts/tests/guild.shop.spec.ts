@@ -33,11 +33,10 @@ describe('guild-shop contracts', () => {
       stockQuantity: 3,
       tags: ['consumable'],
       attack: 0,
-      defense: 0,
-      healthBonus: 25,
+      defense: 2,
       quality: 'Fine',
     };
     expect(item.tags).toContain('consumable');
-    expect(item.healthBonus).toBeGreaterThan(0);
+    expect(item.defense).toBeGreaterThanOrEqual(0);
   });
 });

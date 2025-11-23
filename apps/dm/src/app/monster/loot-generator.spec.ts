@@ -10,7 +10,6 @@ const mockItem = (overrides: Partial<Item> = {}): Item => ({
   value: overrides.value ?? 1,
   damageRoll: overrides.damageRoll ?? '1d4',
   defense: overrides.defense ?? 0,
-  healthBonus: overrides.healthBonus ?? 0,
   slot: overrides.slot ?? 'weapon',
   createdAt: overrides.createdAt ?? new Date(),
   updatedAt: overrides.updatedAt ?? new Date(),

@@ -604,7 +604,6 @@ export class PlayersController {
             allowedSlots,
             damageRoll: item?.damageRoll ?? null,
             defense: item?.defense ?? null,
-            healthBonus: item?.healthBonus ?? null,
             value: item?.value ?? null,
             description: item?.description ?? null,
             itemType: item?.type ?? null,

@@ -69,6 +69,5 @@ export interface GuildCatalogItem {
   tags: string[];
   damageRoll?: string;
   defense?: number;
-  healthBonus?: number;
   quality?: string;
 }

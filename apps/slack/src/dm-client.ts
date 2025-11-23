@@ -131,7 +131,6 @@ type ItemDisplayMetadata = {
   equipped?: boolean;
   damageRoll?: string | null;
   defense?: number | null;
-  healthBonus?: number | null;
   value?: number | null;
   description?: string | null;
   itemType?: string | null;
@@ -159,7 +158,6 @@ export type ItemDetails = Item & {
   value?: number;
   damageRoll?: string | null;
   defense?: number | null;
-  healthBonus?: number | null;
   slot?: string | null;
 };
 
