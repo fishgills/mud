@@ -7,7 +7,15 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 RUN yarn global add turbo
 COPY . .
-RUN turbo prune @mud/slack --docker
+RUN turbo prune @mud/slack --docker && \
+  if [ -f CHANGELOG.md ]; then \
+    mkdir -p out/full && cp CHANGELOG.md out/full/CHANGELOG.md; \
+  fi && \
+  if [ -f apps/slack/CHANGELOG.md ]; then \
+    mkdir -p out/full/apps/slack && cp apps/slack/CHANGELOG.md out/full/apps/slack/CHANGELOG.md; \
+  elif [ -f CHANGELOG.md ]; then \
+    mkdir -p out/full/apps/slack && cp CHANGELOG.md out/full/apps/slack/CHANGELOG.md; \
+  fi
 
 # Add lockfile and package.json's of isolated subworkspace
 FROM base AS installer
