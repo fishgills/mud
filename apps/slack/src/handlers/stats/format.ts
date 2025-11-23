@@ -211,6 +211,10 @@ export function buildPlayerStatsMessage(
   const attackBonus = equipmentTotals?.attackBonus ?? 0;
   const damageBonus = equipmentTotals?.damageBonus ?? 0;
   const armorBonus = equipmentTotals?.armorBonus ?? 0;
+  const weaponDamageRoll =
+    equipmentTotals?.weaponDamageRoll ??
+    (typeof player.damageRoll === 'string' ? player.damageRoll : null) ??
+    '1d4';
   const baseAttackModifier = getAbilityModifier(player.strength);
   const baseDamageModifier = getAbilityModifier(player.strength);
   const armorText = formatArmorStat(player.agility, armorBonus);
@@ -230,7 +234,7 @@ export function buildPlayerStatsMessage(
         text: `*Damage*\n${formatAttackOrDamageStat(
           baseDamageModifier,
           damageBonus,
-        )}`,
+        )} (${weaponDamageRoll})`,
       },
       {
         type: 'mrkdwn',

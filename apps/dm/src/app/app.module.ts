@@ -14,6 +14,7 @@ import {
   SystemController,
   ItemController,
   LocationController,
+  LootController,
 } from './api/controllers';
 import { GuildShopController } from '../modules/guild-shop/guild-shop.controller';
 import { GuildAnnouncementsController } from '../modules/guild-announcements/guild-announcements.controller';
@@ -52,6 +53,7 @@ import { GuildAnnouncementsScheduler } from '../modules/guild-announcements/guil
     SystemController,
     ItemController,
     LocationController,
+    LootController,
     GuildShopController,
     GuildAnnouncementsController,
   ],

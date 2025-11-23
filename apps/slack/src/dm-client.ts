@@ -153,6 +153,23 @@ export interface ItemActionResponse extends SuccessResponse {
   data?: ItemRecord;
 }
 
+export interface SpawnLootResponse extends SuccessResponse {
+  data?: {
+    drops?: Array<{
+      id: number;
+      itemId: number;
+      quality: string;
+      quantity?: number | null;
+      rank?: number | null;
+      x: number;
+      y: number;
+      spawnedByMonsterId?: number | null;
+      itemName?: string | null;
+    }>;
+    location?: { x: number; y: number };
+  };
+}
+
 // Extended Item type for detailed item information
 export type ItemDetails = Item & {
   value?: number;
@@ -565,6 +582,15 @@ export async function drop(input: {
   });
 }
 
+export async function spawnLoot(input: {
+  teamId: string;
+  userId: string;
+}): Promise<SpawnLootResponse> {
+  return dmRequest<SpawnLootResponse>('/loot/spawn', HttpMethod.POST, {
+    body: input,
+  });
+}
+
 export async function getItemDetails(
   itemId: number,
 ): Promise<ItemDetailsResponse> {
@@ -663,6 +689,7 @@ export const dmClient = {
   equip,
   unequip,
   drop,
+  spawnLoot,
   getItemDetails,
   getLocationPlayers,
   getLocationMonsters,

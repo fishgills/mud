@@ -1,4 +1,6 @@
 import { COMMANDS } from '../commands';
+import { dmClient } from '../dm-client';
+import { getQualityBadge, formatQualityLabel } from '@mud/constants';
 import { registerHandler } from './handlerRegistry';
 import type { HandlerContext } from './types';
 import {
@@ -71,27 +73,89 @@ const buildQualitySummary = (level: number) => {
     .join('\n');
 };
 
-registerHandler(COMMANDS.LOOT, async ({ say, text }: HandlerContext) => {
-  const args = (text || '').trim().split(/\s+/).slice(1);
-  const requestedLevel = Number(args[0]);
-  const level =
-    Number.isFinite(requestedLevel) && requestedLevel > 0
-      ? Math.min(100, Math.floor(requestedLevel))
-      : 1;
-
-  if (ITEM_TEMPLATES.length === 0) {
-    await say({ text: 'No loot templates registered yet.' });
-    return;
+const formatSpawnedDrops = (
+  drops:
+    | Array<{
+        itemId?: number;
+        quality?: string | null;
+        quantity?: number | null;
+        itemName?: string | null;
+      }>
+    | undefined,
+  location?: { x?: number | null; y?: number | null },
+): string => {
+  if (!drops || drops.length === 0) {
+    return 'No loot dropped.';
   }
-
-  const samples = Array.from({ length: 5 }, () => pickTemplateForLevel(level));
-  const sampleLines = samples.map(
-    (template, index) => `${index + 1}. ${formatTemplate(template)}`,
-  );
-
-  const templateSummary = buildRaritySummary(level);
-  const qualitySummary = buildQualitySummary(level);
-  await say({
-    text: `Loot preview for level ${level}:\n${sampleLines.join('\n')}\n\nBase item weights (by template rarity — 0 means no templates at that tier):\n${templateSummary}\n\nQuality roll weights (final drop quality):\n${qualitySummary}\nUse \`${COMMANDS.LOOT} <level>\` to sample a different level.`,
+  const lines = drops.map((d) => {
+    const qty = typeof d.quantity === 'number' ? d.quantity : 1;
+    const quality = formatQualityLabel(d.quality ?? 'Common');
+    const badge = getQualityBadge(d.quality ?? 'Common');
+    const name =
+      d.itemName ??
+      (typeof d.itemId === 'number' ? `item #${d.itemId}` : 'Unknown item');
+    return `• ${badge} ${quality} ${name}${qty > 1 ? ` x${qty}` : ''}`;
   });
-});
+  const loc =
+    location && typeof location.x === 'number' && typeof location.y === 'number'
+      ? ` at (${location.x}, ${location.y})`
+      : '';
+  return `Loot dropped${loc}:\n${lines.join('\n')}`;
+};
+
+registerHandler(
+  COMMANDS.LOOT,
+  async ({ say, text, userId, teamId }: HandlerContext) => {
+    const args = (text || '').trim().split(/\s+/).slice(1);
+    if (!args[0]) {
+      if (!teamId || !userId) {
+        await say({
+          text: 'Unable to spawn loot without your team and user id.',
+        });
+        return;
+      }
+      try {
+        const res = await dmClient.spawnLoot({ teamId, userId });
+        if (!res.success) {
+          await say({
+            text: res.message ?? 'Failed to spawn loot at your location.',
+          });
+          return;
+        }
+        const summary = formatSpawnedDrops(res.data?.drops, res.data?.location);
+        await say({ text: summary });
+      } catch (err) {
+        await say({
+          text:
+            err instanceof Error
+              ? `Failed to spawn loot: ${err.message}`
+              : 'Failed to spawn loot.',
+        });
+      }
+      return;
+    }
+    const requestedLevel = Number(args[0]);
+    const level =
+      Number.isFinite(requestedLevel) && requestedLevel > 0
+        ? Math.min(100, Math.floor(requestedLevel))
+        : 1;
+
+    if (ITEM_TEMPLATES.length === 0) {
+      await say({ text: 'No loot templates registered yet.' });
+      return;
+    }
+
+    const samples = Array.from({ length: 5 }, () =>
+      pickTemplateForLevel(level),
+    );
+    const sampleLines = samples.map(
+      (template, index) => `${index + 1}. ${formatTemplate(template)}`,
+    );
+
+    const templateSummary = buildRaritySummary(level);
+    const qualitySummary = buildQualitySummary(level);
+    await say({
+      text: `Loot preview for level ${level}:\n${sampleLines.join('\n')}\n\nBase item weights (by template rarity — 0 means no templates at that tier):\n${templateSummary}\n\nQuality roll weights (final drop quality):\n${qualitySummary}\nUse \`${COMMANDS.LOOT} <level>\` to sample a different level.`,
+    });
+  },
+);

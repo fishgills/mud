@@ -105,10 +105,22 @@ export function computeTemplateWeights(level: number): WeightedItemTemplate[] {
     const rankPenalty = 1 + rankDistance * 0.9;
     const levelBoost = 1 + levelBias * (r / MAX_ITEM_RANK);
     const rarityPenalty = 1 + rarityRank * 0.8;
-    const weight = Math.max(
-      0.02,
+    let weight = Math.max(
+      0.05,
       (template.dropWeight / (rarityPenalty * rankPenalty)) * levelBoost,
     );
+    // Suppress low-rank templates at higher levels so late-game players
+    // mostly see rank-appropriate gear, but keep a trickle.
+    if (expected >= 7 && r <= expected - 3) {
+      weight *= 0.3;
+    }
+    if (expected >= 9 && r <= expected - 4) {
+      weight *= 0.15;
+    }
+    // Lightly boost high-rank templates when the player level is at the top end.
+    if (expected >= 8 && r >= expected - 1) {
+      weight *= 1.15;
+    }
     return { template, weight };
   });
 }
@@ -220,6 +232,17 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     slot: PlayerSlot.weapon,
   },
   {
+    name: 'Stone Shard Knife',
+    type: ItemType.WEAPON,
+    description: 'A chipped shard lashed to a hilt; better than bare fists.',
+    value: 2,
+    damageRoll: '1d6',
+    rarity: 'Trash',
+    rank: 1,
+    dropWeight: 12,
+    slot: PlayerSlot.weapon,
+  },
+  {
     name: 'Threadbare Tunic',
     type: ItemType.ARMOR,
     description: 'Patched repeatedly and offering almost no protection.',
@@ -242,6 +265,17 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     slot: PlayerSlot.weapon,
   },
   {
+    name: 'Weathered Spear',
+    type: ItemType.WEAPON,
+    description: 'A splintered haft with a stubbornly sharp tip.',
+    value: 6,
+    damageRoll: '1d6',
+    rarity: 'Common',
+    rank: 2,
+    dropWeight: 9,
+    slot: PlayerSlot.weapon,
+  },
+  {
     name: 'Shortsword',
     type: ItemType.WEAPON,
     description: 'A basic shortsword. Reliable and cheap.',
@@ -253,7 +287,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     slot: PlayerSlot.weapon,
   },
   {
-    name: "Traveler's Cloak",
+    name: "Traveler's Gambeson",
     type: ItemType.ARMOR,
     description:
       'A weathered cloak that offers modest protection from the elements.',
@@ -276,7 +310,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     slot: PlayerSlot.legs,
   },
   {
-    name: 'Oak Staff',
+    name: 'Iron Quarterstaff',
     type: ItemType.WEAPON,
     description: 'A sturdy staff engraved with simple runes.',
     value: 12,
@@ -321,7 +355,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     slot: PlayerSlot.chest,
   },
   {
-    name: 'Ember Wand',
+    name: 'Ember Hatchet',
     type: ItemType.WEAPON,
     description: 'Warm to the touch and eager to spit sparks.',
     value: 34,
@@ -341,6 +375,28 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     rarity: 'Fine',
     rank: 5,
     dropWeight: 3.5,
+    slot: PlayerSlot.weapon,
+  },
+  {
+    name: 'Steel War Pick',
+    type: ItemType.WEAPON,
+    description: 'A narrow spike built to punch through armor plates.',
+    value: 120,
+    damageRoll: '1d8',
+    rarity: 'Fine',
+    rank: 5,
+    dropWeight: 3.2,
+    slot: PlayerSlot.weapon,
+  },
+  {
+    name: 'Gilded Flail',
+    type: ItemType.WEAPON,
+    description: 'Twin weighted heads on a chain for brutal swings.',
+    value: 125,
+    damageRoll: '1d8',
+    rarity: 'Superior',
+    rank: 5,
+    dropWeight: 3,
     slot: PlayerSlot.weapon,
   },
   {
@@ -367,6 +423,28 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     slot: PlayerSlot.weapon,
   },
   {
+    name: 'Stoneheart Maul',
+    type: ItemType.WEAPON,
+    description: 'A hefty maul that tremors with each impact.',
+    value: 120,
+    damageRoll: '1d10',
+    rarity: 'Rare',
+    rank: 7,
+    dropWeight: 2.15,
+    slot: PlayerSlot.weapon,
+  },
+  {
+    name: 'Serrated Pike',
+    type: ItemType.WEAPON,
+    description: 'A long pike with a barbed, wicked tip.',
+    value: 115,
+    damageRoll: '1d10',
+    rarity: 'Rare',
+    rank: 7,
+    dropWeight: 2.1,
+    slot: PlayerSlot.weapon,
+  },
+  {
     name: 'Frostguard Plate',
     type: ItemType.ARMOR,
     description: 'Heavy plate lined with glimmering frostglass.',
@@ -378,7 +456,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     slot: PlayerSlot.chest,
   },
   {
-    name: 'Shadowstep Boots',
+    name: 'Shadowstep Greaves',
     type: ItemType.ARMOR,
     description: 'Silent leather that seems to blur at the edges.',
     value: 70,
@@ -397,13 +475,35 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     damageRoll: '2d6',
     rarity: 'Epic',
     rank: 8,
-    dropWeight: 1.2,
+    dropWeight: 2.4,
     slot: PlayerSlot.weapon,
   },
   {
-    name: 'Umbral Shroud',
+    name: 'Eclipse Greatmace',
+    type: ItemType.WEAPON,
+    description: 'A weighty mace forged to crush shields in darkness.',
+    value: 175,
+    damageRoll: '2d6',
+    rarity: 'Epic',
+    rank: 8,
+    dropWeight: 1.65,
+    slot: PlayerSlot.weapon,
+  },
+  {
+    name: 'Skysteel Glaive',
+    type: ItemType.WEAPON,
+    description: 'A polearm of light alloy that bites deep.',
+    value: 165,
+    damageRoll: '1d10',
+    rarity: 'Epic',
+    rank: 7,
+    dropWeight: 1.55,
+    slot: PlayerSlot.weapon,
+  },
+  {
+    name: 'Umbral Plate',
     type: ItemType.ARMOR,
-    description: 'A mantle that drinks in the light around it.',
+    description: 'Shadow-black plate that drinks in the light around it.',
     value: 140,
     defense: 5,
     rarity: 'Epic',
@@ -412,14 +512,14 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     slot: PlayerSlot.chest,
   },
   {
-    name: 'Celestial Scepter',
+    name: 'Celestial Warhammer',
     type: ItemType.WEAPON,
     description: 'Stars wink within the crystal atop this staff.',
     value: 145,
     damageRoll: '1d8',
     rarity: 'Epic',
     rank: 8,
-    dropWeight: 0.9,
+    dropWeight: 1.8,
     slot: PlayerSlot.weapon,
   },
   {
@@ -430,40 +530,73 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     damageRoll: '1d12',
     rarity: 'Legendary',
     rank: 9,
-    dropWeight: 0.45,
+    dropWeight: 0.9,
     slot: PlayerSlot.weapon,
   },
   {
-    name: 'Crown of the First Flame',
+    name: 'Helstorm Cleaver',
+    type: ItemType.WEAPON,
+    description: 'A massive cleaver that leaves storm scars in its wake.',
+    value: 240,
+    damageRoll: '2d8',
+    rarity: 'Legendary',
+    rank: 9,
+    dropWeight: 0.7,
+    slot: PlayerSlot.weapon,
+  },
+  {
+    name: 'Astral Crusader',
+    type: ItemType.WEAPON,
+    description: 'A radiant greatsword that hums with celestial fervor.',
+    value: 280,
+    damageRoll: '2d8',
+    rarity: 'Legendary',
+    rank: 9,
+    dropWeight: 0.75,
+    slot: PlayerSlot.weapon,
+  },
+  {
+    name: 'Helm of the First Flame',
     type: ItemType.ARMOR,
     description: 'An ornate circlet that glows with eternal fire.',
     value: 220,
     defense: 4,
     rarity: 'Legendary',
     rank: 9,
-    dropWeight: 0.4,
+    dropWeight: 0.8,
     slot: PlayerSlot.head,
   },
   {
-    name: 'Dragonvein Spellblade',
+    name: 'Dragonvein Greatblade',
     type: ItemType.WEAPON,
     description: 'A blade forged to channel ancestral draconic power.',
     value: 320,
     damageRoll: '2d8',
     rarity: 'Mythic',
     rank: 10,
-    dropWeight: 0.28,
+    dropWeight: 0.65,
     slot: PlayerSlot.weapon,
   },
   {
-    name: 'Relic of the First Dawn',
+    name: 'Titanfall Hammer',
+    type: ItemType.WEAPON,
+    description: 'Said to fell giants in a single, thunderous blow.',
+    value: 360,
+    damageRoll: '2d10',
+    rarity: 'Mythic',
+    rank: 10,
+    dropWeight: 0.6,
+    slot: PlayerSlot.weapon,
+  },
+  {
+    name: 'Dawnforged Relic Blade',
     type: ItemType.WEAPON,
     description: 'Radiates ancient sunlight that burns through armor.',
     value: 380,
     damageRoll: '2d6',
     rarity: 'Artifact',
     rank: 10,
-    dropWeight: 0.2,
+    dropWeight: 0.55,
     slot: PlayerSlot.weapon,
   },
   {
@@ -485,7 +618,7 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     damageRoll: '2d10',
     rarity: 'Transcendent',
     rank: 10,
-    dropWeight: 0.08,
+    dropWeight: 0.35,
     slot: PlayerSlot.weapon,
   },
   {
@@ -496,18 +629,18 @@ export const ITEM_TEMPLATES: ItemTemplateSeed[] = [
     defense: 12,
     rarity: 'Primal',
     rank: 10,
-    dropWeight: 0.05,
+    dropWeight: 0.25,
     slot: PlayerSlot.chest,
   },
   {
-    name: 'Divine Chorus Vestments',
+    name: 'Divine Chorus Cuirass',
     type: ItemType.ARMOR,
-    description: 'Cloth that sings softly, warding danger away.',
+    description: 'Plate that sings softly, warding danger away.',
     value: 720,
     defense: 9,
     rarity: 'Divine',
     rank: 10,
-    dropWeight: 0.03,
+    dropWeight: 0.2,
     slot: PlayerSlot.chest,
   },
 ];

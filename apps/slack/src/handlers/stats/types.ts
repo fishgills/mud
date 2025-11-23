@@ -7,6 +7,7 @@ export type PlayerStatsSource = Player & {
   slackUser?: { id: number; teamId: string; userId: string } | null;
   equipmentTotals?: EquipmentTotals;
   xpToNextLevel?: number;
+  damageRoll?: string | null;
 };
 
 // Use Prisma types directly - MonsterStatsSource is now just an alias to Monster

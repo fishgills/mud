@@ -3,3 +3,4 @@ export * from './movement.controller';
 export * from './system.controller';
 export * from './item.controller';
 export * from './location.controller';
+export * from './loot.controller';
