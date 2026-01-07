@@ -10,6 +10,7 @@ locals {
     world = "world"
     slack = "slack"
     tick  = "tick"
+    web   = "web"
   }
 
   service_account_ids = {
@@ -17,6 +18,7 @@ locals {
     world = "world-run-${var.environment}"
     slack = "slack-run-${var.environment}"
     tick  = "tick-run-${var.environment}"
+    web   = "web-run-${var.environment}"
   }
 
   runtime_service_account_emails = {
@@ -31,6 +33,8 @@ locals {
   domain_mappings = {
     slack = "slack.${var.domain}"
     world = "world.${var.domain}"
+    web   = var.domain
+    www   = "www.${var.domain}"
   }
 
   images = {
@@ -49,6 +53,10 @@ locals {
     tick = coalesce(
       var.tick_image,
       "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/tick:latest"
+    )
+    web = coalesce(
+      var.web_image,
+      "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/web:latest"
     )
   }
 
@@ -703,6 +711,103 @@ resource "kubernetes_deployment" "tick" {
   }
 }
 
+resource "kubernetes_deployment" "web" {
+  metadata {
+    name      = local.service_names.web
+    namespace = kubernetes_namespace.mud.metadata[0].name
+    labels = {
+      app         = local.service_names.web
+      environment = var.environment
+    }
+  }
+
+  spec {
+    replicas = 1
+
+    selector {
+      match_labels = {
+        app = local.service_names.web
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app         = local.service_names.web
+          environment = var.environment
+        }
+      }
+
+      spec {
+        service_account_name = kubernetes_service_account.runtime["web"].metadata[0].name
+
+        container {
+          name  = local.service_names.web
+          image = local.images.web
+
+          port {
+            container_port = 3000
+            name           = "http"
+          }
+
+          resources {
+            limits = {
+              cpu    = "200m"
+              memory = "256Mi"
+            }
+            requests = {
+              cpu    = "25m"
+              memory = "64Mi"
+            }
+          }
+
+          env {
+            name  = "PORT"
+            value = "3000"
+          }
+
+          env {
+            name  = "NODE_ENV"
+            value = "production"
+          }
+
+          env {
+            name  = "SUPPORT_EMAIL"
+            value = var.support_email
+          }
+
+          env {
+            name  = "NEXT_PUBLIC_SUPPORT_EMAIL"
+            value = var.support_email
+          }
+
+          liveness_probe {
+            http_get {
+              path = "/"
+              port = 3000
+            }
+            initial_delay_seconds = 10
+            period_seconds        = 10
+            timeout_seconds       = 5
+            failure_threshold     = 3
+          }
+
+          readiness_probe {
+            http_get {
+              path = "/"
+              port = 3000
+            }
+            initial_delay_seconds = 5
+            period_seconds        = 5
+            timeout_seconds       = 3
+            failure_threshold     = 3
+          }
+        }
+      }
+    }
+  }
+}
+
 resource "kubernetes_service" "world" {
   metadata {
     name      = local.service_names.world
@@ -803,6 +908,34 @@ resource "kubernetes_service" "tick" {
   }
 }
 
+resource "kubernetes_service" "web" {
+  metadata {
+    name      = local.service_names.web
+    namespace = kubernetes_namespace.mud.metadata[0].name
+    labels = {
+      app = local.service_names.web
+    }
+    annotations = {
+      "cloud.google.com/backend-config" = "{\"default\":\"web-backend-config\"}"
+    }
+  }
+
+  spec {
+    type = "NodePort"
+
+    selector = {
+      app = local.service_names.web
+    }
+
+    port {
+      name        = "http"
+      port        = 80
+      target_port = 3000
+      node_port   = 30082
+    }
+  }
+}
+
 resource "kubernetes_manifest" "managed_certificate" {
   manifest = {
     apiVersion = "networking.gke.io/v1"
@@ -815,6 +948,8 @@ resource "kubernetes_manifest" "managed_certificate" {
       domains = [
         local.domain_mappings.world,
         local.domain_mappings.slack,
+        local.domain_mappings.web,
+        local.domain_mappings.www,
       ]
     }
   }
@@ -874,6 +1009,40 @@ resource "kubernetes_ingress_v1" "public" {
         }
       }
     }
+
+    rule {
+      host = local.domain_mappings.web
+      http {
+        path {
+          path = "/*"
+          backend {
+            service {
+              name = kubernetes_service.web.metadata[0].name
+              port {
+                number = 80
+              }
+            }
+          }
+        }
+      }
+    }
+
+    rule {
+      host = local.domain_mappings.www
+      http {
+        path {
+          path = "/*"
+          backend {
+            service {
+              name = kubernetes_service.web.metadata[0].name
+              port {
+                number = 80
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }
 
@@ -917,6 +1086,29 @@ resource "kubernetes_manifest" "backend_config_slack" {
         requestPath        = "/health-check"
         # Health checks must hit the NodePort on the node. Service `slack` uses NodePort 30081.
         port = 30081
+        type = "HTTP"
+      }
+    }
+  }
+}
+
+resource "kubernetes_manifest" "backend_config_web" {
+  manifest = {
+    apiVersion = "cloud.google.com/v1"
+    kind       = "BackendConfig"
+    metadata = {
+      name      = "web-backend-config"
+      namespace = kubernetes_namespace.mud.metadata[0].name
+    }
+    spec = {
+      healthCheck = {
+        checkIntervalSec   = 10
+        timeoutSec         = 5
+        healthyThreshold   = 2
+        unhealthyThreshold = 3
+        requestPath        = "/"
+        # Health checks must hit the NodePort on the node. Service `web` uses NodePort 30082.
+        port = 30082
         type = "HTTP"
       }
     }

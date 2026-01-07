@@ -10,6 +10,7 @@ locals {
     world = "world-${var.environment}"
     slack = "slack-${var.environment}"
     tick  = "tick-${var.environment}"
+    web   = "web-${var.environment}"
   }
 
   service_account_ids = {
@@ -17,11 +18,14 @@ locals {
     world = "world-run-${var.environment}"
     slack = "slack-run-${var.environment}"
     tick  = "tick-run-${var.environment}"
+    web   = "web-run-${var.environment}"
   }
 
   domain_mappings = {
     slack = "slack.${var.domain}"
     world = "world.${var.domain}"
+    web   = var.domain
+    www   = "www.${var.domain}"
   }
 
   images = {

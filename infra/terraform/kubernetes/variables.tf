@@ -68,6 +68,18 @@ variable "tick_image" {
   default     = null
 }
 
+variable "web_image" {
+  description = "Container image for the marketing/compliance site."
+  type        = string
+  default     = null
+}
+
+variable "support_email" {
+  description = "Support contact email exposed by the public website."
+  type        = string
+  default     = "charlie@fishgills.net"
+}
+
 variable "github_repository" {
   description = "GitHub repository (OWNER/REPO) allowed to assume the deployer Workload Identity."
   type        = string

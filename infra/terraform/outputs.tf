@@ -37,6 +37,8 @@ output "public_service_domains" {
   value = {
     world = local.domain_mappings.world
     slack = local.domain_mappings.slack
+    web   = local.domain_mappings.web
+    www   = local.domain_mappings.www
   }
 }
 

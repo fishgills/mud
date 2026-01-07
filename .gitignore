@@ -109,3 +109,5 @@ coverage
 report
 .codex
 CHANGELOG.md
+apps/web/test-results
+apps/web/playwright-report

@@ -91,7 +91,7 @@ locals {
   services_using_database = {
     for key, sa in google_service_account.runtime :
     key => sa
-    if key != "tick"
+    if key != "tick" && key != "web"
   }
 }
 
@@ -106,7 +106,7 @@ resource "google_project_iam_member" "runtime_cloudsql" {
 resource "google_project_iam_member" "runtime_secret_accessor" {
   for_each = {
     for key, sa in google_service_account.runtime :
-    key => sa if key != "tick"
+    key => sa if key != "tick" && key != "web"
   }
 
   project = var.project_id
