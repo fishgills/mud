@@ -46,9 +46,11 @@ export class LookHandler extends PlayerCommandHandler {
       await say({ text: res.data.description });
     }
 
-    await say({
-      text: 'Tip: Move with `north`, `south`, `east`, or `west` (or `n`, `s`, `e`, `w`).',
-    });
+    if (!this.player?.hasMoved) {
+      await say({
+        text: 'Tip: Move with `north`, `south`, `east`, or `west` (or `n`, `s`, `e`, `w`).',
+      });
+    }
 
     const center = res.data.location;
     if (

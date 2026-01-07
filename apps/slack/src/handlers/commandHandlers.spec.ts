@@ -99,6 +99,7 @@ const defaultPlayerData = {
   nearbyMonsters: [],
   isInHq: false,
   isCreationComplete: true,
+  hasMoved: true,
 } as const;
 
 const makeSay = () =>
@@ -685,6 +686,40 @@ describe('lookHandler', () => {
         text: expect.stringContaining('Perf: total 50ms'),
       }),
     );
+  });
+
+  it('includes a movement tip for new adventurers', async () => {
+    const say = makeSay();
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
+      success: true,
+      data: { ...defaultPlayerData, hasMoved: false },
+    });
+    mockedDmClient.getLookView.mockResolvedValueOnce({
+      success: true,
+      data: {
+        description: 'A quiet meadow',
+        location: {
+          x: 0,
+          y: 0,
+          biomeName: 'plains',
+          description: '',
+          height: 0.5,
+          temperature: 0.5,
+          moisture: 0.5,
+        },
+      },
+    });
+
+    await lookHandler.handle({
+      userId: 'U1',
+      text: '',
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
+
+    expect(say).toHaveBeenCalledWith({
+      text: 'Tip: Move with `north`, `south`, `east`, or `west` (or `n`, `s`, `e`, `w`).',
+    });
   });
 
   it('does not list the current player in co-located players', async () => {
