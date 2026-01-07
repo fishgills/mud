@@ -52,6 +52,9 @@ export const HELP_ACTIONS = {
   STATS: 'help_action_stats',
   MAP: 'help_action_map',
   INVENTORY: 'help_action_inventory',
+  HOW_TO_PLAY: 'help_action_how_to_play',
+  COMMAND_REFERENCE: 'help_action_command_reference',
+  REPORT_ISSUE: 'help_action_report_issue',
   LEVELING: 'help_action_leveling',
   COMBAT: 'help_action_combat',
   ABILITIES: 'help_action_abilities',
@@ -81,9 +84,19 @@ export const PICKUP_ACTIONS = {
 } as const;
 
 export const STAT_ACTIONS = {
-  INCREASE_STRENGTH: 'stats_action_increase_strength',
-  INCREASE_AGILITY: 'stats_action_increase_agility',
-  INCREASE_HEALTH: 'stats_action_increase_health',
+  OPEN_LEVEL_UP: 'stats_action_open_level_up',
+} as const;
+
+export const HOME_ACTIONS = {
+  RESUME: 'home_action_resume',
+  VIEW_STATS: 'home_action_view_stats',
+  VIEW_LEADERBOARD: 'home_action_view_leaderboard',
+  DELETE_CHARACTER: 'home_action_delete_character',
+} as const;
+
+export const CHARACTER_ACTIONS = {
+  REROLL: 'character_action_reroll',
+  DELETE_CONFIRM: 'character_action_delete_confirm',
 } as const;
 
 // Combat message interactions

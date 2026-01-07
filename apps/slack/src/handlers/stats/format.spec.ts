@@ -5,6 +5,7 @@ import type {
   SectionBlock,
 } from '@slack/types';
 import { buildPlayerStatsMessage } from './format';
+import { STAT_ACTIONS } from '../../commands';
 import type { PlayerStatsSource } from './types';
 
 describe('buildPlayerStatsMessage', () => {
@@ -51,7 +52,7 @@ describe('buildPlayerStatsMessage', () => {
       expect(actionBlocks).toHaveLength(0);
     });
 
-    it('should include action buttons when skillPoints is positive', () => {
+    it('should include a level-up action when skillPoints is positive', () => {
       const player = createMockPlayer({ skillPoints: 2 });
       const result = buildPlayerStatsMessage(player, { isSelf: true });
 
@@ -59,7 +60,10 @@ describe('buildPlayerStatsMessage', () => {
       const actionBlocks = result.blocks?.filter(isActionsBlock);
       expect(actionBlocks).toHaveLength(1);
       expect(actionBlocks?.[0]).toHaveProperty('elements');
-      expect(actionBlocks?.[0].elements).toHaveLength(3); // Strength, Agility, Health buttons
+      expect(actionBlocks?.[0].elements).toHaveLength(1);
+      expect(actionBlocks?.[0].elements?.[0]).toEqual(
+        expect.objectContaining({ action_id: STAT_ACTIONS.OPEN_LEVEL_UP }),
+      );
     });
 
     it('should not include action buttons when isSelf is false, even with positive skillPoints', () => {

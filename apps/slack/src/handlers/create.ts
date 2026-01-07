@@ -4,7 +4,7 @@ import { COMMANDS } from '../commands';
 import { buildPlayerStatsMessage } from './stats/format';
 import { PlayerCommandHandler } from './base';
 
-export const createHandlerHelp = `Create a new character with "new". Example: Send "new AwesomeDude" to create a character named AwesomeDude.`;
+export const createHandlerHelp = `Create a new hero with "new". Example: Send "new Thalara" to forge a hero named Thalara.`;
 
 export class CreateHandler extends PlayerCommandHandler {
   constructor() {
@@ -35,7 +35,7 @@ export class CreateHandler extends PlayerCommandHandler {
 
     if (!name) {
       await say({
-        text: `Please provide a name for your character! Example: "new AwesomeDude"`,
+        text: `Name your hero to begin. Example: "new Thalara"`,
       });
       return;
     }
@@ -49,9 +49,9 @@ export class CreateHandler extends PlayerCommandHandler {
     try {
       const result = await this.dm.createPlayer(input);
       if (result.success && result.data) {
-        const introText = `Welcome <@${userId}>! Your character creation has started.`;
+        const introText = `Welcome <@${userId}>! Your adventure begins.`;
         const instructions =
-          'Use `reroll` to reroll your stats, and `complete` when you are done.';
+          'Use the Home tab to reroll the dice and press Start Adventure. Power users can also type `reroll` and `complete`.';
         const statsMessage = buildPlayerStatsMessage(result.data, {
           isSelf: true,
         });

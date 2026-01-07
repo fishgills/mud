@@ -96,6 +96,8 @@ export type PlayerRecord = Player &
   Prisma.SlackUserInclude & {
     // Additional slack-specific fields if needed
     isCreationComplete?: boolean;
+    hasMoved?: boolean;
+    hasBattled?: boolean;
     currentTile?: {
       x: number;
       y: number;

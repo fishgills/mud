@@ -10,6 +10,38 @@ type HelpDetailMessage = {
 };
 
 const helpDetailMessages: Record<string, HelpDetailMessage> = {
+  [HELP_ACTIONS.HOW_TO_PLAY]: {
+    text: 'How to Play',
+    blocks: [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: 'How to Play', emoji: true },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*Start the adventure*\n• Open the Home tab and press *Start Your Adventure*.\n• Name your hero, review your rolls, and press *Start Adventure*.',
+        },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*Core loop*\n• Use `look` to scout the room, then move with `north`, `south`, `east`, `west`.\n• Use `attack` to start combat and earn XP and loot.',
+        },
+      },
+      {
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: 'Tip: The Home tab is your quest board for quick actions.',
+          },
+        ],
+      },
+    ],
+  },
   [HELP_ACTIONS.LEVELING]: {
     text: 'Leveling & Progression',
     blocks: [
@@ -110,6 +142,22 @@ const helpDetailMessages: Record<string, HelpDetailMessage> = {
       },
     ],
   },
+  [HELP_ACTIONS.REPORT_ISSUE]: {
+    text: 'Report an Issue',
+    blocks: [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: 'Report an Issue', emoji: true },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: 'Send word from this DM with what happened, what you expected, and any screenshots or timestamps.',
+        },
+      },
+    ],
+  },
 };
 
 const sendHelpDetailViaDM = async (
@@ -173,6 +221,18 @@ export const registerHelpActions = (app: App) => {
         typeof context.teamId === 'string' ? context.teamId : undefined;
       if (!userId) return;
       await dispatchCommandViaDM(client, userId, COMMANDS.INVENTORY, teamId);
+    },
+  );
+
+  app.action<BlockAction>(
+    HELP_ACTIONS.COMMAND_REFERENCE,
+    async ({ ack, body, client, context }) => {
+      await ack();
+      const userId = body.user?.id;
+      const teamId =
+        typeof context.teamId === 'string' ? context.teamId : undefined;
+      if (!userId) return;
+      await dispatchCommandViaDM(client, userId, COMMANDS.HELP, teamId);
     },
   );
 

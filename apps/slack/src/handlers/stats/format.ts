@@ -5,6 +5,7 @@ import { STAT_ACTIONS } from '../../commands';
 
 type PlayerStatsFormatOptions = {
   isSelf?: boolean;
+  includeSkillPointAction?: boolean;
 };
 
 const displayValue = (value: unknown) =>
@@ -99,24 +100,9 @@ const buildActionsBlock = (skillPoints: number): (KnownBlock | Block)[] => {
       elements: [
         {
           type: 'button',
-          action_id: STAT_ACTIONS.INCREASE_STRENGTH,
-          text: { type: 'plain_text', text: 'Increase Strength', emoji: true },
+          action_id: STAT_ACTIONS.OPEN_LEVEL_UP,
+          text: { type: 'plain_text', text: 'Level Up', emoji: true },
           style: 'primary',
-          value: 'strength',
-        },
-        {
-          type: 'button',
-          action_id: STAT_ACTIONS.INCREASE_AGILITY,
-          text: { type: 'plain_text', text: 'Increase Agility', emoji: true },
-          style: 'primary',
-          value: 'agility',
-        },
-        {
-          type: 'button',
-          action_id: STAT_ACTIONS.INCREASE_HEALTH,
-          text: { type: 'plain_text', text: 'Increase Vitality', emoji: true },
-          style: 'primary',
-          value: 'health',
         },
       ],
     },
@@ -165,7 +151,7 @@ export function buildPlayerStatsMessage(
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: '_Character creation not complete! Use "reroll" to reroll stats, "complete" to finish._',
+        text: '_Character creation not complete. Use the Home tab to reroll, or type `reroll`, then press Start Adventure (or type `complete`)._',
       },
     });
   }
@@ -255,7 +241,7 @@ export function buildPlayerStatsMessage(
     });
   }
 
-  if (options.isSelf) {
+  if (options.isSelf && options.includeSkillPointAction !== false) {
     blocks.push(...buildActionsBlock(skillPoints));
   }
 

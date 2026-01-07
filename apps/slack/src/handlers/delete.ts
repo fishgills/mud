@@ -1,5 +1,5 @@
 import { HandlerContext } from './types';
-import { COMMANDS } from '../commands';
+import { COMMANDS, HOME_ACTIONS } from '../commands';
 import { PlayerCommandHandler } from './base';
 
 export const deleteHandlerHelp =
@@ -12,26 +12,33 @@ export class DeleteHandler extends PlayerCommandHandler {
     });
   }
 
-  protected async perform({ userId, say }: HandlerContext): Promise<void> {
+  protected async perform({ say }: HandlerContext): Promise<void> {
     const player = this.player;
     if (!player) {
       return;
     }
-    const playerName = player.name ?? 'your character';
-    const deleteResult = await this.dm.deletePlayer({
-      teamId: this.teamId!,
-      userId,
-    });
-
-    if (deleteResult.success) {
-      await say({
-        text: `💨 ${playerName} vanishes into legend. Ready for round two? Try "new CharacterName" to forge a fresh hero!`,
-      });
-      return;
-    }
-
     await say({
-      text: `Failed to delete character: ${deleteResult.message}`,
+      text: 'Deleting a character is permanent. Confirm below to continue.',
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: '*Delete Character*\nThis will permanently delete your character and all progress.',
+          },
+        },
+        {
+          type: 'actions',
+          elements: [
+            {
+              type: 'button',
+              text: { type: 'plain_text', text: 'Delete Character' },
+              style: 'danger',
+              action_id: HOME_ACTIONS.DELETE_CHARACTER,
+            },
+          ],
+        },
+      ],
     });
   }
 }

@@ -1,6 +1,7 @@
 import type { App } from '@slack/bolt';
 import { registerHelpActions } from './actions/helpActions';
 import { registerCharacterActions } from './actions/characterActions';
+import { registerHomeActions } from './actions/homeActions';
 import { registerMovementActions } from './actions/movementActions';
 import { registerInventoryActions } from './actions/inventoryActions';
 import { registerAttackActions } from './actions/attackActions';
@@ -13,6 +14,7 @@ import { registerGuildShopActions } from './actions/guildShopActions';
 export const registerActions = (app: App) => {
   registerHelpActions(app);
   registerCharacterActions(app);
+  registerHomeActions(app);
   registerMovementActions(app);
   registerInventoryActions(app);
   registerAttackActions(app);

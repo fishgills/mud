@@ -56,6 +56,8 @@ model Player {
   isAlive            Boolean              @default(true)
   isCreationComplete Boolean              @default(false) // Tracks if character creation is complete (no more rerolls/complete allowed)
   lastAction         DateTime             @default(now())
+  hasMoved           Boolean              @default(false)
+  hasBattled         Boolean              @default(false)
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   worldTile          WorldTile?           @relation("PlayerLocation", fields: [worldTileId], references: [id])

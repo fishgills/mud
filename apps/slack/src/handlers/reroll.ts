@@ -19,7 +19,7 @@ export class RerollHandler extends PlayerCommandHandler {
     if (response.success) {
       const stats = response.data;
       await say({
-        text: `🎲 Rerolled stats: Strength: ${stats?.strength}, Agility: ${stats?.agility}, Vitality: ${stats?.health}, Health Points: ${stats?.maxHp}`,
+        text: `🎲 Rerolled stats: Strength: ${stats?.strength}, Agility: ${stats?.agility}, Vitality: ${stats?.health}, Health Points: ${stats?.maxHp}. Tip: Open the Home tab for a full stat preview.`,
       });
       return;
     }

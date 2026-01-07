@@ -1,35 +1,18 @@
 import type { App } from '@slack/bolt';
-import type { SectionBlock } from '@slack/types';
 import { buildAppHomeBlocks, registerAppHome } from './appHome';
-import { HELP_ACTIONS } from '../commands';
-import { getRecentChangelogEntries } from '../services/changelog.service';
+import { HELP_ACTIONS, HOME_ACTIONS, STAT_ACTIONS } from '../commands';
 import { getPlayer } from '../dm-client';
 
 // Mock the DM API client
 jest.mock('../dm-client', () => ({
   getLeaderboard: jest.fn().mockResolvedValue({
     success: true,
-    data: {
-      workspace: [],
-      global: [],
-    },
+    data: [],
   }),
   getPlayer: jest.fn().mockResolvedValue({
     success: true,
     data: { id: 1, name: 'Hero' },
   }),
-}));
-
-jest.mock('../services/changelog.service', () => ({
-  getRecentChangelogEntries: jest.fn().mockResolvedValue([
-    {
-      type: 'feat',
-      scope: 'slack',
-      description: 'Add changelog',
-      hash: 'abc1234',
-      breaking: false,
-    },
-  ]),
 }));
 
 type AppHomeHandler = (args: {
@@ -38,76 +21,121 @@ type AppHomeHandler = (args: {
   logger: { error: jest.Mock; info: jest.Mock };
 }) => Promise<void> | void;
 
-const mockedGetRecentChangelogEntries =
-  getRecentChangelogEntries as jest.MockedFunction<
-    typeof getRecentChangelogEntries
-  >;
 const mockedGetPlayer = getPlayer as jest.MockedFunction<typeof getPlayer>;
 
 describe('buildAppHomeBlocks', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedGetRecentChangelogEntries.mockClear();
   });
 
-  it('includes welcome header', async () => {
-    const blocks = await buildAppHomeBlocks('T123');
+  it('renders adventure status and quick actions for existing players', async () => {
+    mockedGetPlayer.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: 1,
+        name: 'Hero',
+        level: 2,
+        hp: 10,
+        maxHp: 20,
+        xpToNextLevel: 50,
+        hasMoved: false,
+        hasBattled: false,
+      },
+    });
 
+    const blocks = await buildAppHomeBlocks('T123', 'U123');
     expect(blocks[0]).toMatchObject({
       type: 'header',
       text: expect.objectContaining({
-        text: expect.stringContaining('Welcome'),
+        text: expect.stringContaining('Adventure Status'),
       }),
     });
-  });
 
-  it('includes leaderboard section', async () => {
-    const blocks = await buildAppHomeBlocks('T123');
+    const resumeAction = blocks.find(
+      (block) =>
+        block.type === 'actions' &&
+        'elements' in block &&
+        block.elements.some(
+          (element) =>
+            'action_id' in element && element.action_id === HOME_ACTIONS.RESUME,
+        ),
+    );
+    expect(resumeAction).toBeDefined();
 
-    // Find leaderboard header
+    const quickActionsHeader = blocks.find(
+      (block) =>
+        block.type === 'header' &&
+        'text' in block &&
+        block.text.text.includes('Quick Actions'),
+    );
+    expect(quickActionsHeader).toBeDefined();
+
     const leaderboardHeader = blocks.find(
       (block) =>
         block.type === 'header' &&
         'text' in block &&
-        block.text.text.includes('Leaderboard'),
+        block.text.text.includes('Leaderboards'),
+    );
+    expect(leaderboardHeader).toBeUndefined();
+  });
+
+  it('shows power user sections after moving and battling', async () => {
+    mockedGetPlayer.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: 1,
+        name: 'Hero',
+        level: 3,
+        hp: 14,
+        maxHp: 24,
+        xpToNextLevel: 80,
+        hasMoved: true,
+        hasBattled: true,
+        skillPoints: 1,
+      },
+    });
+
+    const blocks = await buildAppHomeBlocks('T123', 'U123');
+
+    const leaderboardHeader = blocks.find(
+      (block) =>
+        block.type === 'header' &&
+        'text' in block &&
+        block.text.text.includes('Leaderboards'),
     );
     expect(leaderboardHeader).toBeDefined();
-  });
 
-  it('includes help section', async () => {
-    const blocks = await buildAppHomeBlocks('T123');
-
-    // Find help/commands header
-    const helpHeader = blocks.find(
+    const managementHeader = blocks.find(
       (block) =>
         block.type === 'header' &&
         'text' in block &&
-        block.text.text.includes('Commands'),
+        block.text.text.includes('Character Management'),
     );
-    expect(helpHeader).toBeDefined();
-  });
+    expect(managementHeader).toBeDefined();
 
-  it('includes changelog section', async () => {
-    const blocks = await buildAppHomeBlocks('T123');
-    const changelogHeader = blocks.find(
+    const levelUpAction = blocks.find(
       (block) =>
-        block.type === 'header' &&
-        'text' in block &&
-        block.text.text.includes('Latest Updates'),
+        block.type === 'actions' &&
+        'elements' in block &&
+        block.elements.some(
+          (element) =>
+            'action_id' in element &&
+            element.action_id === STAT_ACTIONS.OPEN_LEVEL_UP,
+        ),
     );
-    expect(changelogHeader).toBeDefined();
-  });
+    expect(levelUpAction).toBeDefined();
 
-  it('shows fallback text when changelog is empty', async () => {
-    mockedGetRecentChangelogEntries.mockResolvedValueOnce([]);
-    const blocks = await buildAppHomeBlocks('T123');
-    const changelogSection = blocks.find(
+    const leaderboardAction = blocks.find(
       (block) =>
-        block.type === 'section' &&
-        'text' in block &&
-        (block.text as any).text.includes('No recent Conventional Commits'),
-    ) as SectionBlock | undefined;
-    expect(changelogSection).toBeDefined();
+        block.type === 'actions' &&
+        'elements' in block &&
+        block.elements.some(
+          (element) =>
+            'action_id' in element &&
+            element.action_id === HOME_ACTIONS.VIEW_LEADERBOARD,
+        ),
+    );
+    expect(leaderboardAction).toBeDefined();
   });
 
   it('shows a create character button when no player exists', async () => {
@@ -118,23 +146,14 @@ describe('buildAppHomeBlocks', () => {
 
     const blocks = await buildAppHomeBlocks('T123', 'U123');
 
-    expect(blocks).toHaveLength(6);
+    expect(blocks).toHaveLength(5);
     expect(blocks[1]).toMatchObject({
       type: 'section',
       text: expect.objectContaining({
-        text: expect.stringContaining('Rally your party'),
+        text: expect.stringContaining('Gather your party'),
       }),
     });
     expect(blocks[2]).toMatchObject({
-      type: 'context',
-      elements: [
-        expect.objectContaining({
-          type: 'mrkdwn',
-          text: expect.stringContaining('Need help?'),
-        }),
-      ],
-    });
-    expect(blocks[3]).toMatchObject({
       type: 'actions',
       elements: [
         expect.objectContaining({
@@ -143,7 +162,7 @@ describe('buildAppHomeBlocks', () => {
         }),
       ],
     });
-    expect(blocks[4]).toMatchObject({
+    expect(blocks[3]).toMatchObject({
       type: 'context',
       elements: [
         expect.objectContaining({
@@ -151,12 +170,6 @@ describe('buildAppHomeBlocks', () => {
           text: expect.stringContaining('Takes about 30 seconds'),
         }),
       ],
-    });
-    expect(blocks[5]).toMatchObject({
-      type: 'section',
-      text: expect.objectContaining({
-        text: expect.stringContaining('Fight monsters'),
-      }),
     });
   });
 });

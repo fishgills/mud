@@ -81,7 +81,19 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      await this.updateLastAction(event.playerId);
+      const updates: Prisma.PlayerUpdateInput = {
+        lastAction: new Date(),
+      };
+      if (event.source === 'player:move') {
+        updates.hasMoved = true;
+      }
+      if (event.source?.startsWith('combat:')) {
+        updates.hasBattled = true;
+      }
+      await this.prisma.player.update({
+        where: { id: event.playerId },
+        data: updates,
+      });
     } catch (err) {
       const reason = event.source ?? 'unknown';
       const message = err instanceof Error ? err.message : String(err);

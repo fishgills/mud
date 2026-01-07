@@ -8,13 +8,13 @@ export const helpHandlerHelp = `Show instructions for using the bot with "help".
 export const buildHelpBlocks = (): KnownBlock[] => [
   {
     type: 'header',
-    text: { type: 'plain_text', text: '🎮 MUD Bot Commands', emoji: true },
+    text: { type: 'plain_text', text: '🗺️ MUD Adventurer Guide', emoji: true },
   },
   {
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: '🚀 *Quick Start*\n`new YourName` → `complete` → start exploring',
+      text: '🚀 *Quick Start*\n`new YourName` → `complete` → begin your quest',
     },
   },
   {
@@ -82,10 +82,6 @@ export const buildHelpBlocks = (): KnownBlock[] => [
         type: 'mrkdwn',
         text: `*Inventory & Items*\n• \`${COMMANDS.INVENTORY}\` - View inventory\n• \`${COMMANDS.PICKUP}\` - Pick up items\n• \`${COMMANDS.EQUIP}\` - Equip item\n• Use the inventory view to drop items`,
       },
-      {
-        type: 'mrkdwn',
-        text: `*Debug*\n• \`${COMMANDS.LOOT} [level]\` - Preview loot tables`,
-      },
     ],
   },
   {
@@ -129,7 +125,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     elements: [
       {
         type: 'mrkdwn',
-        text: 'Tap a topic for deep dives, or type `help` anytime.',
+        text: 'Tap a topic for deep dives. You can also type commands directly in DM.',
       },
     ],
   },
@@ -172,7 +168,7 @@ export class HelpHandler extends PlayerCommandHandler {
       ? [...buildGuildHelpBlocks(), ...buildHelpBlocks()]
       : buildHelpBlocks();
     await say({
-      text: 'MUD Bot Commands',
+      text: 'MUD Adventurer Guide',
       blocks,
     });
   }

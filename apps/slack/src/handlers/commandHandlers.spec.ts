@@ -39,7 +39,7 @@ import { lookHandler } from './look';
 import { mapHandler } from './map';
 import { moveHandler } from './move';
 import { rerollHandler } from './reroll';
-import { COMMANDS, ATTACK_ACTIONS } from '../commands';
+import { COMMANDS, ATTACK_ACTIONS, HOME_ACTIONS } from '../commands';
 import type { HandlerContext, SayMessage } from './types';
 import { setSlackApp } from '../appContext';
 import type { App } from '@slack/bolt';
@@ -381,7 +381,7 @@ describe('createHandler', () => {
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
-      text: 'Please provide a name for your character! Example: "new AwesomeDude"',
+      text: 'Name your hero to begin. Example: "new Thalara"',
     });
     expect(mockedDmClient.createPlayer).not.toHaveBeenCalled();
   });
@@ -537,7 +537,7 @@ describe('deleteHandler', () => {
     });
   });
 
-  it('deletes characters even when fully active', async () => {
+  it('prompts for confirmation when delete is requested', async () => {
     const say = makeSay();
     mockedDmClient.getPlayer.mockResolvedValueOnce({
       success: true,
@@ -548,7 +548,6 @@ describe('deleteHandler', () => {
         xp: 420,
       },
     });
-    mockedDmClient.deletePlayer.mockResolvedValueOnce({ success: true });
 
     await deleteHandler.handle({
       userId: 'U1',
@@ -557,66 +556,22 @@ describe('deleteHandler', () => {
       teamId: 'T1',
     } as HandlerContext);
 
-    expect(mockedDmClient.deletePlayer).toHaveBeenCalledWith({
-      teamId: 'T1',
-      userId: 'U1',
-    });
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: expect.stringContaining('vanishes into legend'),
+        text: 'Deleting a character is permanent. Confirm below to continue.',
+        blocks: expect.arrayContaining([
+          expect.objectContaining({
+            type: 'actions',
+            elements: expect.arrayContaining([
+              expect.objectContaining({
+                action_id: HOME_ACTIONS.DELETE_CHARACTER,
+                style: 'danger',
+              }),
+            ]),
+          }),
+        ]),
       }),
     );
-  });
-
-  it('reports failures when delete mutation fails', async () => {
-    const say = makeSay();
-    mockedDmClient.getPlayer.mockResolvedValueOnce({
-      success: true,
-      data: {
-        name: 'Hero',
-        hp: 10,
-        level: 3,
-        xp: 12,
-      },
-    });
-    mockedDmClient.deletePlayer.mockResolvedValueOnce({
-      success: false,
-      message: 'nope',
-    });
-
-    await deleteHandler.handle({
-      userId: 'U1',
-      text: '',
-      say,
-      teamId: 'T1',
-    } as HandlerContext);
-
-    expect(say).toHaveBeenCalledWith({
-      text: 'Failed to delete character: nope',
-    });
-  });
-
-  it('handles unexpected delete errors', async () => {
-    const say = makeSay();
-    mockedDmClient.getPlayer.mockResolvedValueOnce({
-      success: true,
-      data: {
-        name: 'Hero',
-        hp: 1,
-        level: 1,
-        xp: 0,
-      },
-    });
-    mockedDmClient.deletePlayer.mockRejectedValueOnce(new Error('boom'));
-
-    await deleteHandler.handle({
-      userId: 'U1',
-      text: '',
-      say,
-      teamId: 'T1',
-    } as HandlerContext);
-
-    expect(say).toHaveBeenCalledWith({ text: 'boom' });
   });
 });
 
@@ -1192,7 +1147,7 @@ describe('rerollHandler', () => {
     } as HandlerContext);
 
     expect(say).toHaveBeenCalledWith({
-      text: '🎲 Rerolled stats: Strength: 8, Agility: 7, Vitality: 6, Health Points: 12',
+      text: '🎲 Rerolled stats: Strength: 8, Agility: 7, Vitality: 6, Health Points: 12. Tip: Open the Home tab for a full stat preview.',
     });
   });
 
