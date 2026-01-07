@@ -1,7 +1,9 @@
 import type { App } from '@slack/bolt';
 import type { SectionBlock } from '@slack/types';
 import { buildAppHomeBlocks, registerAppHome } from './appHome';
+import { HELP_ACTIONS } from '../commands';
 import { getRecentChangelogEntries } from '../services/changelog.service';
+import { getPlayer } from '../dm-client';
 
 // Mock the DM API client
 jest.mock('../dm-client', () => ({
@@ -11,6 +13,10 @@ jest.mock('../dm-client', () => ({
       workspace: [],
       global: [],
     },
+  }),
+  getPlayer: jest.fn().mockResolvedValue({
+    success: true,
+    data: { id: 1, name: 'Hero' },
   }),
 }));
 
@@ -36,6 +42,7 @@ const mockedGetRecentChangelogEntries =
   getRecentChangelogEntries as jest.MockedFunction<
     typeof getRecentChangelogEntries
   >;
+const mockedGetPlayer = getPlayer as jest.MockedFunction<typeof getPlayer>;
 
 describe('buildAppHomeBlocks', () => {
   beforeEach(() => {
@@ -101,6 +108,56 @@ describe('buildAppHomeBlocks', () => {
         (block.text as any).text.includes('No recent Conventional Commits'),
     ) as SectionBlock | undefined;
     expect(changelogSection).toBeDefined();
+  });
+
+  it('shows a create character button when no player exists', async () => {
+    mockedGetPlayer.mockResolvedValueOnce({
+      success: false,
+      message: 'Player not found.',
+    });
+
+    const blocks = await buildAppHomeBlocks('T123', 'U123');
+
+    expect(blocks).toHaveLength(6);
+    expect(blocks[1]).toMatchObject({
+      type: 'section',
+      text: expect.objectContaining({
+        text: expect.stringContaining('Rally your party'),
+      }),
+    });
+    expect(blocks[2]).toMatchObject({
+      type: 'context',
+      elements: [
+        expect.objectContaining({
+          type: 'mrkdwn',
+          text: expect.stringContaining('Need help?'),
+        }),
+      ],
+    });
+    expect(blocks[3]).toMatchObject({
+      type: 'actions',
+      elements: [
+        expect.objectContaining({
+          type: 'button',
+          action_id: HELP_ACTIONS.CREATE,
+        }),
+      ],
+    });
+    expect(blocks[4]).toMatchObject({
+      type: 'context',
+      elements: [
+        expect.objectContaining({
+          type: 'mrkdwn',
+          text: expect.stringContaining('Takes about 30 seconds'),
+        }),
+      ],
+    });
+    expect(blocks[5]).toMatchObject({
+      type: 'section',
+      text: expect.objectContaining({
+        text: expect.stringContaining('Fight monsters'),
+      }),
+    });
   });
 });
 

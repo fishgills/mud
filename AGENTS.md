@@ -17,6 +17,15 @@
 - Slack bot communication note:
   - All player-facing Slack communications are delivered via direct message (DM) with the bot. Commands that affect nearby players (for example, `pickup`) DM the acting player with detailed results and DM other players at the same x/y with a short, vague notification.
 
+## Home Tab Rule
+
+- Never regress this simplicity. The Home tab is a funnel, not a control panel.
+- Different states should show different UIs:
+  - No character -> Start Playing
+  - Has character -> Resume Adventure
+  - Power user -> secondary sections appear
+- As you add paid plans, leaderboards, events, or advanced commands, do not put them back on the first-run Home tab.
+
 ## Coding Standards
 
 - **Database Access**: Always use the `@mud/database` library for database interactions. Do NOT use `prisma` directly in application code.

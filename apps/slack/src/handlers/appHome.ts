@@ -1,8 +1,8 @@
 import { App } from '@slack/bolt';
 import type { KnownBlock } from '@slack/types';
-import { COMMANDS } from '../commands';
+import { COMMANDS, HELP_ACTIONS } from '../commands';
 import { buildHelpBlocks } from './help';
-import { getLeaderboard } from '../dm-client';
+import { getLeaderboard, getPlayer } from '../dm-client';
 import { getRecentChangelogEntries } from '../services/changelog.service';
 
 const buildLeaderboardBlocks = async (
@@ -170,7 +170,82 @@ const buildChangelogBlocks = async (): Promise<KnownBlock[]> => {
 
 export const buildAppHomeBlocks = async (
   teamId?: string,
+  userId?: string,
 ): Promise<KnownBlock[]> => {
+  let needsCharacter = false;
+  if (teamId && userId) {
+    try {
+      const playerResult = await getPlayer({ teamId, userId });
+      needsCharacter =
+        !playerResult.success &&
+        (playerResult.message ?? '').toLowerCase().includes('player not found');
+    } catch {
+      needsCharacter = false;
+    }
+  }
+  if (needsCharacter) {
+    return [
+      {
+        type: 'header',
+        text: {
+          type: 'plain_text',
+          text: '🌟 Welcome to the MUD Adventure!',
+          emoji: true,
+        },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: 'Rally your party, explore the world, and team up for dungeon-delving fun.',
+        },
+      },
+      {
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: `Need help? DM me \`${COMMANDS.HELP}\` for all commands.`,
+          },
+        ],
+      },
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: {
+              type: 'plain_text',
+              text: ':crossed_swords: Start Your Adventure',
+              emoji: true,
+            },
+            style: 'primary',
+            action_id: HELP_ACTIONS.CREATE,
+          },
+        ],
+      },
+      {
+        type: 'context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text: 'Takes about 30 seconds. No setup required.',
+          },
+        ],
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: [
+            '⚔️ Fight monsters',
+            '🗺️ Explore a shared world',
+            '🏆 Earn XP and climb the leaderboard',
+          ].join('\n'),
+        },
+      },
+    ];
+  }
   const helpBlocks = buildHelpBlocks();
   const leaderboardBlocks = await buildLeaderboardBlocks(teamId);
   const changelogBlocks = await buildChangelogBlocks();
@@ -217,7 +292,7 @@ export const registerAppHome = (app: App) => {
     logger.info('App Home opened');
     try {
       const teamId = context.teamId;
-      const blocks = await buildAppHomeBlocks(teamId);
+      const blocks = await buildAppHomeBlocks(teamId, event.user);
       await client.views.publish({
         user_id: event.user,
         view: {
