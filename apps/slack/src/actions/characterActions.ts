@@ -2,6 +2,7 @@ import type { App, BlockAction, ViewSubmitAction } from '@slack/bolt';
 import { COMMANDS, HELP_ACTIONS } from '../commands';
 import { buildSayHelper } from './helpers';
 import { getAllHandlers } from '../handlers/handlerRegistry';
+import { buildAppHomeBlocks } from '../handlers/appHome';
 
 export const registerCharacterActions = (app: App) => {
   app.action<BlockAction>(
@@ -81,6 +82,21 @@ export const registerCharacterActions = (app: App) => {
         say,
         teamId: teamId!,
       });
+      if (client.views?.publish) {
+        try {
+          const blocks = await buildAppHomeBlocks(teamId, userId);
+          await client.views.publish({
+            user_id: userId,
+            view: {
+              type: 'home',
+              callback_id: 'home_view',
+              blocks,
+            },
+          });
+        } catch {
+          // Ignore refresh failures so character creation still succeeds.
+        }
+      }
     },
   );
 };

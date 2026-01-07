@@ -9,7 +9,14 @@ jest.mock('./dm-client', () => {
     getPlayer: jest.fn(),
     getLocationEntities: jest.fn(),
   };
-  return { dmClient };
+  return {
+    dmClient,
+    getLeaderboard: jest.fn().mockResolvedValue({ success: true, data: [] }),
+    getPlayer: jest.fn().mockResolvedValue({
+      success: true,
+      data: { id: 1, name: 'Hero' },
+    }),
+  };
 });
 
 import type { ActionsBlock, KnownBlock, SectionBlock } from '@slack/types';
@@ -53,6 +60,7 @@ type ConversationsOpenMock = jest.Mock<
 type ChatPostMessageMock = jest.Mock<Promise<void>, unknown[]>;
 type ChatUpdateMock = jest.Mock<Promise<void>, unknown[]>;
 type ViewsOpenMock = jest.Mock<Promise<void>, unknown[]>;
+type ViewsPublishMock = jest.Mock<Promise<void>, unknown[]>;
 type FilesUploadV2Mock = jest.Mock<Promise<void>, unknown[]>;
 
 type MockSlackClient = {
@@ -62,7 +70,7 @@ type MockSlackClient = {
     update: ChatUpdateMock;
     postEphemeral?: jest.Mock<Promise<void>, unknown[]>;
   };
-  views?: { open: ViewsOpenMock };
+  views?: { open?: ViewsOpenMock; publish?: ViewsPublishMock };
   files?: { uploadV2: FilesUploadV2Mock };
 };
 
@@ -340,6 +348,9 @@ describe('registerActions', () => {
       });
     handlers[COMMANDS.NEW] = async (ctx) => newHandler(ctx);
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+    const viewsPublish = jest
+      .fn()
+      .mockResolvedValue(undefined) as ViewsPublishMock;
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
@@ -352,6 +363,7 @@ describe('registerActions', () => {
           .mockResolvedValue(undefined) as ChatPostMessageMock,
         update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
+      views: { publish: viewsPublish },
     };
 
     await viewHandlers.create_character_view({
@@ -374,6 +386,7 @@ describe('registerActions', () => {
       }),
     );
     expect(newHandler).not.toHaveBeenCalled();
+    expect(viewsPublish).not.toHaveBeenCalled();
 
     ack.mockClear();
     await viewHandlers.create_character_view({
@@ -397,6 +410,15 @@ describe('registerActions', () => {
     );
     expect(client.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ channel: 'C4' }),
+    );
+    expect(viewsPublish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: 'U999',
+        view: expect.objectContaining({
+          type: 'home',
+          blocks: expect.any(Array),
+        }),
+      }),
     );
   });
 
