@@ -1,26 +1,51 @@
 @import 'tailwindcss';
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink: #1d1a14;
+  --ink-soft: #3b3326;
+  --accent: #7b5b3a;
+  --parchment: #f7f0df;
+  --parchment-edge: #efe3c7;
+  --parchment-shadow: rgba(55, 42, 26, 0.12);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--parchment);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-body);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.65), transparent 55%),
+    linear-gradient(120deg, #f6f1e3 0%, #f2e6cf 45%, #f9f4ea 100%);
+  color: var(--ink);
+  font-family: var(--font-body), serif;
+}
+
+.page-shell {
+  min-height: 100vh;
+  padding: 64px 24px;
+}
+
+.page-card {
+  margin: 0 auto;
+  max-width: 640px;
+  border: 1px solid rgba(122, 92, 58, 0.25);
+  border-radius: 20px;
+  background: linear-gradient(180deg, var(--parchment) 0%, #fdfaf3 100%);
+  box-shadow: 0 24px 60px var(--parchment-shadow);
+  padding: 40px 36px;
+}
+
+.title-font {
+  font-family: var(--font-title), serif;
+  color: var(--ink);
+}
+
+.link-ink {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
 }

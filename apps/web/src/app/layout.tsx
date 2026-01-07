@@ -1,15 +1,17 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Cinzel, Crimson_Text } from 'next/font/google';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const titleFont = Cinzel({
+  variable: '--font-title',
   subsets: ['latin'],
+  weight: ['500', '600', '700'],
 });
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const bodyFont = Crimson_Text({
+  variable: '--font-body',
   subsets: ['latin'],
+  weight: ['400', '600', '700'],
 });
 
 export const metadata: Metadata = {
@@ -29,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${titleFont.variable} ${bodyFont.variable} antialiased`}
       >
         {children}
       </body>

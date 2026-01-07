@@ -4,16 +4,16 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900">
-      <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-16">
+    <div className="page-shell">
+      <main className="page-card flex flex-col gap-6">
         <header className="flex flex-col gap-2">
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <h1 className="title-font text-3xl font-semibold tracking-tight">
             Privacy Policy
           </h1>
         </header>
 
-        <section className="flex flex-col gap-3 text-base leading-7 text-zinc-700">
-          <h2 className="text-lg font-semibold text-zinc-900">
+        <section className="flex flex-col gap-3 text-base leading-7 text-[color:var(--ink-soft)]">
+          <h2 className="title-font text-lg font-semibold">
             1. What Data We Collect
           </h2>
           <ul className="list-disc pl-5">
@@ -23,8 +23,8 @@ export default function PrivacyPage() {
           </ul>
         </section>
 
-        <section className="flex flex-col gap-3 text-base leading-7 text-zinc-700">
-          <h2 className="text-lg font-semibold text-zinc-900">
+        <section className="flex flex-col gap-3 text-base leading-7 text-[color:var(--ink-soft)]">
+          <h2 className="title-font text-lg font-semibold">
             2. What We Do NOT Collect
           </h2>
           <ul className="list-disc pl-5">
@@ -34,8 +34,8 @@ export default function PrivacyPage() {
           </ul>
         </section>
 
-        <section className="flex flex-col gap-3 text-base leading-7 text-zinc-700">
-          <h2 className="text-lg font-semibold text-zinc-900">
+        <section className="flex flex-col gap-3 text-base leading-7 text-[color:var(--ink-soft)]">
+          <h2 className="title-font text-lg font-semibold">
             3. How Messages Are Used
           </h2>
           <p>
@@ -44,8 +44,8 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        <section className="flex flex-col gap-3 text-base leading-7 text-zinc-700">
-          <h2 className="text-lg font-semibold text-zinc-900">
+        <section className="flex flex-col gap-3 text-base leading-7 text-[color:var(--ink-soft)]">
+          <h2 className="title-font text-lg font-semibold">
             4. Data Retention
           </h2>
           <p>
@@ -54,21 +54,19 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        <section className="flex flex-col gap-3 text-base leading-7 text-zinc-700">
-          <h2 className="text-lg font-semibold text-zinc-900">
-            5. Data Deletion
-          </h2>
+        <section className="flex flex-col gap-3 text-base leading-7 text-[color:var(--ink-soft)]">
+          <h2 className="title-font text-lg font-semibold">5. Data Deletion</h2>
           <p>
             Users can delete their data by using the in-game delete character
             command or by emailing support.
           </p>
         </section>
 
-        <section className="flex flex-col gap-3 text-base leading-7 text-zinc-700">
-          <h2 className="text-lg font-semibold text-zinc-900">6. Contact</h2>
+        <section className="flex flex-col gap-3 text-base leading-7 text-[color:var(--ink-soft)]">
+          <h2 className="title-font text-lg font-semibold">6. Contact</h2>
           <p>
             Support email:{' '}
-            <a className="underline" href="mailto:support@battleforge.app">
+            <a className="link-ink" href="mailto:support@battleforge.app">
               support@battleforge.app
             </a>
           </p>
