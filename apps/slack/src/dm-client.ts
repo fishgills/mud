@@ -496,7 +496,7 @@ export async function deletePlayer(
   input: SimpleIdentifierRequest,
 ): Promise<PlayerResponse> {
   return dmRequest<PlayerResponse>(
-    `/players/${input.userId}`,
+    `/players/${input.teamId}/${input.userId}`,
     HttpMethod.DELETE,
   );
 }
