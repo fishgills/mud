@@ -1,9 +1,9 @@
 {
   "display_information": {
-    "name": "BattleForge",
+    "name": "BattleForgeee",
     "description": "Explore, battle, and loot together in a Slack-based text adventure.",
-    "long_description": "BattleForge turns your Slack into a shared fantasy tavern. Party up with your teammates, explore dangerous zones, battle monsters, and haul home loot using simple DM commands. From quick skirmishes to long adventures, it is a lightweight game you can drop into between conversations.",
-    "background_color": "#008a7c"
+    "background_color": "#008a7c",
+    "long_description": "BattleForge turns your Slack into a shared fantasy tavern. Party up with your teammates, explore dangerous zones, battle monsters, and haul home loot using simple DM commands. From quick skirmishes to long adventures, it is a lightweight game you can drop into between conversations."
   },
   "features": {
     "app_home": {
@@ -17,27 +17,27 @@
     }
   },
   "oauth_config": {
+    "redirect_urls": [
+      "https://slack.battleforge.app/slack/oauth_redirect"
+    ],
     "scopes": {
       "bot": [
         "im:history",
         "im:write"
       ]
-    },
-    "redirect_urls": [
-      "https://closet.battleforge.app/slack/oauth_redirect"
-    ]
+    }
   },
   "settings": {
     "event_subscriptions": {
+      "request_url": "https://slack.battleforge.app/slack/events",
       "bot_events": [
         "app_home_opened",
         "message.im"
-      ],
-      "request_url": "https://closet.battleforge.app/slack/events"
+      ]
     },
     "interactivity": {
       "is_enabled": true,
-      "request_url": "https://closet.battleforge.app/slack/events"
+      "request_url": "https://slack.battleforge.app/slack/events"
     },
     "org_deploy_enabled": false,
     "socket_mode_enabled": false,

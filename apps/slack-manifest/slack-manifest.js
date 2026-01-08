@@ -65,12 +65,31 @@ const deepMerge = (base, override) => {
   return result;
 };
 
+const sortManifestKeys = (value) => {
+  if (Array.isArray(value)) {
+    return value.map(sortManifestKeys);
+  }
+  if (isPlainObject(value)) {
+    return Object.keys(value)
+      .sort()
+      .reduce((acc, key) => {
+        acc[key] = sortManifestKeys(value[key]);
+        return acc;
+      }, {});
+  }
+  return value;
+};
+
 const formatUsage = () => `\
 Usage:
   yarn slack:manifest render --env <dev|prod> [--out <path>] [--stdout]
   yarn slack:manifest promote [--out <path>] [--stdout]
   yarn slack:manifest update-dev [--app-id <id>] [--token <token>] [--stdout]
   yarn slack:manifest update-prod [--app-id <id>] [--token <token>] [--stdout]
+  yarn slack:manifest export-dev [--app-id <id>] [--token <token>] [--out <path>] [--stdout]
+  yarn slack:manifest export-prod [--app-id <id>] [--token <token>] [--out <path>] [--stdout]
+  yarn slack:manifest verify-dev [--app-id <id>] [--token <token>] [--out <path>] [--stdout]
+  yarn slack:manifest verify-prod [--app-id <id>] [--token <token>] [--out <path>] [--stdout]
 
 Notes:
   - Base manifest: ${path.relative(ROOT_DIR, BASE_PATH)}
@@ -135,10 +154,19 @@ if (!command || command.startsWith('-')) {
 parseArgs(args);
 
 const resolveEnv = () => {
-  if (command === 'promote' || command === 'update-prod') {
+  if (
+    command === 'promote' ||
+    command === 'update-prod' ||
+    command === 'export-prod' ||
+    command === 'verify-prod'
+  ) {
     return 'prod';
   }
-  if (command === 'update-dev') {
+  if (
+    command === 'update-dev' ||
+    command === 'export-dev' ||
+    command === 'verify-dev'
+  ) {
     return 'dev';
   }
   if (!options.env) {
@@ -192,6 +220,46 @@ const fetchJson = async (url, payload, token) => {
   });
 };
 
+const exportManifest = async (appId, token) => {
+  const response = await fetchJson(
+    'https://slack.com/api/apps.manifest.export',
+    { app_id: appId },
+    token,
+  );
+  if (!response.ok) {
+    console.error(
+      `Slack manifest export failed: ${response.error ?? 'unknown error'}`,
+    );
+    process.exit(1);
+  }
+  const exported = response.manifest;
+  if (!exported) {
+    console.error('Slack manifest export did not return a manifest payload.');
+    process.exit(1);
+  }
+  return exported;
+};
+
+const verifyManifest = (localManifest, remoteManifest) => {
+  const localNormalized = JSON.stringify(sortManifestKeys(localManifest));
+  const remoteNormalized = JSON.stringify(sortManifestKeys(remoteManifest));
+  if (localNormalized !== remoteNormalized) {
+    console.error(
+      'Slack manifest differs from the rendered manifest. Use --out to save the exported version for inspection.',
+    );
+    process.exit(1);
+  }
+  console.log('Slack manifest matches the rendered manifest.');
+};
+
+const formatScopeList = (manifest) => {
+  const scopes = manifest?.oauth_config?.scopes?.bot;
+  if (!Array.isArray(scopes) || scopes.length === 0) {
+    return '(none)';
+  }
+  return scopes.join(', ');
+};
+
 const main = async () => {
   if (command === 'help') {
     console.log(formatUsage());
@@ -213,12 +281,16 @@ const main = async () => {
   const appIds = fs.existsSync(APP_IDS_PATH) ? readJson(APP_IDS_PATH) : {};
 
   const outputPath = options.out ?? path.join(GENERATED_DIR, `${env}.json`);
+  const isUpdate = command === 'update-dev' || command === 'update-prod';
+  const isExport = command === 'export-dev' || command === 'export-prod';
+  const isVerify = command === 'verify-dev' || command === 'verify-prod';
+  const isProd = env === 'prod';
 
   if (options.stdout) {
     process.stdout.write(`${JSON.stringify(merged, null, 2)}\n`);
   }
 
-  if (command === 'update-dev' || command === 'update-prod') {
+  if (isUpdate) {
     const appIdFromFile = command === 'update-prod' ? appIds.prod : appIds.dev;
     const appId =
       options.appId ??
@@ -239,6 +311,8 @@ const main = async () => {
       console.error('Missing --token or SLACK_MANIFEST_TOKEN.');
       process.exit(1);
     }
+    console.log(`Updating Slack manifest for ${env} (app: ${appId}).`);
+    console.log(`Manifest scopes (local): ${formatScopeList(merged)}`);
     const response = await fetchJson(
       'https://slack.com/api/apps.manifest.update',
       { app_id: appId, manifest: merged },
@@ -268,9 +342,59 @@ const main = async () => {
       console.log('');
     }
     console.log(`Updated Slack manifest for ${env}.`);
+    console.log(`Verifying Slack manifest for ${env}...`);
+    const exported = await exportManifest(appId, token);
+    console.log(`Manifest scopes (remote): ${formatScopeList(exported)}`);
+    verifyManifest(merged, exported);
   }
 
-  if (!options.stdout || options.out) {
+  if (isExport || isVerify) {
+    const appIdFromFile = isProd ? appIds.prod : appIds.dev;
+    const appId =
+      options.appId ??
+      appIdFromFile ??
+      (isProd ? process.env.SLACK_APP_ID_PROD : process.env.SLACK_APP_ID_DEV);
+    if (!appId) {
+      console.error(
+        `Missing --app-id or ${
+          isProd ? 'SLACK_APP_ID_PROD' : 'SLACK_APP_ID_DEV'
+        }.`,
+      );
+      process.exit(1);
+    }
+    const token = options.token ?? process.env.SLACK_MANIFEST_TOKEN;
+    if (!token) {
+      console.error('Missing --token or SLACK_MANIFEST_TOKEN.');
+      process.exit(1);
+    }
+    console.log(`Exporting Slack manifest for ${env} (app: ${appId}).`);
+    const exported = await exportManifest(appId, token);
+    console.log(`Manifest scopes (remote): ${formatScopeList(exported)}`);
+    if (options.stdout) {
+      process.stdout.write(`${JSON.stringify(exported, null, 2)}\n`);
+    }
+    if (options.out || (!options.stdout && isExport)) {
+      const exportOutputPath =
+        options.out ?? path.join(GENERATED_DIR, `${env}-export.json`);
+      fs.mkdirSync(path.dirname(exportOutputPath), { recursive: true });
+      fs.writeFileSync(
+        exportOutputPath,
+        `${JSON.stringify(exported, null, 2)}\n`,
+      );
+      console.log(
+        `Wrote exported manifest: ${path.relative(ROOT_DIR, exportOutputPath)}`,
+      );
+    }
+    if (isVerify) {
+      console.log(`Manifest scopes (local): ${formatScopeList(merged)}`);
+      verifyManifest(merged, exported);
+    }
+    if (isExport) {
+      console.log(`Exported Slack manifest for ${env}.`);
+    }
+  }
+
+  if (!isExport && !isVerify && (!options.stdout || options.out)) {
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, `${JSON.stringify(merged, null, 2)}\n`);
     console.log(`Wrote manifest: ${path.relative(ROOT_DIR, outputPath)}`);

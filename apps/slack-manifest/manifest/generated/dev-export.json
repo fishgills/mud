@@ -2,8 +2,8 @@
   "display_information": {
     "name": "BattleForge",
     "description": "Explore, battle, and loot together in a Slack-based text adventure.",
-    "long_description": "BattleForge turns your Slack into a shared fantasy tavern. Party up with your teammates, explore dangerous zones, battle monsters, and haul home loot using simple DM commands. From quick skirmishes to long adventures, it is a lightweight game you can drop into between conversations.",
-    "background_color": "#008a7c"
+    "background_color": "#008a7c",
+    "long_description": "BattleForge is a collaborative text-based adventure game played within Slack. Team up with your colleagues to explore dungeons, battle monsters, and collect loot—all through simple Slack commands. Whether you're strategizing in the app home or engaging in thrilling battles via direct messages, BattleForge brings excitement and camaraderie to your workspace."
   },
   "features": {
     "app_home": {
@@ -17,23 +17,23 @@
     }
   },
   "oauth_config": {
+    "redirect_urls": [
+      "https://closet.battleforge.app/slack/oauth_redirect"
+    ],
     "scopes": {
       "bot": [
         "im:history",
         "im:write"
       ]
-    },
-    "redirect_urls": [
-      "https://closet.battleforge.app/slack/oauth_redirect"
-    ]
+    }
   },
   "settings": {
     "event_subscriptions": {
+      "request_url": "https://closet.battleforge.app/slack/events",
       "bot_events": [
         "app_home_opened",
         "message.im"
-      ],
-      "request_url": "https://closet.battleforge.app/slack/events"
+      ]
     },
     "interactivity": {
       "is_enabled": true,
