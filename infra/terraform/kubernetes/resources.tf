@@ -941,7 +941,7 @@ resource "kubernetes_manifest" "managed_certificate" {
     apiVersion = "networking.gke.io/v1"
     kind       = "ManagedCertificate"
     metadata = {
-      name      = "mud-public-cert"
+      name      = "mud-public-cert-v2"
       namespace = kubernetes_namespace.mud.metadata[0].name
     }
     spec = {
