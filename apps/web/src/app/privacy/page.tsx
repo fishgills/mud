@@ -10,6 +10,12 @@ export default function PrivacyPage() {
           <h1 className="title-font text-3xl font-semibold tracking-tight">
             Privacy Policy
           </h1>
+          <p className="text-base leading-7 text-[color:var(--ink-soft)]">
+            BattleForge is a multiplayer text adventure game designed to be
+            played inside Slack. This Privacy Policy explains what data the
+            BattleForge app collects, how it is used, and how users can request
+            deletion of their data.
+          </p>
         </header>
 
         <section className="flex flex-col gap-3 text-base leading-7 text-[color:var(--ink-soft)]">
@@ -19,7 +25,10 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-5">
             <li>Slack user ID</li>
             <li>Slack workspace ID</li>
-            <li>Game-related state (character, stats, progress)</li>
+            <li>
+              Game-related state (such as character information, stats,
+              progress, and inventory)
+            </li>
           </ul>
         </section>
 
@@ -29,8 +38,14 @@ export default function PrivacyPage() {
           </h2>
           <ul className="list-disc pl-5">
             <li>Email addresses</li>
-            <li>Private Slack messages outside of gameplay commands</li>
-            <li>Message history beyond what is needed to process a command</li>
+            <li>Slack profile details beyond basic identifiers</li>
+            <li>
+              Private Slack messages outside of user-initiated gameplay commands
+            </li>
+            <li>
+              Message history beyond what is transiently processed to execute a
+              command
+            </li>
           </ul>
         </section>
 
@@ -39,8 +54,9 @@ export default function PrivacyPage() {
             3. How Messages Are Used
           </h2>
           <p>
-            Messages are processed only when users interact with the app in DMs.
-            Message content is not stored long-term.
+            Messages are processed only when users intentionally interact with
+            the app via direct messages. Message content is used transiently to
+            execute gameplay commands and is not stored as message history.
           </p>
         </section>
 
@@ -49,23 +65,34 @@ export default function PrivacyPage() {
             4. Data Retention
           </h2>
           <p>
-            Game state is retained until the user deletes their character or
-            removes the app.
+            Game-related data is retained only as long as necessary to support
+            gameplay. Data remains stored until a user deletes their character
+            or removes the app from their Slack workspace.
           </p>
         </section>
 
         <section className="flex flex-col gap-3 text-base leading-7 text-[color:var(--ink-soft)]">
-          <h2 className="title-font text-lg font-semibold">5. Data Deletion</h2>
+          <h2 className="title-font text-lg font-semibold">5. Data Sharing</h2>
           <p>
-            Users can delete their data by using the in-game delete character
-            command or by emailing support.
+            BattleForge does not sell, rent, or share user data with third
+            parties.
           </p>
         </section>
 
         <section className="flex flex-col gap-3 text-base leading-7 text-[color:var(--ink-soft)]">
-          <h2 className="title-font text-lg font-semibold">6. Contact</h2>
+          <h2 className="title-font text-lg font-semibold">6. Data Deletion</h2>
           <p>
-            Support email:{' '}
+            Users may delete their game data at any time by using the in-game
+            character deletion command or by contacting support.
+          </p>
+        </section>
+
+        <section className="flex flex-col gap-3 text-base leading-7 text-[color:var(--ink-soft)]">
+          <h2 className="title-font text-lg font-semibold">7. Contact</h2>
+          <p>
+            For questions, support requests, or data deletion inquiries, please
+            contact:
+            <br />
             <a className="link-ink" href="mailto:support@battleforge.app">
               support@battleforge.app
             </a>
