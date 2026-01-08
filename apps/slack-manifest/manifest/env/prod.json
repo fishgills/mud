@@ -1,8 +1,4 @@
 {
-  "display_information": {
-    "name": "BattleForge",
-    "description": "To the death!"
-  },
   "oauth_config": {
     "redirect_urls": ["https://slack.battleforge.app/slack/oauth_redirect"]
   },

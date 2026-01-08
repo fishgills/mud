@@ -1,7 +1,7 @@
 {
   "display_information": {
     "name": "BattleForge",
-    "description": "Dev Bot",
+    "description": "Explore, battle, and loot together in a Slack-based text adventure.",
     "background_color": "#008a7c"
   },
   "features": {
