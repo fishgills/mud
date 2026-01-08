@@ -1,0 +1,18 @@
+{
+  "display_information": {
+    "name": "BattleForge",
+    "description": "Dev Bot"
+  },
+  "oauth_config": {
+    "redirect_urls": ["https://closet.battleforge.app/slack/oauth_redirect"]
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://closet.battleforge.app/slack/events"
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://closet.battleforge.app/slack/events"
+    }
+  }
+}

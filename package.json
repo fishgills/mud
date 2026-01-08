@@ -16,7 +16,10 @@
     "generate": "yarn turbo run generate",
     "lint": "yarn turbo run lint",
     "prepare": "husky",
-    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && node scripts/sync-changelog.js"
+    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && node scripts/sync-changelog.js",
+    "slack:manifest": "node apps/slack-manifest/slack-manifest.js",
+    "slack:manifest:update:dev": "node apps/slack-manifest/slack-manifest.js update-dev",
+    "slack:manifest:update:prod": "node apps/slack-manifest/slack-manifest.js update-prod"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.1.0",

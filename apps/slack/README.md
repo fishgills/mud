@@ -34,6 +34,10 @@ Scopes are now hard-coded in code. Current scopes required by the app:
 - im:write
 - users:read
 
+The Slack app manifest source of truth lives in `apps/slack-manifest/manifest`.
+Use `yarn slack:manifest render --env dev` to generate a development manifest
+and `yarn slack:manifest promote` to render the production manifest.
+
 When enabled, visit /slack/install to add the app to a workspace.
 
 Notes:
