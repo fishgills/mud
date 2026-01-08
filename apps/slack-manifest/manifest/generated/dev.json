@@ -2,6 +2,7 @@
   "display_information": {
     "name": "BattleForge",
     "description": "Explore, battle, and loot together in a Slack-based text adventure.",
+    "long_description": "BattleForge is a collaborative text-based adventure game played within Slack. Team up with your colleagues to explore dungeons, battle monsters, and collect loot—all through simple Slack commands. Whether you're strategizing in the app home or engaging in thrilling battles via direct messages, BattleForge brings excitement and camaraderie to your workspace.",
     "background_color": "#008a7c"
   },
   "features": {
