@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   basePath: resolvedBasePath,
   assetPrefix: resolvedBasePath,
+  allowedDevOrigins: ['https://closet.battleforge.app'],
   images: {
     remotePatterns: [
       {
