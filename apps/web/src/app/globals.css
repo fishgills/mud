@@ -1,12 +1,12 @@
 @import 'tailwindcss';
 
 :root {
-  --ink: #1d1a14;
-  --ink-soft: #3b3326;
-  --accent: #7b5b3a;
-  --parchment: #f7f0df;
-  --parchment-edge: #efe3c7;
-  --parchment-shadow: rgba(55, 42, 26, 0.12);
+  --ink: #f3eadc;
+  --ink-soft: #c5b8a3;
+  --accent: #d0903f;
+  --parchment: #141010;
+  --parchment-edge: #1f1817;
+  --parchment-shadow: rgba(6, 4, 4, 0.55);
 }
 
 @theme inline {
@@ -17,8 +17,9 @@
 
 body {
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.65), transparent 55%),
-    linear-gradient(120deg, #f6f1e3 0%, #f2e6cf 45%, #f9f4ea 100%);
+    radial-gradient(circle at top, rgba(96, 70, 48, 0.35), transparent 55%),
+    radial-gradient(circle at 15% 30%, rgba(38, 28, 24, 0.9), transparent 48%),
+    linear-gradient(140deg, #0d0b0b 0%, #171312 45%, #1c1412 100%);
   color: var(--ink);
   font-family: var(--font-body), serif;
 }
@@ -47,6 +48,7 @@ body {
   color: var(--ink);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  text-shadow: 0 0 16px rgba(208, 144, 63, 0.2);
 }
 
 .side-nav-list {
@@ -77,7 +79,8 @@ body {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: rgba(123, 91, 58, 0.5);
+  background: rgba(208, 144, 63, 0.4);
+  box-shadow: 0 0 12px rgba(208, 144, 63, 0.35);
 }
 
 .nav-link-active {
@@ -89,6 +92,7 @@ body {
   width: 8px;
   height: 8px;
   background: var(--accent);
+  box-shadow: 0 0 16px rgba(208, 144, 63, 0.5);
 }
 
 .page-content {
@@ -114,19 +118,20 @@ body {
 
 @media (max-width: 899px) {
   .side-nav {
-    border: 1px solid rgba(122, 92, 58, 0.25);
+    border: 1px solid rgba(96, 70, 48, 0.4);
     border-radius: 16px;
     padding: 16px;
-    background: rgba(255, 255, 255, 0.55);
+    background: rgba(15, 12, 12, 0.75);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
   }
 }
 
 .page-card {
   margin: 0 auto;
   max-width: 640px;
-  border: 1px solid rgba(122, 92, 58, 0.25);
+  border: 1px solid rgba(96, 70, 48, 0.45);
   border-radius: 20px;
-  background: linear-gradient(180deg, var(--parchment) 0%, #fdfaf3 100%);
+  background: linear-gradient(180deg, #141010 0%, #1b1412 100%);
   box-shadow: 0 24px 60px var(--parchment-shadow);
   padding: 40px 36px;
   position: relative;
@@ -137,7 +142,7 @@ body {
   content: '';
   position: absolute;
   inset: 12px;
-  border: 1px solid rgba(122, 92, 58, 0.18);
+  border: 1px solid rgba(96, 70, 48, 0.25);
   border-radius: 14px;
   pointer-events: none;
 }
@@ -162,8 +167,8 @@ body {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(123, 91, 58, 0.45) 20%,
-    rgba(123, 91, 58, 0.35) 80%,
+    rgba(208, 144, 63, 0.4) 20%,
+    rgba(208, 144, 63, 0.25) 80%,
     transparent 100%
   );
 }
