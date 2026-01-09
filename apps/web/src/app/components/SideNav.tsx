@@ -10,6 +10,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: '/', label: 'Home' },
+  { href: '/me', label: 'Character' },
   { href: '/privacy', label: 'Privacy' },
   { href: '/terms', label: 'Terms' },
   { href: '/support', label: 'Support' },
@@ -18,12 +19,17 @@ const navItems: NavItem[] = [
 
 export default function SideNav() {
   const pathname = usePathname();
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+  const normalizedPath =
+    basePath && pathname.startsWith(basePath)
+      ? pathname.slice(basePath.length) || '/'
+      : pathname;
   return (
     <nav className="side-nav" aria-label="Site">
       <div className="side-nav-title">BattleForge</div>
       <ul className="side-nav-list">
         {navItems.map((item) => {
-          const isActive = item.href === pathname;
+          const isActive = item.href === normalizedPath;
           return (
             <li key={item.href}>
               <Link

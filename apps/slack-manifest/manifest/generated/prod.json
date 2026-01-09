@@ -24,7 +24,8 @@
       ]
     },
     "redirect_urls": [
-      "https://slack.battleforge.app/slack/oauth_redirect"
+      "https://slack.battleforge.app/slack/oauth_redirect",
+      "https://www.battleforge.app/api/auth/slack/callback"
     ]
   },
   "settings": {

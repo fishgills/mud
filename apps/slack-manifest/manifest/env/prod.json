@@ -1,6 +1,9 @@
 {
   "oauth_config": {
-    "redirect_urls": ["https://slack.battleforge.app/slack/oauth_redirect"]
+    "redirect_urls": [
+      "https://slack.battleforge.app/slack/oauth_redirect",
+      "https://www.battleforge.app/api/auth/slack/callback"
+    ]
   },
   "settings": {
     "event_subscriptions": {

@@ -62,7 +62,7 @@ jobs:
           IMAGE_REPO: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ matrix.service }}
         run: |
           set -euo pipefail
-          docker build --pull -f "${{ matrix.dockerfile }}" -t "${IMAGE_REPO}:${IMAGE_TAG}" -t "${IMAGE_REPO}:latest" .
+          docker build --pull --build-arg GIT_SHA="${{ github.sha }}" -f "${{ matrix.dockerfile }}" -t "${IMAGE_REPO}:${IMAGE_TAG}" -t "${IMAGE_REPO}:latest" .
           docker push "${IMAGE_REPO}:${IMAGE_TAG}"
           docker push "${IMAGE_REPO}:latest"
 

@@ -17,6 +17,12 @@ COPY --from=builder /app/out/json/ .
 RUN yarn install
 
 COPY --from=builder /app/out/full/ .
+
+# Embed git metadata for observability and client-side RUM versioning.
+ARG GIT_SHA
+ENV DD_GIT_COMMIT_SHA=$GIT_SHA
+ENV NEXT_PUBLIC_DD_VERSION=$GIT_SHA
+
 RUN yarn turbo build
 
 FROM base AS runner
@@ -31,6 +37,7 @@ ENV DD_GIT_COMMIT_SHA=$GIT_SHA
 LABEL org.opencontainers.image.revision=$GIT_SHA
 
 ENV NODE_ENV=production
+ENV NEXT_PUBLIC_BASE_PATH=/www
 
 COPY --from=installer /app .
 

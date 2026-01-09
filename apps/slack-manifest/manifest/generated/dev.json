@@ -24,7 +24,8 @@
       ]
     },
     "redirect_urls": [
-      "https://closet.battleforge.app/slack/oauth_redirect"
+      "https://closet.battleforge.app/slack/oauth_redirect",
+      "https://closet.battleforge.app/www/api/auth/slack/callback"
     ]
   },
   "settings": {
