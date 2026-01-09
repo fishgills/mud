@@ -3,6 +3,7 @@ import {
   createOauthState,
   setOauthStateCookie,
 } from '../../../../lib/slack-auth';
+import { decodeMaybeBase64 } from '../../../../lib/slack-env';
 
 const USER_SCOPE = 'identity.basic';
 const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '');
@@ -21,7 +22,7 @@ const getOrigin = (request: Request) => {
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const clientId = process.env.SLACK_CLIENT_ID;
+  const clientId = decodeMaybeBase64(process.env.SLACK_CLIENT_ID);
   if (!clientId) {
     return NextResponse.json(
       { error: 'Missing SLACK_CLIENT_ID.' },

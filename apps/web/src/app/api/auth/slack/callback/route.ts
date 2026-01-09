@@ -4,6 +4,7 @@ import {
   setSessionCookie,
   verifyOauthState,
 } from '../../../../lib/slack-auth';
+import { decodeMaybeBase64 } from '../../../../lib/slack-env';
 
 type SlackOauthResponse = {
   ok: boolean;
@@ -79,8 +80,8 @@ export async function GET(request: Request) {
     return response;
   }
 
-  const clientId = process.env.SLACK_CLIENT_ID;
-  const clientSecret = process.env.SLACK_CLIENT_SECRET;
+  const clientId = decodeMaybeBase64(process.env.SLACK_CLIENT_ID);
+  const clientSecret = decodeMaybeBase64(process.env.SLACK_CLIENT_SECRET);
   if (!clientId || !clientSecret) {
     return NextResponse.json(
       { error: 'Missing Slack OAuth credentials.' },

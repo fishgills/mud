@@ -781,6 +781,66 @@ resource "kubernetes_deployment" "web" {
             value = var.support_email
           }
 
+          env {
+            name = "SLACK_BOT_TOKEN"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.provided["slack_token"].metadata[0].name
+                key  = "latest"
+              }
+            }
+          }
+
+          env {
+            name = "SLACK_SIGNING_SECRET"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.provided["slack_signing_secret"].metadata[0].name
+                key  = "latest"
+              }
+            }
+          }
+
+          env {
+            name = "SLACK_APP_TOKEN"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.provided["slack_app_token"].metadata[0].name
+                key  = "latest"
+              }
+            }
+          }
+
+          env {
+            name = "SLACK_CLIENT_ID"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.provided["slack_client_id"].metadata[0].name
+                key  = "latest"
+              }
+            }
+          }
+
+          env {
+            name = "SLACK_CLIENT_SECRET"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.provided["slack_client_secret"].metadata[0].name
+                key  = "latest"
+              }
+            }
+          }
+
+          env {
+            name = "SLACK_STATE_SECRET"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.provided["slack_state_secret"].metadata[0].name
+                key  = "latest"
+              }
+            }
+          }
+
           liveness_probe {
             http_get {
               path = "/"

@@ -3,6 +3,7 @@ import 'server-only';
 import { cookies } from 'next/headers';
 import type { NextResponse } from 'next/server';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { decodeMaybeBase64 } from './slack-env';
 
 const SESSION_COOKIE = 'bf_session';
 const STATE_COOKIE = 'bf_oauth_state';
@@ -16,7 +17,7 @@ type SessionPayload = {
 };
 
 const getSecret = () => {
-  const secret = process.env.SLACK_STATE_SECRET;
+  const secret = decodeMaybeBase64(process.env.SLACK_STATE_SECRET);
   if (!secret && process.env.NODE_ENV !== 'production') {
     return 'dev-slack-session-secret';
   }
