@@ -1,7 +1,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { getSession } from './lib/slack-auth';
 
-export default function Home() {
+export default async function Home() {
+  const session = await getSession();
   return (
     <main className="page-card flex flex-col gap-6">
       <header className="flex flex-col gap-3">
@@ -54,9 +56,11 @@ export default function Home() {
             src="https://platform.slack-edge.com/img/add_to_slack.png"
           />
         </a>
-        <Link className="slack-auth-link" href="/api/auth/slack/start">
-          Sign in with Slack
-        </Link>
+        {session ? null : (
+          <Link className="slack-auth-link" href="/api/auth/slack/start">
+            Sign in with Slack
+          </Link>
+        )}
       </div>
     </main>
   );
