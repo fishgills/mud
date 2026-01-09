@@ -22,6 +22,9 @@ export const metadata: Metadata = {
   },
   description:
     'BattleForge is a multiplayer text adventure game played in Slack DMs.',
+  other: {
+    'slack-app-id': 'A09CU207JLE',
+  },
 };
 
 export default function RootLayout({
