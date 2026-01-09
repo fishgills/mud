@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getPrismaClient } from '@mud/database';
+import { buildCharacterSheetModel } from '@mud/character-sheet';
 import { getSession } from '../lib/slack-auth';
 
 export const metadata = {
@@ -139,20 +140,34 @@ export default async function CharacterPage() {
           <path d="M17 13l-10 6" />
         </svg>
       </div>
-      <section className="text-base leading-7 text-[color:var(--ink-soft)]">
-        <p className="text-xl font-semibold text-[color:var(--ink)]">
-          {player.name}
-        </p>
-        <p>Level {player.level}</p>
-        <p>
-          HP {player.hp} / {player.maxHp}
-        </p>
-        <p>XP {player.xp}</p>
-        <p>Gold {player.gold}</p>
-        <p>Strength {player.strength}</p>
-        <p>Agility {player.agility}</p>
-        <p>Health {player.health}</p>
-      </section>
+      {(() => {
+        const sheet = buildCharacterSheetModel(player);
+        return (
+          <section className="character-sheet">
+            {sheet.incompleteNotice ? (
+              <p className="character-note">{sheet.incompleteNotice}</p>
+            ) : null}
+            {sheet.sections.map((section) => (
+              <div key={section.title} className="character-section">
+                <h2 className="title-font character-section-title">
+                  {section.title}
+                </h2>
+                <div className="character-grid">
+                  {section.fields.map((field) => (
+                    <div key={field.label} className="character-field">
+                      <span className="character-label">{field.label}</span>
+                      <span className="character-value">{field.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {sheet.xpContext ? (
+              <p className="character-note">{sheet.xpContext}</p>
+            ) : null}
+          </section>
+        );
+      })()}
     </main>
   );
 }

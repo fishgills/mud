@@ -15,6 +15,7 @@
     "@types/node": "^24.6.0"
   },
   "dependencies": {
+    "@mud/character-sheet": "*",
     "@mud/redis-client": "*",
     "@mud/tracer": "*",
     "@mud/constants": "*",
