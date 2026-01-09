@@ -10,20 +10,21 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@mud/database": "*",
-    "@mud/character-sheet": "*",
     "@datadog/browser-rum": "^6.22.0",
+    "@mud/character-sheet": "*",
+    "@mud/database": "*",
     "next": "16.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@playwright/test": "^1.57.0",
     "babel-plugin-react-compiler": "1.0.0",
+    "baseline-browser-mapping": "^2.9.14",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "playwright": "^1.57.0",

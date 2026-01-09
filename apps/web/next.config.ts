@@ -8,6 +8,7 @@ const resolvedBasePath = basePath && basePath !== '/' ? basePath : undefined;
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+  output: 'standalone',
   basePath: resolvedBasePath,
   assetPrefix: resolvedBasePath,
   allowedDevOrigins: ['https://closet.battleforge.app'],
