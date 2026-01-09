@@ -782,6 +782,16 @@ resource "kubernetes_deployment" "web" {
           }
 
           env {
+            name = "DATABASE_URL"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.database_url.metadata[0].name
+                key  = "latest"
+              }
+            }
+          }
+
+          env {
             name = "SLACK_BOT_TOKEN"
             value_from {
               secret_key_ref {
