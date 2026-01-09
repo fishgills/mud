@@ -125,6 +125,7 @@ import { registerActions } from './actions';
 import { HandlerContext, SayMessage } from './handlers/types';
 import { helpHandler } from './handlers/help';
 import { registerAppHome } from './handlers/appHome';
+import { registerUninstallHandler } from './handlers/uninstall';
 
 app.event('app_mention', async ({ event, say }) => {
   await say(
@@ -149,6 +150,7 @@ app.event('app_mention', async ({ event, say }) => {
 });
 
 registerAppHome(app);
+registerUninstallHandler(app);
 
 app.message(async ({ message, say, client, context }) => {
   // Only handle direct user messages (not message_changed, etc)

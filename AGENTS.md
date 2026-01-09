@@ -13,6 +13,8 @@
 - Use [Conventional Commits](https://www.conventionalcommits.org/) for every commit message (e.g., `feat(slack): add changelog blocks`).
 - Terminal has an authenticed session so gcloud cli is available.
 - Never use gcloud cli to make modifications. Treat it as read only and use it for gathering information or debugging.
+- Slack manifest updates: prefer editing `apps/slack-manifest/manifest/base.json`. Files under `apps/slack-manifest/manifest/generated/` are generated and should not be edited manually.
+- Slack manifest token refresh: if the manifest tool returns `token_expired`, refresh via Slack API `tooling.tokens.rotate` using `SLACK_MANIFEST_REFRESH_TOKEN` (see https://docs.slack.dev/reference/methods/tooling.tokens.rotate/).
 
 - Slack bot communication note:
   - All player-facing Slack communications are delivered via direct message (DM) with the bot. Commands that affect nearby players (for example, `pickup`) DM the acting player with detailed results and DM other players at the same x/y with a short, vague notification.

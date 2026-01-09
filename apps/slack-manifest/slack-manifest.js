@@ -178,11 +178,15 @@ const resolveEnv = () => {
 };
 
 const fetchJson = async (url, payload, token) => {
+  const authHeader =
+    typeof token === 'string' && token.length > 0
+      ? { authorization: `Bearer ${token}` }
+      : {};
   if (typeof fetch === 'function') {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        authorization: `Bearer ${token}`,
+        ...authHeader,
         'content-type': 'application/json; charset=utf-8',
       },
       body: JSON.stringify(payload),
@@ -196,7 +200,7 @@ const fetchJson = async (url, payload, token) => {
       {
         method: 'POST',
         headers: {
-          authorization: `Bearer ${token}`,
+          ...authHeader,
           'content-type': 'application/json; charset=utf-8',
         },
       },
@@ -220,13 +224,78 @@ const fetchJson = async (url, payload, token) => {
   });
 };
 
-const exportManifest = async (appId, token) => {
+const fetchForm = async (url, payload, token) => {
+  const authHeader =
+    typeof token === 'string' && token.length > 0
+      ? { authorization: `Bearer ${token}` }
+      : {};
+  const body = new URLSearchParams(payload).toString();
+  if (typeof fetch === 'function') {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...authHeader,
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body,
+    });
+    return response.json();
+  }
+  const https = require('node:https');
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          ...authHeader,
+          'content-type': 'application/x-www-form-urlencoded',
+        },
+      },
+      (res) => {
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch (error) {
+            reject(error);
+          }
+        });
+      },
+    );
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+};
+
+const redactToken = (value) => {
+  if (!value || typeof value !== 'string') {
+    return 'missing';
+  }
+  if (value.length <= 6) {
+    return 'present';
+  }
+  return `${value.slice(0, 4)}...${value.slice(-2)}`;
+};
+
+const exportManifest = async (appId, token, allowRotate = true) => {
   const response = await fetchJson(
     'https://slack.com/api/apps.manifest.export',
     { app_id: appId },
     token,
   );
   if (!response.ok) {
+    if (allowRotate && response.error === 'token_expired') {
+      console.warn('Slack manifest token expired. Attempting rotation...');
+      const rotatedToken = await rotateManifestToken();
+      if (rotatedToken) {
+        return exportManifest(appId, rotatedToken, false);
+      }
+    }
     console.error(
       `Slack manifest export failed: ${response.error ?? 'unknown error'}`,
     );
@@ -238,6 +307,67 @@ const exportManifest = async (appId, token) => {
     process.exit(1);
   }
   return exported;
+};
+
+const rotateManifestToken = async () => {
+  const refreshToken = process.env.SLACK_MANIFEST_REFRESH_TOKEN;
+  if (!refreshToken) {
+    console.warn('SLACK_MANIFEST_REFRESH_TOKEN is not set; cannot rotate.');
+    return null;
+  }
+  const accessToken = process.env.SLACK_MANIFEST_TOKEN ?? null;
+  console.log(
+    `Attempting Slack token rotation (access=${redactToken(
+      accessToken,
+    )}, refresh=${redactToken(refreshToken)}).`,
+  );
+  let response = await fetchForm(
+    'https://slack.com/api/tooling.tokens.rotate',
+    { refresh_token: refreshToken },
+    accessToken,
+  );
+  if (!response.ok && accessToken) {
+    console.warn(
+      `Slack token rotation failed with access token (${response.error ?? 'unknown error'}). Retrying without auth...`,
+    );
+    response = await fetchForm(
+      'https://slack.com/api/tooling.tokens.rotate',
+      { refresh_token: refreshToken },
+      null,
+    );
+  }
+  if (!response.ok) {
+    console.error(
+      `Slack token rotation failed: ${response.error ?? 'unknown error'}`,
+    );
+    return null;
+  }
+  if (response.refresh_token) {
+    process.env.SLACK_MANIFEST_REFRESH_TOKEN = response.refresh_token;
+  }
+  if (response.token) {
+    process.env.SLACK_MANIFEST_TOKEN = response.token;
+    console.log(
+      `Slack token rotation succeeded. New access=${redactToken(
+        response.token,
+      )}, refresh=${redactToken(
+        response.refresh_token ?? process.env.SLACK_MANIFEST_REFRESH_TOKEN,
+      )}.`,
+    );
+    console.log(
+      'Update your local environment with the rotated SLACK_MANIFEST_TOKEN and SLACK_MANIFEST_REFRESH_TOKEN values.',
+    );
+
+    const dotenvPath = path.join(TOOL_DIR, '.env');
+    const nextEnv = [
+      `SLACK_MANIFEST_TOKEN=${response.token}`,
+      `SLACK_MANIFEST_REFRESH_TOKEN=${response.refresh_token ?? ''}`,
+    ].join('\n');
+    fs.writeFileSync(dotenvPath, `${nextEnv}\n`, 'utf8');
+    return response.token;
+  }
+  console.error('Slack token rotation did not return a new token.');
+  return null;
 };
 
 const verifyManifest = (localManifest, remoteManifest) => {
@@ -313,11 +443,24 @@ const main = async () => {
     }
     console.log(`Updating Slack manifest for ${env} (app: ${appId}).`);
     console.log(`Manifest scopes (local): ${formatScopeList(merged)}`);
-    const response = await fetchJson(
+    let updateToken = token;
+    let response = await fetchJson(
       'https://slack.com/api/apps.manifest.update',
       { app_id: appId, manifest: merged },
-      token,
+      updateToken,
     );
+    if (!response.ok && response.error === 'token_expired') {
+      console.warn('Slack manifest token expired. Attempting rotation...');
+      const rotatedToken = await rotateManifestToken();
+      if (rotatedToken) {
+        updateToken = rotatedToken;
+        response = await fetchJson(
+          'https://slack.com/api/apps.manifest.update',
+          { app_id: appId, manifest: merged },
+          updateToken,
+        );
+      }
+    }
     if (options.stdout) {
       process.stdout.write(`${JSON.stringify(response, null, 2)}\n`);
     }
@@ -343,7 +486,7 @@ const main = async () => {
     }
     console.log(`Updated Slack manifest for ${env}.`);
     console.log(`Verifying Slack manifest for ${env}...`);
-    const exported = await exportManifest(appId, token);
+    const exported = await exportManifest(appId, updateToken);
     console.log(`Manifest scopes (remote): ${formatScopeList(exported)}`);
     verifyManifest(merged, exported);
   }

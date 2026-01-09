@@ -3,9 +3,7 @@
     "name": "BattleForge",
     "description": "Explore, battle, and loot together in a Slack-based text adventure.",
     "long_description": "BattleForge turns your Slack into a shared fantasy tavern. Party up with your teammates, explore dangerous zones, battle monsters, and haul home loot using simple DM commands. From quick skirmishes to long adventures, it is a lightweight game you can drop into between conversations.",
-    "background_color": "#008a7c",
-    "privacy_policy_url": "https://battleforge.app/privacy",
-    "terms_of_service_url": "https://battleforge.app/terms"
+    "background_color": "#008a7c"
   },
   "features": {
     "app_home": {
@@ -25,7 +23,7 @@
   },
   "settings": {
     "event_subscriptions": {
-      "bot_events": ["app_home_opened", "message.im"]
+      "bot_events": ["app_home_opened", "app_uninstalled", "message.im"]
     },
     "interactivity": {
       "is_enabled": true
