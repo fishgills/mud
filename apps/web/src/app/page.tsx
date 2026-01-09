@@ -1,3 +1,5 @@
+import Image from 'next/image';
+
 export default function Home() {
   return (
     <main className="page-card flex flex-col gap-6">
@@ -39,6 +41,19 @@ export default function Home() {
           their commands and game progress.
         </p>
       </section>
+      <div>
+        <a
+          href="https://slack.com/oauth/v2/authorize?client_id=375846128833.9436068256694&scope=im:history,im:write&user_scope="
+          aria-label="Add BattleForge to Slack"
+        >
+          <Image
+            alt="Add to Slack"
+            height="40"
+            width="139"
+            src="https://platform.slack-edge.com/img/add_to_slack.png"
+          />
+        </a>
+      </div>
     </main>
   );
 }
