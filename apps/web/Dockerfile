@@ -6,7 +6,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 RUN yarn global add turbo
 COPY . .
-RUN turbo prune @web/web --docker
+RUN turbo prune @mud/web --docker
 
 FROM base AS installer
 RUN apk update
