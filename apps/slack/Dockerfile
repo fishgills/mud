@@ -1,6 +1,7 @@
 FROM node:alpine AS base
 
 FROM base AS builder
+RUN apk update
 RUN apk add --no-cache libc6-compat
 # Set working directory
 WORKDIR /app
@@ -23,35 +24,28 @@ RUN turbo prune @mud/slack --docker && \
 
 # Add lockfile and package.json's of isolated subworkspace
 FROM base AS installer
+RUN apk update
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # First install dependencies (as they change less often)
 COPY --from=builder /app/out/json/ .
-RUN yarn install --frozen-lockfile
+RUN yarn install
 
 COPY --from=builder /app/out/full/ .
 RUN yarn turbo build
 
-FROM base AS prod-deps
-RUN apk add --no-cache libc6-compat
-WORKDIR /app
-
-COPY --from=builder /app/out/json/ .
-RUN yarn install --frozen-lockfile --production
-
 FROM base AS runner
 WORKDIR /app
+
+# Install tsx for running TypeScript scripts
+RUN yarn global add tsx
 
 # Don't run production as root
 RUN addgroup --system --gid 1001 expressjs
 RUN adduser --system --uid 1001 expressjs
 
-COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=installer /app/libs ./libs
-COPY --from=installer /app/apps/slack/dist ./apps/slack/dist
-COPY --from=installer /app/apps/slack/package.json ./apps/slack/package.json
-COPY --from=installer /app/apps/slack/CHANGELOG.md ./apps/slack/CHANGELOG.md
+COPY --from=installer /app .
 
 # Embed git metadata for observability
 ARG GIT_SHA
