@@ -1,13 +1,13 @@
 export const metadata = {
-  title: 'Support',
+  title: 'Terms of Service',
 };
 
-export default function SupportPage() {
+export default function TermsPage() {
   return (
     <main className="page-card flex flex-col gap-6">
       <header className="flex flex-col gap-2">
         <h1 className="title-font text-3xl font-semibold tracking-tight">
-          Support
+          Terms of Service
         </h1>
       </header>
       <div className="section-divider" aria-hidden="true">
@@ -35,19 +35,14 @@ export default function SupportPage() {
 
       <section className="text-base leading-7 text-[color:var(--ink-soft)]">
         <p>
-          If you have questions, issues, or would like your data deleted, please
-          contact us.
+          BattleForge is provided as-is for entertainment and experimentation in
+          Slack. By using the app, you agree to use it respectfully and avoid
+          abuse, automation, or attempts to disrupt service.
         </p>
-      </section>
-
-      <section className="text-base leading-7 text-[color:var(--ink-soft)]">
         <p>
-          Email:{' '}
-          <a className="link-ink" href="mailto:support@battleforge.app">
-            support@battleforge.app
-          </a>
+          The game may change or be unavailable at any time. If you need
+          assistance or wish to stop using the app, contact support.
         </p>
-        <p>We typically respond within a few days.</p>
       </section>
     </main>
   );

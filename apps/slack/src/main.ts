@@ -213,6 +213,9 @@ app.message(async ({ message, say, client, context }) => {
     app.logger.debug('Resolve user ID: no match found');
     return undefined;
   };
+  const triggerId =
+    (context as { triggerId?: string; trigger_id?: string })?.triggerId ??
+    (context as { triggerId?: string; trigger_id?: string })?.trigger_id;
   for (const [key, handler] of Object.entries(getAllHandlers())) {
     // Check if the message starts with the command or contains it as a whole word
     app.logger.debug({ command: key, userId, teamId }, 'Inspecting handler');
@@ -230,6 +233,7 @@ app.message(async ({ message, say, client, context }) => {
         resolveUserId,
         client,
         teamId: teamId!,
+        triggerId,
       });
       return;
     }

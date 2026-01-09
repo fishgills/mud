@@ -131,7 +131,7 @@ const buildCharacterStatsView = (params: {
   };
 };
 
-const buildDeleteCharacterView = (params: {
+export const buildDeleteCharacterView = (params: {
   teamId: string;
   userId: string;
   errorText?: string;

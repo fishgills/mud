@@ -28,6 +28,99 @@ body {
   padding: 64px 24px;
 }
 
+.page-layout {
+  margin: 0 auto;
+  max-width: 960px;
+  display: grid;
+  gap: 24px;
+}
+
+.side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.side-nav-title {
+  font-family: var(--font-title), serif;
+  font-size: 18px;
+  color: var(--ink);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.side-nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  position: relative;
+  padding-left: 12px;
+}
+
+.nav-link::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(123, 91, 58, 0.5);
+}
+
+.nav-link-active {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.nav-link-active::before {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+}
+
+.page-content {
+  display: flex;
+}
+
+.page-card {
+  width: 100%;
+}
+
+@media (min-width: 900px) {
+  .page-layout {
+    grid-template-columns: 180px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .side-nav {
+    position: sticky;
+    top: 40px;
+    align-self: start;
+  }
+}
+
+@media (max-width: 899px) {
+  .side-nav {
+    border: 1px solid rgba(122, 92, 58, 0.25);
+    border-radius: 16px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.55);
+  }
+}
+
 .page-card {
   margin: 0 auto;
   max-width: 640px;
@@ -36,11 +129,50 @@ body {
   background: linear-gradient(180deg, var(--parchment) 0%, #fdfaf3 100%);
   box-shadow: 0 24px 60px var(--parchment-shadow);
   padding: 40px 36px;
+  position: relative;
+  overflow: hidden;
+}
+
+.page-card::before {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgba(122, 92, 58, 0.18);
+  border-radius: 14px;
+  pointer-events: none;
 }
 
 .title-font {
   font-family: var(--font-title), serif;
   color: var(--ink);
+}
+
+.section-divider {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(123, 91, 58, 0.45) 20%,
+    rgba(123, 91, 58, 0.35) 80%,
+    transparent 100%
+  );
+}
+
+.divider-icon {
+  color: var(--accent);
+  flex: 0 0 auto;
+  height: 18px;
+  width: 18px;
 }
 
 .link-ink {

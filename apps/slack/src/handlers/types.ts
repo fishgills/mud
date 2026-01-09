@@ -16,6 +16,7 @@ export type HandlerContext = {
   say: (msg: SayMessage) => Promise<void>;
   text: string;
   teamId: string;
+  triggerId?: string;
   // Helper to resolve a Slack username or mention to a Slack user ID within this workspace
   resolveUserId?: (nameOrMention: string) => Promise<string | undefined>;
   client?: WebClient;

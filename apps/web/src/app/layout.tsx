@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Cinzel, Crimson_Text } from 'next/font/google';
 import './globals.css';
+import PageLayout from './components/PageLayout';
 
 const titleFont = Cinzel({
   variable: '--font-title',
@@ -33,7 +34,7 @@ export default function RootLayout({
       <body
         className={`${titleFont.variable} ${bodyFont.variable} antialiased`}
       >
-        {children}
+        <PageLayout>{children}</PageLayout>
       </body>
     </html>
   );

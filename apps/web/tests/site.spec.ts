@@ -12,11 +12,32 @@ test('home page has required links', async ({ page }) => {
     ),
   ).toBeVisible();
 
+  const nav = page.getByRole('navigation', { name: 'Site' });
+  await expect(nav.getByRole('link', { name: 'Home' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await expect(nav.getByRole('link', { name: 'Privacy' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Terms' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Support' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'About' })).toBeVisible();
+});
+
+test('terms page provides terms', async ({ page }) => {
+  await page.goto('/terms');
+
+  await expect(page).toHaveTitle('BattleForge | Terms of Service');
   await expect(
-    page.getByRole('link', { name: 'Privacy Policy' }),
+    page.getByRole('heading', { name: 'Terms of Service', level: 1 }),
   ).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Support' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'About' })).toBeVisible();
+  await expect(
+    page.getByText(
+      'BattleForge is provided as-is for entertainment and experimentation in Slack.',
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Terms', exact: true }),
+  ).toHaveAttribute('aria-current', 'page');
 });
 
 test('privacy page lists data handling details', async ({ page }) => {
@@ -50,6 +71,9 @@ test('privacy page lists data handling details', async ({ page }) => {
   await expect(
     page.getByRole('link', { name: 'support@battleforge.app' }),
   ).toHaveAttribute('href', 'mailto:support@battleforge.app');
+  await expect(
+    page.getByRole('link', { name: 'Privacy', exact: true }),
+  ).toHaveAttribute('aria-current', 'page');
 });
 
 test('support page provides contact details', async ({ page }) => {
@@ -62,6 +86,9 @@ test('support page provides contact details', async ({ page }) => {
   await expect(
     page.getByRole('link', { name: 'support@battleforge.app' }),
   ).toHaveAttribute('href', 'mailto:support@battleforge.app');
+  await expect(
+    page.getByRole('link', { name: 'Support', exact: true }),
+  ).toHaveAttribute('aria-current', 'page');
 });
 
 test('about page explains the project', async ({ page }) => {
@@ -76,4 +103,7 @@ test('about page explains the project', async ({ page }) => {
       'BattleForge is a multiplayer text adventure game that runs inside Slack DMs.',
     ),
   ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'About', exact: true }),
+  ).toHaveAttribute('aria-current', 'page');
 });

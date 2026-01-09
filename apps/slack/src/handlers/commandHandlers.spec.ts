@@ -39,7 +39,7 @@ import { lookHandler } from './look';
 import { mapHandler } from './map';
 import { moveHandler } from './move';
 import { rerollHandler } from './reroll';
-import { COMMANDS, ATTACK_ACTIONS, HOME_ACTIONS } from '../commands';
+import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import type { HandlerContext, SayMessage } from './types';
 import { setSlackApp } from '../appContext';
 import type { App } from '@slack/bolt';
@@ -540,6 +540,7 @@ describe('deleteHandler', () => {
 
   it('prompts for confirmation when delete is requested', async () => {
     const say = makeSay();
+    const viewsOpen = jest.fn().mockResolvedValue(undefined);
     mockedDmClient.getPlayer.mockResolvedValueOnce({
       success: true,
       data: {
@@ -554,25 +555,23 @@ describe('deleteHandler', () => {
       userId: 'U1',
       text: '',
       say,
+      triggerId: 'TR1',
+      client: {
+        views: { open: viewsOpen },
+      },
       teamId: 'T1',
     } as HandlerContext);
 
-    expect(say).toHaveBeenCalledWith(
+    expect(viewsOpen).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: 'Deleting a character is permanent. Confirm below to continue.',
-        blocks: expect.arrayContaining([
-          expect.objectContaining({
-            type: 'actions',
-            elements: expect.arrayContaining([
-              expect.objectContaining({
-                action_id: HOME_ACTIONS.DELETE_CHARACTER,
-                style: 'danger',
-              }),
-            ]),
-          }),
-        ]),
+        trigger_id: 'TR1',
+        view: expect.objectContaining({
+          type: 'modal',
+          callback_id: 'delete_character_view',
+        }),
       }),
     );
+    expect(say).not.toHaveBeenCalled();
   });
 });
 

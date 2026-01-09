@@ -1,6 +1,7 @@
 import { HandlerContext } from './types';
-import { COMMANDS, HOME_ACTIONS } from '../commands';
+import { COMMANDS } from '../commands';
 import { PlayerCommandHandler } from './base';
+import { buildDeleteCharacterView } from '../actions/characterActions';
 
 export const deleteHandlerHelp =
   'Retire your character anytime with "delete". Example: Send "delete" whenever you want to start fresh.';
@@ -12,33 +13,29 @@ export class DeleteHandler extends PlayerCommandHandler {
     });
   }
 
-  protected async perform({ say }: HandlerContext): Promise<void> {
+  protected async perform({
+    say,
+    client,
+    triggerId,
+    userId,
+  }: HandlerContext): Promise<void> {
     const player = this.player;
     if (!player) {
       return;
     }
+    if (client?.views?.open && triggerId && this.teamId) {
+      await client.views.open({
+        trigger_id: triggerId,
+        view: buildDeleteCharacterView({
+          teamId: this.teamId,
+          userId,
+        }),
+      });
+      return;
+    }
+
     await say({
-      text: 'Deleting a character is permanent. Confirm below to continue.',
-      blocks: [
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: '*Delete Character*\nThis will permanently delete your character and all progress.',
-          },
-        },
-        {
-          type: 'actions',
-          elements: [
-            {
-              type: 'button',
-              text: { type: 'plain_text', text: 'Delete Character' },
-              style: 'danger',
-              action_id: HOME_ACTIONS.DELETE_CHARACTER,
-            },
-          ],
-        },
-      ],
+      text: 'Deleting a character is permanent. Open the Home tab and choose Delete Character to continue.',
     });
   }
 }
