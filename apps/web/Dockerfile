@@ -37,7 +37,6 @@ ENV DD_GIT_COMMIT_SHA=$GIT_SHA
 LABEL org.opencontainers.image.revision=$GIT_SHA
 
 ENV NODE_ENV=production
-ENV NEXT_PUBLIC_BASE_PATH=/www
 
 COPY --from=installer /app .
 

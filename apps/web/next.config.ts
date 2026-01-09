@@ -1,8 +1,6 @@
 import type { NextConfig } from 'next';
 
-const basePath =
-  process.env.NEXT_PUBLIC_BASE_PATH ??
-  (process.env.NODE_ENV === 'production' ? '/www' : '');
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const resolvedBasePath = basePath && basePath !== '/' ? basePath : undefined;
 
 const nextConfig: NextConfig = {
