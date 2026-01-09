@@ -16,7 +16,6 @@ export default function DatadogRum() {
     const clientToken = process.env.NEXT_PUBLIC_DD_CLIENT_TOKEN;
 
     if (!applicationId || !clientToken) {
-      // eslint-disable-next-line no-console
       console.warn(
         '[Datadog RUM] Enabled but missing NEXT_PUBLIC_DD_APPLICATION_ID or NEXT_PUBLIC_DD_CLIENT_TOKEN',
       );

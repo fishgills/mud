@@ -1,7 +1,7 @@
 export declare class PrismaClient {
   $disconnect(): Promise<void>;
 }
-export declare const Prisma: {};
+export declare const Prisma: object;
 export declare const PlayerSlot: {
   readonly weapon: 'weapon';
   readonly head: 'head';

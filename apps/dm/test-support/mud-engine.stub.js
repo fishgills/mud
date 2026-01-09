@@ -1,3 +1,4 @@
+/* global exports */
 'use strict';
 Object.defineProperty(exports, '__esModule', { value: true });
 exports.EventBus = exports.MonsterFactory = exports.PlayerFactory = void 0;
