@@ -43,7 +43,9 @@ const getPlayerWithItems = async (teamId: string, userId: string) => {
     equipped: pi.equipped,
     damageRoll: pi.item.damageRoll,
     defense: pi.item.defense,
-    computedBonuses: null, // We'll need to compute this from the item stats
+    // Note: computedBonuses would need to be calculated from item enhancement logic
+    // For now, this is null and basic stats from the item are used
+    computedBonuses: null,
     allowedSlots: pi.item.slot ? [pi.item.slot] : [],
     item: {
       damageRoll: pi.item.damageRoll,

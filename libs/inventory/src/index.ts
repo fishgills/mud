@@ -97,13 +97,13 @@ const buildItemStats = (item: InventoryItem): string[] => {
   }
 
   if (bonuses) {
-    if (bonuses.attackBonus) {
+    if (bonuses.attackBonus != null) {
       stats.push(`Attack ${formatSignedStat(bonuses.attackBonus)}`);
     }
-    if (bonuses.damageBonus) {
+    if (bonuses.damageBonus != null) {
       stats.push(`Damage Bonus ${formatSignedStat(bonuses.damageBonus)}`);
     }
-    if (bonuses.armorBonus) {
+    if (bonuses.armorBonus != null) {
       stats.push(`Armor ${formatSignedStat(bonuses.armorBonus)}`);
     } else {
       const rawDefense =
