@@ -50,6 +50,10 @@ const buildEnv = () => {
     GUILD_SHOP_ROTATION_INTERVAL_MS: num({
       default: 5 * 60 * 1000,
     }),
+    // GitHub integration for feedback
+    GITHUB_TOKEN: str({ default: '' }),
+    GITHUB_REPO_OWNER: str({ default: '' }),
+    GITHUB_REPO_NAME: str({ default: '' }),
   });
 };
 

@@ -18,6 +18,7 @@ import {
 } from './api/controllers';
 import { GuildShopController } from '../modules/guild-shop/guild-shop.controller';
 import { GuildAnnouncementsController } from '../modules/guild-announcements/guild-announcements.controller';
+import { FeedbackController } from '../modules/feedback/feedback.controller';
 import { CoordinationService } from '../shared/coordination.service';
 import { EventBridgeService } from '../shared/event-bridge.service';
 import {
@@ -43,6 +44,9 @@ import { GuildAnnouncementsService } from '../modules/guild-announcements/guild-
 import { GuildAnnouncementsRepository } from '../modules/guild-announcements/guild-announcements.repository';
 import { GuildAnnouncementsPublisher } from '../modules/guild-announcements/guild-announcements.publisher';
 import { GuildAnnouncementsScheduler } from '../modules/guild-announcements/guild-announcements.scheduler';
+import { FeedbackService } from '../modules/feedback/feedback.service';
+import { FeedbackRepository } from '../modules/feedback/feedback.repository';
+import { GitHubService } from '../modules/feedback/github.service';
 
 @Module({
   imports: [AiModule],
@@ -56,6 +60,7 @@ import { GuildAnnouncementsScheduler } from '../modules/guild-announcements/guil
     LootController,
     GuildShopController,
     GuildAnnouncementsController,
+    FeedbackController,
   ],
   providers: [
     AppService,
@@ -88,6 +93,9 @@ import { GuildAnnouncementsScheduler } from '../modules/guild-announcements/guil
     GuildAnnouncementsRepository,
     GuildAnnouncementsPublisher,
     GuildAnnouncementsScheduler,
+    FeedbackService,
+    FeedbackRepository,
+    GitHubService,
   ],
 })
 export class AppModule {}

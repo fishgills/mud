@@ -669,6 +669,53 @@ export async function getLocationEntities(params: {
   return { players, monsters, items };
 }
 
+// Feedback types
+export interface SubmitFeedbackRequest {
+  playerId: number;
+  type: 'bug' | 'suggestion' | 'general';
+  content: string;
+  context?: {
+    locationName?: string;
+    coordinates?: { x: number; y: number };
+  };
+}
+
+export interface SubmitFeedbackResponse extends SuccessResponse {
+  feedbackId?: number;
+  githubIssueUrl?: string;
+  rejectionReason?: string;
+}
+
+export interface FeedbackHistoryItem {
+  id: number;
+  type: string;
+  summary: string | null;
+  status: string;
+  githubIssueUrl: string | null;
+  createdAt: string;
+}
+
+export interface FeedbackHistoryResponse extends SuccessResponse {
+  feedbacks: FeedbackHistoryItem[];
+}
+
+export async function submitFeedback(
+  input: SubmitFeedbackRequest,
+): Promise<SubmitFeedbackResponse> {
+  return dmRequest<SubmitFeedbackResponse>('/feedback', HttpMethod.POST, {
+    body: input,
+  });
+}
+
+export async function getFeedbackHistory(
+  playerId: number,
+): Promise<FeedbackHistoryResponse> {
+  return dmRequest<FeedbackHistoryResponse>(
+    `/feedback/history/${encodeURIComponent(String(playerId))}`,
+    HttpMethod.GET,
+  );
+}
+
 export const dmClient = {
   createPlayer,
   getPlayer,
@@ -696,6 +743,8 @@ export const dmClient = {
   getLocationPlayers,
   getLocationMonsters,
   getLocationItems,
+  submitFeedback,
+  getFeedbackHistory,
 };
 
 type DirectionCode = 'n' | 's' | 'e' | 'w';

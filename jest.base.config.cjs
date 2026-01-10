@@ -8,7 +8,10 @@ module.exports = {
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
-  transformIgnorePatterns: ['node_modules/'],
+  // Transform ESM packages like @octokit
+  transformIgnorePatterns: [
+    'node_modules/(?!(@octokit|before-after-hook|universal-user-agent)/)',
+  ],
   moduleFileExtensions: ['ts', 'js', 'html'],
   moduleNameMapper: {
     // Allow TS sources to use `.js` specifiers (for ESM builds) while letting Jest resolve `.ts` files.

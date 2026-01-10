@@ -68,6 +68,7 @@ model Player {
   playerItems        PlayerItem[]
   slackUser          SlackUser?
   guildReceipts      TransactionReceipt[]
+  feedbacks          Feedback[]
   // Future: discordUsers DiscordUser[], webUsers WebUser[], etc.
 }
 
@@ -366,6 +367,26 @@ model WorldItem {
   updatedAt          DateTime    @updatedAt
 
   @@index([x, y])
+}
+
+model Feedback {
+  id              Int      @id @default(autoincrement())
+  playerId        Int
+  player          Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  type            String // bug, suggestion, general (player-selected)
+  category        String? // LLM-classified: bug, feature, balance, ux, question, praise
+  priority        String? // LLM-assigned: low, medium, high
+  content         String // Original feedback text
+  summary         String? // LLM-generated summary
+  status          String   @default("pending") // pending, submitted, rejected
+  rejectionReason String?
+  githubIssueUrl  String?
+  githubIssueNum  Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([playerId])
+  @@index([createdAt])
 }
 
 model SlackAppInstallation {

@@ -109,3 +109,7 @@ export const GUILD_SHOP_ACTIONS = {
   BUY: 'guild_shop_action_buy',
   SELL: 'guild_shop_action_sell',
 } as const;
+
+export const FEEDBACK_ACTIONS = {
+  OPEN_MODAL: 'feedback_open_modal',
+} as const;

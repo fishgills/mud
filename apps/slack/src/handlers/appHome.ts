@@ -1,6 +1,11 @@
 import { App } from '@slack/bolt';
 import type { KnownBlock } from '@slack/types';
-import { HELP_ACTIONS, HOME_ACTIONS, STAT_ACTIONS } from '../commands';
+import {
+  HELP_ACTIONS,
+  HOME_ACTIONS,
+  STAT_ACTIONS,
+  FEEDBACK_ACTIONS,
+} from '../commands';
 import { getLeaderboard, getPlayer } from '../dm-client';
 
 const buildLeaderboardBlocks = async (
@@ -321,8 +326,12 @@ export const buildAppHomeBlocks = async (
         },
         {
           type: 'button' as const,
-          text: { type: 'plain_text' as const, text: 'Report an Issue' },
-          action_id: HELP_ACTIONS.REPORT_ISSUE,
+          text: {
+            type: 'plain_text' as const,
+            text: '📝 Give Feedback',
+            emoji: true,
+          },
+          action_id: FEEDBACK_ACTIONS.OPEN_MODAL,
         },
       ],
     });
