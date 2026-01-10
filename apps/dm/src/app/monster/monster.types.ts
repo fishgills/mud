@@ -19,7 +19,7 @@ export enum MonsterVariant {
 export interface MonsterVariantConfig {
   variant: MonsterVariant;
   label: string; // Display label (empty for normal)
-  statMultiplier: number; // Multiplier for HP, strength, agility, health
+  statMultiplier: number; // Multiplier for baseHp, strength, agility, health
   xpMultiplier: number; // XP reward multiplier
 }
 

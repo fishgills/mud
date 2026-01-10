@@ -13,6 +13,10 @@ import {
 } from './monster.types';
 import { isWaterBiome } from '../shared/biome.util';
 
+// Stat variance range: generates random variance of ±2 (range = 5, offset = 2)
+const STAT_VARIANCE_RANGE = 5;
+const STAT_VARIANCE_OFFSET = 2;
+
 @Injectable()
 export class MonsterService {
   private prisma = getPrismaClient();
@@ -339,7 +343,8 @@ export class MonsterService {
     const variantConfig = VARIANT_CONFIGS[monsterVariant];
 
     // Add variance to stats (±2)
-    const variance = () => Math.floor(Math.random() * 5) - 2;
+    const variance = () =>
+      Math.floor(Math.random() * STAT_VARIANCE_RANGE) - STAT_VARIANCE_OFFSET;
 
     // Apply variant multiplier to base stats
     const baseStrength = Math.max(
