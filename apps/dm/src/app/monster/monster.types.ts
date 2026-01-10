@@ -20,7 +20,7 @@ export interface MonsterVariantConfig {
   variant: MonsterVariant;
   label: string; // Display label (empty for normal)
   statMultiplier: number; // Multiplier for baseHp, strength, agility, health
-  xpMultiplier: number; // XP reward multiplier
+  xpMultiplier: number; // XP reward multiplier, reserved for future XP calculation logic
 }
 
 export const VARIANT_CONFIGS: Record<MonsterVariant, MonsterVariantConfig> = {
@@ -532,7 +532,7 @@ export const MONSTER_TEMPLATES: MonsterTemplate[] = [
     agility: 6,
     health: 14,
     damageRoll: '2d6',
-    difficulty: 8,
+    difficulty: 9,
   },
   {
     name: 'Wraith',

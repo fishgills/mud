@@ -46,6 +46,10 @@ describe('Monster Templates', () => {
 });
 
 describe('Monster Variant System', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('VARIANT_CONFIGS', () => {
     it('should have configurations for all variants', () => {
       expect(VARIANT_CONFIGS[MonsterVariant.FEEBLE]).toBeDefined();
@@ -75,34 +79,24 @@ describe('Monster Variant System', () => {
     });
 
     it('should return normal variant most often (mocked test)', () => {
-      // Mock Math.random to return middle value
-      const originalRandom = Math.random;
-      Math.random = jest.fn(() => 0.5);
+      jest.spyOn(Math, 'random').mockReturnValue(0.5);
 
       const variant = rollMonsterVariant();
       expect(variant).toBe(MonsterVariant.NORMAL);
-
-      Math.random = originalRandom;
     });
 
     it('should return feeble variant for low rolls', () => {
-      const originalRandom = Math.random;
-      Math.random = jest.fn(() => 0.1); // Less than 0.15
+      jest.spyOn(Math, 'random').mockReturnValue(0.1); // Less than 0.15
 
       const variant = rollMonsterVariant();
       expect(variant).toBe(MonsterVariant.FEEBLE);
-
-      Math.random = originalRandom;
     });
 
     it('should return fierce variant for high rolls', () => {
-      const originalRandom = Math.random;
-      Math.random = jest.fn(() => 0.9); // Greater than 0.85
+      jest.spyOn(Math, 'random').mockReturnValue(0.9); // Greater than 0.85
 
       const variant = rollMonsterVariant();
       expect(variant).toBe(MonsterVariant.FIERCE);
-
-      Math.random = originalRandom;
     });
   });
 

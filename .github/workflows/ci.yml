@@ -98,4 +98,5 @@ jobs:
       - name: Run Playwright tests (web)
         env:
           CI: true
+          NEXT_PUBLIC_BASE_PATH: /www
         run: yarn --cwd apps/web test:e2e
