@@ -87,6 +87,12 @@ jobs:
           node-version: 20
           cache: 'yarn'
       - run: yarn install --frozen-lockfile
+      - name: Prisma generate (workspace)
+        run: yarn --cwd libs/database generate
+      - name: Build libraries
+        env:
+          CI: true
+        run: yarn turbo run build --filter=@mud/database --filter=@mud/character-sheet
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
       - name: Run Playwright tests (web)
