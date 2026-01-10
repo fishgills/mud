@@ -48,6 +48,8 @@ export class EncounterService implements OnModuleInit {
           createdAt: m.createdAt,
           updatedAt: m.updatedAt,
           type: m.type,
+          variant: m.variant,
+          tier: m.tier,
           damageRoll: m.damageRoll,
           lastMove: m.lastMove,
           spawnedAt: m.spawnedAt,
