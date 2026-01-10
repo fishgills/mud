@@ -385,3 +385,147 @@ body {
 .inventory-value {
   color: var(--ink-soft);
 }
+
+/* Guild Store */
+.shop-content {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.shop-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.shop-section-title {
+  font-size: 18px;
+  letter-spacing: 0.04em;
+}
+
+.shop-notice {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  border: 1px solid transparent;
+}
+
+.shop-notice-success {
+  background: rgba(76, 119, 74, 0.18);
+  border-color: rgba(76, 119, 74, 0.4);
+  color: #c7f0c1;
+}
+
+.shop-notice-error {
+  background: rgba(138, 58, 58, 0.2);
+  border-color: rgba(138, 58, 58, 0.5);
+  color: #ffd2d2;
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.shop-sell-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.shop-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(96, 70, 48, 0.35);
+  background: rgba(20, 16, 16, 0.5);
+}
+
+.shop-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.shop-card-name {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.shop-quality {
+  font-size: 14px;
+}
+
+.shop-quantity {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.shop-price {
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.shop-description {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.shop-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.shop-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.shop-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(123, 91, 58, 0.2);
+  color: var(--ink-soft);
+}
+
+.shop-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.shop-stock {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.shop-button {
+  border: 1px solid rgba(123, 91, 58, 0.35);
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--ink);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.shop-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

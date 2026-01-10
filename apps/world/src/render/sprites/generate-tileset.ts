@@ -170,7 +170,7 @@ function drawTile(
       ctx.fillRect(offsetX + 10, 9, 3, 1);
       break;
 
-    case 'grass':
+    case 'grass': {
       // Grass blade pattern
       ctx.fillStyle = darken(color, 0.15);
       // Scattered grass blades
@@ -193,6 +193,7 @@ function drawTile(
         ctx.fillRect(offsetX + x, y - 2, 1, 1);
       }
       break;
+    }
 
     case 'trees':
       // Tree cluster pattern
@@ -376,7 +377,7 @@ function drawTile(
       ctx.fillRect(offsetX + 5, 3, 6, 1);
       break;
 
-    case 'alpine':
+    case 'alpine': {
       // High meadow with flowers
       // Grass base is already filled
       // Flower spots
@@ -392,6 +393,7 @@ function drawTile(
       ctx.fillRect(offsetX + 2, 5, 1, 3);
       ctx.fillRect(offsetX + 10, 8, 1, 3);
       break;
+    }
 
     case 'volcanic':
       // Volcanic terrain with lava
