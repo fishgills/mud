@@ -26,20 +26,27 @@ body {
 
 .page-shell {
   min-height: 100vh;
-  padding: 64px 24px;
+  padding: 24px;
 }
 
 .page-layout {
   margin: 0 auto;
-  max-width: 960px;
-  display: grid;
-  gap: 24px;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
 }
 
 .side-nav {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  flex-direction: row;
+  align-items: center;
+  gap: 24px;
+  border: 1px solid rgba(96, 70, 48, 0.4);
+  border-radius: 16px;
+  padding: 16px 24px;
+  background: rgba(15, 12, 12, 0.75);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
 }
 
 .side-nav-title {
@@ -49,6 +56,7 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-shadow: 0 0 16px rgba(208, 144, 63, 0.2);
+  flex-shrink: 0;
 }
 
 .side-nav-list {
@@ -56,8 +64,10 @@ body {
   padding: 0;
   margin: 0;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  flex: 1;
 }
 
 .nav-link {
@@ -103,26 +113,16 @@ body {
   width: 100%;
 }
 
-@media (min-width: 900px) {
-  .page-layout {
-    grid-template-columns: 180px minmax(0, 1fr);
-    align-items: start;
+@media (max-width: 768px) {
+  .side-nav {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
   }
 
-  .side-nav {
-    position: sticky;
-    top: 40px;
-    align-self: start;
-  }
-}
-
-@media (max-width: 899px) {
-  .side-nav {
-    border: 1px solid rgba(96, 70, 48, 0.4);
-    border-radius: 16px;
-    padding: 16px;
-    background: rgba(15, 12, 12, 0.75);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  .side-nav-list {
+    flex-direction: column;
+    gap: 10px;
   }
 }
 
@@ -258,4 +258,145 @@ body {
 .character-note {
   font-size: 14px;
   color: var(--ink-soft);
+}
+
+.inventory-view {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.inventory-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+}
+
+.inventory-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inventory-stat-label {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.inventory-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.inventory-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.inventory-section-title {
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.inventory-item-card {
+  border: 1px solid rgba(96, 70, 48, 0.35);
+  border-radius: 12px;
+  padding: 16px;
+  background: rgba(20, 16, 16, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inventory-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.inventory-slot-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.inventory-item-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.quality-badge {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.quality-label {
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.item-name {
+  font-size: 15px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.inventory-item-stats {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.inventory-item-stats li {
+  padding-left: 16px;
+  position: relative;
+}
+
+.inventory-item-stats li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+}
+
+.inventory-item-empty {
+  font-size: 14px;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.inventory-item-slots {
+  font-size: 12px;
+  color: var(--ink-soft);
+  padding-top: 4px;
+  border-top: 1px solid rgba(96, 70, 48, 0.25);
+}
+
+.inventory-empty-message {
+  font-size: 14px;
+  color: var(--ink-soft);
+  font-style: italic;
+  text-align: center;
+  padding: 32px 0;
 }
