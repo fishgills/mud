@@ -201,6 +201,13 @@ variable "slack_state_secret" {
   sensitive   = true
 }
 
+variable "github_token" {
+  description = "GitHub personal access token for creating feedback issues."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
 variable "cloud_sql_studio_users" {
   description = "List of user emails to grant Cloud SQL Studio access."
   type        = list(string)

@@ -7,6 +7,7 @@ locals {
     slack_client_id      = "slack-client-id"
     slack_client_secret  = "slack-client-secret"
     slack_state_secret   = "slack-state-secret"
+    github_token         = "github-token"
   }
 
   provided_secret_values = {
@@ -17,6 +18,7 @@ locals {
     slack_client_id      = var.slack_client_id
     slack_client_secret  = var.slack_client_secret
     slack_state_secret   = var.slack_state_secret
+    github_token         = var.github_token
   }
 
   provided_secrets_with_values = nonsensitive({

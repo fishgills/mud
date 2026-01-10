@@ -30,6 +30,11 @@ locals {
   github_actions_service_account_id = "github-actions"
   github_actions_kubernetes_user    = local.github_actions_enabled ? "system:serviceaccount:${var.project_id}.svc.id.goog[${local.github_actions_service_account_id}]" : null
 
+  # Parse github_repository (OWNER/REPO) into owner and repo name
+  github_repo_parts = var.github_repository != null ? split("/", var.github_repository) : []
+  github_repo_owner = length(local.github_repo_parts) >= 2 ? local.github_repo_parts[0] : ""
+  github_repo_name  = length(local.github_repo_parts) >= 2 ? local.github_repo_parts[1] : ""
+
   domain_mappings = {
     slack = "slack.${var.domain}"
     world = "world.${var.domain}"
@@ -68,6 +73,7 @@ locals {
     slack_client_id      = "slack-client-id"
     slack_client_secret  = "slack-client-secret"
     slack_state_secret   = "slack-state-secret"
+    github_token         = "github-token"
   }
 
   provided_secret_values = {
@@ -78,6 +84,7 @@ locals {
     slack_client_id      = var.slack_client_id
     slack_client_secret  = var.slack_client_secret
     slack_state_secret   = var.slack_state_secret
+    github_token         = var.github_token
   }
 
   provided_secrets_with_values = nonsensitive({
@@ -413,6 +420,36 @@ resource "kubernetes_deployment" "dm" {
           env {
             name  = "WORLD_SERVICE_URL"
             value = "https://${local.domain_mappings.world}/world"
+          }
+
+          # GitHub integration for feedback issues
+          dynamic "env" {
+            for_each = var.github_token != null ? [1] : []
+            content {
+              name = "GITHUB_TOKEN"
+              value_from {
+                secret_key_ref {
+                  name = kubernetes_secret.provided["github_token"].metadata[0].name
+                  key  = "latest"
+                }
+              }
+            }
+          }
+
+          dynamic "env" {
+            for_each = local.github_repo_owner != "" ? [1] : []
+            content {
+              name  = "GITHUB_REPO_OWNER"
+              value = local.github_repo_owner
+            }
+          }
+
+          dynamic "env" {
+            for_each = local.github_repo_name != "" ? [1] : []
+            content {
+              name  = "GITHUB_REPO_NAME"
+              value = local.github_repo_name
+            }
           }
 
           liveness_probe {

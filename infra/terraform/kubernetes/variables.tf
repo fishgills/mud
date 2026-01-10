@@ -128,6 +128,13 @@ variable "slack_state_secret" {
   sensitive   = true
 }
 
+variable "github_token" {
+  description = "GitHub personal access token for creating feedback issues."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
 variable "image_tag" {
   description = "Tag to use for container images."
   type        = string
