@@ -1,6 +1,8 @@
 import { PlayerCommandHandler } from './base';
 import type { HandlerContext } from './types';
 import type { FeedbackHistoryItem } from '../dm-client';
+import type { KnownBlock, Button } from '@slack/types';
+import { FEEDBACK_ACTIONS } from '../commands';
 
 const COMMANDS = {
   FEEDBACK: 'feedback',
@@ -30,33 +32,63 @@ export class FeedbackHistoryHandler extends PlayerCommandHandler {
       return;
     }
 
-    const lines = feedbacks.map((f, index) =>
-      this.formatFeedbackItem(f, index + 1),
-    );
-    const message = [
-      '📋 *Your Feedback History*',
-      '',
-      ...lines,
-      '',
-      '_Showing last 5 submissions_',
-    ].join('\n');
-
-    await ctx.say({ text: message });
-  }
-
-  private formatFeedbackItem(item: FeedbackHistoryItem, index: number): string {
-    const typeEmoji = this.getTypeEmoji(item.type);
-    const statusLine = this.getStatusLine(item);
-    const date = this.formatDate(item.createdAt);
-    const summary = item.summary ?? item.type;
-
-    const parts = [
-      `*${index}.* ${typeEmoji} "${summary}"`,
-      `   ${statusLine}`,
-      `   Submitted: ${date}`,
+    // Build blocks with delete buttons for deletable feedback
+    const blocks: KnownBlock[] = [
+      {
+        type: 'header',
+        text: {
+          type: 'plain_text',
+          text: '📋 Your Feedback History',
+          emoji: true,
+        },
+      },
     ];
 
-    return parts.join('\n');
+    for (const [index, f] of feedbacks.entries()) {
+      const typeEmoji = this.getTypeEmoji(f.type);
+      const statusLine = this.getStatusLine(f);
+      const date = this.formatDate(f.createdAt);
+      const summary = f.summary ?? f.type;
+
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*${index + 1}.* ${typeEmoji} "${summary}"\n${statusLine}\nSubmitted: ${date}`,
+        },
+        ...(this.canDelete(f)
+          ? {
+              accessory: {
+                type: 'button',
+                text: { type: 'plain_text', text: '🗑️ Delete', emoji: true },
+                style: 'danger',
+                action_id: `${FEEDBACK_ACTIONS.DELETE}:${f.id}`,
+                confirm: {
+                  title: { type: 'plain_text', text: 'Delete Feedback?' },
+                  text: {
+                    type: 'mrkdwn',
+                    text: 'Are you sure you want to delete this feedback? This cannot be undone.',
+                  },
+                  confirm: { type: 'plain_text', text: 'Delete' },
+                  deny: { type: 'plain_text', text: 'Cancel' },
+                },
+              } as Button,
+            }
+          : {}),
+      });
+    }
+
+    blocks.push({
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: '_Showing last 5 submissions_' }],
+    });
+
+    await ctx.say({ blocks, text: 'Your Feedback History' });
+  }
+
+  private canDelete(item: FeedbackHistoryItem): boolean {
+    // Can only delete pending or rejected feedback (not submitted to GitHub)
+    return item.status !== 'submitted' || !item.githubIssueUrl;
   }
 
   private getTypeEmoji(type: string): string {
@@ -73,9 +105,8 @@ export class FeedbackHistoryHandler extends PlayerCommandHandler {
   private getStatusLine(item: FeedbackHistoryItem): string {
     const statusIcon = this.getStatusIcon(item.status);
     const statusLabel = this.getStatusLabel(item.status);
-    const reason = item.status === 'rejected' ? ` (${item.type})` : '';
 
-    let line = `Status: ${statusIcon} ${statusLabel}${reason}`;
+    let line = `Status: ${statusIcon} ${statusLabel}`;
 
     if (item.githubIssueUrl && item.status === 'submitted') {
       line += ` • <${item.githubIssueUrl}|View on GitHub>`;

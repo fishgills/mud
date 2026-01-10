@@ -716,6 +716,22 @@ export async function getFeedbackHistory(
   );
 }
 
+export interface DeleteFeedbackResponse {
+  success: boolean;
+  message?: string;
+}
+
+export async function deleteFeedback(
+  feedbackId: number,
+  playerId: number,
+): Promise<DeleteFeedbackResponse> {
+  return dmRequest<DeleteFeedbackResponse>(
+    `/feedback/${encodeURIComponent(String(feedbackId))}`,
+    HttpMethod.DELETE,
+    { body: { playerId } },
+  );
+}
+
 export const dmClient = {
   createPlayer,
   getPlayer,
@@ -745,6 +761,7 @@ export const dmClient = {
   getLocationItems,
   submitFeedback,
   getFeedbackHistory,
+  deleteFeedback,
 };
 
 type DirectionCode = 'n' | 's' | 'e' | 'w';

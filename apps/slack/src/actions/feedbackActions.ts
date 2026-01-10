@@ -109,24 +109,38 @@ const buildFeedbackModal = (metadata: FeedbackModalMetadata): ModalView => {
 };
 
 export const registerFeedbackActions = (app: App) => {
+  app.logger?.debug?.(
+    '[FEEDBACK-ACTIONS] Registering feedback action handlers',
+  );
+
   // Open feedback modal
   app.action<BlockAction>(
     FEEDBACK_ACTIONS.OPEN_MODAL,
-    async ({ ack, body, client, context }) => {
+    async ({ ack, body, client, context, logger }) => {
       await ack();
+      logger?.debug?.('[FEEDBACK-ACTIONS] Open modal action triggered');
 
       const userId = body.user?.id;
       const teamId = body.team?.id ?? (context as { teamId?: string })?.teamId;
       const triggerId = body.trigger_id;
 
       if (!userId || !teamId || !triggerId) {
+        logger?.warn?.(
+          '[FEEDBACK-ACTIONS] Missing required fields for modal open',
+        );
         return;
       }
 
       try {
         // Get player info for metadata
+        logger?.debug?.(
+          `[FEEDBACK-ACTIONS] Fetching player for userId=${userId}`,
+        );
         const playerResult = await dmClient.getPlayer({ teamId, userId });
         const playerId = playerResult.data?.id;
+        logger?.debug?.(
+          `[FEEDBACK-ACTIONS] Player lookup result: playerId=${playerId ?? 'none'}`,
+        );
 
         await client.views.open({
           trigger_id: triggerId,
@@ -136,7 +150,13 @@ export const registerFeedbackActions = (app: App) => {
             playerId,
           }),
         });
+        logger?.debug?.(
+          '[FEEDBACK-ACTIONS] Feedback modal opened successfully',
+        );
       } catch {
+        logger?.warn?.(
+          '[FEEDBACK-ACTIONS] Failed to get player, opening modal without playerId',
+        );
         // Still try to open modal without player ID
         await client.views.open({
           trigger_id: triggerId,
@@ -149,14 +169,89 @@ export const registerFeedbackActions = (app: App) => {
     },
   );
 
+  // Handle feedback delete action
+  app.action<BlockAction>(
+    new RegExp(`^${FEEDBACK_ACTIONS.DELETE}:\\d+$`),
+    async ({ ack, body, client, context, action, logger }) => {
+      await ack();
+
+      const userId = body.user?.id;
+      const teamId = body.team?.id ?? (context as { teamId?: string })?.teamId;
+
+      if (!userId || !teamId) {
+        logger?.warn?.(
+          '[FEEDBACK-ACTIONS] Missing userId or teamId for delete',
+        );
+        return;
+      }
+
+      // Extract feedback ID from action_id
+      const actionId = 'action_id' in action ? action.action_id : '';
+      const feedbackIdMatch = actionId.match(/:(\d+)$/);
+      if (!feedbackIdMatch) {
+        logger?.warn?.(
+          `[FEEDBACK-ACTIONS] Could not extract feedbackId from action: ${actionId}`,
+        );
+        return;
+      }
+      const feedbackId = parseInt(feedbackIdMatch[1], 10);
+      logger?.debug?.(
+        `[FEEDBACK-ACTIONS] Delete action for feedbackId=${feedbackId}`,
+      );
+
+      try {
+        // Get player ID
+        const playerResult = await dmClient.getPlayer({ teamId, userId });
+        if (!playerResult.success || !playerResult.data) {
+          logger?.warn?.(
+            '[FEEDBACK-ACTIONS] Player not found for delete action',
+          );
+          return;
+        }
+        const playerId = playerResult.data.id;
+        logger?.debug?.(
+          `[FEEDBACK-ACTIONS] Deleting feedback ${feedbackId} for player ${playerId}`,
+        );
+
+        // Delete the feedback
+        const result = await dmClient.deleteFeedback(feedbackId, playerId);
+        logger?.debug?.(
+          `[FEEDBACK-ACTIONS] Delete result: success=${result.success}`,
+        );
+
+        // Send DM with result
+        await sendFeedbackDM(client, userId, {
+          success: result.success,
+          message: result.success
+            ? '🗑️ Feedback deleted successfully.'
+            : `❌ ${result.message ?? 'Unable to delete feedback.'}`,
+        });
+      } catch (err) {
+        logger?.error?.('[FEEDBACK-ACTIONS] Error deleting feedback:', err);
+        const errorMessage = getUserFriendlyErrorMessage(
+          err,
+          'Unable to delete feedback',
+        );
+        await sendFeedbackDM(client, userId, {
+          success: false,
+          message: `❌ ${errorMessage}`,
+        });
+      }
+    },
+  );
+
   // Handle feedback modal submission
   app.view<ViewSubmitAction>(
     FEEDBACK_MODAL_VIEW_ID,
-    async ({ ack, view, client }) => {
+    async ({ ack, view, client, logger }) => {
+      logger?.debug?.('[FEEDBACK-ACTIONS] Modal submission received');
       const metadata: FeedbackModalMetadata = JSON.parse(
         view.private_metadata || '{}',
       );
       const { teamId, userId, playerId } = metadata;
+      logger?.debug?.(
+        `[FEEDBACK-ACTIONS] Metadata: teamId=${teamId}, userId=${userId}, playerId=${playerId ?? 'none'}`,
+      );
 
       // Extract values from modal
       const typeValue =
@@ -165,9 +260,15 @@ export const registerFeedbackActions = (app: App) => {
       const contentValue =
         view.state.values?.feedback_content_block?.feedback_content?.value ??
         '';
+      logger?.debug?.(
+        `[FEEDBACK-ACTIONS] Form values: type=${typeValue}, contentLength=${contentValue.length}`,
+      );
 
       // Validate content
       if (contentValue.length < 10) {
+        logger?.debug?.(
+          '[FEEDBACK-ACTIONS] Content too short, returning error',
+        );
         await ack({
           response_action: 'errors',
           errors: {
@@ -180,13 +281,22 @@ export const registerFeedbackActions = (app: App) => {
 
       // Close modal immediately with acknowledgement
       await ack();
+      logger?.debug?.(
+        '[FEEDBACK-ACTIONS] Modal acknowledged, submitting to DM service',
+      );
 
       // Submit feedback to DM service
       try {
         if (!playerId) {
           // Need player ID - fetch it
+          logger?.debug?.(
+            '[FEEDBACK-ACTIONS] No playerId in metadata, fetching player',
+          );
           const playerResult = await dmClient.getPlayer({ teamId, userId });
           if (!playerResult.success || !playerResult.data) {
+            logger?.warn?.(
+              '[FEEDBACK-ACTIONS] Player not found for feedback submission',
+            );
             await sendFeedbackDM(client, userId, {
               success: false,
               message:
@@ -195,13 +305,20 @@ export const registerFeedbackActions = (app: App) => {
             return;
           }
           metadata.playerId = playerResult.data.id;
+          logger?.debug?.(
+            `[FEEDBACK-ACTIONS] Fetched playerId=${metadata.playerId}`,
+          );
         }
 
+        logger?.debug?.('[FEEDBACK-ACTIONS] Calling dmClient.submitFeedback');
         const result = await dmClient.submitFeedback({
           playerId: metadata.playerId!,
           type: typeValue as 'bug' | 'suggestion' | 'general',
           content: contentValue,
         });
+        logger?.debug?.(
+          `[FEEDBACK-ACTIONS] Submit result: success=${result.success}, feedbackId=${result.feedbackId ?? 'none'}`,
+        );
 
         await sendFeedbackDM(client, userId, {
           success: result.success,
@@ -213,6 +330,7 @@ export const registerFeedbackActions = (app: App) => {
           githubUrl: result.githubIssueUrl,
         });
       } catch (err) {
+        logger?.error?.('[FEEDBACK-ACTIONS] Error submitting feedback:', err);
         const errorMessage = getUserFriendlyErrorMessage(
           err,
           'Unable to submit feedback',

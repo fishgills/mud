@@ -112,4 +112,5 @@ export const GUILD_SHOP_ACTIONS = {
 
 export const FEEDBACK_ACTIONS = {
   OPEN_MODAL: 'feedback_open_modal',
+  DELETE: 'feedback_delete',
 } as const;

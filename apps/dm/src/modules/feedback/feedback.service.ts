@@ -30,11 +30,20 @@ export class FeedbackService {
     dto: SubmitFeedbackDto,
   ): Promise<SubmitFeedbackResponse> {
     this.logger.log(`Processing feedback from player ${dto.playerId}`);
+    this.logger.debug(
+      `[FEEDBACK-FLOW] Starting feedback submission: playerId=${dto.playerId}, type=${dto.type}`,
+    );
 
     // Check rate limit
+    this.logger.debug(
+      `[FEEDBACK-FLOW] Checking rate limit for player ${dto.playerId}`,
+    );
     const recentCount = await this.repository.countRecentByPlayerId(
       dto.playerId,
       RATE_LIMIT_MS,
+    );
+    this.logger.debug(
+      `[FEEDBACK-FLOW] Rate limit check: recentCount=${recentCount}`,
     );
     if (recentCount > 0) {
       this.logger.warn(`Player ${dto.playerId} is rate limited`);
@@ -61,12 +70,20 @@ export class FeedbackService {
     }
 
     // Validate with LLM
+    this.logger.debug(`[FEEDBACK-FLOW] Starting LLM validation`);
+    const validationStart = Date.now();
     const validation = await this.validateFeedback(dto.content, dto.type);
+    this.logger.debug(
+      `[FEEDBACK-FLOW] LLM validation completed in ${Date.now() - validationStart}ms`,
+    );
 
     if (!validation) {
       // LLM validation failed, save as pending and create issue anyway
       this.logger.warn(
         'LLM validation failed, proceeding without classification',
+      );
+      this.logger.debug(
+        `[FEEDBACK-FLOW] Using fallback path due to LLM failure`,
       );
       return this.createFeedbackWithFallback(dto);
     }
@@ -104,8 +121,13 @@ export class FeedbackService {
     });
 
     // Create GitHub issue
+    this.logger.debug(
+      `[FEEDBACK-FLOW] Created feedback record: id=${feedback.id}, category=${validation.category}, priority=${validation.priority}`,
+    );
     let githubResult: { url: string; number: number } | null = null;
     if (this.githubService.isConfigured()) {
+      this.logger.debug(`[FEEDBACK-FLOW] Creating GitHub issue`);
+      const githubStart = Date.now();
       githubResult = await this.githubService.createFeedbackIssue({
         summary: validation.summary,
         content: dto.content,
@@ -114,18 +136,29 @@ export class FeedbackService {
         tags: validation.tags,
         type: dto.type,
       });
+      this.logger.debug(
+        `[FEEDBACK-FLOW] GitHub issue creation completed in ${Date.now() - githubStart}ms`,
+      );
 
       if (githubResult) {
+        this.logger.debug(
+          `[FEEDBACK-FLOW] Updating feedback status with GitHub issue #${githubResult.number}`,
+        );
         await this.repository.updateStatus(feedback.id, 'submitted', {
           githubIssueUrl: githubResult.url,
           githubIssueNum: githubResult.number,
         });
       }
+    } else {
+      this.logger.debug(
+        `[FEEDBACK-FLOW] GitHub not configured, skipping issue creation`,
+      );
     }
 
     this.logger.log(
       `Feedback submitted successfully: ${feedback.id}${githubResult ? ` (GitHub #${githubResult.number})` : ''}`,
     );
+    this.logger.debug(`[FEEDBACK-FLOW] Feedback submission complete`);
 
     return {
       success: true,
@@ -135,7 +168,13 @@ export class FeedbackService {
   }
 
   async getFeedbackHistory(playerId: number): Promise<FeedbackHistoryResponse> {
+    this.logger.debug(
+      `[FEEDBACK-FLOW] Fetching feedback history for player ${playerId}`,
+    );
     const feedbacks = await this.repository.findByPlayerId(playerId, 5);
+    this.logger.debug(
+      `[FEEDBACK-FLOW] Found ${feedbacks.length} feedback records for player ${playerId}`,
+    );
 
     return {
       feedbacks: feedbacks.map((f) => ({
@@ -147,6 +186,52 @@ export class FeedbackService {
         createdAt: f.createdAt,
       })),
     };
+  }
+
+  async deleteFeedback(
+    feedbackId: number,
+    playerId: number,
+  ): Promise<{ success: boolean; message?: string }> {
+    this.logger.debug(
+      `[FEEDBACK-FLOW] Delete request: feedbackId=${feedbackId}, playerId=${playerId}`,
+    );
+
+    // Verify ownership
+    const feedback = await this.repository.findById(feedbackId);
+    if (!feedback) {
+      this.logger.warn(`Feedback ${feedbackId} not found`);
+      return { success: false, message: 'Feedback not found' };
+    }
+
+    if (feedback.playerId !== playerId) {
+      this.logger.warn(
+        `Player ${playerId} attempted to delete feedback ${feedbackId} owned by player ${feedback.playerId}`,
+      );
+      return {
+        success: false,
+        message: 'You can only delete your own feedback',
+      };
+    }
+
+    // Only allow deletion of pending feedback (not yet submitted to GitHub)
+    if (feedback.status === 'submitted' && feedback.githubIssueUrl) {
+      this.logger.debug(
+        `[FEEDBACK-FLOW] Cannot delete submitted feedback ${feedbackId} (has GitHub issue)`,
+      );
+      return {
+        success: false,
+        message:
+          'Cannot delete feedback that has already been submitted to GitHub',
+      };
+    }
+
+    await this.repository.delete(feedbackId);
+    this.logger.log(`Deleted feedback ${feedbackId} for player ${playerId}`);
+    this.logger.debug(
+      `[FEEDBACK-FLOW] Feedback ${feedbackId} deleted successfully`,
+    );
+
+    return { success: true, message: 'Feedback deleted successfully' };
   }
 
   private async validateFeedback(

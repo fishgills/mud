@@ -54,14 +54,22 @@ export class GitHubService {
       return null;
     }
 
+    this.logger.debug(
+      `[GITHUB] Creating issue: summary="${params.summary}", category=${params.category}, priority=${params.priority}`,
+    );
+
     try {
       // Build labels
+      this.logger.debug(`[GITHUB] Building labels for issue`);
       const labels = await this.buildLabels(params);
+      this.logger.debug(`[GITHUB] Labels to apply: ${labels.join(', ')}`);
 
       // Build issue body
       const body = this.buildIssueBody(params);
+      this.logger.debug(`[GITHUB] Issue body built (${body.length} chars)`);
 
       // Create the issue
+      this.logger.debug(`[GITHUB] Calling GitHub API to create issue`);
       const response = await this.octokit.issues.create({
         owner: this.owner,
         repo: this.repo,
@@ -73,6 +81,9 @@ export class GitHubService {
       this.logger.log(
         `Created GitHub issue #${response.data.number}: ${params.summary}`,
       );
+      this.logger.debug(
+        `[GITHUB] Issue created successfully: url=${response.data.html_url}`,
+      );
 
       return {
         url: response.data.html_url,
@@ -81,6 +92,7 @@ export class GitHubService {
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(`Failed to create GitHub issue: ${err.message}`);
+      this.logger.debug(`[GITHUB] Full error:`, err);
       return null;
     }
   }
@@ -122,18 +134,24 @@ export class GitHubService {
     if (!this.octokit) return;
 
     for (const label of labels) {
-      if (this.labelCache.has(label)) continue;
+      if (this.labelCache.has(label)) {
+        this.logger.debug(`[GITHUB] Label "${label}" in cache, skipping check`);
+        continue;
+      }
 
       try {
+        this.logger.debug(`[GITHUB] Checking if label "${label}" exists`);
         await this.octokit.issues.getLabel({
           owner: this.owner,
           repo: this.repo,
           name: label,
         });
         this.labelCache.add(label);
+        this.logger.debug(`[GITHUB] Label "${label}" exists, added to cache`);
       } catch {
         // Label doesn't exist, create it
         try {
+          this.logger.debug(`[GITHUB] Label "${label}" not found, creating`);
           const color = this.getLabelColor(label);
           await this.octokit.issues.createLabel({
             owner: this.owner,
@@ -147,6 +165,9 @@ export class GitHubService {
         } catch {
           // Might already exist due to race condition, that's fine
           this.labelCache.add(label);
+          this.logger.debug(
+            `[GITHUB] Label "${label}" creation failed (likely exists), added to cache`,
+          );
         }
       }
     }
