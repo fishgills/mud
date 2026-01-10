@@ -106,7 +106,7 @@ locals {
     key => {
       name = config.name
       data = {
-        latest = base64encode(config.value)
+        latest = config.value
       }
     }
   }
