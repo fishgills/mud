@@ -140,24 +140,26 @@ model Biome {
 }
 
 model Monster {
-  id        Int      @id @default(autoincrement())
-  name      String
-  type      String   @default("generic") // monster type/species
-  hp        Int
-  maxHp     Int      @default(50)
-  strength  Int      @default(8)
-  agility   Int      @default(8)
-  health    Int      @default(8)
-  damageRoll String  @default("1d6")
-  x         Int
-  y         Int
-  isAlive   Boolean  @default(true)
-  lastMove  DateTime @default(now())
-  spawnedAt DateTime @default(now())
-  biomeId   Int
-  biome     Biome    @relation(fields: [biomeId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         Int      @id @default(autoincrement())
+  name       String
+  type       String   @default("generic") // monster type/species
+  variant    String   @default("normal") // feeble, normal, or mighty
+  tier       Int      @default(1) // 1-5 difficulty tier
+  hp         Int
+  maxHp      Int      @default(50)
+  strength   Int      @default(8)
+  agility    Int      @default(8)
+  health     Int      @default(8)
+  damageRoll String   @default("1d6")
+  x          Int
+  y          Int
+  isAlive    Boolean  @default(true)
+  lastMove   DateTime @default(now())
+  spawnedAt  DateTime @default(now())
+  biomeId    Int
+  biome      Biome    @relation(fields: [biomeId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
   // Add more fields as needed (type, loot, etc.)
 
   @@index([isAlive, x, y])
@@ -297,7 +299,7 @@ model Item {
   type            ItemType // weapon, armor
   description     String
   value           Int               @default(0) // Gold value
-  damageRoll      String?           // Damage dice (e.g. "1d8")
+  damageRoll      String? // Damage dice (e.g. "1d8")
   defense         Int?              @default(0) // Defense bonus for armor
   slot            PlayerSlot? // Optional equip slot for equippable items
   rank            Int?
@@ -390,7 +392,6 @@ model Feedback {
 }
 
 model SlackAppInstallation {
-
   id                              Int       @id @default(autoincrement())
   clientId                        String?   @map("client_id")
   appId                           String?   @map("app_id")

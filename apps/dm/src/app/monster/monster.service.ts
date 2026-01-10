@@ -6,6 +6,11 @@ import {
   getMonsterTemplate,
   MONSTER_TEMPLATES,
   pickTypeForBiome,
+  rollVariant,
+  formatMonsterName,
+  VARIANT_CONFIG,
+  MonsterVariant,
+  MonsterTemplate,
 } from './monster.types';
 import { isWaterBiome } from '../shared/biome.util';
 
@@ -201,6 +206,8 @@ export class MonsterService {
         id: entity.id,
         name: entity.name,
         type: entity.type,
+        variant: (entity as Monster).variant ?? 'normal',
+        tier: (entity as Monster).tier ?? 1,
         hp: entity.hp,
         maxHp: entity.maxHp,
         strength: entity.strength,
@@ -327,20 +334,44 @@ export class MonsterService {
     x: number,
     y: number,
     biomeId: number,
-    monsterTemplate: (typeof MONSTER_TEMPLATES)[0],
+    monsterTemplate: MonsterTemplate,
   ): Promise<Monster> {
-    // Add variance to stats (±2)
+    // Roll for variant (15% feeble, 70% normal, 15% mighty)
+    const variant: MonsterVariant = rollVariant();
+    const variantConfig = VARIANT_CONFIG[variant];
+
+    // Add variance to stats (±2) plus variant modifier
     const variance = () => Math.floor(Math.random() * 5) - 2;
 
-    const strength = Math.max(1, monsterTemplate.strength + variance());
-    const agility = Math.max(1, monsterTemplate.agility + variance());
-    const health = Math.max(1, monsterTemplate.health + variance());
-    const maxHp = monsterTemplate.baseHp + health * 2;
+    const strength = Math.max(
+      1,
+      monsterTemplate.strength + variance() + variantConfig.statModifier,
+    );
+    const agility = Math.max(
+      1,
+      monsterTemplate.agility + variance() + variantConfig.statModifier,
+    );
+    const health = Math.max(
+      1,
+      monsterTemplate.health + variance() + variantConfig.statModifier,
+    );
+
+    // Apply HP multiplier for variant
+    const baseMaxHp = monsterTemplate.baseHp + health * 2;
+    const maxHp = Math.max(
+      1,
+      Math.floor(baseMaxHp * variantConfig.hpMultiplier),
+    );
+
+    // Format name with variant prefix if not normal
+    const displayName = formatMonsterName(monsterTemplate.name, variant);
 
     const monster = await this.prisma.monster.create({
       data: {
-        name: monsterTemplate.name,
+        name: displayName,
         type: monsterTemplate.type,
+        variant: variant,
+        tier: monsterTemplate.tier,
         hp: maxHp,
         maxHp,
         strength,
