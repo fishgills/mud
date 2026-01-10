@@ -1,3 +1,4 @@
+export * from './biomes';
 export * from './xp';
 export * from './quality';
 export * from './item-types';

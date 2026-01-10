@@ -1,17 +1,5 @@
-export function isWaterBiome(biomeName?: string | null): boolean {
-  if (!biomeName) {
-    return false;
-  }
-
-  const normalized = biomeName.trim().toLowerCase();
-  if (!normalized) {
-    return false;
-  }
-
-  return (
-    normalized.includes('ocean') ||
-    normalized.includes('lake') ||
-    normalized.includes('river') ||
-    normalized.includes('water')
-  );
-}
+/**
+ * Re-export isWaterBiome from @mud/constants for backwards compatibility
+ * @mud/constants is now the single source of truth for biome definitions
+ */
+export { isWaterBiome } from '@mud/constants';

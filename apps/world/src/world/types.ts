@@ -1,4 +1,8 @@
 import type { ChunkData } from './dto';
+import type { BiomeInfo } from '@mud/constants';
+
+// Re-export BiomeInfo from @mud/constants for backwards compatibility
+export type { BiomeInfo } from '@mud/constants';
 
 export interface TileData {
   x: number;
@@ -7,14 +11,6 @@ export interface TileData {
   temperature: number;
   moisture: number;
   biome: BiomeInfo;
-}
-
-export interface BiomeInfo {
-  id: number;
-  name: string;
-  description: string;
-  color: string; // For rendering
-  ascii: string; // Single character for ASCII rendering
 }
 
 export interface WorldSeedConfig {
