@@ -8,8 +8,9 @@
  */
 
 /**
- * Biome IDs - matches database Biome.id values
- * Use this enum everywhere instead of magic numbers or strings
+ * Biome IDs - The authoritative source for biome identifiers.
+ * These values are stored in WorldTile.biomeId and Monster.biomeId columns.
+ * Use this enum everywhere instead of magic numbers or strings.
  */
 export enum BiomeId {
   OCEAN = 1,
@@ -247,9 +248,10 @@ export function isWaterBiome(
 
 /**
  * Get biome info by ID
+ * Accepts BiomeId enum or plain number for backwards compatibility
  */
-export function getBiomeById(id: BiomeId): BiomeInfo {
-  return BIOMES[id];
+export function getBiomeById(id: BiomeId | number): BiomeInfo {
+  return BIOMES[id as BiomeId];
 }
 
 /**

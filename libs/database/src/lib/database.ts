@@ -42,7 +42,6 @@ export {
 
 export type {
   Player,
-  Biome,
   Monster,
   WeatherState,
   GameState,

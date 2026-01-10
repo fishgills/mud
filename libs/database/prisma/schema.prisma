@@ -1,5 +1,6 @@
 // Prisma schema for the dungeon crawler game engine
-// This schema covers Player, WorldTile, Monster, WeatherState, and Biome
+// This schema covers Player, WorldTile, Monster, WeatherState, etc.
+// Note: Biome definitions are managed in TypeScript (@mud/constants BiomeId enum)
 
 generator client {
   provider = "prisma-client-js"
@@ -113,8 +114,7 @@ model WorldTile {
   id          Int      @id @default(autoincrement())
   x           Int
   y           Int
-  biomeId     Int
-  biome       Biome    @relation(fields: [biomeId], references: [id])
+  biomeId     Int // References BiomeId enum from @mud/constants
   biomeName   String // Store biome name for faster queries
   description String?
   height      Float // 0-1 height value from terrain noise
@@ -130,13 +130,6 @@ model WorldTile {
   @@unique([x, y])
   @@index([chunkX, chunkY])
   @@index([seed])
-}
-
-model Biome {
-  id       Int         @id @default(autoincrement())
-  name     String      @unique
-  tiles    WorldTile[]
-  monsters Monster[]
 }
 
 model Monster {
@@ -156,8 +149,7 @@ model Monster {
   isAlive    Boolean  @default(true)
   lastMove   DateTime @default(now())
   spawnedAt  DateTime @default(now())
-  biomeId    Int
-  biome      Biome    @relation(fields: [biomeId], references: [id])
+  biomeId    Int // References BiomeId enum from @mud/constants
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   // Add more fields as needed (type, loot, etc.)

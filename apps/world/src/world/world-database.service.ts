@@ -1,8 +1,11 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Prisma } from '@mud/database';
-import { BIOMES } from '../constants';
-import { ITEM_TEMPLATES, type ItemTemplateSeed } from '@mud/constants';
+import {
+  ITEM_TEMPLATES,
+  type ItemTemplateSeed,
+  getBiomeById,
+} from '@mud/constants';
 
 @Injectable()
 export class WorldDatabaseService {
@@ -10,16 +13,18 @@ export class WorldDatabaseService {
 
   constructor(@Inject(PrismaService) private prismaService: PrismaService) {}
 
+  /**
+   * Initialize the world database.
+   * Note: Biomes are now defined in TypeScript (@mud/constants BiomeId enum)
+   * and no longer stored in the database.
+   */
   async initializeBiomes(): Promise<void> {
-    for (const biome of Object.values(BIOMES)) {
-      await this.prismaService.biome.upsert({
-        where: { id: biome.id },
-        update: { name: biome.name },
-        create: { id: biome.id, name: biome.name },
-      });
-    }
+    // Biomes are now managed in TypeScript constants, no DB initialization needed
+    this.logger.debug(
+      'Biomes are defined in @mud/constants - no DB sync needed',
+    );
 
-    // Also ensure core item templates exist in the DB
+    // Still ensure core item templates exist in the DB
     try {
       await this.initializeItems();
     } catch (err) {
@@ -54,10 +59,12 @@ export class WorldDatabaseService {
 
   // Removed tile persistence; tiles are computed on-the-fly
 
-  async getBiomeById(biomeId: number) {
-    return await this.prismaService.biome.findUnique({
-      where: { id: biomeId },
-    });
+  /**
+   * Get biome info by ID from TypeScript constants.
+   * This is now a synchronous lookup, not a database query.
+   */
+  getBiomeById(biomeId: number) {
+    return getBiomeById(biomeId);
   }
 
   // Seed a small catalog of default items if they don't already exist.

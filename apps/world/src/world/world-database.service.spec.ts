@@ -1,12 +1,8 @@
 import { WorldDatabaseService } from './world-database.service';
-import { BIOMES } from '../constants';
 import { PrismaService } from '../prisma/prisma.service';
+import { getBiomeById, BiomeId } from '@mud/constants';
 
 type PrismaServiceMock = {
-  biome: {
-    upsert: jest.Mock<Promise<unknown>, [unknown]>;
-    findUnique: jest.Mock<Promise<unknown>, [unknown]>;
-  };
   worldSeed: {
     findFirst: jest.Mock<Promise<unknown>, [unknown]>;
     create: jest.Mock<Promise<unknown>, [unknown]>;
@@ -19,10 +15,6 @@ describe('WorldDatabaseService', () => {
 
   beforeEach(() => {
     prismaService = {
-      biome: {
-        upsert: jest.fn<Promise<unknown>, [unknown]>(),
-        findUnique: jest.fn<Promise<unknown>, [unknown]>(),
-      },
       worldSeed: {
         findFirst: jest.fn<Promise<unknown>, [unknown]>(),
         create: jest.fn<Promise<unknown>, [unknown]>(),
@@ -35,21 +27,10 @@ describe('WorldDatabaseService', () => {
   });
 
   describe('initializeBiomes', () => {
-    it('should upsert all biomes', async () => {
+    it('should complete without database calls (biomes are now in TypeScript)', async () => {
+      // Biomes are no longer stored in the database
       await service.initializeBiomes();
-
-      const biomeValues = Object.values(BIOMES);
-      expect(prismaService.biome.upsert).toHaveBeenCalledTimes(
-        biomeValues.length,
-      );
-
-      biomeValues.forEach((biome) => {
-        expect(prismaService.biome.upsert).toHaveBeenCalledWith({
-          where: { id: biome.id },
-          update: { name: biome.name },
-          create: { id: biome.id, name: biome.name },
-        });
-      });
+      // No assertions needed - just verify it doesn't throw
     });
   });
 
@@ -108,7 +89,9 @@ describe('WorldDatabaseService', () => {
 
       await service.loadWorldSeed();
 
-      const createCall = prismaService.worldSeed.create.mock.calls[0][0];
+      const createCall = prismaService.worldSeed.create.mock.calls[0][0] as {
+        data: { seed: number; temperatureSeed: number; moistureSeed: number };
+      };
       const data = createCall.data;
 
       expect(data.temperatureSeed).toBe(data.seed + 1000);
@@ -117,24 +100,19 @@ describe('WorldDatabaseService', () => {
   });
 
   describe('getBiomeById', () => {
-    it('should return biome by id', async () => {
-      const mockBiome = { id: 1, name: 'Forest' };
-      prismaService.biome.findUnique.mockResolvedValue(mockBiome);
+    it('should return biome by id from TypeScript constants', () => {
+      const result = service.getBiomeById(BiomeId.FOREST);
 
-      const result = await service.getBiomeById(1);
-
-      expect(result).toEqual(mockBiome);
-      expect(prismaService.biome.findUnique).toHaveBeenCalledWith({
-        where: { id: 1 },
-      });
+      expect(result).toEqual(getBiomeById(BiomeId.FOREST));
+      expect(result.name).toBe('Forest');
     });
 
-    it('should return null for non-existent biome', async () => {
-      prismaService.biome.findUnique.mockResolvedValue(null);
+    it('should return correct biome for any valid BiomeId', () => {
+      const ocean = service.getBiomeById(BiomeId.OCEAN);
+      expect(ocean.name).toBe('Ocean');
 
-      const result = await service.getBiomeById(999);
-
-      expect(result).toBeNull();
+      const desert = service.getBiomeById(BiomeId.DESERT);
+      expect(desert.name).toBe('Desert');
     });
   });
 });
