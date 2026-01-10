@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import SideNav from './SideNav';
+import TopNav from './TopNav';
 
 type PageLayoutProps = {
   children: ReactNode;
@@ -8,10 +8,8 @@ type PageLayoutProps = {
 export default function PageLayout({ children }: PageLayoutProps) {
   return (
     <div className="page-shell">
-      <div className="page-layout">
-        <SideNav />
-        {children}
-      </div>
+      <TopNav />
+      <div className="page-layout">{children}</div>
     </div>
   );
 }

@@ -40,6 +40,13 @@
   - `logs/mud-{service}-error.log` - Service-specific error logs (e.g., `mud-dm-error.log`, `mud-slack-error.log`)
 - Logs are cleared on startup for fresh session tracking, making them ideal for AI agent analysis
 
+## Web App / Playwright Testing
+
+- **Local dev server**: Run `yarn workspace @mud/web serve` to start the web app
+- **Base URL**: The web app is available at `http://localhost:4000/www` (note the `/www` base path)
+- **Public tunnel**: `https://closet.battleforge.app/www` tunnels to localhost (useful for Playwright MCP testing)
+- When using Playwright MCP for browser testing, navigate to `http://localhost:4000/www` not `http://localhost:4000/`
+
 ### Common Issues
 
 - **Event bus routing**: DM publishes notifications with type='combat' to channel `notifications:slack`. Slack bot subscribes to this channel and processes all notification types.

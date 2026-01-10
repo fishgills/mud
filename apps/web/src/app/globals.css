@@ -26,73 +26,113 @@ body {
 
 .page-shell {
   min-height: 100vh;
-  padding: 64px 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 .page-layout {
+  flex: 1;
   margin: 0 auto;
   max-width: 960px;
-  display: grid;
-  gap: 24px;
+  padding: 40px 24px 64px;
+  width: 100%;
 }
 
-.side-nav {
+/* Top Navigation */
+.top-nav {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(96, 70, 48, 0.3);
+  background: rgba(15, 12, 12, 0.85);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
-.side-nav-title {
+.top-nav-brand {
+  flex-shrink: 0;
+}
+
+.top-nav-title {
   font-family: var(--font-title), serif;
   font-size: 18px;
   color: var(--ink);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-shadow: 0 0 16px rgba(208, 144, 63, 0.2);
+  text-decoration: none;
 }
 
-.side-nav-list {
+.top-nav-title:hover {
+  color: var(--accent);
+}
+
+.top-nav-list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: center;
 }
 
-.nav-link {
+.top-nav-link {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
   color: var(--ink-soft);
   text-decoration: none;
-  font-size: 15px;
+  font-size: 14px;
   letter-spacing: 0.02em;
+  padding: 6px 0;
   position: relative;
-  padding-left: 12px;
+  transition: color 0.15s ease;
 }
 
-.nav-link::before {
+.top-nav-link::after {
   content: '';
   position: absolute;
+  bottom: 0;
   left: 0;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: rgba(208, 144, 63, 0.4);
-  box-shadow: 0 0 12px rgba(208, 144, 63, 0.35);
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transform: scaleX(0);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
-.nav-link-active {
+.top-nav-link:hover {
+  color: var(--ink);
+}
+
+.top-nav-link-active {
   color: var(--ink);
   font-weight: 600;
 }
 
-.nav-link-active::before {
-  width: 8px;
-  height: 8px;
-  background: var(--accent);
-  box-shadow: 0 0 16px rgba(208, 144, 63, 0.5);
+.top-nav-link-active::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+@media (max-width: 640px) {
+  .top-nav {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .top-nav-list {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 .page-content {
@@ -101,32 +141,6 @@ body {
 
 .page-card {
   width: 100%;
-}
-
-@media (min-width: 900px) {
-  .page-layout {
-    grid-template-columns: 180px minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .side-nav {
-    position: sticky;
-    top: 40px;
-    align-self: start;
-  }
-}
-
-@media (max-width: 899px) {
-  .side-nav {
-    border: 1px solid rgba(96, 70, 48, 0.4);
-    border-radius: 16px;
-    padding: 16px;
-    background: rgba(15, 12, 12, 0.75);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-  }
-}
-
-.page-card {
   margin: 0 auto;
   max-width: 640px;
   border: 1px solid rgba(96, 70, 48, 0.45);
@@ -257,5 +271,117 @@ body {
 
 .character-note {
   font-size: 14px;
+  color: var(--ink-soft);
+}
+
+/* Inventory Styles */
+.inventory-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.inventory-section-title {
+  font-size: 18px;
+  letter-spacing: 0.04em;
+}
+
+.inventory-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.inventory-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid rgba(96, 70, 48, 0.3);
+  border-radius: 8px;
+  background: rgba(20, 16, 16, 0.5);
+}
+
+.inventory-slot-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.inventory-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inventory-item-name {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.inventory-item-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.inventory-stat {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.inventory-empty {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--ink-soft);
+  opacity: 0.6;
+}
+
+.inventory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inventory-backpack-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid rgba(96, 70, 48, 0.25);
+  border-radius: 8px;
+  background: rgba(20, 16, 16, 0.4);
+}
+
+.inventory-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inventory-quantity {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.inventory-item-desc {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.inventory-item-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+}
+
+.inventory-equippable {
+  color: var(--accent);
+}
+
+.inventory-value {
   color: var(--ink-soft);
 }
