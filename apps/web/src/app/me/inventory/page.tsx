@@ -44,7 +44,7 @@ const getPlayerWithItems = async (teamId: string, userId: string) => {
     damageRoll: pi.item.damageRoll,
     defense: pi.item.defense,
     computedBonuses: null, // We'll need to compute this from the item stats
-    allowedSlots: pi.item.allowedSlots,
+    allowedSlots: pi.item.slot ? [pi.item.slot] : [],
     item: {
       damageRoll: pi.item.damageRoll,
       defense: pi.item.defense,
