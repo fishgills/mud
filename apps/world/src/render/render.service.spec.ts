@@ -48,6 +48,7 @@ jest.mock('./image-utils', () => {
 import { RenderService } from './render.service';
 import { WorldService } from '../world/world-refactored.service';
 import { CacheService } from '../shared/cache.service';
+import { SpriteService } from './sprites/sprite.service';
 
 type ChunkPngBase64Method = (
   chunkX: number,
@@ -59,10 +60,13 @@ type WorldServiceMock = Pick<WorldService, 'getCurrentSeed'>;
 
 type CacheServiceMock = Pick<CacheService, 'get' | 'set'>;
 
+type SpriteServiceMock = Pick<SpriteService, 'drawSpriteWithVariation'>;
+
 describe('RenderService', () => {
   let service: RenderService;
   let mockWorldService: jest.Mocked<WorldServiceMock>;
   let mockCache: jest.Mocked<CacheServiceMock>;
+  let mockSpriteService: jest.Mocked<SpriteServiceMock>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -83,9 +87,14 @@ describe('RenderService', () => {
       >(() => Promise.resolve(undefined)),
     };
 
+    mockSpriteService = {
+      drawSpriteWithVariation: jest.fn(),
+    };
+
     service = new RenderService(
       mockWorldService as unknown as WorldService,
       mockCache as unknown as CacheService,
+      mockSpriteService as unknown as SpriteService,
     );
   });
 
@@ -228,7 +237,7 @@ describe('RenderService', () => {
       ).getChunkPngBase64(0, 0, 4);
 
       const key = mockCache.set.mock.calls[0]?.[0];
-      expect(key).toContain('v3');
+      expect(key).toContain('v4');
     });
   });
 

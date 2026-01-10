@@ -9,14 +9,13 @@ export async function sendPngMap(
   say: (msg: SayMessage) => Promise<void>,
   x: number,
   y: number,
-  pixelsPerTile = 8,
 ): Promise<boolean> {
   try {
     const url = new URL(env.WORLD_API_BASE_URL);
     url.pathname = `${url.pathname.replace(/\/$/, '')}/render/map.png`;
     url.searchParams.set('x', String(x));
     url.searchParams.set('y', String(y));
-    url.searchParams.set('p', String(pixelsPerTile));
+    url.searchParams.set('p', String(16));
     const imageUrl = url.toString();
     await say({
       text: 'Map',

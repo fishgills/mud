@@ -4,6 +4,7 @@ import { RenderService } from './render.service';
 import { CacheService } from '../shared/cache.service';
 import type { MapTileDto } from './map-tile.dto';
 import { bitmapToPngBase64 } from './image-utils';
+import { SpriteService } from './sprites/sprite.service';
 
 @Controller('render')
 export class RenderController {
@@ -11,6 +12,7 @@ export class RenderController {
   constructor(
     private readonly renderService: RenderService,
     private readonly cache: CacheService,
+    private readonly spriteService: SpriteService,
   ) {}
 
   private parseCenter(param: string | undefined): number {
@@ -137,6 +139,19 @@ export class RenderController {
       maxY,
     );
     return { ascii };
+  }
+
+  @Get('status')
+  async getStatus(): Promise<{
+    spritesReady: boolean;
+    spriteTileSize: number;
+    renderStyleVersion: number;
+  }> {
+    return {
+      spritesReady: this.spriteService.isReady(),
+      spriteTileSize: this.spriteService.getTileSize(),
+      renderStyleVersion: 4,
+    };
   }
 
   @Delete('cache')

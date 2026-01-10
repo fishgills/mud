@@ -18,8 +18,6 @@ const RETURN_KEYWORDS = new Set([
 
 const RANDOM_KEYWORDS = new Set(['random', 'fresh', 'new', 'wild']);
 
-const HQ_TILE_RADIUS = 8; // matches the move handler map radius for consistency
-
 export const guildHandlerHelp = `Enter the HQ safe zone with "${COMMANDS.GUILD}". While inside, use \`${COMMANDS.GUILD} return\` to go back to your last location or \`${COMMANDS.GUILD} random\` for a fresh spawn.`;
 
 function resolveRequestedMode(text: string): HqExitMode | undefined {
@@ -157,7 +155,7 @@ export class GuildHandler extends PlayerCommandHandler {
     if (destination) {
       const mapStart = Date.now();
       try {
-        await sendPngMap(say, destination.x, destination.y, HQ_TILE_RADIUS);
+        await sendPngMap(say, destination.x, destination.y);
       } catch (err) {
         this.app.logger.warn(
           { err, userId, destination },

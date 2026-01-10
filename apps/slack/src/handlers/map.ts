@@ -27,7 +27,7 @@ export class MapHandler extends PlayerCommandHandler {
       return;
     }
 
-    await sendPngMap(say, x, y, 8);
+    await sendPngMap(say, x, y);
 
     const occupants = await getOccupantsSummaryAt(x, y, {
       currentSlackUserId: userId,

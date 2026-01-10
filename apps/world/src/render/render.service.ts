@@ -6,7 +6,7 @@ import {
   decodePngBase64,
   RenderBitmap,
 } from './image-utils';
-import { drawBiomeTile, drawBiomeEdges, drawHeightShading } from './graphics';
+import { drawHeightShading } from './graphics';
 import { BIOMES } from '../constants';
 import { WorldService } from '../world/world-refactored.service';
 import { CacheService } from '../shared/cache.service';
@@ -14,8 +14,9 @@ import { GridMapGenerator } from '../gridmap/gridmap-generator';
 import { DEFAULT_BIOMES } from '../gridmap/default-biomes';
 import { buildGridConfigs, deriveTemperature } from '../gridmap/utils';
 import { mapGridBiomeToBiomeInfo } from '../gridmap/biome-mapper';
-import { WORLD_CHUNK_SIZE } from '@mud/constants';
+import { WORLD_CHUNK_SIZE, BiomeId } from '@mud/constants';
 import { WorldTile } from 'src/world/dto';
+import { SpriteService, SPRITE_TILE_SIZE } from './sprites/sprite.service';
 
 type ComputedTile = {
   x: number;
@@ -35,10 +36,11 @@ type ComputedTile = {
 @Injectable()
 export class RenderService {
   private readonly logger = new Logger(RenderService.name);
-  private readonly RENDER_STYLE_VERSION = 3; // bump to invalidate cached chunk PNGs when style changes
+  private readonly RENDER_STYLE_VERSION = 4; // bump to invalidate cached chunk PNGs when style changes (v4: sprite-based rendering)
   constructor(
     private readonly worldService: WorldService,
     private readonly cache: CacheService,
+    private readonly spriteService: SpriteService,
   ) {}
 
   async renderMap(
@@ -132,27 +134,26 @@ export class RenderService {
       }
     }
 
-    // Deterministic seed for texturing
-    const seed = this.worldService.getCurrentSeed();
+    // Sprite-based rendering
+    const spriteScale = p / SPRITE_TILE_SIZE;
 
     for (const { x, y, tile, biome } of tileData) {
       const pixelX = (x - minX) * p;
       const pixelY = (maxY - 1 - y) * p; // invert Y
 
       if (tile && biome) {
-        drawBiomeTile(ctx, pixelX, pixelY, p, biome, x, y, seed);
-        drawHeightShading(ctx, pixelX, pixelY, p, x, y, heightMap);
-        drawBiomeEdges(
+        // Draw the biome sprite
+        this.spriteService.drawSpriteWithVariation(
           ctx,
           pixelX,
           pixelY,
-          p,
-          biome,
-          biomeMap.get(`${x},${y + 1}`) || null,
-          biomeMap.get(`${x},${y - 1}`) || null,
-          biomeMap.get(`${x + 1},${y}`) || null,
-          biomeMap.get(`${x - 1},${y}`) || null,
+          spriteScale,
+          biome.id as BiomeId,
+          x,
+          y,
         );
+        // Add height-based shading for terrain depth
+        drawHeightShading(ctx, pixelX, pixelY, p, x, y, heightMap);
       }
     }
 

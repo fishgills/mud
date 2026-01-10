@@ -855,7 +855,7 @@ describe('mapHandler', () => {
       teamId: 'T1',
     } as HandlerContext);
 
-    expect(mockedSendPngMap).toHaveBeenCalledWith(say, 3, -4, 8);
+    expect(mockedSendPngMap).toHaveBeenCalledWith(say, 3, -4);
   });
 
   it('displays co-located players after the map', async () => {
@@ -1033,7 +1033,7 @@ describe('moveHandler', () => {
       userId: 'U1',
       input: { direction: Direction.North },
     });
-    expect(mockedSendPngMap).toHaveBeenCalledWith(say, 1, 2, 8);
+    expect(mockedSendPngMap).toHaveBeenCalledWith(say, 1, 2);
     expect(say).toHaveBeenCalledWith(
       expect.objectContaining({
         text: expect.stringContaining('You see at your location:'),
@@ -1268,7 +1268,7 @@ describe('guildHandler', () => {
       userId: 'U1',
       mode: 'return',
     });
-    expect(mockedSendPngMap).toHaveBeenCalledWith(say, 3, -2, 8);
+    expect(mockedSendPngMap).toHaveBeenCalledWith(say, 3, -2);
     expect(mockedGetOccupantsSummaryAt).toHaveBeenCalledWith(3, -2, {
       currentSlackUserId: 'U1',
       currentSlackTeamId: 'T1',

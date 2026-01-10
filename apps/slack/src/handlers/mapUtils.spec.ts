@@ -21,7 +21,7 @@ describe('sendPngMap', () => {
       .fn<Promise<void>, [SayMessage]>()
       .mockResolvedValue(undefined);
 
-    const result = await sendPngMap(say, 3, -4, 12);
+    const result = await sendPngMap(say, 3, -4);
 
     expect(result).toBe(true);
     expect(say).toHaveBeenCalledWith({
@@ -29,7 +29,7 @@ describe('sendPngMap', () => {
       blocks: [
         expect.objectContaining({
           type: 'image',
-          image_url: 'https://mud.example/world/render/map.png?x=3&y=-4&p=12',
+          image_url: 'https://mud.example/world/render/map.png?x=3&y=-4&p=16',
           alt_text: 'Map at (3, -4)',
         }),
       ],

@@ -147,7 +147,7 @@ export class MoveHandler extends PlayerCommandHandler {
         return;
       }
       const tPngStart = Date.now();
-      await sendPngMap(say, data.x, data.y, 8);
+      await sendPngMap(say, data.x, data.y);
 
       await sendOccupantsSummary(
         say,
