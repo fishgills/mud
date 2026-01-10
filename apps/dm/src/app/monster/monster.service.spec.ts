@@ -258,4 +258,41 @@ describe('MonsterService', () => {
     expect(monsters.find((m) => m.id === 4)).toBeUndefined();
     expect(monsters.find((m) => m.id === 3)).toBeDefined();
   });
+
+  it('spawns monsters with variant names', async () => {
+    const service = new MonsterService(worldService);
+    // Mock random to force a Feeble variant (roll < 0.15)
+    jest.spyOn(global.Math, 'random').mockImplementation(() => 0.1);
+
+    const spawned = await service.spawnMonster(5, 5, 1);
+
+    // The monster name should include "Feeble" prefix
+    expect(spawned.name).toContain('Feeble');
+    expect(spawned.hp).toBeGreaterThan(0);
+  });
+
+  it('spawns normal variant monsters without prefix', async () => {
+    const service = new MonsterService(worldService);
+    // Mock random to force a Normal variant (0.15 < roll < 0.85)
+    jest.spyOn(global.Math, 'random').mockImplementation(() => 0.5);
+
+    const spawned = await service.spawnMonster(6, 6, 1);
+
+    // Normal variant should not have Feeble or Fierce prefix
+    expect(spawned.name).not.toContain('Feeble');
+    expect(spawned.name).not.toContain('Fierce');
+    expect(spawned.hp).toBeGreaterThan(0);
+  });
+
+  it('spawns fierce variant monsters with Fierce prefix', async () => {
+    const service = new MonsterService(worldService);
+    // Mock random to force a Fierce variant (roll > 0.85)
+    jest.spyOn(global.Math, 'random').mockImplementation(() => 0.9);
+
+    const spawned = await service.spawnMonster(7, 7, 1);
+
+    // The monster name should include "Fierce" prefix
+    expect(spawned.name).toContain('Fierce');
+    expect(spawned.hp).toBeGreaterThan(0);
+  });
 });

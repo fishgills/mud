@@ -6,6 +6,10 @@ import {
   getMonsterTemplate,
   MONSTER_TEMPLATES,
   pickTypeForBiome,
+  MonsterVariant,
+  rollMonsterVariant,
+  getMonsterDisplayName,
+  VARIANT_CONFIGS,
 } from './monster.types';
 import { isWaterBiome } from '../shared/biome.util';
 
@@ -328,18 +332,47 @@ export class MonsterService {
     y: number,
     biomeId: number,
     monsterTemplate: (typeof MONSTER_TEMPLATES)[0],
+    variant?: MonsterVariant,
   ): Promise<Monster> {
+    // Roll for variant if not specified
+    const monsterVariant = variant ?? rollMonsterVariant();
+    const variantConfig = VARIANT_CONFIGS[monsterVariant];
+
     // Add variance to stats (±2)
     const variance = () => Math.floor(Math.random() * 5) - 2;
 
-    const strength = Math.max(1, monsterTemplate.strength + variance());
-    const agility = Math.max(1, monsterTemplate.agility + variance());
-    const health = Math.max(1, monsterTemplate.health + variance());
-    const maxHp = monsterTemplate.baseHp + health * 2;
+    // Apply variant multiplier to base stats
+    const baseStrength = Math.max(
+      1,
+      Math.round(monsterTemplate.strength * variantConfig.statMultiplier),
+    );
+    const baseAgility = Math.max(
+      1,
+      Math.round(monsterTemplate.agility * variantConfig.statMultiplier),
+    );
+    const baseHealth = Math.max(
+      1,
+      Math.round(monsterTemplate.health * variantConfig.statMultiplier),
+    );
+    const baseHp = Math.max(
+      1,
+      Math.round(monsterTemplate.baseHp * variantConfig.statMultiplier),
+    );
+
+    const strength = Math.max(1, baseStrength + variance());
+    const agility = Math.max(1, baseAgility + variance());
+    const health = Math.max(1, baseHealth + variance());
+    const maxHp = baseHp + health * 2;
+
+    // Generate display name with variant
+    const displayName = getMonsterDisplayName(
+      monsterTemplate.name,
+      monsterVariant,
+    );
 
     const monster = await this.prisma.monster.create({
       data: {
-        name: monsterTemplate.name,
+        name: displayName,
         type: monsterTemplate.type,
         hp: maxHp,
         maxHp,
