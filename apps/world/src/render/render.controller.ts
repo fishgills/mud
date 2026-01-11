@@ -4,7 +4,6 @@ import { RenderService } from './render.service';
 import { CacheService } from '../shared/cache.service';
 import type { MapTileDto } from './map-tile.dto';
 import { bitmapToPngBase64 } from './image-utils';
-import { SpriteService } from './sprites/sprite.service';
 
 @Controller('render')
 export class RenderController {
@@ -12,7 +11,6 @@ export class RenderController {
   constructor(
     private readonly renderService: RenderService,
     private readonly cache: CacheService,
-    private readonly spriteService: SpriteService,
   ) {}
 
   private parseCenter(param: string | undefined): number {
@@ -50,7 +48,7 @@ export class RenderController {
       Math.floor(Number.isFinite(Number(pStr)) ? parseInt(pStr, 10) : 4),
     );
 
-    const cacheKey = `${minX},${minY},${maxX},${maxY},p=${p}`;
+    const cacheKey = `map:png:v${this.renderService.getRenderStyleVersion()}:${minX},${minY},${maxX},${maxY},p=${p},view=iso`;
     const ttlMs = 30000;
 
     const cached = await this.cache.get(cacheKey);
@@ -143,14 +141,12 @@ export class RenderController {
 
   @Get('status')
   async getStatus(): Promise<{
-    spritesReady: boolean;
-    spriteTileSize: number;
     renderStyleVersion: number;
+    view: 'iso';
   }> {
     return {
-      spritesReady: this.spriteService.isReady(),
-      spriteTileSize: this.spriteService.getTileSize(),
-      renderStyleVersion: 4,
+      renderStyleVersion: this.renderService.getRenderStyleVersion(),
+      view: 'iso',
     };
   }
 

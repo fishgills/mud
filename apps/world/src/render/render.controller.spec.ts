@@ -36,6 +36,7 @@ describe('RenderController', () => {
 
     renderService = {
       renderMap: jest.fn().mockResolvedValue(mockCanvas),
+      getRenderStyleVersion: jest.fn().mockReturnValue(7),
     } as unknown as jest.Mocked<RenderService>;
 
     cacheService = {
@@ -215,7 +216,7 @@ describe('RenderController', () => {
         '8',
       );
 
-      const expectedKey = '-15,-5,35,45,p=8';
+      const expectedKey = 'map:png:v7:-15,-5,35,45,p=8,view=iso';
       expect(cacheService.get).toHaveBeenCalledWith(expectedKey);
     });
 

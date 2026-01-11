@@ -1,22 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { Context } from 'pureimage';
-import {
-  bitmapToPngBase64,
-  createRenderBitmap,
-  decodePngBase64,
-  RenderBitmap,
-} from './image-utils';
-import { drawHeightShading } from './graphics';
+import { createRenderBitmap, RenderBitmap } from './image-utils';
 import { BIOMES } from '../constants';
 import { WorldService } from '../world/world-refactored.service';
-import { CacheService } from '../shared/cache.service';
 import { GridMapGenerator } from '../gridmap/gridmap-generator';
 import { DEFAULT_BIOMES } from '../gridmap/default-biomes';
 import { buildGridConfigs, deriveTemperature } from '../gridmap/utils';
 import { mapGridBiomeToBiomeInfo } from '../gridmap/biome-mapper';
-import { WORLD_CHUNK_SIZE, BiomeId } from '@mud/constants';
 import { WorldTile } from 'src/world/dto';
-import { SpriteService, SPRITE_TILE_SIZE } from './sprites/sprite.service';
 
 type ComputedTile = {
   x: number;
@@ -33,15 +24,17 @@ type ComputedTile = {
   createdAt: Date;
   updatedAt: Date;
 };
+
 @Injectable()
 export class RenderService {
   private readonly logger = new Logger(RenderService.name);
-  private readonly RENDER_STYLE_VERSION = 4; // bump to invalidate cached chunk PNGs when style changes (v4: sprite-based rendering)
-  constructor(
-    private readonly worldService: WorldService,
-    private readonly cache: CacheService,
-    private readonly spriteService: SpriteService,
-  ) {}
+  private readonly RENDER_STYLE_VERSION = 7; // v7: isometric-only rendering
+
+  constructor(private readonly worldService: WorldService) {}
+
+  getRenderStyleVersion(): number {
+    return this.RENDER_STYLE_VERSION;
+  }
 
   async renderMap(
     minX: number,
@@ -50,396 +43,220 @@ export class RenderService {
     maxY: number,
     pixelsPerTile = 4,
   ) {
-    const chunkSize = WORLD_CHUNK_SIZE;
-    // Attempt fast path: compose from cached chunk PNGs if all present
+    return this.renderMapIsometric(minX, maxX, minY, maxY, pixelsPerTile);
+  }
+
+  async renderMapIsometric(
+    minX: number,
+    maxX: number,
+    minY: number,
+    maxY: number,
+    pixelsPerTile = 4,
+  ) {
     const p = Math.max(1, Math.floor(pixelsPerTile));
     this.logger.debug(
-      `Attempting chunk-compose: bounds=(${minX},${minY})-(${maxX - 1},${
+      `Isometric render: bounds=(${minX},${minY})-(${maxX - 1},${
         maxY - 1
       }), p=${p}`,
     );
-    const composed = await this.composeFromChunkCache(
-      minX,
-      maxX,
-      minY,
-      maxY,
-      p,
-      chunkSize,
-    );
-    if (composed) {
-      this.logger.debug('Chunk-compose success; returning composed canvas');
-      return composed;
-    }
-    this.logger.debug('Chunk-compose unavailable; falling back to full render');
-
-    // Fallback path: render computed tiles without touching the database
-    const { canvas, existingTileCount, width, height } =
-      await this.renderRegionCanvas(minX, maxX, minY, maxY, p, {
-        includeCenterMarker: true,
-      });
-
-    // Opportunistically pre-populate chunk PNG cache for next renders (non-blocking)
-    this.prewarmChunkPngCache(minX, maxX, minY, maxY, p, chunkSize).catch((e) =>
-      this.logger.warn(`Prewarm failed: ${e?.message ?? e}`),
-    );
+    const { canvas, width, height, existingTileCount } =
+      await this.renderRegionCanvasIsometric(minX, maxX, minY, maxY, p);
 
     this.logger.log(
-      `Rendered map with ${existingTileCount} existing tiles out of ${
+      `[iso] Rendered map with ${existingTileCount} existing tiles out of ${
         width * height
       } total coordinates`,
     );
     return canvas;
   }
 
-  // Visual helpers extracted to ./graphics
-
-  // Shared region renderer used by both full renders and chunk renders
-  private async renderRegionCanvas(
+  private async renderRegionCanvasIsometric(
     minX: number,
     maxX: number,
     minY: number,
     maxY: number,
     p: number,
-    opts: { includeCenterMarker: boolean },
   ): Promise<{
     canvas: RenderBitmap;
     width: number;
     height: number;
     existingTileCount: number;
   }> {
-    const { width, height, existingTileCount, tileData } =
+    const { width, height, tileData, existingTileCount } =
       await this.prepareMapData(minX, maxX, minY, maxY);
 
-    const canvas = createRenderBitmap(width * p, height * p);
+    if (width <= 0 || height <= 0) {
+      return {
+        canvas: createRenderBitmap(0, 0),
+        width,
+        height,
+        existingTileCount,
+      };
+    }
+
+    // Isometric tile footprint
+    const isoW = p * 2; // diamond width
+    const isoH = Math.max(1, Math.floor(p * 0.85)); // diamond height
+
+    // Compute canvas size (bounds of diamond lattice)
+    const minIsoX = -(height - 1) * (isoW / 2);
+    const maxIsoX = (width - 1) * (isoW / 2);
+    const minIsoY = 0;
+    const maxIsoY = (width + height - 2) * (isoH / 2);
+
+    const canvasWidth = Math.ceil(maxIsoX - minIsoX + isoW);
+    const canvasHeight = Math.ceil(maxIsoY - minIsoY + isoH * 2);
+
+    const offsetX = -minIsoX;
+    const offsetY = isoH; // padding at top
+
+    const canvas = createRenderBitmap(canvasWidth, canvasHeight);
     const ctx = canvas.getContext('2d');
-    // Background
-    ctx.fillStyle = '#2c2c2c';
+    ctx.fillStyle = '#1b1b1b';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Center marker location (tile space)
     const centerTileX = minX + Math.floor((maxX - minX) / 2);
     const centerTileY = minY + Math.floor((maxY - minY) / 2);
 
-    // Biome map for edges + height map for lighting
-    const biomeMap = new Map<
-      string,
-      (typeof BIOMES)[keyof typeof BIOMES] | null
-    >();
-    const heightMap = new Map<string, number>();
-    for (const t of tileData) {
-      const key = `${t.x},${t.y}`;
-      biomeMap.set(key, t.biome);
-      if (typeof t.tile?.height === 'number') {
-        heightMap.set(key, t.tile.height);
+    // Sort tiles back-to-front by (x+y) to maintain correct overdraw ordering
+    const sorted = [...tileData].sort((a, b) => a.x + a.y - (b.x + b.y));
+
+    for (const { x, y, tile, biome } of sorted) {
+      if (!tile || !biome) continue;
+      const localX = x - minX;
+      const localY = y - minY;
+      const sx = (localX - localY) * (isoW / 2) + offsetX;
+      const sy = (localX + localY) * (isoH / 2) + offsetY;
+
+      // Base diamond fill
+      this.drawIsoDiamond(ctx, sx, sy, isoW, isoH, biome.color);
+
+      // Simple light/shadow for depth
+      const highlight = this.lighten(biome.color, 0.12);
+      const shadow = this.darken(biome.color, 0.18);
+      this.drawIsoDiamondHalf(ctx, sx, sy, isoW, isoH, highlight, 'top');
+      this.drawIsoDiamondHalf(ctx, sx, sy, isoW, isoH, shadow, 'bottom');
+
+      // Optional variation overlay for texture: reuse hash for subtle tint
+      const hash = this.hash32(localX, localY, biome.id as number);
+      const variation = (hash % 10) - 5;
+      if (variation !== 0) {
+        const alpha = Math.abs(variation) / 80;
+        ctx.fillStyle =
+          variation > 0 ? `rgba(255,255,255,${alpha})` : `rgba(0,0,0,${alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + isoW / 2, sy + isoH / 2);
+        ctx.lineTo(sx, sy + isoH);
+        ctx.lineTo(sx - isoW / 2, sy + isoH / 2);
+        ctx.closePath();
+        ctx.fill();
       }
     }
 
-    // Sprite-based rendering
-    const spriteScale = p / SPRITE_TILE_SIZE;
-
-    for (const { x, y, tile, biome } of tileData) {
-      const pixelX = (x - minX) * p;
-      const pixelY = (maxY - 1 - y) * p; // invert Y
-
-      if (tile && biome) {
-        // Draw the biome sprite
-        this.spriteService.drawSpriteWithVariation(
-          ctx,
-          pixelX,
-          pixelY,
-          spriteScale,
-          biome.id as BiomeId,
-          x,
-          y,
-        );
-        // Add height-based shading for terrain depth
-        drawHeightShading(ctx, pixelX, pixelY, p, x, y, heightMap);
-      }
-    }
-
-    if (opts.includeCenterMarker) {
-      const centerPixelX = (centerTileX - minX) * p;
-      const centerPixelY = (maxY - 1 - centerTileY) * p;
-      this.drawCenterMarker(ctx, centerPixelX, centerPixelY, p);
-    }
+    // Center marker projected into iso space
+    const cLocalX = centerTileX - minX;
+    const cLocalY = centerTileY - minY;
+    const cpx = (cLocalX - cLocalY) * (isoW / 2) + offsetX;
+    const cpy = (cLocalX + cLocalY) * (isoH / 2) + offsetY;
+    const markerSize = Math.max(3, Math.floor(isoH / 2));
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(1, Math.floor(markerSize / 4));
+    ctx.beginPath();
+    ctx.moveTo(cpx - markerSize, cpy);
+    ctx.lineTo(cpx + markerSize, cpy);
+    ctx.moveTo(cpx, cpy - markerSize);
+    ctx.lineTo(cpx, cpy + markerSize);
+    ctx.stroke();
 
     return { canvas, width, height, existingTileCount };
   }
 
-  // draw helpers are imported from './graphics'
-
-  private drawCenterMarker(
+  private drawIsoDiamond(
     ctx: Context,
-    pixelX: number,
-    pixelY: number,
-    p: number,
+    topX: number,
+    topY: number,
+    w: number,
+    h: number,
+    color: string,
   ) {
-    if (p < 4) {
-      const lw = Math.max(1, Math.floor(p / 4));
-      ctx.lineWidth = lw;
-      ctx.strokeStyle = '#ffffff';
-      ctx.strokeRect(pixelX + 0.5, pixelY + 0.5, p - 1, p - 1);
-      return;
-    }
-
-    ctx.save();
-    const cx = pixelX + p / 2;
-    const cy = pixelY + p / 2;
-    const radius = Math.max(1.5, p / 2.6);
-    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-    ctx.lineWidth = Math.max(1, Math.floor(p / 6));
+    ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(cx, cy, radius + Math.max(1, p / 8), 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = Math.max(1, Math.floor(p / 8));
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(cx - radius, cy);
-    ctx.lineTo(cx + radius, cy);
-    ctx.moveTo(cx, cy - radius);
-    ctx.lineTo(cx, cy + radius);
-    ctx.stroke();
-    ctx.restore();
+    ctx.moveTo(topX, topY);
+    ctx.lineTo(topX + w / 2, topY + h / 2);
+    ctx.lineTo(topX, topY + h);
+    ctx.lineTo(topX - w / 2, topY + h / 2);
+    ctx.closePath();
+    ctx.fill();
   }
 
-  private chunkKey(chunkX: number, chunkY: number, p: number) {
-    return `chunk:png:v${this.RENDER_STYLE_VERSION}:${chunkX},${chunkY},p=${p}`;
-  }
-
-  private async getChunkPngBase64(
-    chunkX: number,
-    chunkY: number,
-    p: number,
-  ): Promise<string> {
-    const key = this.chunkKey(chunkX, chunkY, p);
-    const cached = await this.cache.get(key);
-    if (cached) {
-      this.logger.debug(`[chunkpng HIT] ${key}`);
-      return cached;
-    }
-    this.logger.debug(`[chunkpng MISS] ${key}`);
-
-    const startX = chunkX * 50;
-    const startY = chunkY * 50;
-    const endX = startX + 50;
-    const endY = startY + 50;
-
-    const tRenderStart = Date.now();
-    const { canvas, width, height } = await this.renderRegionCanvas(
-      startX,
-      endX,
-      startY,
-      endY,
-      p,
-      { includeCenterMarker: false },
-    );
-    const renderMs = Date.now() - tRenderStart;
-
-    const tEncodeStart = Date.now();
-    const base64 = await bitmapToPngBase64(canvas);
-    const encodeMs = Date.now() - tEncodeStart;
-    // Cache with same TTL as region cache
-    const ttlMs = Number(30000);
-    await this.cache.set(key, base64, ttlMs);
-    const sizeKB = Math.round(((base64.length / 4) * 3) / 1024);
-    this.logger.debug(
-      `[chunkpng SET] ${key} ttlMs=${ttlMs} renderMs=${renderMs} encodeMs=${encodeMs} sizeKB=${sizeKB} wh=${width}x${height}`,
-    );
-    return base64;
-  }
-
-  private async composeFromChunkCache(
-    minX: number,
-    maxX: number,
-    minY: number,
-    maxY: number,
-    p: number,
-    chunkSize: number,
+  private drawIsoDiamondHalf(
+    ctx: Context,
+    topX: number,
+    topY: number,
+    w: number,
+    h: number,
+    color: string,
+    half: 'top' | 'bottom',
   ) {
-    const t0 = Date.now();
-    const width = maxX - minX;
-    const height = maxY - minY;
-    const canvas = createRenderBitmap(width * p, height * p);
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#2c2c2c';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const minChunkX = Math.floor(minX / chunkSize);
-    const maxChunkX = Math.floor((maxX - 1) / chunkSize);
-    const minChunkY = Math.floor(minY / chunkSize);
-    const maxChunkY = Math.floor((maxY - 1) / chunkSize);
-
-    // Load all chunk images from cache; if any missing, abort fast path
-    const needed: Array<{ cx: number; cy: number; imgB64: string } | null> = [];
-    for (let cx = minChunkX; cx <= maxChunkX; cx++) {
-      for (let cy = minChunkY; cy <= maxChunkY; cy++) {
-        const key = this.chunkKey(cx, cy, p);
-        const b64 = await this.cache.get(key);
-        if (!b64) {
-          this.logger.debug(`[chunkpng MISS] during compose -> ${key}`);
-          return null;
-        }
-        this.logger.debug(`[chunkpng HIT] during compose -> ${key}`);
-        needed.push({ cx, cy, imgB64: b64 });
-      }
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    if (half === 'top') {
+      ctx.moveTo(topX, topY);
+      ctx.lineTo(topX + w / 2, topY + h / 2);
+      ctx.lineTo(topX, topY + h / 2);
+      ctx.lineTo(topX - w / 2, topY + h / 2);
+    } else {
+      ctx.moveTo(topX - w / 2, topY + h / 2);
+      ctx.lineTo(topX, topY + h / 2);
+      ctx.lineTo(topX + w / 2, topY + h / 2);
+      ctx.lineTo(topX, topY + h);
     }
-    const fetchMs = Date.now() - t0;
+    ctx.closePath();
+    ctx.fill();
+  }
 
-    // Pre-decode all chunk images in parallel to reduce latency
-    const tDecodeStart = Date.now();
-    const decoded: Array<{ cx: number; cy: number; img: RenderBitmap } | null> =
-      await Promise.all(
-        needed.map((n) =>
-          n
-            ? decodePngBase64(n.imgB64).then((img) => ({
-                cx: n.cx,
-                cy: n.cy,
-                img,
-              }))
-            : Promise.resolve(null),
-        ),
-      );
-    const decodeMs = Date.now() - tDecodeStart;
+  private hexToRgb(hex: string): { r: number; g: number; b: number } {
+    const h = hex.startsWith('#') ? hex.slice(1) : hex;
+    const v =
+      h.length === 3
+        ? h
+            .split('')
+            .map((c) => c + c)
+            .join('')
+        : h;
+    const num = parseInt(v, 16);
+    return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+  }
 
-    // Draw the relevant sub-rectangles of each chunk image
-    const tDrawStart = Date.now();
-    for (const entry of decoded) {
-      if (!entry) continue;
-      const { cx, cy, img } = entry;
-      const startX = cx * chunkSize;
-      const startY = cy * chunkSize;
-      const endX = startX + chunkSize;
-      const endY = startY + chunkSize;
+  private rgbToHex(r: number, g: number, b: number): string {
+    const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+    const to = (n: number) => clamp(n).toString(16).padStart(2, '0');
+    return `#${to(r)}${to(g)}${to(b)}`;
+  }
 
-      // Intersection in tile coords
-      const ix0 = Math.max(minX, startX);
-      const ix1 = Math.min(maxX, endX);
-      const iy0 = Math.max(minY, startY);
-      const iy1 = Math.min(maxY, endY);
-      if (ix1 <= ix0 || iy1 <= iy0) continue;
-
-      // Source rect within chunk image (note Y inversion)
-      const sx = (ix0 - startX) * p;
-      const sy = (endY - iy1) * p; // top corresponds to highest y
-      const sw = (ix1 - ix0) * p;
-      const sh = (iy1 - iy0) * p;
-
-      // Destination rect within final canvas (also inverted Y for region)
-      const dx = (ix0 - minX) * p;
-      const dy = (maxY - iy1) * p;
-      const dw = sw;
-      const dh = sh;
-
-      ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
-    }
-    const drawMs = Date.now() - tDrawStart;
-
-    // Draw distinct PLAYER marker (white outline) on exact center tile of the region
-    const centerTileX = minX + Math.floor((maxX - minX) / 2);
-    const centerTileY = minY + Math.floor((maxY - minY) / 2);
-    const centerPixelX = (centerTileX - minX) * p;
-    const centerPixelY = (maxY - 1 - centerTileY) * p;
-    this.drawCenterMarker(ctx, centerPixelX, centerPixelY, p);
-
-    const totalMs = Date.now() - t0;
-    this.logger.debug(
-      `[chunkpng COMPOSE] chunks=${needed.length} fetchMs=${fetchMs} decodeMs=${decodeMs} drawMs=${drawMs} totalMs=${totalMs}`,
+  private lighten(hex: string, amount: number): string {
+    const { r, g, b } = this.hexToRgb(hex);
+    return this.rgbToHex(
+      r + (255 - r) * amount,
+      g + (255 - g) * amount,
+      b + (255 - b) * amount,
     );
-    return canvas;
   }
 
-  private async prewarmChunkPngCache(
-    minX: number,
-    maxX: number,
-    minY: number,
-    maxY: number,
-    p: number,
-    chunkSize: number,
-  ) {
-    const minChunkX = Math.floor(minX / chunkSize);
-    const maxChunkX = Math.floor((maxX - 1) / chunkSize);
-    const minChunkY = Math.floor(minY / chunkSize);
-    const maxChunkY = Math.floor((maxY - 1) / chunkSize);
-    const chunkCoordinates: Array<{ cx: number; cy: number }> = [];
-    const tasks: Array<Promise<string>> = [];
-    for (let cx = minChunkX; cx <= maxChunkX; cx++) {
-      for (let cy = minChunkY; cy <= maxChunkY; cy++) {
-        chunkCoordinates.push({ cx, cy });
-        tasks.push(this.getChunkPngBase64(cx, cy, p));
-      }
-    }
-    const results = await Promise.allSettled(tasks);
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        const coord = chunkCoordinates[index];
-        const reason =
-          result.reason instanceof Error
-            ? result.reason.message
-            : String(result.reason);
-        this.logger.debug(
-          `[chunkpng PREWARM FAIL] (${coord.cx},${coord.cy},p=${p}): ${reason}`,
-        );
-      }
-    });
-    const ok = results.filter((r) => r.status === 'fulfilled').length;
-    const total = results.length;
-    this.logger.debug(`[chunkpng PREWARM DONE] ${ok}/${total} chunks ready`);
+  private darken(hex: string, amount: number): string {
+    const { r, g, b } = this.hexToRgb(hex);
+    return this.rgbToHex(r * (1 - amount), g * (1 - amount), b * (1 - amount));
   }
 
-  async renderMapAscii(
-    minX: number,
-    maxX: number,
-    minY: number,
-    maxY: number,
-  ): Promise<string> {
-    const { width, height, existingTileCount, tileData } =
-      await this.prepareMapData(minX, maxX, minY, maxY);
-
-    let asciiMap = '';
-
-    // Add a header with coordinate information
-    asciiMap += `ASCII Map (${minX},${minY}) to (${maxX - 1},${maxY - 1})\n`;
-    asciiMap += `Legend: ~ Ocean, ≈ Shallow Ocean, . Beach, d Desert, g Grassland, T Forest\n`;
-    asciiMap += `        J Jungle, S Swamp, L Lake, r River, t Tundra, P Taiga\n`;
-    asciiMap += `        ^ Mountain, A Snowy Mountain, h Hills, s Savanna, a Alpine, V Volcanic\n`;
-    asciiMap += `        • Ungenerated area\n\n`;
-
-    // Render each row
-    for (let y = minY; y < maxY; y++) {
-      let row = '';
-      for (let x = minX; x < maxX; x++) {
-        const tileInfo = tileData.find((t) => t.x === x && t.y === y);
-        if (!tileInfo) continue;
-
-        const { tile, biome, hasError } = tileInfo;
-
-        if (tile && biome) {
-          row += biome.ascii;
-        } else if (hasError) {
-          row += '?'; // Error character
-        } else {
-          row += '•'; // Ungenerated area
-        }
-      }
-      asciiMap += row + '\n';
-    }
-
-    // Add a footer with statistics
-    asciiMap += `\nExisting tiles: ${existingTileCount}/${width * height} (${(
-      (existingTileCount / (width * height)) *
-      100
-    ).toFixed(1)}%)\n`;
-
-    this.logger.log(
-      `Rendered ASCII map with ${existingTileCount} existing tiles out of ${
-        width * height
-      } total coordinates`,
-    );
-    return asciiMap;
+  private hash32(x: number, y: number, seed: number): number {
+    let h = seed ^ 0x9e3779b9;
+    h = Math.imul(h ^ x, 0x85ebca6b);
+    h = Math.imul(h ^ y, 0xc2b2ae35);
+    h ^= h >>> 16;
+    return h >>> 0;
   }
+
   public async prepareMapData(
     minX: number,
     maxX: number,
@@ -565,5 +382,57 @@ export class RenderService {
       existingTileCount,
       tileData,
     };
+  }
+
+  async renderMapAscii(
+    minX: number,
+    maxX: number,
+    minY: number,
+    maxY: number,
+  ): Promise<string> {
+    const { width, height, existingTileCount, tileData } =
+      await this.prepareMapData(minX, maxX, minY, maxY);
+
+    let asciiMap = '';
+
+    // Add a header with coordinate information
+    asciiMap += `ASCII Map (${minX},${minY}) to (${maxX - 1},${maxY - 1})\n`;
+    asciiMap += `Legend: ~ Ocean, ≈ Shallow Ocean, . Beach, d Desert, g Grassland, T Forest\n`;
+    asciiMap += `        J Jungle, S Swamp, L Lake, r River, t Tundra, P Taiga\n`;
+    asciiMap += `        ^ Mountain, A Snowy Mountain, h Hills, s Savanna, a Alpine, V Volcanic\n`;
+    asciiMap += `        • Ungenerated area\n\n`;
+
+    // Render each row
+    for (let y = minY; y < maxY; y++) {
+      let row = '';
+      for (let x = minX; x < maxX; x++) {
+        const tileInfo = tileData.find((t) => t.x === x && t.y === y);
+        if (!tileInfo) continue;
+
+        const { tile, biome, hasError } = tileInfo;
+
+        if (tile && biome) {
+          row += biome.ascii;
+        } else if (hasError) {
+          row += '?'; // Error character
+        } else {
+          row += '•'; // Ungenerated area
+        }
+      }
+      asciiMap += row + '\n';
+    }
+
+    // Add a footer with statistics
+    asciiMap += `\nExisting tiles: ${existingTileCount}/${width * height} (${(
+      (existingTileCount / (width * height)) *
+      100
+    ).toFixed(1)}%)\n`;
+
+    this.logger.log(
+      `Rendered ASCII map with ${existingTileCount} existing tiles out of ${
+        width * height
+      } total coordinates`,
+    );
+    return asciiMap;
   }
 }
