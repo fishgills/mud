@@ -40,16 +40,8 @@ export class GuildShopRotationService {
     }
 
     try {
-      // Choose a rotation size between 6 and 10 for variety
-      // Choose a rotation size randomly between 6 and 10 for variety
-      const rotationCount = Math.max(
-        6,
-        Math.min(10, env.GUILD_SHOP_ROTATION_SIZE ?? 6),
-      );
-      const randomCount = Math.min(
-        rotationCount,
-        6 + Math.floor(Math.random() * 5),
-      );
+      // Choose a rotation size between 7 and 13 for variety
+      const randomCount = 7 + Math.floor(Math.random() * 7); // Random between 7-13
       const items = await this.repository.pickRandomItems(randomCount);
       if (!items.length) {
         this.logger.warn(

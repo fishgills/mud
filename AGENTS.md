@@ -30,6 +30,12 @@
 
 ## Coding Standards
 
+- **Package Manager**: This repository uses **Yarn only**. NEVER use `npm` commands. Always use `yarn` for all package management and script execution:
+  - ✅ `yarn workspace @mud/dm test`
+  - ✅ `yarn workspace apps/web build`
+  - ✅ `yarn install`
+  - ❌ ~~`npm run test`~~
+  - ❌ ~~`npm install`~~
 - **Database Access**: Always use the `@mud/database` library for database interactions. Do NOT use `prisma` directly in application code.
 - **Database Migrations**: Do NOT create migration SQL files manually. Modify `libs/database/prisma/schema.prisma` and run `yarn prisma migrate dev` (or similar tools) to generate migrations.
 

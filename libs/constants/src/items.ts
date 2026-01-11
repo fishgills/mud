@@ -115,6 +115,59 @@ export function pickTemplatesForLevel(
   return picks;
 }
 
+/**
+ * Compute exponential rarity weights for shop inventory.
+ * More rare items have exponentially lower chance to appear.
+ */
+export function computeShopTemplateWeights(
+  level: number,
+): WeightedItemTemplate[] {
+  const clampedLevel = Math.max(1, Math.min(level, MAX_PLAYER_SCALE));
+  return ITEM_TEMPLATES.map((template) => {
+    const rarityRank = ITEM_QUALITY_PRIORITY[template.rarity] ?? 0;
+    // Exponential decay: each rarity level reduces probability significantly
+    // Base weight starts at 100 for Trash (rank 0), drops exponentially
+    const exponentialPenalty = Math.pow(2, rarityRank);
+    const baseWeight = 100 / exponentialPenalty;
+
+    // Apply rank-based relevance (prefer items near player level)
+    const expected = expectedRankForLevel(clampedLevel);
+    const r = template.rank ?? 1;
+    const rankDistance = Math.abs(r - expected);
+    const rankPenalty = 1 + rankDistance * 0.3;
+
+    const weight = Math.max(0.01, baseWeight / rankPenalty);
+    return { template, weight };
+  });
+}
+
+/**
+ * Pick random items for shop using exponential rarity weighting.
+ * Rare items have much lower chance to appear than common items.
+ */
+export function pickShopTemplatesForLevel(
+  level: number,
+  count: number,
+  rng: () => number = Math.random,
+): ItemTemplateSeed[] {
+  const weighted = computeShopTemplateWeights(level);
+  const picks: ItemTemplateSeed[] = [];
+  const entries = [...weighted];
+  for (let i = 0; i < Math.max(1, count) && entries.length > 0; i++) {
+    const total = entries.reduce((s, e) => s + e.weight, 0);
+    let roll = rng() * total;
+    let idx = 0;
+    for (; idx < entries.length; idx++) {
+      roll -= entries[idx].weight;
+      if (roll <= 0) break;
+    }
+    if (idx >= entries.length) idx = entries.length - 1;
+    picks.push(entries[idx].template);
+    entries.splice(idx, 1);
+  }
+  return picks;
+}
+
 export function stripTemplateForDb(
   template: ItemTemplateSeed,
 ): ItemTemplateSeed {

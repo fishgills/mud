@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { getPrismaClient } from '@mud/database';
-import { EventBus } from '../../shared/event-bus';
 import { PlayerService } from '../player/player.service';
 import { PopulationService } from '../monster/population.service';
 import type { TickResult } from '../api';
 import { MonsterService } from '../monster/monster.service';
+import { EventBridgeService } from '../../shared/event-bridge.service';
 import { env } from '../../env';
 
 @Injectable()
@@ -17,6 +17,7 @@ export class GameTickService {
     private playerService: PlayerService,
     private populationService: PopulationService,
     private monsterService: MonsterService,
+    private eventBridge: EventBridgeService,
   ) {}
 
   async processTick(): Promise<TickResult> {
@@ -49,7 +50,8 @@ export class GameTickService {
     });
 
     const tickTimestamp = new Date();
-    await EventBus.emit({
+    // Publish tick event directly to Redis for all services
+    await this.eventBridge.publishEvent({
       eventType: 'world:time:tick',
       tick: newTick,
       gameHour: newHour,
@@ -235,7 +237,7 @@ export class GameTickService {
       const weatherChange = await this.updateWeather();
       weatherUpdated = Boolean(weatherChange);
       if (weatherChange) {
-        await EventBus.emit({
+        await this.eventBridge.publishEvent({
           eventType: 'world:weather:change',
           oldWeather: weatherChange.oldState,
           newWeather: weatherChange.newState,
