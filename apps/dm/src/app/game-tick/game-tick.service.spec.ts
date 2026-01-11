@@ -2,7 +2,7 @@ import { GameTickService } from './game-tick.service';
 import type { PlayerService } from '../player/player.service';
 import type { PopulationService } from '../monster/population.service';
 import type { MonsterService } from '../monster/monster.service';
-import { EventBus } from '../../shared/event-bus';
+import type { EventBridgeService } from '../../shared/event-bridge.service';
 
 const mockPrisma = {
   gameState: {
@@ -31,7 +31,8 @@ describe('GameTickService', () => {
   let playerService: jest.Mocked<PlayerService>;
   let populationService: jest.Mocked<PopulationService>;
   let monsterService: jest.Mocked<MonsterService>;
-  let emitSpy: jest.SpyInstance;
+  let eventBridge: jest.Mocked<EventBridgeService>;
+  let publishEventSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2024-01-01T00:00:00Z'));
@@ -51,12 +52,16 @@ describe('GameTickService', () => {
       cleanupDeadMonsters: jest.fn().mockResolvedValue(undefined),
       pruneMonstersFarFromPlayers: jest.fn().mockResolvedValue(0),
     } as unknown as jest.Mocked<MonsterService>;
+    eventBridge = {
+      publishEvent: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<EventBridgeService>;
     service = new GameTickService(
       playerService,
       populationService,
       monsterService,
+      eventBridge,
     );
-    emitSpy = jest.spyOn(EventBus, 'emit').mockResolvedValue(undefined);
+    publishEventSpy = jest.spyOn(eventBridge, 'publishEvent');
     mockPrisma.gameState.findFirst.mockReset();
     mockPrisma.gameState.create.mockReset();
     mockPrisma.gameState.update.mockReset();
@@ -93,7 +98,7 @@ describe('GameTickService', () => {
         monstersPruned: 0,
       }),
     );
-    expect(emitSpy).toHaveBeenCalledWith(
+    expect(publishEventSpy).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: 'world:time:tick', tick: 1 }),
     );
     expect(monsterService.cleanupDeadMonsters).toHaveBeenCalled();
@@ -138,7 +143,7 @@ describe('GameTickService', () => {
     expect(populationService.enforceDensityAround).toHaveBeenCalled();
     expect(result.weatherUpdated).toBe(true);
     expect(result.monstersPruned).toBe(3);
-    expect(emitSpy).toHaveBeenCalledWith(
+    expect(publishEventSpy).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: 'world:weather:change' }),
     );
     expect(monsterService.cleanupDeadMonsters).toHaveBeenCalled();

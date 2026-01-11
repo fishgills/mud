@@ -25,6 +25,8 @@ describe('GuildShopRotationService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Mock Math.random to return 0, so 7 + Math.floor(0 * 7) = 7
+    jest.spyOn(Math, 'random').mockReturnValue(0);
     coordination.exists.mockResolvedValue(false);
     coordination.acquireLock.mockResolvedValue('token');
     coordination.releaseLock.mockResolvedValue(true);
@@ -44,6 +46,10 @@ describe('GuildShopRotationService', () => {
     ]);
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('skips when cooldown is active', async () => {
     const service = makeService();
     coordination.exists.mockResolvedValue(true);
@@ -60,7 +66,8 @@ describe('GuildShopRotationService', () => {
     const result = await service.rotateIfDue('manual');
 
     expect(result.rotated).toBe(true);
-    expect(repository.pickRandomItems).toHaveBeenCalledWith(6);
+    // With Math.random() = 0, randomCount = 7 + Math.floor(0 * 7) = 7
+    expect(repository.pickRandomItems).toHaveBeenCalledWith(7);
     expect(repository.deactivateCatalog).toHaveBeenCalled();
     expect(repository.createCatalogEntriesFromItems).toHaveBeenCalled();
     expect(coordination.setCooldown).toHaveBeenCalled();

@@ -11,7 +11,7 @@ import {
   type TransactionReceipt,
   ItemQuality,
 } from '@mud/database';
-import { pickTemplatesForLevel, ITEM_TEMPLATES } from '@mud/constants';
+import { pickShopTemplatesForLevel, ITEM_TEMPLATES } from '@mud/constants';
 
 interface PurchaseResult {
   updatedPlayer: Player;
@@ -260,10 +260,11 @@ export class GuildShopRepository {
   }
 
   async pickRandomItems(count: number): Promise<Item[]> {
-    const limit = Math.max(1, Math.min(10, count));
+    const limit = Math.max(7, Math.min(13, count));
     // Choose merchant level midpoint for the shop — could be made configurable
     const merchantLevel = 10;
-    const templates = pickTemplatesForLevel(merchantLevel, limit);
+    // Use exponential rarity weighting for shop items
+    const templates = pickShopTemplatesForLevel(merchantLevel, limit);
 
     const items: Item[] = [];
     for (const template of templates) {

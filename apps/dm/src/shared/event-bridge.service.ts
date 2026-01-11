@@ -87,4 +87,11 @@ export class EventBridgeService implements OnModuleInit, OnModuleDestroy {
   async publishNotification(message: NotificationMessage): Promise<void> {
     await this.bridge.publishNotification(message);
   }
+
+  /**
+   * Publish a game event directly to Redis
+   */
+  async publishEvent(event: GameEvent): Promise<void> {
+    await this.bridge.publishEvent(event);
+  }
 }
