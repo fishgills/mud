@@ -217,7 +217,7 @@ export default async function StorePage() {
         </h1>
         <p className="text-sm text-[color:var(--ink-soft)]">
           Gold {inventory.gold} ·{' '}
-          {inventory.isInGuild ? 'In HQ' : 'Away from HQ'}· Rotates every 5
+          {inventory.isInGuild ? 'In HQ' : 'Away from HQ'} · Rotates every 5
           minutes
         </p>
       </header>
