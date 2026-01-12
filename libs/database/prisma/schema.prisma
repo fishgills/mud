@@ -57,8 +57,12 @@ model Player {
   isAlive            Boolean              @default(true)
   isCreationComplete Boolean              @default(false) // Tracks if character creation is complete (no more rerolls/complete allowed)
   lastAction         DateTime             @default(now())
+  lastActiveAt       DateTime             @default(now())
+  hasStartedGame     Boolean              @default(false)
   hasMoved           Boolean              @default(false)
   hasBattled         Boolean              @default(false)
+  hasDefeatedMonster Boolean              @default(false)
+  totalCommandsExecuted Int               @default(0)
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   worldTile          WorldTile?           @relation("PlayerLocation", fields: [worldTileId], references: [id])
@@ -414,4 +418,16 @@ model SlackAppInstallation {
   memo                            String?
 
   @@map("slack_app_installation")
+}
+
+model Workspace {
+  id            Int      @id @default(autoincrement())
+  workspaceId   String   @unique
+  installedAt   DateTime @default(now())
+  uninstalledAt DateTime?
+  lastActiveAt  DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([workspaceId])
 }

@@ -141,6 +141,12 @@ export async function applyCombatResults(
         `Missing Slack user/team ID for player ${winner.name} in combat results`,
       );
     }
+    if (loser.type === 'monster' && !loser.isAlive) {
+      await prisma.player.update({
+        where: { id: winner.id },
+        data: { hasDefeatedMonster: true },
+      });
+    }
     const slackUserId = winnerPlayer.slackUser.userId;
     const slackTeamId = winnerPlayer.slackUser.teamId;
 

@@ -1,5 +1,5 @@
 import type { App } from '@slack/bolt';
-import { deleteWorkspaceData } from '@mud/database';
+import { deleteWorkspaceData, markWorkspaceUninstalled } from '@mud/database';
 
 type UninstallContext = {
   teamId?: string;
@@ -14,6 +14,7 @@ export function registerUninstallHandler(app: App) {
     }
 
     try {
+      await markWorkspaceUninstalled(teamId);
       const result = await deleteWorkspaceData(teamId);
       logger.info(
         {

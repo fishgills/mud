@@ -97,6 +97,7 @@ describe('applyCombatResults', () => {
         findFirst: jest.fn().mockResolvedValue({
           slackUser: { teamId: 'T1', userId: 'U1' },
         }),
+        update: jest.fn().mockResolvedValue({}),
       },
     };
     const logger: any = { debug: jest.fn(), log: jest.fn() };

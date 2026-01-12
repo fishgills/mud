@@ -1,9 +1,10 @@
 import type { App } from '@slack/bolt';
 import { registerUninstallHandler } from './uninstall';
-import { deleteWorkspaceData } from '@mud/database';
+import { deleteWorkspaceData, markWorkspaceUninstalled } from '@mud/database';
 
 jest.mock('@mud/database', () => ({
   deleteWorkspaceData: jest.fn(),
+  markWorkspaceUninstalled: jest.fn(),
 }));
 
 type UninstallHandler = (args: {
@@ -14,6 +15,10 @@ type UninstallHandler = (args: {
 const mockedDeleteWorkspaceData = deleteWorkspaceData as jest.MockedFunction<
   typeof deleteWorkspaceData
 >;
+const mockedMarkWorkspaceUninstalled =
+  markWorkspaceUninstalled as jest.MockedFunction<
+    typeof markWorkspaceUninstalled
+  >;
 
 describe('registerUninstallHandler', () => {
   beforeEach(() => {
@@ -33,6 +38,15 @@ describe('registerUninstallHandler', () => {
       deletedPlayers: 3,
       deletedInstallations: 1,
     });
+    mockedMarkWorkspaceUninstalled.mockResolvedValueOnce({
+      id: 1,
+      workspaceId: 'T123',
+      installedAt: new Date(),
+      uninstalledAt: new Date(),
+      lastActiveAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
     registerUninstallHandler(app);
 
@@ -43,6 +57,7 @@ describe('registerUninstallHandler', () => {
 
     await handler({ context: { teamId: 'T123' }, logger });
 
+    expect(markWorkspaceUninstalled).toHaveBeenCalledWith('T123');
     expect(deleteWorkspaceData).toHaveBeenCalledWith('T123');
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.error).not.toHaveBeenCalled();

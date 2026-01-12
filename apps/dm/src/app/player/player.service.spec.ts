@@ -111,6 +111,12 @@ describe('PlayerService', () => {
       isAlive: true,
       isCreationComplete: true,
       lastAction: null,
+      lastActiveAt: null,
+      hasStartedGame: false,
+      hasMoved: false,
+      hasBattled: false,
+      hasDefeatedMonster: false,
+      totalCommandsExecuted: 0,
       ...overrides,
     }) as HqAwarePlayer;
 

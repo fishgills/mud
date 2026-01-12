@@ -12,6 +12,7 @@ import {
   findPlayerBySlackUser,
   Player,
   Prisma,
+  touchWorkspaceActivity,
 } from '@mud/database';
 import {
   EventBus,
@@ -83,6 +84,9 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     try {
       const updates: Prisma.PlayerUpdateInput = {
         lastAction: new Date(),
+        lastActiveAt: new Date(),
+        hasStartedGame: true,
+        totalCommandsExecuted: { increment: 1 },
       };
       if (event.source === 'player:move') {
         updates.hasMoved = true;
@@ -94,6 +98,9 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
         where: { id: event.playerId },
         data: updates,
       });
+      if (event.teamId) {
+        await touchWorkspaceActivity(event.teamId);
+      }
     } catch (err) {
       const reason = event.source ?? 'unknown';
       const message = err instanceof Error ? err.message : String(err);
@@ -564,6 +571,8 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
         );
       }
       player.isCreationComplete = true;
+      player.hasStartedGame = true;
+      player.lastActiveAt = new Date();
     }
 
     if (typeof statsDto.hp === 'number') {
@@ -614,6 +623,8 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
         gold: player.gold,
         agility: player.agility,
         strength: player.strength,
+        hasStartedGame: player.hasStartedGame,
+        lastActiveAt: player.lastActiveAt,
       },
     });
 

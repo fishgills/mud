@@ -5,6 +5,7 @@ import { ConsoleLogger as SlackConsoleLogger, LogLevel } from '@slack/logger';
 import { env } from './env';
 import { getPrismaClient } from '@mud/database';
 import { PrismaInstallationStore } from '@seratch_/bolt-prisma';
+import { TrackingInstallationStore } from './installation-store';
 import { NotificationService } from './notification.service';
 import { setSlackApp } from './appContext';
 import { GuildCrierService } from './services/guild-crier.service';
@@ -41,10 +42,11 @@ const decodedEnv = Object.fromEntries(
   ]),
 ) as unknown as typeof env;
 
-const installationStore = new PrismaInstallationStore({
+const baseInstallationStore = new PrismaInstallationStore({
   clientId: decodedEnv ? decodedEnv.SLACK_CLIENT_ID : env.SLACK_CLIENT_ID,
   prismaTable: getPrismaClient().slackAppInstallation,
 });
+const installationStore = new TrackingInstallationStore(baseInstallationStore);
 
 const runningInGke = Boolean(process.env.KUBERNETES_SERVICE_HOST);
 const slackLogger = runningInGke ? new SlackConsoleLogger() : null;
