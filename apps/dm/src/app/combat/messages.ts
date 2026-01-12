@@ -311,6 +311,21 @@ export class CombatMessenger {
     );
   }
 
+  private getDefeatPrefixes(
+    combatLog: DetailedCombatLog,
+    participantName: string,
+  ) {
+    if (combatLog.winner === participantName) {
+      return { narrative: '', summary: '' };
+    }
+
+    const winner = combatLog.winner || 'your foe';
+    return {
+      narrative: `You were defeated by ${winner}.\n\n`,
+      summary: `*Defeat.* ${winner} brings you down.\n`,
+    };
+  }
+
   async buildParticipantMessage(
     combatLog: DetailedCombatLog,
     participant: Combatant,
@@ -329,14 +344,23 @@ export class CombatMessenger {
       this.generateEntertainingSummary(combatLog, options),
     ]);
     const rewards = this.getParticipantRewards(combatLog, participant.name);
+    const defeatPrefixes = this.getDefeatPrefixes(combatLog, participant.name);
     return {
       teamId: participant.slackUser.teamId!,
       userId: participant.slackUser.userId!,
       name: participant.name,
-      message: this.appendRewards(narrative, rewards, participant.levelUp),
+      message: this.appendRewards(
+        `${defeatPrefixes.narrative}${narrative}`,
+        rewards,
+        participant.levelUp,
+      ),
       role,
       blocks: this.buildSummaryBlocks(
-        this.appendRewards(summary, rewards, participant.levelUp),
+        this.appendRewards(
+          `${defeatPrefixes.summary}${summary}`,
+          rewards,
+          participant.levelUp,
+        ),
       ),
     } as CombatMessage;
   }

@@ -45,7 +45,7 @@ export class PlayerNotificationService
     }
 
     const locationText = `(${event.x}, ${event.y})`;
-    const message = `🏥 You have been respawned at ${locationText}. Take a moment to recover before heading back into danger.`;
+    const message = `💀 You were defeated in combat and respawned at ${locationText}. Take a moment to recover before heading back into danger.`;
 
     await this.eventBridge.publishPlayerNotification(event, [
       {
@@ -59,7 +59,7 @@ export class PlayerNotificationService
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `*You're back on your feet!*\n\nYou awaken at *${locationText}*.`,
+              text: `*You were defeated.*\n\nYou awaken at *${locationText}*.`,
             },
           },
           {
