@@ -2,7 +2,6 @@ import { Controller, Delete, Get, Logger, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { RenderService } from './render.service';
 import { CacheService } from '../shared/cache.service';
-import type { MapTileDto } from './map-tile.dto';
 import { bitmapToPngBase64 } from './image-utils';
 
 @Controller('render')
@@ -25,7 +24,7 @@ export class RenderController {
   private resolveBounds(x?: string, y?: string) {
     const centerX = this.parseCenter(x);
     const centerY = this.parseCenter(y);
-    const half = 25;
+    const half = 30;
     return {
       minX: centerX - half,
       maxX: centerX + half,
@@ -48,7 +47,7 @@ export class RenderController {
       Math.floor(Number.isFinite(Number(pStr)) ? parseInt(pStr, 10) : 4),
     );
 
-    const cacheKey = `map:png:v${this.renderService.getRenderStyleVersion()}:${minX},${minY},${maxX},${maxY},p=${p},view=iso`;
+    const cacheKey = `map:png:v${this.renderService.getRenderStyleVersion()}:${minX},${minY},${maxX},${maxY},p=${p},view=ortho`;
     const ttlMs = 30000;
 
     const cached = await this.cache.get(cacheKey);
@@ -94,59 +93,14 @@ export class RenderController {
     return res.send(buf);
   }
 
-  @Get('map-tiles')
-  async getMapTiles(
-    @Query('x') x?: string,
-    @Query('y') y?: string,
-  ): Promise<MapTileDto[][]> {
-    const { minX, maxX, minY, maxY } = this.resolveBounds(x, y);
-    const { tileData } = await this.renderService.prepareMapData(
-      minX,
-      maxX,
-      minY,
-      maxY,
-    );
-
-    const rows: MapTileDto[][] = [];
-    for (let yVal = minY; yVal < maxY; yVal++) {
-      const row: MapTileDto[] = [];
-      for (let xVal = minX; xVal < maxX; xVal++) {
-        const tileInfo = tileData.find((t) => t.x === xVal && t.y === yVal);
-        row.push({
-          x: xVal,
-          y: yVal,
-          biomeName: tileInfo?.biome?.name ?? undefined,
-          symbol: tileInfo?.biome?.ascii ?? undefined,
-        });
-      }
-      rows.push(row);
-    }
-    return rows;
-  }
-
-  @Get('map.ascii')
-  async getMapAscii(
-    @Query('x') x?: string,
-    @Query('y') y?: string,
-  ): Promise<{ ascii: string }> {
-    const { minX, maxX, minY, maxY } = this.resolveBounds(x, y);
-    const ascii = await this.renderService.renderMapAscii(
-      minX,
-      maxX,
-      minY,
-      maxY,
-    );
-    return { ascii };
-  }
-
   @Get('status')
   async getStatus(): Promise<{
     renderStyleVersion: number;
-    view: 'iso';
+    view: 'ortho';
   }> {
     return {
       renderStyleVersion: this.renderService.getRenderStyleVersion(),
-      view: 'iso',
+      view: 'ortho',
     };
   }
 

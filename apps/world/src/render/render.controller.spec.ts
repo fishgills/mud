@@ -36,7 +36,7 @@ describe('RenderController', () => {
 
     renderService = {
       renderMap: jest.fn().mockResolvedValue(mockCanvas),
-      getRenderStyleVersion: jest.fn().mockReturnValue(7),
+      getRenderStyleVersion: jest.fn().mockReturnValue(8),
     } as unknown as jest.Mocked<RenderService>;
 
     cacheService = {
@@ -71,7 +71,7 @@ describe('RenderController', () => {
 
       await callController(controller, mockResponse as Response);
 
-      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 4);
+      expect(renderService.renderMap).toHaveBeenCalledWith(-30, 30, -30, 30, 4);
       expect(mockResponse.setHeader).toHaveBeenCalledWith(
         'Content-Type',
         'image/png',
@@ -85,10 +85,10 @@ describe('RenderController', () => {
       await callController(controller, mockResponse as Response, '100', '200');
 
       expect(renderService.renderMap).toHaveBeenCalledWith(
-        75,
-        125,
-        175,
-        225,
+        70,
+        130,
+        170,
+        230,
         4,
       );
     });
@@ -104,7 +104,7 @@ describe('RenderController', () => {
         '8',
       );
 
-      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 8);
+      expect(renderService.renderMap).toHaveBeenCalledWith(-30, 30, -30, 30, 8);
     });
 
     it('should enforce minimum pixels per tile of 1', async () => {
@@ -118,7 +118,7 @@ describe('RenderController', () => {
         '0',
       );
 
-      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 1);
+      expect(renderService.renderMap).toHaveBeenCalledWith(-30, 30, -30, 30, 1);
     });
 
     it('should enforce minimum pixels per tile for negative values', async () => {
@@ -132,7 +132,7 @@ describe('RenderController', () => {
         '-5',
       );
 
-      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 1);
+      expect(renderService.renderMap).toHaveBeenCalledWith(-30, 30, -30, 30, 1);
     });
 
     it('should return cached image when available', async () => {
@@ -175,7 +175,7 @@ describe('RenderController', () => {
 
       await callController(controller, mockResponse as Response, 'invalid');
 
-      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 4);
+      expect(renderService.renderMap).toHaveBeenCalledWith(-30, 30, -30, 30, 4);
     });
 
     it('should handle non-numeric y coordinate', async () => {
@@ -188,7 +188,7 @@ describe('RenderController', () => {
         'invalid',
       );
 
-      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 4);
+      expect(renderService.renderMap).toHaveBeenCalledWith(-30, 30, -30, 30, 4);
     });
 
     it('should handle non-numeric pixels per tile', async () => {
@@ -202,7 +202,7 @@ describe('RenderController', () => {
         'invalid',
       );
 
-      expect(renderService.renderMap).toHaveBeenCalledWith(-25, 25, -25, 25, 4);
+      expect(renderService.renderMap).toHaveBeenCalledWith(-30, 30, -30, 30, 4);
     });
 
     it('should use correct cache key format', async () => {
@@ -216,7 +216,7 @@ describe('RenderController', () => {
         '8',
       );
 
-      const expectedKey = 'map:png:v7:-15,-5,35,45,p=8,view=iso';
+      const expectedKey = 'map:png:v8:-20,-10,40,50,p=8,view=ortho';
       expect(cacheService.get).toHaveBeenCalledWith(expectedKey);
     });
 
@@ -238,7 +238,7 @@ describe('RenderController', () => {
 
       await callController(controller, mockResponse as Response, '50', '100');
 
-      expect(renderService.renderMap).toHaveBeenCalledWith(25, 75, 75, 125, 4);
+      expect(renderService.renderMap).toHaveBeenCalledWith(20, 80, 70, 130, 4);
     });
 
     it('should calculate correct bounds for negative coordinates', async () => {
@@ -247,10 +247,10 @@ describe('RenderController', () => {
       await callController(controller, mockResponse as Response, '-50', '-100');
 
       expect(renderService.renderMap).toHaveBeenCalledWith(
-        -75,
-        -25,
-        -125,
-        -75,
+        -80,
+        -20,
+        -130,
+        -70,
         4,
       );
     });

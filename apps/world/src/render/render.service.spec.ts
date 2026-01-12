@@ -47,12 +47,14 @@ jest.mock('./image-utils', () => {
 
 import { RenderService } from './render.service';
 import { WorldService } from '../world/world-refactored.service';
+import { SpriteService } from './sprites/sprite.service';
 
 type WorldServiceMock = Pick<WorldService, 'getCurrentSeed'>;
 
 describe('RenderService', () => {
   let service: RenderService;
   let mockWorldService: jest.Mocked<WorldServiceMock>;
+  let mockSpriteService: jest.Mocked<Partial<SpriteService>>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -62,7 +64,16 @@ describe('RenderService', () => {
       ),
     };
 
-    service = new RenderService(mockWorldService as unknown as WorldService);
+    mockSpriteService = {
+      isReady: jest.fn(() => false), // Default to false to test fallback rendering
+      drawAutoTile: jest.fn(),
+      getTileSize: jest.fn(() => 16),
+    };
+
+    service = new RenderService(
+      mockWorldService as unknown as WorldService,
+      mockSpriteService as unknown as SpriteService,
+    );
   });
 
   describe('prepareMapData', () => {
@@ -83,22 +94,6 @@ describe('RenderService', () => {
         expect(tile).toHaveProperty('y');
         expect(tile).toHaveProperty('biome');
       });
-    });
-  });
-
-  describe('renderMapAscii', () => {
-    it('should generate ASCII map for a region', async () => {
-      const result = await service.renderMapAscii(0, 10, 0, 10);
-
-      expect(typeof result).toBe('string');
-      expect(result.length).toBeGreaterThan(0);
-    });
-
-    it('should include legend in ASCII map', async () => {
-      const result = await service.renderMapAscii(0, 10, 0, 10);
-
-      expect(result).toContain('ASCII Map');
-      expect(result).toContain('Ungenerated area');
     });
   });
 
@@ -128,16 +123,6 @@ describe('RenderService', () => {
     it('should handle negative coordinates', async () => {
       const canvas = await service.renderMap(-10, 0, -10, 0, 4);
 
-      expect(canvas.width).toBeGreaterThan(0);
-      expect(canvas.height).toBeGreaterThan(0);
-    });
-  });
-
-  describe('renderMapIsometric', () => {
-    it('should render isometric map region', async () => {
-      const canvas = await service.renderMapIsometric(0, 5, 0, 5, 4);
-
-      expect(canvas).toBeDefined();
       expect(canvas.width).toBeGreaterThan(0);
       expect(canvas.height).toBeGreaterThan(0);
     });

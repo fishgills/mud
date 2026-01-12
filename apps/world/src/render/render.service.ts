@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { Context } from 'pureimage';
 import { createRenderBitmap, RenderBitmap } from './image-utils';
 import { BIOMES } from '../constants';
 import { WorldService } from '../world/world-refactored.service';
@@ -8,6 +7,7 @@ import { DEFAULT_BIOMES } from '../gridmap/default-biomes';
 import { buildGridConfigs, deriveTemperature } from '../gridmap/utils';
 import { mapGridBiomeToBiomeInfo } from '../gridmap/biome-mapper';
 import { WorldTile } from 'src/world/dto';
+import { SpriteService } from './sprites/sprite.service';
 
 type ComputedTile = {
   x: number;
@@ -28,9 +28,12 @@ type ComputedTile = {
 @Injectable()
 export class RenderService {
   private readonly logger = new Logger(RenderService.name);
-  private readonly RENDER_STYLE_VERSION = 7; // v7: isometric-only rendering
+  private readonly RENDER_STYLE_VERSION = 8; // v8: top-down orthogonal with sprite autotiling
 
-  constructor(private readonly worldService: WorldService) {}
+  constructor(
+    private readonly worldService: WorldService,
+    private readonly spriteService: SpriteService,
+  ) {}
 
   getRenderStyleVersion(): number {
     return this.RENDER_STYLE_VERSION;
@@ -43,210 +46,134 @@ export class RenderService {
     maxY: number,
     pixelsPerTile = 4,
   ) {
-    return this.renderMapIsometric(minX, maxX, minY, maxY, pixelsPerTile);
+    return this.renderMapTopDown(minX, maxX, minY, maxY, pixelsPerTile);
   }
 
-  async renderMapIsometric(
+  private async renderMapTopDown(
     minX: number,
     maxX: number,
     minY: number,
     maxY: number,
     pixelsPerTile = 4,
-  ) {
+  ): Promise<RenderBitmap> {
     const p = Math.max(1, Math.floor(pixelsPerTile));
     this.logger.debug(
-      `Isometric render: bounds=(${minX},${minY})-(${maxX - 1},${
+      `Top-down render: bounds=(${minX},${minY})-(${maxX - 1},${
         maxY - 1
       }), p=${p}`,
     );
-    const { canvas, width, height, existingTileCount } =
-      await this.renderRegionCanvasIsometric(minX, maxX, minY, maxY, p);
 
-    this.logger.log(
-      `[iso] Rendered map with ${existingTileCount} existing tiles out of ${
-        width * height
-      } total coordinates`,
-    );
-    return canvas;
-  }
-
-  private async renderRegionCanvasIsometric(
-    minX: number,
-    maxX: number,
-    minY: number,
-    maxY: number,
-    p: number,
-  ): Promise<{
-    canvas: RenderBitmap;
-    width: number;
-    height: number;
-    existingTileCount: number;
-  }> {
     const { width, height, tileData, existingTileCount } =
       await this.prepareMapData(minX, maxX, minY, maxY);
 
     if (width <= 0 || height <= 0) {
-      return {
-        canvas: createRenderBitmap(0, 0),
-        width,
-        height,
-        existingTileCount,
-      };
+      this.logger.warn('Empty map region, returning empty canvas');
+      return createRenderBitmap(0, 0);
     }
 
-    // Isometric tile footprint
-    const isoW = p * 2; // diamond width
-    const isoH = Math.max(1, Math.floor(p * 0.85)); // diamond height
-
-    // Compute canvas size (bounds of diamond lattice)
-    const minIsoX = -(height - 1) * (isoW / 2);
-    const maxIsoX = (width - 1) * (isoW / 2);
-    const minIsoY = 0;
-    const maxIsoY = (width + height - 2) * (isoH / 2);
-
-    const canvasWidth = Math.ceil(maxIsoX - minIsoX + isoW);
-    const canvasHeight = Math.ceil(maxIsoY - minIsoY + isoH * 2);
-
-    const offsetX = -minIsoX;
-    const offsetY = isoH; // padding at top
+    // Simple orthogonal canvas size
+    const canvasWidth = width * p;
+    const canvasHeight = height * p;
 
     const canvas = createRenderBitmap(canvasWidth, canvasHeight);
     const ctx = canvas.getContext('2d');
+
+    // Background
     ctx.fillStyle = '#1b1b1b';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const centerTileX = minX + Math.floor((maxX - minX) / 2);
-    const centerTileY = minY + Math.floor((maxY - minY) / 2);
-
-    // Sort tiles back-to-front by (x+y) to maintain correct overdraw ordering
-    const sorted = [...tileData].sort((a, b) => a.x + a.y - (b.x + b.y));
-
-    for (const { x, y, tile, biome } of sorted) {
-      if (!tile || !biome) continue;
-      const localX = x - minX;
-      const localY = y - minY;
-      const sx = (localX - localY) * (isoW / 2) + offsetX;
-      const sy = (localX + localY) * (isoH / 2) + offsetY;
-
-      // Base diamond fill
-      this.drawIsoDiamond(ctx, sx, sy, isoW, isoH, biome.color);
-
-      // Simple light/shadow for depth
-      const highlight = this.lighten(biome.color, 0.12);
-      const shadow = this.darken(biome.color, 0.18);
-      this.drawIsoDiamondHalf(ctx, sx, sy, isoW, isoH, highlight, 'top');
-      this.drawIsoDiamondHalf(ctx, sx, sy, isoW, isoH, shadow, 'bottom');
-
-      // Optional variation overlay for texture: reuse hash for subtle tint
-      const hash = this.hash32(localX, localY, biome.id as number);
-      const variation = (hash % 10) - 5;
-      if (variation !== 0) {
-        const alpha = Math.abs(variation) / 80;
-        ctx.fillStyle =
-          variation > 0 ? `rgba(255,255,255,${alpha})` : `rgba(0,0,0,${alpha})`;
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(sx + isoW / 2, sy + isoH / 2);
-        ctx.lineTo(sx, sy + isoH);
-        ctx.lineTo(sx - isoW / 2, sy + isoH / 2);
-        ctx.closePath();
-        ctx.fill();
+    // Build biome map for neighbor lookups
+    const biomeMap = new Map<string, number>();
+    for (const { x, y, tile } of tileData) {
+      if (tile && tile.biomeId) {
+        biomeMap.set(`${x},${y}`, tile.biomeId);
       }
     }
 
-    // Center marker projected into iso space
-    const cLocalX = centerTileX - minX;
-    const cLocalY = centerTileY - minY;
-    const cpx = (cLocalX - cLocalY) * (isoW / 2) + offsetX;
-    const cpy = (cLocalX + cLocalY) * (isoH / 2) + offsetY;
-    const markerSize = Math.max(3, Math.floor(isoH / 2));
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = Math.max(1, Math.floor(markerSize / 4));
+    // Render tiles using sprite service
+    for (const { x, y, tile, biome } of tileData) {
+      if (!tile || !biome) continue;
+
+      const pixelX = (x - minX) * p;
+      // Flip Y-axis so north is up, south is down
+      const pixelY = (maxY - y - 1) * p;
+
+      if (this.spriteService.isReady()) {
+        // Use autotiled sprites
+        this.spriteService.drawAutoTile(
+          ctx,
+          x,
+          y,
+          pixelX,
+          pixelY,
+          p,
+          biome.id as number,
+          biomeMap,
+        );
+      } else {
+        // Fallback: draw solid color if sprites not loaded
+        ctx.fillStyle = biome.color;
+        ctx.fillRect(pixelX, pixelY, p, p);
+
+        // Add subtle variation for texture
+        const hash = this.hash32(x, y, biome.id as number);
+        const variation = (hash % 10) - 5;
+        if (variation !== 0 && p >= 4) {
+          const alpha = Math.abs(variation) / 80;
+          ctx.fillStyle =
+            variation > 0
+              ? `rgba(255,255,255,${alpha})`
+              : `rgba(0,0,0,${alpha})`;
+          ctx.fillRect(pixelX, pixelY, p, p);
+        }
+      }
+    }
+
+    // Player position marker - bright and prominent
+    const centerTileX = minX + Math.floor((maxX - minX) / 2);
+    const centerTileY = minY + Math.floor((maxY - minY) / 2);
+    const cpx = (centerTileX - minX) * p + p / 2;
+    // Flip Y-axis for marker to match tile rendering
+    const cpy = (maxY - centerTileY - 1) * p + p / 2;
+    const markerSize = Math.max(6, Math.floor(p * 0.8));
+
+    // Draw outer glow/shadow for visibility
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.beginPath();
-    ctx.moveTo(cpx - markerSize, cpy);
-    ctx.lineTo(cpx + markerSize, cpy);
-    ctx.moveTo(cpx, cpy - markerSize);
-    ctx.lineTo(cpx, cpy + markerSize);
+    ctx.arc(cpx, cpy, markerSize + 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw bright circular marker
+    ctx.fillStyle = '#ffff00'; // Bright yellow
+    ctx.beginPath();
+    ctx.arc(cpx, cpy, markerSize, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw white border
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(2, Math.floor(p / 8));
+    ctx.beginPath();
+    ctx.arc(cpx, cpy, markerSize, 0, Math.PI * 2);
     ctx.stroke();
 
-    return { canvas, width, height, existingTileCount };
-  }
-
-  private drawIsoDiamond(
-    ctx: Context,
-    topX: number,
-    topY: number,
-    w: number,
-    h: number,
-    color: string,
-  ) {
-    ctx.fillStyle = color;
+    // Draw crosshair inside
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = Math.max(1, Math.floor(p / 12));
     ctx.beginPath();
-    ctx.moveTo(topX, topY);
-    ctx.lineTo(topX + w / 2, topY + h / 2);
-    ctx.lineTo(topX, topY + h);
-    ctx.lineTo(topX - w / 2, topY + h / 2);
-    ctx.closePath();
-    ctx.fill();
-  }
+    const crossSize = Math.floor(markerSize * 0.5);
+    ctx.moveTo(cpx - crossSize, cpy);
+    ctx.lineTo(cpx + crossSize, cpy);
+    ctx.moveTo(cpx, cpy - crossSize);
+    ctx.lineTo(cpx, cpy + crossSize);
+    ctx.stroke();
 
-  private drawIsoDiamondHalf(
-    ctx: Context,
-    topX: number,
-    topY: number,
-    w: number,
-    h: number,
-    color: string,
-    half: 'top' | 'bottom',
-  ) {
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    if (half === 'top') {
-      ctx.moveTo(topX, topY);
-      ctx.lineTo(topX + w / 2, topY + h / 2);
-      ctx.lineTo(topX, topY + h / 2);
-      ctx.lineTo(topX - w / 2, topY + h / 2);
-    } else {
-      ctx.moveTo(topX - w / 2, topY + h / 2);
-      ctx.lineTo(topX, topY + h / 2);
-      ctx.lineTo(topX + w / 2, topY + h / 2);
-      ctx.lineTo(topX, topY + h);
-    }
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  private hexToRgb(hex: string): { r: number; g: number; b: number } {
-    const h = hex.startsWith('#') ? hex.slice(1) : hex;
-    const v =
-      h.length === 3
-        ? h
-            .split('')
-            .map((c) => c + c)
-            .join('')
-        : h;
-    const num = parseInt(v, 16);
-    return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
-  }
-
-  private rgbToHex(r: number, g: number, b: number): string {
-    const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
-    const to = (n: number) => clamp(n).toString(16).padStart(2, '0');
-    return `#${to(r)}${to(g)}${to(b)}`;
-  }
-
-  private lighten(hex: string, amount: number): string {
-    const { r, g, b } = this.hexToRgb(hex);
-    return this.rgbToHex(
-      r + (255 - r) * amount,
-      g + (255 - g) * amount,
-      b + (255 - b) * amount,
+    this.logger.log(
+      `[ortho] Rendered map with ${existingTileCount} existing tiles out of ${
+        width * height
+      } total coordinates (${canvasWidth}×${canvasHeight} pixels)`,
     );
-  }
 
-  private darken(hex: string, amount: number): string {
-    const { r, g, b } = this.hexToRgb(hex);
-    return this.rgbToHex(r * (1 - amount), g * (1 - amount), b * (1 - amount));
+    return canvas;
   }
 
   private hash32(x: number, y: number, seed: number): number {
@@ -382,57 +309,5 @@ export class RenderService {
       existingTileCount,
       tileData,
     };
-  }
-
-  async renderMapAscii(
-    minX: number,
-    maxX: number,
-    minY: number,
-    maxY: number,
-  ): Promise<string> {
-    const { width, height, existingTileCount, tileData } =
-      await this.prepareMapData(minX, maxX, minY, maxY);
-
-    let asciiMap = '';
-
-    // Add a header with coordinate information
-    asciiMap += `ASCII Map (${minX},${minY}) to (${maxX - 1},${maxY - 1})\n`;
-    asciiMap += `Legend: ~ Ocean, ≈ Shallow Ocean, . Beach, d Desert, g Grassland, T Forest\n`;
-    asciiMap += `        J Jungle, S Swamp, L Lake, r River, t Tundra, P Taiga\n`;
-    asciiMap += `        ^ Mountain, A Snowy Mountain, h Hills, s Savanna, a Alpine, V Volcanic\n`;
-    asciiMap += `        • Ungenerated area\n\n`;
-
-    // Render each row
-    for (let y = minY; y < maxY; y++) {
-      let row = '';
-      for (let x = minX; x < maxX; x++) {
-        const tileInfo = tileData.find((t) => t.x === x && t.y === y);
-        if (!tileInfo) continue;
-
-        const { tile, biome, hasError } = tileInfo;
-
-        if (tile && biome) {
-          row += biome.ascii;
-        } else if (hasError) {
-          row += '?'; // Error character
-        } else {
-          row += '•'; // Ungenerated area
-        }
-      }
-      asciiMap += row + '\n';
-    }
-
-    // Add a footer with statistics
-    asciiMap += `\nExisting tiles: ${existingTileCount}/${width * height} (${(
-      (existingTileCount / (width * height)) *
-      100
-    ).toFixed(1)}%)\n`;
-
-    this.logger.log(
-      `Rendered ASCII map with ${existingTileCount} existing tiles out of ${
-        width * height
-      } total coordinates`,
-    );
-    return asciiMap;
   }
 }
