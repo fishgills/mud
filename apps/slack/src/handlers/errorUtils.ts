@@ -21,6 +21,31 @@ function stringifyError(err: unknown): string {
   }
 }
 
+type SlackErrorData = {
+  response_metadata?: unknown;
+};
+
+type SlackErrorLike = {
+  data?: SlackErrorData;
+  response_metadata?: unknown;
+};
+
+const extractSlackResponseMetadata = (err: unknown): unknown | null => {
+  if (!err || typeof err !== 'object') return null;
+  const candidate = err as SlackErrorLike;
+  return candidate.data?.response_metadata ?? candidate.response_metadata ?? null;
+};
+
+export function formatSlackResponseMetadata(err: unknown): string | null {
+  const metadata = extractSlackResponseMetadata(err);
+  if (!metadata) return null;
+  try {
+    return JSON.stringify(metadata);
+  } catch {
+    return String(metadata);
+  }
+}
+
 /**
  * Checks if an error is a "player not found" error and returns a user-friendly message
  */

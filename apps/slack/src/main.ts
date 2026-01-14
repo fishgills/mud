@@ -9,6 +9,7 @@ import { TrackingInstallationStore } from './installation-store';
 import { NotificationService } from './notification.service';
 import { setSlackApp } from './appContext';
 import { GuildCrierService } from './services/guild-crier.service';
+import { formatSlackResponseMetadata } from './handlers/errorUtils';
 
 // Decode any env values that were accidentally base64-encoded so the app
 // always receives raw strings. We create `decodedEnv` from `env` and use it
@@ -80,6 +81,17 @@ const app = new App({
   ],
 });
 setSlackApp(app);
+
+app.error(async (error) => {
+  const responseMetadata = formatSlackResponseMetadata(error);
+  app.logger.error(
+    {
+      error,
+      ...(responseMetadata ? { responseMetadata } : {}),
+    },
+    'bolt-app',
+  );
+});
 
 // No-op: cloud-run specific auth helper removed for GKE-only deployments. Use platform
 // native credentials/auth where necessary. Previously this called `setAuthLogger(...)`.

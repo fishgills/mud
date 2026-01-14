@@ -1,5 +1,6 @@
 import { COMMANDS } from '../commands';
 import {
+  formatSlackResponseMetadata,
   getUserFriendlyErrorMessage,
   handlePlayerNotFoundError,
 } from './errorUtils';
@@ -44,5 +45,20 @@ describe('getUserFriendlyErrorMessage', () => {
     );
     expect(message).toContain('unexpected input');
     expect(message).toContain('"message":"unexpected input"');
+  });
+});
+
+describe('formatSlackResponseMetadata', () => {
+  it('stringifies response metadata payloads', () => {
+    const error = {
+      data: { response_metadata: { acceptedScopes: ['chat:write'] } },
+    };
+    expect(formatSlackResponseMetadata(error)).toBe(
+      JSON.stringify({ acceptedScopes: ['chat:write'] }),
+    );
+  });
+
+  it('returns null when response metadata is missing', () => {
+    expect(formatSlackResponseMetadata(new Error('nope'))).toBeNull();
   });
 });
