@@ -316,6 +316,10 @@ export class RunsService {
 
     const combatLog = await runCombat(playerCombatant, monster, this.logger);
     const playerWon = combatLog.winner === playerCombatant.name;
+    const combatLogText = this.combatService.formatCombatLog(combatLog, {
+      attackerCombatant: playerCombatant,
+      defenderCombatant: monster,
+    });
 
     if (!playerWon) {
       const endTime = new Date();
@@ -334,9 +338,12 @@ export class RunsService {
       run.bankedXp = 0;
       run.bankedGold = 0;
 
+      const summary = `Run failed. Round ${roundNumber} complete. ${monster.name} defeated the party.`;
+      const rewards = 'Banked rewards: 0 XP, 0 gold.';
       await this.publishRunEndNotifications(run, {
         status: RunStatus.FAILED,
-        message: 'Run failed. No rewards were earned.',
+        message: `${summary}\n${rewards}\n\n${combatLogText}`,
+        blocks: this.buildParticipantBlocks(`${summary}\n${rewards}`),
       });
 
       return;
@@ -350,11 +357,6 @@ export class RunsService {
       0,
       Math.floor((combatLog.goldAwarded ?? 0) * rewardMultiplier),
     );
-    const combatLogText = this.combatService.formatCombatLog(combatLog, {
-      attackerCombatant: playerCombatant,
-      defenderCombatant: monster,
-    });
-
     await this.prisma.run.update({
       where: { id: run.id },
       data: {
@@ -589,7 +591,7 @@ export class RunsService {
 
   private async publishRunEndNotifications(
     run: Awaited<ReturnType<RunsService['loadRunWithParticipants']>>,
-    params: { status: RunStatus; message: string },
+    params: { status: RunStatus; message: string; blocks?: Array<Record<string, unknown>> },
   ) {
     if (!run) return;
 
@@ -602,6 +604,7 @@ export class RunsService {
         teamId: slackUser.teamId,
         userId: slackUser.userId,
         message: params.message,
+        blocks: params.blocks,
       });
     }
 
