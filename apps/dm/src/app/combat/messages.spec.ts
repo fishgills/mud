@@ -27,16 +27,14 @@ const makeCombatLog = (): DetailedCombatLog => ({
   xpAwarded: 12,
   goldAwarded: 4,
   timestamp: new Date(),
-  location: { x: 0, y: 0 },
 });
 
 describe('CombatMessenger', () => {
   const createMessenger = () => {
     const aiService = { getText: jest.fn() } as any;
-    const playerService = { getPlayersAtLocation: jest.fn() } as any;
     const logger = { debug: jest.fn(), log: jest.fn() } as any;
-    const messenger = new CombatMessenger(playerService, aiService, logger);
-    return { messenger, aiService, playerService };
+    const messenger = new CombatMessenger(aiService, logger);
+    return { messenger, aiService };
   };
 
   test('generateCombatNarrative produces deterministic math-focused output', async () => {
@@ -52,8 +50,6 @@ describe('CombatMessenger', () => {
       agility: 12,
       level: 5,
       isAlive: true,
-      x: 0,
-      y: 0,
       attackBonus: 2,
       damageBonus: 3,
       armorBonus: 1,
@@ -71,8 +67,6 @@ describe('CombatMessenger', () => {
       agility: 11,
       level: 2,
       isAlive: true,
-      x: 0,
-      y: 0,
     } as any;
 
     const narrative = await messenger.generateCombatNarrative(log, {
@@ -107,8 +101,6 @@ describe('CombatMessenger', () => {
       agility: 12,
       level: 4,
       isAlive: true,
-      x: 0,
-      y: 0,
       levelUp: { previousLevel: 3, newLevel: 4, skillPointsAwarded: 1 },
     } as any;
     const defender = {
@@ -121,8 +113,6 @@ describe('CombatMessenger', () => {
       agility: 11,
       level: 2,
       isAlive: true,
-      x: 0,
-      y: 0,
     } as any;
 
     const msg = await messenger.buildParticipantMessage(
@@ -191,23 +181,9 @@ describe('CombatMessenger', () => {
     ).toBeNull();
   });
 
-  test('generateCombatMessages produces observer messages and respects defender exclusion', async () => {
-    const { messenger, aiService, playerService } = createMessenger();
+  test('generateCombatMessages returns participant messages only', async () => {
+    const { messenger, aiService } = createMessenger();
     aiService.getText.mockResolvedValue({ output_text: 'S' });
-    playerService.getPlayersAtLocation.mockResolvedValue([
-      {
-        id: 3,
-        name: 'Obs',
-        clientType: 'slack',
-        slackUser: { teamId: 'T-OBS', userId: 'U-OBS' },
-      },
-      {
-        id: 2,
-        name: 'Defender',
-        clientType: 'slack',
-        slackUser: { teamId: 'T-B', userId: 'U-B' },
-      },
-    ]);
 
     const log = makeCombatLog();
     const attacker = {
@@ -221,8 +197,6 @@ describe('CombatMessenger', () => {
       agility: 12,
       level: 5,
       isAlive: true,
-      x: 0,
-      y: 0,
     } as any;
     const defender = {
       id: 2,
@@ -235,12 +209,9 @@ describe('CombatMessenger', () => {
       agility: 11,
       level: 4,
       isAlive: true,
-      x: 0,
-      y: 0,
     } as any;
 
     const res = await messenger.generateCombatMessages(log, attacker, defender);
-    expect(res.messages.some((m) => m.role === 'observer')).toBe(true);
-    expect(playerService.getPlayersAtLocation).toHaveBeenCalled();
+    expect(res.messages.every((m) => m.role !== 'observer')).toBe(true);
   });
 });

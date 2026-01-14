@@ -3,7 +3,6 @@ import { randomUUID } from 'crypto';
 import { PlayerService } from '../../app/player/player.service';
 import { GuildShopRepository } from './guild-shop.repository';
 import { GuildShopPublisher } from './guild-shop.publisher';
-import type { Player } from '@mud/database';
 import type { GuildTradeResponse } from '@mud/api-contracts';
 
 interface BuyRequest {
@@ -69,7 +68,6 @@ export class GuildShopService {
         requireCreationComplete: true,
       },
     );
-    this.ensurePlayerInsideGuild(player);
 
     const searchTerm = data.sku ?? data.item;
     if (!searchTerm) {
@@ -124,7 +122,6 @@ export class GuildShopService {
         requireCreationComplete: true,
       },
     );
-    this.ensurePlayerInsideGuild(player);
 
     const quantity = data.quantity && data.quantity > 0 ? data.quantity : 1;
 
@@ -176,11 +173,4 @@ export class GuildShopService {
     }
   }
 
-  private ensurePlayerInsideGuild(player: Player): void {
-    if (!player.isInHq) {
-      throw new BadRequestException(
-        'Visit the guild hall first by teleporting before trading.',
-      );
-    }
-  }
 }

@@ -13,7 +13,6 @@ For testing the store page without Slack OAuth, use the test authentication endp
   - Name: "Test Hero"
   - Level: 10
   - Gold: 10,000
-  - Position: Guild HQ (0,0)
 - Sets session cookie automatically
 - Redirects to `/me/store` by default
 
@@ -54,9 +53,6 @@ test('store displays 7-13 items with rarity', async ({ page }) => {
   // Verify gold amount is displayed (should be 10,000)
   await expect(page.getByText(/Gold 10000/i)).toBeVisible();
 
-  // Verify player is in HQ (required to trade)
-  await expect(page.getByText(/In HQ/i)).toBeVisible();
-
   // Verify rotation message
   await expect(page.getByText(/Rotates on tick events/i)).toBeVisible();
 
@@ -76,7 +72,6 @@ test('store displays 7-13 items with rarity', async ({ page }) => {
 - **Player Name**: `Test Hero`
 - **Starting Gold**: 10,000
 - **Starting Level**: 10
-- **Location**: Guild HQ (0, 0)
 
 ## Notes
 

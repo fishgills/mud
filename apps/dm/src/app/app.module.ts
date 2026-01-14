@@ -4,36 +4,19 @@ import { AppService } from './app.service';
 import { PlayerService } from './player/player.service';
 import { MonsterService } from './monster/monster.service';
 import { CombatService } from './combat/combat.service';
-import { EncounterService } from './encounter/encounter.service';
-import { GameTickService } from './game-tick/game-tick.service';
-import { WorldService } from './world/world.service';
 import { AiModule } from '../openai/ai.module';
 import {
   PlayersController,
-  MovementController,
   SystemController,
   ItemController,
-  LocationController,
-  LootController,
 } from './api/controllers';
 import { GuildShopController } from '../modules/guild-shop/guild-shop.controller';
 import { GuildAnnouncementsController } from '../modules/guild-announcements/guild-announcements.controller';
 import { FeedbackController } from '../modules/feedback/feedback.controller';
 import { CoordinationService } from '../shared/coordination.service';
 import { EventBridgeService } from '../shared/event-bridge.service';
-import {
-  VisibilityService,
-  PeakService,
-  BiomeService,
-  DescriptionService,
-  ResponseService,
-} from './api/services';
-import { PopulationService } from './monster/population.service';
-import { PrefetchService } from './prefetch/prefetch.service';
 import { PlayerNotificationService } from './player/player-notification.service';
-import { LocationNotificationService } from './notifications/location-notification.service';
 import { PlayerItemService } from './player/player-item.service';
-import { LootService } from './monster/loot.service';
 import { GuildShopService } from '../modules/guild-shop/guild-shop.service';
 import { GuildShopRepository } from '../modules/guild-shop/guild-shop.repository';
 import { GuildShopPublisher } from '../modules/guild-shop/guild-shop.publisher';
@@ -53,11 +36,8 @@ import { GitHubService } from '../modules/feedback/github.service';
   controllers: [
     AppController,
     PlayersController,
-    MovementController,
     SystemController,
     ItemController,
-    LocationController,
-    LootController,
     GuildShopController,
     GuildAnnouncementsController,
     FeedbackController,
@@ -67,22 +47,10 @@ import { GitHubService } from '../modules/feedback/github.service';
     PlayerService,
     MonsterService,
     CombatService,
-    EncounterService,
-    GameTickService,
-    WorldService,
     CoordinationService,
     EventBridgeService,
-    VisibilityService,
-    PeakService,
-    BiomeService,
-    DescriptionService,
-    ResponseService,
-    PopulationService,
-    PrefetchService,
     PlayerNotificationService,
-    LocationNotificationService,
     PlayerItemService,
-    LootService,
     GuildShopService,
     GuildShopRepository,
     GuildShopPublisher,

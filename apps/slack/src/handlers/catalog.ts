@@ -32,7 +32,7 @@ const buildCatalogBlocks = (items: GuildCatalogItem[]): KnownBlock[] => {
       elements: [
         {
           type: 'mrkdwn',
-          text: `Use the buttons below or type \`${COMMANDS.CATALOG}\` again to refresh. Sell loot via \`${COMMANDS.INVENTORY}\` while inside the guild. Stock rotates every 5 minutes.`,
+          text: `Use the buttons below or type \`${COMMANDS.CATALOG}\` again to refresh. Sell items via \`${COMMANDS.INVENTORY}\`. Stock rotates every 5 minutes.`,
         },
       ],
     },
@@ -116,13 +116,6 @@ class CatalogHandler extends PlayerCommandHandler {
   }
 
   protected async perform({ say }: HandlerContext): Promise<void> {
-    if (!this.player?.isInHq) {
-      await say({
-        text: `Use \`${COMMANDS.GUILD}\` to return to the hall before viewing the catalog.`,
-      });
-      return;
-    }
-
     const items = await this.dm.guildListCatalog();
     const blocks = buildCatalogBlocks(items);
     await say({

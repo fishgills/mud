@@ -1,7 +1,6 @@
 resource "google_dns_record_set" "public_ingress" {
   for_each = {
     slack = local.domain_mappings.slack
-    world = local.domain_mappings.world
     web   = local.domain_mappings.web
     www   = local.domain_mappings.www
   }

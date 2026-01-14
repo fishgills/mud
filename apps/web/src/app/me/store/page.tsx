@@ -153,9 +153,6 @@ export default async function StorePage() {
     hp: player.hp,
     maxHp: player.maxHp,
     gold: player.gold,
-    x: player.x,
-    y: player.y,
-    isInHq: player.isInHq,
     equipment: equipment ?? undefined,
     bag: inventoryItems,
   });
@@ -216,9 +213,7 @@ export default async function StorePage() {
           Guild Store
         </h1>
         <p className="text-sm text-[color:var(--ink-soft)]">
-          Gold {inventory.gold} ·{' '}
-          {inventory.isInGuild ? 'In HQ' : 'Away from HQ'} · Rotates on tick
-          events
+          Gold {inventory.gold} · Rotates on tick events
         </p>
       </header>
 
@@ -227,7 +222,7 @@ export default async function StorePage() {
       <section className="text-sm text-[color:var(--ink-soft)]">
         <p>
           Buy new gear from the guild merchants, or sell extra items from your
-          backpack. Visit the guild hall in Slack before trading.
+          backpack.
         </p>
       </section>
 

@@ -5,9 +5,9 @@ import { dmClient } from '../dm-client';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
 
 const DEFAULT_BUY_ERROR =
-  'Purchase failed. Make sure you are in the guild and the item is still in stock.';
+  'Purchase failed. Make sure the item is still in stock.';
 const DEFAULT_SELL_ERROR =
-  'Sale failed. Make sure the item is in your backpack while you are inside the guild.';
+  'Sale failed. Make sure the item is in your backpack.';
 
 const resolveTeamId = (
   body: BlockAction,
@@ -96,7 +96,7 @@ export const registerGuildShopActions = (app: App) => {
 
         const message = `💰 Sold ${itemDisplay} for ${goldEarned} gold. Remaining gold: ${
           trade.remainingGold ?? 'unknown'
-        }. Use \`${COMMANDS.INVENTORY}\` in the guild to see updated items.`;
+        }. Use \`${COMMANDS.INVENTORY}\` to see updated items.`;
         await notifyUser(client, userId, message);
       } catch (error) {
         logger?.error?.(

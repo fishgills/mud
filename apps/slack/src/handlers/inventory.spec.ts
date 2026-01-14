@@ -33,8 +33,6 @@ describe('inventory handler', () => {
       gold: 42,
       hp: 15,
       maxHp: 20,
-      x: 1,
-      y: 2,
       equipment: {
         head: null,
         chest: 5,
@@ -77,8 +75,6 @@ describe('inventory handler', () => {
       gold: 15,
       hp: 6,
       maxHp: 10,
-      x: 10,
-      y: -5,
       equipment: {
         head: null,
         chest: null,
@@ -148,8 +144,6 @@ describe('inventory handler', () => {
       gold: 5,
       hp: 8,
       maxHp: 12,
-      x: 0,
-      y: 0,
       equipment: {
         head: null,
         chest: null,
@@ -219,8 +213,6 @@ describe('inventory handler', () => {
         gold: 100,
         hp: 25,
         maxHp: 30,
-        x: 0,
-        y: 0,
         equipment: {
           head: null,
           chest: null,

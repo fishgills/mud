@@ -145,65 +145,6 @@ export const registerInventoryActions = (app: App) => {
   );
 
   app.action<BlockAction>(
-    'inventory_drop',
-    async ({ ack, body, client, context }) => {
-      await ack();
-      const userId = body.user?.id;
-      const teamId =
-        body.team?.id ?? (context as { teamId?: string })?.teamId;
-      if (!teamId || !userId) {
-        app.logger.warn(
-          { userId, teamId },
-          'Missing teamId or userId in inventory_drop payload',
-        );
-        return;
-      }
-      const value = getActionValue(body);
-      const channelId = getChannelIdFromBody(body);
-      if (!userId || !value) return;
-      try {
-        const res = await dmClient.drop({
-          teamId,
-          userId,
-          playerItemId: Number(value),
-        });
-        const resCode = (res as unknown as { code?: string })?.code;
-        const friendly = mapErrCodeToFriendlyMessage(resCode);
-        const successText = res.success
-          ? buildItemActionMessage(
-              'Dropped',
-              res.data,
-              res.message ?? `Dropped item ${value}.`,
-            )
-          : undefined;
-        const text = res.success
-          ? successText ?? `Dropped item ${value}.`
-          : (friendly ?? `Failed to drop: ${res.message ?? 'Unknown error'}`);
-        if (channelId) {
-          await client.chat.postEphemeral({
-            channel: channelId,
-            user: userId,
-            text,
-          });
-        } else {
-          const dm = await client.conversations.open({ users: userId });
-          const channel = dm.channel?.id;
-          if (channel) await client.chat.postMessage({ channel, text });
-        }
-      } catch (error) {
-        app.logger.warn({ error }, 'inventory_drop failed');
-        if (channelId) {
-          await client.chat.postEphemeral({
-            channel: channelId,
-            user: userId,
-            text: 'Failed to drop item',
-          });
-        }
-      }
-    },
-  );
-
-  app.action<BlockAction>(
     'inventory_unequip',
     async ({ ack, body, client, context }) => {
       await ack();

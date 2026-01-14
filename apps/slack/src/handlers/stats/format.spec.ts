@@ -12,13 +12,9 @@ describe('buildPlayerStatsMessage', () => {
   const createMockPlayer = (
     overrides: Partial<PlayerStatsSource> = {},
   ): PlayerStatsSource => ({
-    id: '1',
-    teamId: 'T1',
-    userId: 'U123',
+    id: 1,
     slackUser: { id: 77, teamId: 'T1', userId: 'U123' },
     name: 'Test Player',
-    x: 10,
-    y: 20,
     hp: 50,
     maxHp: 100,
     strength: 10,

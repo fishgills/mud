@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { EventBus, type PlayerRespawnEvent } from '../../shared/event-bus';
 import { EventBridgeService } from '../../shared/event-bridge.service';
-import { LocationNotificationService } from '../notifications/location-notification.service';
 
 @Injectable()
 export class PlayerNotificationService
@@ -37,15 +36,15 @@ export class PlayerNotificationService
   }
 
   private async handlePlayerRespawn(event: PlayerRespawnEvent): Promise<void> {
-    if (!LocationNotificationService.hasSlackUser(event.player)) {
+    if (!event.player.slackUser?.teamId || !event.player.slackUser.userId) {
       this.logger.warn(
         `Received player:respawn for player ${event.player.id} without a Slack user`,
       );
       return;
     }
 
-    const locationText = `(${event.x}, ${event.y})`;
-    const message = `💀 You were defeated in combat and respawned at ${locationText}. Take a moment to recover before heading back into danger.`;
+    const message =
+      '💀 You were defeated in combat and have recovered. Take a moment to regroup before diving back in.';
 
     await this.eventBridge.publishPlayerNotification(event, [
       {
@@ -59,7 +58,7 @@ export class PlayerNotificationService
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `*You were defeated.*\n\nYou awaken at *${locationText}*.`,
+              text: '*You were defeated.*\n\nYou regain consciousness and feel ready to continue.',
             },
           },
           {
@@ -67,7 +66,7 @@ export class PlayerNotificationService
             elements: [
               {
                 type: 'mrkdwn',
-                text: 'Tip: Check your surroundings and regroup before your next move.',
+                text: 'Tip: Catch your breath and prepare before your next fight.',
               },
             ],
           },
@@ -76,7 +75,7 @@ export class PlayerNotificationService
     ]);
 
     this.logger.debug(
-      `Sent respawn notification to ${event.player.slackUser.teamId}:${event.player.slackUser.userId} for location ${locationText}`,
+      `Sent respawn notification to ${event.player.slackUser.teamId}:${event.player.slackUser.userId}`,
     );
   }
 }

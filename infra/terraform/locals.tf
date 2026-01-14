@@ -7,7 +7,6 @@ locals {
 
   service_names = {
     dm    = "dm-${var.environment}"
-    world = "world-${var.environment}"
     slack = "slack-${var.environment}"
     tick  = "tick-${var.environment}"
     web   = "web-${var.environment}"
@@ -15,7 +14,6 @@ locals {
 
   service_account_ids = {
     dm    = "dm-run-${var.environment}"
-    world = "world-run-${var.environment}"
     slack = "slack-run-${var.environment}"
     tick  = "tick-run-${var.environment}"
     web   = "web-run-${var.environment}"
@@ -23,7 +21,6 @@ locals {
 
   domain_mappings = {
     slack = "slack.${var.domain}"
-    world = "world.${var.domain}"
     web   = var.domain
     www   = "www.${var.domain}"
   }
@@ -32,10 +29,6 @@ locals {
     dm = coalesce(
       var.dm_image,
       "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/dm:latest"
-    )
-    world = coalesce(
-      var.world_image,
-      "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/world:latest"
     )
     slack = coalesce(
       var.slack_bot_image,

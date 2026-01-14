@@ -77,8 +77,6 @@ export async function applyCombatResults(
       loser.hp = respawnedPlayer.hp;
       loser.maxHp = respawnedPlayer.maxHp;
       loser.isAlive = respawnedPlayer.isAlive;
-      loser.x = respawnedPlayer.x;
-      loser.y = respawnedPlayer.y;
     } else {
       logger.log(`🩹 Restoring defeated player ${loser.name} to full health`);
       const healedLoser = await playerService.restorePlayerHealth(
@@ -88,8 +86,6 @@ export async function applyCombatResults(
       loser.hp = healedLoser.hp;
       loser.maxHp = healedLoser.maxHp;
       loser.isAlive = healedLoser.isAlive;
-      loser.x = healedLoser.x;
-      loser.y = healedLoser.y;
     }
   } else {
     logger.debug(`Updating loser ${loser.name} HP to ${loser.hp}...`);
@@ -104,11 +100,9 @@ export async function applyCombatResults(
           type: winner.type,
           id: winner.id,
         },
-        x: monster.x,
-        y: monster.y,
         timestamp: new Date(),
       });
-      logger.log(`🗑️ Removed defeated monster ${loser.name} from the world`);
+      logger.log(`🗑️ Removed defeated monster ${loser.name}`);
     } else {
       const monsterEntity = await prisma.monster.findUnique({
         where: { id: loser.id },
@@ -204,8 +198,6 @@ export async function applyCombatResults(
     winner.maxHp = healedWinner.maxHp;
     winner.hp = healedWinner.hp;
     winner.isAlive = healedWinner.isAlive;
-    winner.x = healedWinner.x;
-    winner.y = healedWinner.y;
   } else {
     logger.debug(`Winner ${winner.name} is a monster, no XP or gold awarded`);
   }
@@ -225,8 +217,6 @@ export async function applyCombatResults(
       defenderId: loser.id,
       defenderType: loser.type,
       damage: totalDamage,
-      x: combatLog.location.x,
-      y: combatLog.location.y,
     },
   });
 

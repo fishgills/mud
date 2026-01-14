@@ -143,8 +143,8 @@ export const buildAppHomeBlocks = async (
           type: 'mrkdwn',
           text: [
             'Fight monsters',
-            'Explore a shared world',
             'Earn XP and climb the leaderboard',
+            'Gear up in the shop',
           ].join('\n'),
         },
       },
@@ -238,16 +238,6 @@ export const buildAppHomeBlocks = async (
   blocks.push({
     type: 'actions' as const,
     elements: [
-      {
-        type: 'button' as const,
-        text: { type: 'plain_text' as const, text: 'Look Around' },
-        action_id: HELP_ACTIONS.LOOK,
-      },
-      {
-        type: 'button' as const,
-        text: { type: 'plain_text' as const, text: 'Map' },
-        action_id: HELP_ACTIONS.MAP,
-      },
       {
         type: 'button' as const,
         text: { type: 'plain_text' as const, text: 'Inventory' },

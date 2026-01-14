@@ -139,13 +139,6 @@ ${title}`,
           action_id: 'inventory_unequip',
           value: String(playerItemId),
         },
-        {
-          type: 'button',
-          text: { type: 'plain_text', text: 'Drop' },
-          style: 'danger',
-          action_id: 'inventory_drop',
-          value: String(playerItemId),
-        },
       ],
     } as ActionsBlock);
   }
@@ -181,13 +174,6 @@ const createBackpackItemBlocks = (
   }
 
   if (playerItemId !== null) {
-    actions.push({
-      type: 'button',
-      text: { type: 'plain_text', text: 'Drop' },
-      style: 'danger',
-      action_id: 'inventory_drop',
-      value: String(playerItemId),
-    });
     if (opts?.allowSell) {
       actions.push({
         type: 'button',
@@ -268,7 +254,6 @@ const formatSlotValue = (
 const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
   const equipment = player.equipment ?? {};
   const bag = (player as PlayerWithBag).bag ?? [];
-  const inGuild = Boolean(player.isInHq);
   const bagById = new Map<number, ItemRecord>();
   bag.forEach((item) => {
     if (typeof item.id === 'number') {
@@ -347,10 +332,6 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
           type: 'mrkdwn',
           text: `*Gold*\n${gold}`,
         },
-        {
-          type: 'mrkdwn',
-          text: `*Position*\n(${player.x ?? '?'}, ${player.y ?? '?'})`,
-        },
       ],
     },
     { type: 'divider' },
@@ -396,7 +377,7 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
     });
   } else {
     unequippedItems.forEach((item) => {
-      blocks.push(...createBackpackItemBlocks(item, { allowSell: inGuild }));
+      blocks.push(...createBackpackItemBlocks(item, { allowSell: true }));
     });
   }
 

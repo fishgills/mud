@@ -53,20 +53,6 @@ export async function findPlayerById(id: number) {
 }
 
 /**
- * Find players at a specific location
- */
-export async function findPlayersAtLocation(x: number, y: number) {
-  const prisma = getPrismaClient();
-
-  return await prisma.player.findMany({
-    where: { x, y },
-    include: {
-      slackUser: true,
-    },
-  });
-}
-
-/**
  * Find all players in a Slack workspace/team
  */
 export async function findPlayersByTeam(teamId: string) {

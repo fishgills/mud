@@ -2,10 +2,6 @@ export class SubmitFeedbackDto {
   playerId!: number;
   type!: 'bug' | 'suggestion' | 'general';
   content!: string;
-  context?: {
-    locationName?: string;
-    coordinates?: { x: number; y: number };
-  };
 }
 
 export interface FeedbackValidationResult {

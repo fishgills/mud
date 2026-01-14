@@ -64,14 +64,12 @@ const buildNotification = (
 ): NotificationMessage => ({
   type: 'combat',
   recipients,
-  event: {
-    eventType: 'combat:end',
-    timestamp: new Date(),
-    winner: { type: 'player', id: 1, name: 'Hero' },
-    loser: { type: 'monster', id: 2, name: 'Goblin' },
-    x: 0,
-    y: 0,
-  } as unknown as NotificationMessage['event'],
+    event: {
+      eventType: 'combat:end',
+      timestamp: new Date(),
+      winner: { type: 'player', id: 1, name: 'Hero' },
+      loser: { type: 'monster', id: 2, name: 'Goblin' },
+    } as unknown as NotificationMessage['event'],
 });
 
 const createLogger = (): Logger =>
@@ -197,7 +195,7 @@ describe('NotificationService', () => {
     await service.start();
 
     const notification: NotificationMessage = {
-      type: 'world',
+      type: 'announcement',
       recipients: [
         {
           clientType: 'slack',

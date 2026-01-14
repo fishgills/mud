@@ -1,12 +1,5 @@
 import { PlayerService } from './player.service';
-import type { Player } from '@mud/database';
 import { EventBus } from '../../shared/event-bus';
-type HqAwarePlayer = Player & {
-  isInHq?: boolean | null;
-  lastWorldX?: number | null;
-  lastWorldY?: number | null;
-};
-
 import {
   BadRequestException,
   ConflictException,
@@ -21,12 +14,10 @@ const mockPrisma = {
     findMany: jest.fn(),
     create: jest.fn(),
     delete: jest.fn(),
-    deleteMany: jest.fn(),
   },
   slackUser: {
     create: jest.fn(),
     delete: jest.fn(),
-    deleteMany: jest.fn(),
   },
 };
 
@@ -50,16 +41,6 @@ jest.mock('@dice-roller/rpg-dice-roller', () => ({
   })),
 }));
 
-const createWorldService = () => ({
-  getTileInfo: jest.fn().mockResolvedValue({ biomeName: 'grassland' }),
-  getTileInfoWithNearby: jest.fn(),
-  getTilesInBounds: jest.fn(),
-  getBoundsTiles: jest.fn(),
-  enterHq: jest.fn(),
-  exitHq: jest.fn(),
-  getHqStatus: jest.fn(),
-});
-
 const createPlayerItemService = () => ({
   getEquipmentTotals: jest.fn().mockResolvedValue({
     attackBonus: 0,
@@ -69,9 +50,35 @@ const createPlayerItemService = () => ({
   }),
 });
 
+const makePlayer = (overrides: Record<string, unknown> = {}) =>
+  ({
+    id: 1,
+    name: 'Hero',
+    hp: 10,
+    maxHp: 10,
+    agility: 12,
+    strength: 12,
+    health: 10,
+    level: 1,
+    xp: 0,
+    gold: 0,
+    skillPoints: 0,
+    isAlive: true,
+    isCreationComplete: true,
+    lastAction: new Date(),
+    lastActiveAt: new Date(),
+    hasStartedGame: false,
+    hasMoved: false,
+    hasBattled: false,
+    hasDefeatedMonster: false,
+    totalCommandsExecuted: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  }) as any;
+
 describe('PlayerService', () => {
   let service: PlayerService;
-  let worldService: ReturnType<typeof createWorldService>;
   let playerItemService: ReturnType<typeof createPlayerItemService>;
   let eventBusEmitSpy: jest.SpyInstance;
 
@@ -79,12 +86,8 @@ describe('PlayerService', () => {
     jest.useFakeTimers().setSystemTime(new Date('2024-01-01T00:00:00Z'));
     jest.clearAllMocks();
     diceQueue = [];
-    worldService = createWorldService();
     playerItemService = createPlayerItemService();
-    service = new PlayerService(
-      worldService as never,
-      playerItemService as never,
-    );
+    service = new PlayerService(playerItemService as never);
     eventBusEmitSpy = jest.spyOn(EventBus, 'emit').mockResolvedValue(undefined);
   });
 
@@ -93,696 +96,75 @@ describe('PlayerService', () => {
     jest.restoreAllMocks();
   });
 
-  const makePlayer = (overrides: Partial<HqAwarePlayer> = {}): HqAwarePlayer =>
-    ({
-      id: 1,
-      name: 'Hero',
-      x: 0,
-      y: 0,
-      hp: 10,
-      maxHp: 10,
-      agility: 2,
-      strength: 10,
-      health: 10,
-      level: 1,
-      xp: 0,
-      gold: 0,
-      skillPoints: 0,
-      isAlive: true,
-      isCreationComplete: true,
-      lastAction: null,
-      lastActiveAt: null,
-      hasStartedGame: false,
-      hasMoved: false,
-      hasBattled: false,
-      hasDefeatedMonster: false,
-      totalCommandsExecuted: 0,
-      ...overrides,
-    }) as HqAwarePlayer;
+  it('creates a player and slack user record', async () => {
+    mockFindPlayerBySlackUser.mockRejectedValueOnce(new NotFoundException());
+    const created = makePlayer();
+    mockPrisma.player.create.mockResolvedValue(created);
+    mockPrisma.slackUser.create.mockResolvedValue({ id: 2 });
 
-  describe('hasActivePlayers', () => {
-    it('returns true when player count exceeds zero', async () => {
-      mockPrisma.player.count.mockResolvedValue(2);
-      const result = await service.hasActivePlayers(15);
-      expect(result).toBe(true);
-      expect(mockPrisma.player.count).toHaveBeenCalledWith({
-        where: {
-          lastAction: {
-            gte: new Date(Date.now() - 15 * 60 * 1000),
-          },
-        },
-      });
-    });
-  });
-
-  describe('getActivePlayers', () => {
-    it('queries alive players within the provided window', async () => {
-      const players = [{ id: 1 }];
-      mockPrisma.player.findMany.mockResolvedValue(players as never);
-
-      const result = await service.getActivePlayers(10);
-
-      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
-        where: {
-          isAlive: true,
-          lastAction: {
-            gte: new Date(Date.now() - 10 * 60 * 1000),
-          },
-        },
-      });
-      expect(result).toBe(players);
-    });
-
-    it('falls back to alive players when window is zero', async () => {
-      mockPrisma.player.findMany.mockResolvedValue([]);
-      await service.getActivePlayers(0);
-      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
-        where: { isAlive: true },
-      });
-    });
-  });
-
-  describe('getTopPlayers', () => {
-    it('filters leaderboard by team when provided', async () => {
-      const players = [makePlayer({ id: 42 })];
-      mockPrisma.player.findMany.mockResolvedValue(players);
-
-      const result = await service.getTopPlayers(5, 'T1');
-
-      expect(result).toBe(players);
-      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
-        where: { slackUser: { teamId: 'T1' } },
-        orderBy: [{ level: 'desc' }, { xp: 'desc' }],
-        take: 5,
-      });
-    });
-
-    it('uses defaults when team filter missing', async () => {
-      mockPrisma.player.findMany.mockResolvedValue([]);
-      await service.getTopPlayers();
-      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
-        where: {},
-        orderBy: [{ level: 'desc' }, { xp: 'desc' }],
-        take: 10,
-      });
-    });
-  });
-
-  describe('getPlayer', () => {
-    it('throws NotFoundException when lookup returns null', async () => {
-      mockFindPlayerBySlackUser.mockResolvedValue(null);
-      await expect(service.getPlayer('T1', 'U1')).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-  });
-
-  describe('movePlayer', () => {
-    it('rejects movement until character creation is complete', async () => {
-      jest
-        .spyOn(service, 'getPlayer')
-        .mockResolvedValue(makePlayer({ isCreationComplete: false }));
-
-      await expect(
-        service.movePlayer('T1', 'U1', { direction: 'north' }),
-      ).rejects.toThrow(
-        'Finish character creation before performing this action. Use "reroll" to adjust stats or "complete" when you are ready.',
-      );
-      expect(worldService.getTileInfo).not.toHaveBeenCalled();
-    });
-
-    it('throws when requested distance exceeds agility', async () => {
-      jest
-        .spyOn(service, 'getPlayer')
-        .mockResolvedValue(makePlayer({ agility: 1 }));
-
-      await expect(
-        service.movePlayer('T1', 'U1', { direction: 'north', distance: 3 }),
-      ).rejects.toThrow('You can move up to 1 space based on your agility.');
-    });
-
-    it('rejects movement attempts while inside HQ', async () => {
-      jest
-        .spyOn(service, 'getPlayer')
-        .mockResolvedValue(makePlayer({ isInHq: true }));
-
-      await expect(
-        service.movePlayer('T1', 'U1', { direction: 'north' }),
-      ).rejects.toThrow(
-        'You cannot move while inside HQ. Use `guild return` or `guild random` to head back into the world.',
-      );
-      expect(worldService.getTileInfo).not.toHaveBeenCalled();
-    });
-
-    it('updates coordinates and emits move event', async () => {
-      const basePlayer = makePlayer({ agility: 3 });
-      jest.spyOn(service, 'getPlayer').mockResolvedValue(basePlayer);
-      mockPrisma.player.update.mockResolvedValue(undefined);
-      mockPrisma.player.findUnique.mockResolvedValue(
-        makePlayer({ id: 1, x: 0, y: 2 }),
-      );
-
-      const result = await service.movePlayer('T1', 'U1', {
-        direction: 'north',
-        distance: 2,
-      });
-
-      expect(worldService.getTileInfo).toHaveBeenCalledWith(0, 2);
-      expect(mockPrisma.player.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: { x: 0, y: 2 },
-      });
-      expect(eventBusEmitSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          eventType: 'player:move',
-          toY: 2,
-        }),
-      );
-      expect(eventBusEmitSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          eventType: 'player:activity',
-          playerId: 1,
-          source: 'player:move',
-        }),
-      );
-      expect(result.y).toBe(2);
-    });
-  });
-
-  describe('teleportPlayer', () => {
-    it('enters HQ when player is in the world', async () => {
-      jest
-        .spyOn(service, 'getPlayer')
-        .mockResolvedValue(makePlayer({ isInHq: false }));
-      worldService.enterHq.mockResolvedValue({
-        playerId: 1,
-        isInHq: true,
-        location: { x: 0, y: 0 },
-        lastWorldPosition: { x: 5, y: -2 },
-      });
-      mockPrisma.player.findUnique.mockResolvedValueOnce(
-        makePlayer({ isInHq: true, x: 0, y: 0 }),
-      );
-
-      const result = await service.teleportPlayer('T1', 'U1');
-
-      expect(worldService.enterHq).toHaveBeenCalledWith(1);
-      expect(result.state).toBe('entered');
-      expect(result.lastWorldPosition).toEqual({ x: 5, y: -2 });
-      expect(result.player?.isInHq).toBe(true);
-    });
-
-    it('requests exit choice when already in HQ and no mode provided', async () => {
-      jest
-        .spyOn(service, 'getPlayer')
-        .mockResolvedValue(
-          makePlayer({ isInHq: true, lastWorldX: 3, lastWorldY: 4 }),
-        );
-
-      const result = await service.teleportPlayer('T1', 'U1');
-
-      expect(result.state).toBe('awaiting_choice');
-      expect(result.lastWorldPosition).toEqual({ x: 3, y: 4 });
-      expect(worldService.exitHq).not.toHaveBeenCalled();
-    });
-
-    it('exits HQ using requested mode', async () => {
-      jest
-        .spyOn(service, 'getPlayer')
-        .mockResolvedValue(makePlayer({ isInHq: true }));
-      worldService.exitHq.mockResolvedValue({
-        playerId: 1,
-        isInHq: false,
-        location: { x: 11, y: -7 },
-        lastWorldPosition: { x: 11, y: -7 },
-        mode: 'random',
-      });
-      mockPrisma.player.findUnique.mockResolvedValueOnce(
-        makePlayer({ isInHq: false, x: 11, y: -7 }),
-      );
-
-      const result = await service.teleportPlayer('T1', 'U1', 'random');
-
-      expect(worldService.exitHq).toHaveBeenCalledWith(1, 'random');
-      expect(result.state).toBe('exited');
-      expect(result.destination).toEqual({ x: 11, y: -7 });
-      expect(result.mode).toBe('random');
-    });
-  });
-
-  describe('spendSkillPoint', () => {
-    it('increments attribute and consumes skill points', async () => {
-      const startingHealth = 13;
-      const basePlayer = makePlayer({
-        skillPoints: 2,
-        strength: 15,
-        health: startingHealth,
-        maxHp: service.getMaxHpFor(startingHealth, 1),
-        hp: service.getMaxHpFor(startingHealth, 1),
-      });
-      jest.spyOn(service, 'getPlayer').mockResolvedValue(basePlayer);
-
-      const updated = await service.spendSkillPoint('T1', 'U1', 'health');
-      expect(updated.health).toBe(startingHealth + 1);
-      const expectedMax = service.getMaxHpFor(startingHealth + 1, 1);
-      expect(updated.maxHp).toBe(expectedMax);
-      expect(updated.hp).toBe(expectedMax);
-      expect(updated.skillPoints).toBe(1);
-      expect(playerItemService.getEquipmentTotals).toHaveBeenCalledWith(
-        basePlayer.id,
-      );
-      expect(mockPrisma.player.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            health: startingHealth + 1,
-            maxHp: expectedMax,
-            skillPoints: 1,
-          }),
-        }),
-      );
-    });
-  });
-
-  describe('random stat helpers', () => {
-    it('applies deterministic dice totals for generateRandomStats', () => {
-      diceQueue = [15, 14, 13];
-      const stats = (service as any).generateRandomStats();
-      expect(stats).toEqual({
-        strength: 15,
-        agility: 14,
-        health: 13,
-        maxHp: 11, // 10 + modifier of +1
-      });
-    });
-
-    it('calculates deterministic level-up HP gain with minimum of 1', () => {
-      const lowGain = (service as any).calculateLevelUpHpGain(6); // modifier -2
-      expect(lowGain).toBe(4);
-      const highGain = (service as any).calculateLevelUpHpGain(18); // modifier +4
-      expect(highGain).toBe(10);
-    });
-  });
-
-  describe('utility math', () => {
-    it('computes XP threshold increases with level', () => {
-      const xp2 = (service as any).getXpForNextLevel(2);
-      const xp3 = (service as any).getXpForNextLevel(3);
-      expect(xp3).toBeGreaterThan(xp2);
-    });
-
-    it('calculates Euclidean distance', () => {
-      const d = service.calculateDistance(0, 0, 3, 4);
-      expect(d).toBe(5);
-    });
-  });
-
-  describe('createPlayer', () => {
-    const baseDto = {
+    const result = await service.createPlayer({
       teamId: 'T1',
       userId: 'U1',
-      name: 'Newbie',
-      x: 2,
-      y: 3,
-    };
-
-    it('rejects when missing identity info', async () => {
-      await expect(
-        service.createPlayer({ ...baseDto, userId: '' }),
-      ).rejects.toThrow(BadRequestException);
+      name: 'Hero',
     });
 
-    it('throws ConflictException when player already exists', async () => {
-      jest.spyOn(service, 'getPlayer').mockResolvedValue(makePlayer());
-      await expect(service.createPlayer(baseDto as any)).rejects.toThrow(
-        ConflictException,
-      );
-      expect(mockPrisma.player.create).not.toHaveBeenCalled();
+    expect(mockPrisma.player.create).toHaveBeenCalled();
+    expect(mockPrisma.slackUser.create).toHaveBeenCalledWith({
+      data: { teamId: 'T1', userId: 'U1', playerId: created.id },
     });
-
-    it('creates player after generating stats and spawn location', async () => {
-      jest
-        .spyOn(service, 'getPlayer')
-        .mockRejectedValue(new NotFoundException());
-      jest
-        .spyOn(
-          service as unknown as { findValidSpawnPosition: jest.Mock },
-          'findValidSpawnPosition',
-        )
-        .mockResolvedValue({ x: 9, y: -4 });
-      jest
-        .spyOn(
-          service as unknown as { generateRandomStats: () => any },
-          'generateRandomStats',
-        )
-        .mockReturnValue({
-          strength: 15,
-          agility: 13,
-          health: 14,
-          maxHp: 12,
-        });
-      mockPrisma.player.create.mockResolvedValue({
-        id: 77,
-        name: baseDto.name,
-        x: 9,
-        y: -4,
-        hp: 12,
-        maxHp: 12,
-        strength: 15,
-        agility: 13,
-        health: 14,
-        level: 1,
-        skillPoints: 0,
-        gold: 0,
-        xp: 0,
-        isAlive: true,
-      });
-      mockPrisma.slackUser.create.mockResolvedValue(undefined);
-
-      const created = await service.createPlayer(baseDto as any);
-
-      expect(created.id).toBe(77);
-      expect(mockPrisma.player.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          name: baseDto.name,
-          x: 9,
-          y: -4,
-          strength: 15,
-          agility: 13,
-          health: 14,
-          hp: 12,
-          maxHp: 12,
-        }),
-      });
-      expect(mockPrisma.slackUser.create).toHaveBeenCalledWith({
-        data: { teamId: 'T1', userId: 'U1', playerId: 77 },
-      });
-      expect(
-        (
-          service as unknown as {
-            findValidSpawnPosition: jest.Mock;
-          }
-        ).findValidSpawnPosition,
-      ).toHaveBeenCalledWith(baseDto.x, baseDto.y);
-    });
+    expect(result).toBe(created);
   });
 
-  describe('updatePlayerStats', () => {
-    it('levels up when XP crosses threshold and emits event', async () => {
-      const health = 12;
-      const basePlayer = makePlayer({
-        xp: 90,
-        level: 1,
-        skillPoints: 0,
-        health,
-        hp: service.getMaxHpFor(health, 1),
-        maxHp: service.getMaxHpFor(health, 1),
-      });
-      jest.spyOn(service, 'getPlayer').mockResolvedValue(basePlayer);
-      mockPrisma.player.update.mockResolvedValue(undefined);
-      mockPrisma.player.findUnique.mockResolvedValue({
-        ...basePlayer,
-        level: 2,
-      });
-
-      const updated = await service.updatePlayerStats('T1', 'U1', { xp: 150 });
-
-      expect(updated.level).toBe(2);
-      expect(updated.maxHp).toBe(service.getMaxHpFor(health, 2));
-      expect(playerItemService.getEquipmentTotals).toHaveBeenCalledWith(
-        basePlayer.id,
-      );
-      expect(eventBusEmitSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          eventType: 'player:levelup',
-          newLevel: 2,
-        }),
-      );
-    });
+  it('rejects duplicate player creation', async () => {
+    mockFindPlayerBySlackUser.mockResolvedValueOnce(makePlayer());
+    await expect(
+      service.createPlayer({ teamId: 'T1', userId: 'U1', name: 'Hero' }),
+    ).rejects.toThrow(ConflictException);
   });
 
-  describe('rerollPlayerStats', () => {
-    it('regenerates stats when creation not complete', async () => {
-      const initial = makePlayer({ isCreationComplete: false });
-      const rerolled = makePlayer({
-        id: initial.id,
-        strength: 18,
-        agility: 16,
-        health: 15,
-        maxHp: 12,
-      });
-      const getPlayerSpy = jest
-        .spyOn(service, 'getPlayer')
-        .mockResolvedValueOnce(initial)
-        .mockResolvedValueOnce(rerolled);
-      diceQueue = [18, 16, 15];
-      mockPrisma.player.update.mockResolvedValue(undefined);
-
-      const result = await service.rerollPlayerStats('T1', 'U1');
-
-      expect(getPlayerSpy).toHaveBeenCalledTimes(2);
-      expect(result.strength).toBe(18);
-      expect(result.maxHp).toBe(service.getMaxHpFor(15, result.level));
-      expect(playerItemService.getEquipmentTotals).toHaveBeenCalledWith(
-        initial.id,
-      );
-    });
-
-    it('throws when creation already complete', async () => {
-      const current = makePlayer({ isCreationComplete: true });
-      jest.spyOn(service, 'getPlayer').mockResolvedValue(current);
-      await expect(service.rerollPlayerStats('T1', 'U1')).rejects.toThrow(
-        'Character creation is complete. You cannot reroll anymore.',
-      );
-    });
+  it('requires teamId and userId for createPlayer', async () => {
+    await expect(
+      service.createPlayer({ teamId: 'T1', name: 'Hero' } as never),
+    ).rejects.toThrow(BadRequestException);
   });
 
-  describe('recalculatePlayerHitPointsFromEquipment', () => {
-    it('adjusts maxHp based on vitality bonuses from gear', async () => {
-      const basePlayer = makePlayer({ health: 14, level: 5 });
-      basePlayer.maxHp = service.getMaxHpFor(
-        basePlayer.health,
-        basePlayer.level,
-      );
-      basePlayer.hp = basePlayer.maxHp;
-      mockPrisma.player.findUnique.mockResolvedValueOnce({ ...basePlayer });
-      playerItemService.getEquipmentTotals.mockResolvedValueOnce({
-        attackBonus: 0,
-        damageBonus: 0,
-        armorBonus: 0,
-        vitalityBonus: 4,
-      });
-      mockPrisma.player.update.mockResolvedValue(undefined);
-
-      const updated = await service.recalculatePlayerHitPointsFromEquipment(
-        basePlayer.id,
-      );
-
-      const expectedMax = service.getMaxHpFor(
-        basePlayer.health + 4,
-        basePlayer.level,
-      );
-      expect(updated?.maxHp).toBe(expectedMax);
-      expect(mockPrisma.player.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ maxHp: expectedMax }),
-        }),
-      );
-    });
+  it('enforces creation completion when requested', async () => {
+    mockFindPlayerBySlackUser.mockResolvedValueOnce(
+      makePlayer({ isCreationComplete: false }),
+    );
+    await expect(
+      service.getPlayer('T1', 'U1', { requireCreationComplete: true }),
+    ).rejects.toThrow(BadRequestException);
   });
 
-  describe('health adjustments', () => {
-    it('caps healing at max HP', async () => {
-      const player = makePlayer({ hp: 5, maxHp: 10 });
-      jest.spyOn(service, 'getPlayer').mockResolvedValue(player);
-      mockPrisma.player.update.mockResolvedValue(undefined);
-
-      const healed = await service.healPlayer('T1', 'U1', 10);
-      expect(healed.hp).toBe(10);
-      expect(mockPrisma.player.update).toHaveBeenCalledWith({
-        where: { id: player.id },
-        data: { hp: 10 },
-      });
+  it('respawns a player and emits event', async () => {
+    const player = makePlayer({ isAlive: false, hp: 0 });
+    mockFindPlayerBySlackUser.mockResolvedValueOnce(player);
+    mockPrisma.player.update.mockResolvedValue(undefined);
+    mockPrisma.player.findUnique.mockResolvedValue({
+      ...player,
+      slackUser: { teamId: 'T1', userId: 'U1' },
     });
 
-    it('emits player:death when damage kills an alive player', async () => {
-      const player = makePlayer({ hp: 5, isAlive: true });
-      jest.spyOn(service, 'getPlayer').mockResolvedValue(player);
-      mockPrisma.player.update.mockResolvedValue(undefined);
-      mockPrisma.player.findUnique.mockResolvedValue({
-        ...player,
-        hp: -5,
-        isAlive: false,
-      });
+    const result = await service.respawnPlayer('T1', 'U1');
 
-      await service.damagePlayer('T1', 'U1', 10);
-
-      expect(eventBusEmitSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          eventType: 'player:death',
-          player: expect.objectContaining({ id: player.id }),
-        }),
-      );
-    });
+    expect(result.isAlive).toBe(true);
+    expect(result.hp).toBe(result.maxHp);
+    expect(eventBusEmitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: 'player:respawn' }),
+    );
   });
 
-  describe('respawnPlayer', () => {
-    it('restores health, relocates, and emits respawn event', async () => {
-      const player = makePlayer({ hp: 0, maxHp: 12, isAlive: false });
-      jest.spyOn(service, 'getPlayer').mockResolvedValue(player);
-      jest
-        .spyOn(
-          service as unknown as { findValidSpawnPosition: jest.Mock },
-          'findValidSpawnPosition',
-        )
-        .mockResolvedValue({ x: 25, y: -8 });
-      mockPrisma.player.update.mockResolvedValue(undefined);
-      mockPrisma.player.findUnique.mockResolvedValue({
-        ...player,
-        x: 25,
-        y: -8,
-        slackUser: { teamId: 'T1', userId: 'U1' },
-      });
+  it('emits player:death when damage kills the player', async () => {
+    const player = makePlayer({ hp: 2, isAlive: true });
+    mockFindPlayerBySlackUser.mockResolvedValueOnce(player);
+    mockPrisma.player.update.mockResolvedValue(undefined);
+    mockPrisma.player.findUnique.mockResolvedValue(player);
 
-      const respawned = await service.respawnPlayer('T1', 'U1');
-
-      expect(respawned.isAlive).toBe(true);
-      expect(mockPrisma.player.update).toHaveBeenCalledWith({
-        where: { id: player.id },
-        data: expect.objectContaining({
-          x: 25,
-          y: -8,
-          isAlive: true,
-        }),
-      });
-      expect(eventBusEmitSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ eventType: 'player:respawn' }),
-      );
-    });
-  });
-
-  describe('deletePlayer', () => {
-    it('removes slack mapping and returns associated player', async () => {
-      const linked = { player: makePlayer({ id: 99 }) };
-      mockPrisma.slackUser.delete.mockResolvedValue(linked);
-
-      const deleted = await service.deletePlayer('T1', 'U1');
-
-      expect(deleted).toBe(linked.player);
-      expect(mockPrisma.slackUser.delete).toHaveBeenCalledWith({
-        where: { teamId_userId: { teamId: 'T1', userId: 'U1' } },
-        include: { player: true },
-      });
-    });
-  });
-
-  describe('player lookups', () => {
-    it('retrieves players at a location with filters applied', async () => {
-      const rows = [makePlayer({ id: 4 })];
-      mockPrisma.player.findMany.mockResolvedValue(rows);
-
-      const result = await service.getPlayersAtLocation(3, 7, {
-        excludePlayerId: 2,
-        aliveOnly: false,
-      });
-
-      expect(result).toBe(rows);
-      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
-        where: {
-          x: 3,
-          y: 7,
-          isAlive: false,
-          NOT: { id: 2 },
-        },
-        include: { slackUser: true },
-      });
-    });
-
-    it('lists nearby players within radius and sorts by distance', async () => {
-      mockPrisma.player.findMany.mockResolvedValue([
-        { x: 3, y: 0, isAlive: true },
-        { x: 0, y: -4, isAlive: true },
-        { x: 10, y: 10, isAlive: true },
-      ]);
-
-      const nearby = await service.getNearbyPlayers(0, 0, 'T1', 'U1', 5, 5);
-
-      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
-        where: {
-          isAlive: true,
-          x: { gte: -5, lte: 5 },
-          y: { gte: -5, lte: 5 },
-        },
-        include: { playerItems: { include: { item: true } } },
-      });
-      expect(nearby).toEqual([
-        expect.objectContaining({ direction: 'east', distance: 3 }),
-        expect.objectContaining({ direction: 'south', distance: 4 }),
-      ]);
-    });
-
-    it('finds the nearest player within a radius while excluding the seeker', async () => {
-      mockPrisma.player.findMany.mockResolvedValue([
-        { id: 2, x: 2, y: 0, isAlive: true },
-        { id: 3, x: 0, y: 3, isAlive: true },
-      ]);
-
-      const nearest = await service.findNearestPlayerWithinRadius(0, 0, 5, {
-        excludePlayerId: 1,
-      });
-
-      expect(mockPrisma.player.findMany).toHaveBeenCalledWith({
-        where: {
-          isAlive: true,
-          NOT: { id: 1 },
-          x: { gte: -5, lte: 5 },
-          y: { gte: -5, lte: 5 },
-        },
-      });
-      expect(nearest).toEqual({
-        player: expect.objectContaining({ id: 2 }),
-        distance: 2,
-      });
-    });
-  });
-
-  describe('updateLastAction', () => {
-    it('writes timestamp on player row', async () => {
-      mockPrisma.player.update.mockResolvedValue(undefined);
-      await service.updateLastAction(123);
-      expect(mockPrisma.player.update).toHaveBeenCalledWith({
-        where: { id: 123 },
-        data: { lastAction: expect.any(Date) },
-      });
-    });
-  });
-
-  describe('spawn helpers', () => {
-    it('returns preferred spawn when no existing players', async () => {
-      mockPrisma.player.findMany.mockResolvedValueOnce([]);
-      const pos = await (service as any).findValidSpawnPosition(5, 6);
-      expect(pos).toEqual({ x: 5, y: 6 });
-    });
-
-    it('falls back to nearest non-water when attempts fail', async () => {
-      mockPrisma.player.findMany.mockResolvedValueOnce([
-        { x: 0, y: 0, isAlive: true },
-      ]);
-      worldService.getTileInfo.mockRejectedValue(new Error('boom'));
-      jest
-        .spyOn(service as any, 'findNearestNonWater')
-        .mockResolvedValueOnce({ x: 9, y: 9 });
-
-      const pos = await (service as any).findValidSpawnPosition();
-      expect(pos).toEqual({ x: 9, y: 9 });
-    });
-
-    it('finds nearest non-water tile by scanning rings', async () => {
-      worldService.getTileInfo
-        .mockRejectedValueOnce(new Error('water'))
-        .mockResolvedValueOnce({ biomeName: 'forest' });
-
-      const result = await (service as any).findNearestNonWater(0, 0, 1);
-      expect(result).toEqual({ x: -1, y: -1 });
-    });
+    const result = await service.damagePlayer('T1', 'U1', 5);
+    expect(result.isAlive).toBe(false);
+    expect(eventBusEmitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: 'player:death' }),
+    );
   });
 });

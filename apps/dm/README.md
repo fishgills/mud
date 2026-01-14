@@ -4,40 +4,38 @@ The DM (Dungeon Master) service manages the core game mechanics for the text-bas
 
 ## Features
 
-- **Player Management**: Create players, handle movement (n/s/e/w), track stats (Strength, Health, Agility)
-- **Monster System**: Spawn monsters, handle AI movement and combat
+- **Player Management**: Create players and track stats (Strength, Health, Agility)
+- **Monster System**: Spawn monsters and resolve combat
 - **Combat System**: D&D-like combat mechanics with dice rolls, stat modifiers, and dodge chances
-- **Game Tick**: Process world updates when called by the external tick service
-- **World Integration**: Fetch tile and location data from the world service
+- **Inventory & Equipment**: Manage gear slots and compute combat bonuses
+- **Guild Shop**: Rotate catalog items and process transactions
 
 ## API Endpoints
 
 All HTTP routes are namespaced under `/dm`, so both local proxies and
 Kubernetes workloads can rely on the same paths regardless of hostname.
 
-### Health & tick coordination
+### Health & system
 
 - `GET /dm/health-check` – Lightweight service probe
 - `GET /dm/system/health` – Detailed system health status
-- `POST /dm/system/process-tick` – Advance the simulation (called by the tick worker)
-- `GET /dm/system/game-state` – Snapshot of monsters/time/weather
 - `GET /dm/system/active-players` – Check for recent player activity
-
-### World and location data
-
-- `GET /dm/location/players|monsters|items` – Inspect entities at a coordinate
-- `GET /dm/movement/look` – Rich description of the player’s current tile
-- `GET /dm/movement/sniff` – Nearby monster detection summary
+- `POST /dm/system/process-tick` – Placeholder endpoint (currently a no-op)
+- `GET /dm/system/monsters` – List monsters
+- `GET /dm/system/monster/:id` – Fetch a monster by ID
+- `POST /dm/system/monsters` – Manual monster spawn for admins
 
 ### Player actions
 
 - `POST /dm/players` – Create or resume a player
 - `GET /dm/players` – Fetch a player by Slack workspace/user
+- `GET /dm/players/leaderboard` – Top players
+- `GET /dm/players/all` – Admin list of players
 - `POST /dm/players/attack` – Resolve combat against players or monsters
-- `POST /dm/movement/move` – Move a player N/S/E/W/U/D
-- `POST /dm/players/pickup|drop|equip|unequip` – Inventory management
+- `GET /dm/players/items` – Inventory and equipment snapshot
+- `POST /dm/players/equip|unequip` – Equipment management
 - `POST /dm/players/reroll|stats|spend-skill-point` – Character sheet updates
-- `POST /dm/system/monsters` – Manual monster spawn for admins
+- `POST /dm/players/heal|damage|respawn` – Admin/testing utilities
 
 ## Player Stats
 
@@ -79,17 +77,20 @@ Example: `Hero attack: d20 15 + 2 (Str) + 3 (Equipment) = 20 vs AC 10 + 1 (Agi) 
 ## Environment Variables
 
 - `DATABASE_URL`: PostgreSQL connection string
-- `WORLD_SERVICE_URL`: URL for the world service (default: https://closet.battleforge.app/world)
+- `REDIS_URL`: Redis connection string
 - `PORT`: Service port (default: 3000)
 - `GUILD_SHOP_ROTATION_SIZE`: Number of item templates to surface per rotation (default 6).
 - `GUILD_SHOP_ROTATION_INTERVAL_MS`: Interval between automatic catalog refreshes (default 300000 ms / 5 minutes).
+- `OPENAI_API_KEY`: API key for narrative/feedback helpers (optional)
+- `DM_USE_VERTEX_AI`: Enable Vertex AI instead of OpenAI (optional)
+- `GITHUB_TOKEN`, `GITHUB_REPO_OWNER`, `GITHUB_REPO_NAME`: Enable feedback issue creation (optional)
 
 ## Deployment
 
 ### Local Development
 
 ```bash
-yarn serve  # Starts all services with hot reload
+yarn workspace @mud/dm serve
 ```
 
 ### Production (GKE)
@@ -108,9 +109,8 @@ See `docs/DEPLOYMENT.md` for full deployment documentation.
 ## Dependencies
 
 - Database library (`@mud/database`) for PostgreSQL access
-- World service for tile and biome information
-- Tick service for coordinated world updates
 - Redis event bus (`@mud/redis-client`) for cross-service notifications
+- Optional OpenAI/Vertex AI clients for feedback triage
 
 ## Example Usage
 
@@ -120,32 +120,19 @@ curl -X POST http://localhost:3000/dm/players \
   -H "Content-Type: application/json" \
   -d '{"teamId": "T123", "userId": "U123", "name": "TestPlayer"}'
 
-# Move player north
-curl -X POST http://localhost:3000/dm/movement/move \
-  -H "Content-Type: application/json" \
-  -d '{"teamId": "T123", "userId": "U123", "move": { "direction": "north" }}'
+# Fetch inventory snapshot
+curl -X GET "http://localhost:3000/dm/players/items?teamId=T123&userId=U123"
 
 # Attack a monster
 curl -X POST http://localhost:3000/dm/players/attack \
   -H "Content-Type: application/json" \
   -d '{"teamId":"T123","userId":"U123","input":{"targetType":"monster","targetId":1}}'
 
-# Process a game tick
+# Process a game tick (currently a no-op)
 curl -X POST http://localhost:3000/dm/system/process-tick
 ```
 
 ## Game Mechanics
-
-### Tick Processing
-
-Every tick (called by external service):
-
-1. Advance game time (15 minutes per tick)
-2. 5% chance to spawn monsters near active players
-3. 40% chance for each monster to move randomly
-4. 20% chance for monsters to attack nearby players
-5. Update weather every hour (4 ticks)
-6. Clean up dead monsters every 10 ticks
 
 ### Combat Resolution
 
@@ -153,10 +140,4 @@ Every tick (called by external service):
 2. Check for dodge based on defender's agility
 3. Apply damage and check for death
 4. Award XP if monster is defeated
-5. Log combat event for location history
-
-This service coordinates with:
-
-- **World Service**: Provides tile data and biome information
-- **Tick Service**: Calls the tick endpoint to advance game state
-- **Database**: Stores player/monster data and combat logs
+5. Log combat event for history

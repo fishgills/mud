@@ -100,8 +100,6 @@ describe('CombatService', () => {
     agility: 12,
     level: 3,
     isAlive: true,
-    x: 0,
-    y: 0,
     slackUser: { teamId: 'T1', userId: 'U1' },
     ...overrides,
   });
@@ -119,7 +117,6 @@ describe('CombatService', () => {
       const response = await service.playerAttackPlayer(
         { teamId: 'T1', userId: 'U1' },
         { teamId: 'T2', userId: 'U2' },
-        true,
         { attackOrigin: AttackOrigin.DROPDOWN_PVP },
       );
 
@@ -130,7 +127,6 @@ describe('CombatService', () => {
         { teamId: 'T2', userId: 'U2' },
         'player',
         expect.objectContaining({
-          ignoreLocation: true,
           attackOrigin: AttackOrigin.DROPDOWN_PVP,
         }),
       );

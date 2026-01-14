@@ -28,7 +28,7 @@ const helpDetailMessages: Record<string, HelpDetailMessage> = {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: '*Core loop*\n• Use `look` to scout the room, then move with `north`, `south`, `east`, `west`.\n• Use `attack` to start combat and earn XP and loot.',
+          text: '*Core loop*\n• Use `attack` to start combat and earn XP and gold.\n• Equip gear from the shop to improve your odds.',
         },
       },
       {
@@ -57,7 +57,7 @@ const helpDetailMessages: Record<string, HelpDetailMessage> = {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: '*Earn XP*\n• Defeat monsters, clear quests, and discover new rooms to gain experience.\n• Track your current XP and next level in `stats`.',
+          text: '*Earn XP*\n• Defeat monsters to gain experience.\n• Track your current XP and next level in `stats`.',
         },
       },
       {
@@ -72,7 +72,7 @@ const helpDetailMessages: Record<string, HelpDetailMessage> = {
         elements: [
           {
             type: 'mrkdwn',
-            text: 'Tip: Partying up shares XP, and exploring new tiles gives a small bonus once per room.',
+            text: 'Tip: Partying up shares XP, and better gear makes every fight easier.',
           },
         ],
       },
@@ -89,7 +89,7 @@ const helpDetailMessages: Record<string, HelpDetailMessage> = {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: '*Turn Order*\n• Battles are turn-based: the highest Agility acts first each round.\n• Moving before a fight sets your range and who you can reach.',
+          text: '*Turn Order*\n• Battles are turn-based: the highest Agility acts first each round.',
         },
       },
       {
@@ -104,7 +104,7 @@ const helpDetailMessages: Record<string, HelpDetailMessage> = {
         elements: [
           {
             type: 'mrkdwn',
-            text: 'Need a refresher? Use `look` mid-fight to review the room and opponents.',
+            text: 'Need a refresher? Use `stats` to review your build anytime.',
           },
         ],
       },
@@ -177,18 +177,6 @@ const sendHelpDetailViaDM = async (
 
 export const registerHelpActions = (app: App) => {
   app.action<BlockAction>(
-    HELP_ACTIONS.LOOK,
-    async ({ ack, body, client, context }) => {
-      await ack();
-      const userId = body.user?.id;
-      const teamId =
-        typeof context.teamId === 'string' ? context.teamId : undefined;
-      if (!userId) return;
-      await dispatchCommandViaDM(client, userId, COMMANDS.LOOK, teamId);
-    },
-  );
-
-  app.action<BlockAction>(
     HELP_ACTIONS.STATS,
     async ({ ack, body, client, context }) => {
       await ack();
@@ -197,18 +185,6 @@ export const registerHelpActions = (app: App) => {
         typeof context.teamId === 'string' ? context.teamId : undefined;
       if (!userId) return;
       await dispatchCommandViaDM(client, userId, COMMANDS.STATS, teamId);
-    },
-  );
-
-  app.action<BlockAction>(
-    HELP_ACTIONS.MAP,
-    async ({ ack, body, client, context }) => {
-      await ack();
-      const userId = body.user?.id;
-      const teamId =
-        typeof context.teamId === 'string' ? context.teamId : undefined;
-      if (!userId) return;
-      await dispatchCommandViaDM(client, userId, COMMANDS.MAP, teamId);
     },
   );
 

@@ -50,12 +50,6 @@ variable "dm_image" {
   default     = null
 }
 
-variable "world_image" {
-  description = "Container image for the world renderer service."
-  type        = string
-  default     = null
-}
-
 variable "slack_bot_image" {
   description = "Container image for the Slack bot service."
   type        = string

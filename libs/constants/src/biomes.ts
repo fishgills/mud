@@ -9,8 +9,7 @@
 
 /**
  * Biome IDs - The authoritative source for biome identifiers.
- * These values are stored in WorldTile.biomeId and Monster.biomeId columns.
- * Use this enum everywhere instead of magic numbers or strings.
+ * Kept for legacy content and future world features.
  */
 export enum BiomeId {
   OCEAN = 1,
@@ -284,7 +283,7 @@ export const BIOME_NAME_TO_ID: Record<string, BiomeId> = Object.values(
 );
 
 /**
- * Legacy format for apps/world compatibility
+ * Legacy format for backwards compatibility
  * Maps uppercase key to BiomeInfo
  */
 export const BIOMES_BY_KEY: Record<string, BiomeInfo> = {

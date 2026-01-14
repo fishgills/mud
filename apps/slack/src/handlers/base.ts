@@ -1,11 +1,9 @@
 import type { PlayerRecord } from '../dm-client';
 import { dmClient } from '../dm-client';
-import { COMMANDS, MOVEMENT_COMMANDS } from '../commands';
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { registerHandler } from './handlerRegistry';
 import { HandlerContext } from './types';
 import { getSlackApp } from '../appContext';
-import { buildHqBlockedMessage } from './hqUtils';
 import {
   CREATION_INCOMPLETE_MESSAGE,
   MISSING_CHARACTER_MESSAGE,
@@ -95,11 +93,9 @@ export abstract class PlayerCommandHandler extends SafeCommandHandler {
     this.options = {
       loadPlayer: options.loadPlayer ?? true,
       requirePlayer: options.requirePlayer ?? true,
-      allowInHq: options.allowInHq ?? true,
       missingCharacterMessage:
         options.missingCharacterMessage ?? MISSING_CHARACTER_MESSAGE,
       allowDuringCreation: options.allowDuringCreation ?? false,
-      hqCommand: options.hqCommand,
     };
   }
 
@@ -144,34 +140,20 @@ export abstract class PlayerCommandHandler extends SafeCommandHandler {
       return false;
     }
 
-    if (!this.options.allowInHq && this.player.isInHq) {
-      const commandName = this.options.hqCommand ?? this.commands[0];
-      await ctx.say({ text: buildHqBlockedMessage(commandName) });
-      return false;
-    }
-
     return true;
   }
 }
 
-export const MOVEMENT_COMMAND_SET = [
-  ...new Set<string>([COMMANDS.MOVE, ...MOVEMENT_COMMANDS]),
-];
-
 interface PlayerCommandHandlerOptions {
   loadPlayer?: boolean;
   requirePlayer?: boolean;
-  allowInHq?: boolean;
   missingCharacterMessage?: string;
-  hqCommand?: string;
   allowDuringCreation?: boolean;
 }
 
 interface PlayerCommandHandlerResolvedOptions {
   loadPlayer: boolean;
   requirePlayer: boolean;
-  allowInHq: boolean;
   missingCharacterMessage: string;
   allowDuringCreation: boolean;
-  hqCommand?: string;
 }

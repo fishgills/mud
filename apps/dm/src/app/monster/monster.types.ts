@@ -695,8 +695,7 @@ export function getTierForLevel(level: number): number {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Biome Spawn Tables - weighted monster spawning by biome
-// Only includes biomes that exist in the world (no cave/dungeon/ruins)
+// Biome Spawn Tables - legacy weighted monster spawning by biome
 // ═══════════════════════════════════════════════════════════════════════════
 export const BIOME_SPAWN_TABLE: Record<
   string,

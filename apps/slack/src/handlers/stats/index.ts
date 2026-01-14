@@ -2,17 +2,13 @@ import { COMMANDS } from '../../commands';
 import { registerHandler } from '../handlerRegistry';
 import { getUserFriendlyErrorMessage } from '../errorUtils';
 import { HandlerContext } from '../types';
-import { buildMonsterStatsMessage, buildPlayerStatsMessage } from './format';
-import {
-  fetchPlayerRecord,
-  fetchPlayerWithLocation,
-  findNearbyMatches,
-} from './lookup';
+import { buildPlayerStatsMessage } from './format';
+import { fetchPlayerRecord } from './lookup';
 import { resolveTarget } from './target';
 import { PlayerStatsSource } from './types';
 import { MISSING_CHARACTER_MESSAGE } from '../characterUtils';
 
-export const statsHandlerHelp = `Show stats with "${COMMANDS.STATS}". Example: Send "${COMMANDS.STATS}" for yourself, "${COMMANDS.STATS} Alice" to inspect another adventurer, or "${COMMANDS.STATS} Goblin" to scout a nearby monster.`;
+export const statsHandlerHelp = `Show stats with "${COMMANDS.STATS}". Example: Send "${COMMANDS.STATS}" for yourself or "${COMMANDS.STATS} @player" to inspect another adventurer.`;
 
 async function respondWithPlayer(
   say: HandlerContext['say'],
@@ -73,49 +69,8 @@ export const statsHandler = async ({
       return;
     }
 
-    const self = await fetchPlayerWithLocation(
-      userId,
-      MISSING_CHARACTER_MESSAGE,
-      teamId,
-    );
-    if (!self.player) {
-      await say({ text: self.error ?? MISSING_CHARACTER_MESSAGE });
-      return;
-    }
-
-    const { matchingPlayers, matchingMonsters, totalMatches } =
-      findNearbyMatches(
-        target.cleanedTarget,
-        self.playersHere,
-        self.monstersHere,
-      );
-
-    if (totalMatches === 1) {
-      if (matchingPlayers.length === 1) {
-        await say(
-          buildPlayerStatsMessage(matchingPlayers[0], {
-            isSelf: matchingPlayers[0].slackUser?.userId === userId,
-          }),
-        );
-        return;
-      }
-      if (matchingMonsters.length === 1) {
-        await say(buildMonsterStatsMessage(matchingMonsters[0]));
-        return;
-      }
-    }
-
-    if (totalMatches > 1) {
-      await say({
-        text: `Multiple beings named "${target.cleanedTarget}" are nearby. Try using a Slack mention or be more specific.`,
-      });
-      return;
-    }
-
-    const fallbackMessage = `I couldn't find a character named ${target.cleanedTarget}.`;
-    // Multiple or zero matches found - show the result counts
     await say({
-      text: fallbackMessage,
+      text: `Try a Slack mention like \`${COMMANDS.STATS} @player\` to inspect someone else.`,
     });
   } catch (err: unknown) {
     const errorMessage = getUserFriendlyErrorMessage(

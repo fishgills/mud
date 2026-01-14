@@ -7,7 +7,6 @@ locals {
 
   service_names = {
     dm    = "dm"
-    world = "world"
     slack = "slack"
     tick  = "tick"
     web   = "web"
@@ -15,7 +14,6 @@ locals {
 
   service_account_ids = {
     dm    = "dm-run-${var.environment}"
-    world = "world-run-${var.environment}"
     slack = "slack-run-${var.environment}"
     tick  = "tick-run-${var.environment}"
     web   = "web-run-${var.environment}"
@@ -37,7 +35,6 @@ locals {
 
   domain_mappings = {
     slack = "slack.${var.domain}"
-    world = "world.${var.domain}"
     web   = var.domain
     www   = "www.${var.domain}"
   }
@@ -46,10 +43,6 @@ locals {
     dm = coalesce(
       var.dm_image,
       "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/dm:latest"
-    )
-    world = coalesce(
-      var.world_image,
-      "${var.artifact_repo_location}-docker.pkg.dev/${var.project_id}/${var.artifact_repo_id}/world:latest"
     )
     slack = coalesce(
       var.slack_bot_image,
@@ -215,108 +208,6 @@ resource "kubernetes_secret" "provided" {
   type = "Opaque"
 }
 
-resource "kubernetes_deployment" "world" {
-  metadata {
-    name      = local.service_names.world
-    namespace = kubernetes_namespace.mud.metadata[0].name
-    labels = {
-      app         = local.service_names.world
-      environment = var.environment
-    }
-  }
-
-  spec {
-    replicas = 1
-
-    selector {
-      match_labels = {
-        app = local.service_names.world
-      }
-    }
-
-    template {
-      metadata {
-        labels = {
-          app         = local.service_names.world
-          environment = var.environment
-        }
-      }
-
-      spec {
-        service_account_name = kubernetes_service_account.runtime["world"].metadata[0].name
-
-        container {
-          name  = local.service_names.world
-          image = local.images.world
-
-          port {
-            container_port = 8080
-            name           = "http"
-          }
-
-          resources {
-            limits = {
-              cpu    = "1"
-              memory = "1Gi"
-            }
-            requests = {
-              cpu    = "200m"
-              memory = "256Mi"
-            }
-          }
-
-          env {
-            name  = "PORT"
-            value = "8080"
-          }
-
-          env {
-            name  = "NODE_ENV"
-            value = "production"
-          }
-
-          env {
-            name  = "REDIS_URL"
-            value = "redis://${data.google_redis_instance.cache.host}:6379"
-          }
-
-          env {
-            name = "DATABASE_URL"
-            value_from {
-              secret_key_ref {
-                name = kubernetes_secret.database_url.metadata[0].name
-                key  = "latest"
-              }
-            }
-          }
-
-          liveness_probe {
-            http_get {
-              path = "/world/health-check"
-              port = 8080
-            }
-            initial_delay_seconds = 30
-            period_seconds        = 10
-            timeout_seconds       = 5
-            failure_threshold     = 3
-          }
-
-          readiness_probe {
-            http_get {
-              path = "/world/health-check"
-              port = 8080
-            }
-            initial_delay_seconds = 5
-            period_seconds        = 5
-            timeout_seconds       = 3
-            failure_threshold     = 3
-          }
-        }
-      }
-    }
-  }
-}
-
 resource "kubernetes_deployment" "dm" {
   metadata {
     name      = local.service_names.dm
@@ -415,11 +306,6 @@ resource "kubernetes_deployment" "dm" {
                 key  = "latest"
               }
             }
-          }
-
-          env {
-            name  = "WORLD_SERVICE_URL"
-            value = "https://${local.domain_mappings.world}/world"
           }
 
           # GitHub integration for feedback issues
@@ -557,11 +443,6 @@ resource "kubernetes_deployment" "slack" {
           env {
             name  = "DM_API_BASE_URL"
             value = "http://${local.service_names.dm}.${local.kubernetes_namespace}.svc.cluster.local/dm"
-          }
-
-          env {
-            name  = "WORLD_API_BASE_URL"
-            value = "https://${local.domain_mappings.world}/world"
           }
 
           env {
@@ -915,34 +796,6 @@ resource "kubernetes_deployment" "web" {
   }
 }
 
-resource "kubernetes_service" "world" {
-  metadata {
-    name      = local.service_names.world
-    namespace = kubernetes_namespace.mud.metadata[0].name
-    labels = {
-      app = local.service_names.world
-    }
-    annotations = {
-      "cloud.google.com/backend-config" = "{\"default\":\"world-backend-config\"}"
-    }
-  }
-
-  spec {
-    type = "NodePort"
-
-    selector = {
-      app = local.service_names.world
-    }
-
-    port {
-      name        = "http"
-      port        = 80
-      target_port = 8080
-      node_port   = 30080
-    }
-  }
-}
-
 resource "kubernetes_service" "dm" {
   metadata {
     name      = local.service_names.dm
@@ -1053,7 +906,6 @@ resource "kubernetes_manifest" "managed_certificate" {
     }
     spec = {
       domains = [
-        local.domain_mappings.world,
         local.domain_mappings.slack,
         local.domain_mappings.web,
         local.domain_mappings.www,
@@ -1076,26 +928,9 @@ resource "kubernetes_ingress_v1" "public" {
   spec {
     default_backend {
       service {
-        name = kubernetes_service.world.metadata[0].name
+        name = kubernetes_service.web.metadata[0].name
         port {
           number = 80
-        }
-      }
-    }
-
-    rule {
-      host = local.domain_mappings.world
-      http {
-        path {
-          path = "/*"
-          backend {
-            service {
-              name = kubernetes_service.world.metadata[0].name
-              port {
-                number = 80
-              }
-            }
-          }
         }
       }
     }
@@ -1148,29 +983,6 @@ resource "kubernetes_ingress_v1" "public" {
             }
           }
         }
-      }
-    }
-  }
-}
-
-resource "kubernetes_manifest" "backend_config_world" {
-  manifest = {
-    apiVersion = "cloud.google.com/v1"
-    kind       = "BackendConfig"
-    metadata = {
-      name      = "world-backend-config"
-      namespace = kubernetes_namespace.mud.metadata[0].name
-    }
-    spec = {
-      healthCheck = {
-        checkIntervalSec   = 10
-        timeoutSec         = 5
-        healthyThreshold   = 2
-        unhealthyThreshold = 3
-        requestPath        = "/world/health-check"
-        # Health checks must hit the NodePort on the node. Service `world` uses NodePort 30080.
-        port = 30080
-        type = "HTTP"
       }
     }
   }

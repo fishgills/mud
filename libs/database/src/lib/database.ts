@@ -10,7 +10,6 @@ import {
   type SlackUser,
   type Monster,
   type Item,
-  type WorldItem,
 } from '@prisma/client';
 
 // Singleton pattern for Prisma client
@@ -43,13 +42,9 @@ export {
 export type {
   Player,
   Monster,
-  WeatherState,
-  GameState,
-  Landmark,
   CombatLog,
   Item,
   PlayerItem,
-  WorldItem,
   SlackUser,
   ShopCatalogItem,
   TransactionReceipt,
@@ -72,8 +67,4 @@ export type MonsterWithStats = Monster;
 
 export type ItemWithQuality = Item & {
   quality?: ItemQuality;
-};
-
-export type WorldItemWithDetails = WorldItem & {
-  item?: Item | null;
 };

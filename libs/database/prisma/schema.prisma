@@ -1,6 +1,5 @@
 // Prisma schema for the dungeon crawler game engine
-// This schema covers Player, WorldTile, Monster, WeatherState, etc.
-// Note: Biome definitions are managed in TypeScript (@mud/constants BiomeId enum)
+// This schema covers players, monsters, items, and shop data.
 
 generator client {
   provider = "prisma-client-js"
@@ -27,24 +26,9 @@ enum AnnouncementStatus {
   EXPIRED
 }
 
-model GameState {
-  id        Int      @id @default(autoincrement())
-  tick      Int      @default(0)
-  gameHour  Int      @default(0) // 0-23
-  gameDay   Int      @default(1)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 model Player {
   id                 Int                  @id @default(autoincrement())
   name               String
-  x                  Int // X coordinate
-  y                  Int // Y coordinate
-  isInHq             Boolean              @default(false) // Indicates player is in the HQ zone outside the world map
-  lastWorldX         Int? // Last known world X position before entering HQ
-  lastWorldY         Int? // Last known world Y position before entering HQ
-  lastHqEnterAt      DateTime? // Timestamp for most recent HQ entry
   hp                 Int // Hit points (current health)
   maxHp              Int                  @default(100) // Maximum health
   strength           Int                  @default(10) // Strength attribute (1-20)
@@ -65,8 +49,6 @@ model Player {
   totalCommandsExecuted Int               @default(0)
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
-  worldTile          WorldTile?           @relation("PlayerLocation", fields: [worldTileId], references: [id])
-  worldTileId        Int?
   party              Party?               @relation(fields: [partyId], references: [id])
   partyId            Int?
   partyMembers       PartyMember[]
@@ -91,51 +73,6 @@ model SlackUser {
   @@index([userId])
 }
 
-model WorldSeed {
-  id                     Int      @id @default(autoincrement())
-  seed                   Int      @unique
-  heightSeed             Int
-  temperatureSeed        Int
-  moistureSeed           Int
-  heightScale            Float    @default(0.01)
-  temperatureScale       Float    @default(0.008)
-  moistureScale          Float    @default(0.012)
-  heightOctaves          Int      @default(4)
-  temperatureOctaves     Int      @default(3)
-  moistureOctaves        Int      @default(3)
-  heightPersistence      Float    @default(0.5)
-  temperaturePersistence Float    @default(0.6)
-  moisturePersistence    Float    @default(0.4)
-  heightLacunarity       Float    @default(2.0)
-  temperatureLacunarity  Float    @default(2.1)
-  moistureLacunarity     Float    @default(1.9)
-  isActive               Boolean  @default(true)
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-}
-
-model WorldTile {
-  id          Int      @id @default(autoincrement())
-  x           Int
-  y           Int
-  biomeId     Int // References BiomeId enum from @mud/constants
-  biomeName   String // Store biome name for faster queries
-  description String?
-  height      Float // 0-1 height value from terrain noise
-  temperature Float // 0-1 temperature value from temperature noise
-  moisture    Float // 0-1 moisture value from moisture noise
-  seed        Int // World seed used to generate this tile
-  chunkX      Int // Chunk X coordinate (x / 50)
-  chunkY      Int // Chunk Y coordinate (y / 50)
-  players     Player[] @relation("PlayerLocation")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([x, y])
-  @@index([chunkX, chunkY])
-  @@index([seed])
-}
-
 model Monster {
   id         Int      @id @default(autoincrement())
   name       String
@@ -148,40 +85,13 @@ model Monster {
   agility    Int      @default(8)
   health     Int      @default(8)
   damageRoll String   @default("1d6")
-  x          Int
-  y          Int
   isAlive    Boolean  @default(true)
-  lastMove   DateTime @default(now())
-  spawnedAt  DateTime @default(now())
-  biomeId    Int // References BiomeId enum from @mud/constants
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   // Add more fields as needed (type, loot, etc.)
 
-  @@index([isAlive, x, y])
-  @@index([x, y])
+  @@index([isAlive])
 }
-
-model WeatherState {
-  id        Int      @id @default(autoincrement())
-  state     String // e.g., clear, cloudy, overcast, raining, lightning
-  pressure  Int // Used for weather change logic
-  updatedAt DateTime @updatedAt
-}
-
-model Landmark {
-  id          Int      @id @default(autoincrement())
-  name        String
-  type        String // ruins, tower, shrine, etc.
-  x           Int
-  y           Int
-  description String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([x, y])
-}
-
 model CombatLog {
   id           Int      @id @default(autoincrement())
   attackerId   Int // Player or Monster ID
@@ -189,27 +99,7 @@ model CombatLog {
   defenderId   Int // Player or Monster ID
   defenderType String // "player" or "monster"
   damage       Int
-  x            Int // Location where combat occurred
-  y            Int
   timestamp    DateTime @default(now())
-}
-
-model Npc {
-  id        Int      @id @default(autoincrement())
-  name      String
-  role      String // merchant, quest_giver, guard, citizen, innkeeper
-  x         Int
-  y         Int
-  hp        Int
-  maxHp     Int      @default(50)
-  strength  Int      @default(10)
-  agility   Int      @default(10)
-  health    Int      @default(10)
-  isAlive   Boolean  @default(true)
-  isHostile Boolean  @default(false)
-  dialogue  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model ShopCatalogItem {
@@ -300,7 +190,6 @@ model Item {
   slot            PlayerSlot? // Optional equip slot for equippable items
   rank            Int?
   playerItems     PlayerItem[]
-  worldItems      WorldItem[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   ShopCatalogItem ShopCatalogItem[]
@@ -349,22 +238,6 @@ model PlayerItem {
   TransactionReceipt TransactionReceipt[]
 
   @@index([playerId])
-}
-
-model WorldItem {
-  id                 Int         @id @default(autoincrement())
-  item               Item        @relation(fields: [itemId], references: [id])
-  itemId             Int
-  quality            ItemQuality @default(Common)
-  rank               Int?
-  x                  Int
-  y                  Int
-  quantity           Int         @default(1)
-  spawnedByMonsterId Int?
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-
-  @@index([x, y])
 }
 
 model Feedback {

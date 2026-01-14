@@ -14,8 +14,6 @@ export type PlayerStatsLike = {
   maxHp?: number | null;
   gold?: number | null;
   skillPoints?: number | null;
-  x?: number | null;
-  y?: number | null;
   strength?: number | null;
   agility?: number | null;
   health?: number | null;
@@ -174,10 +172,6 @@ export const buildCharacterSheetModel = (
         { label: 'HP', value: hpText },
         { label: 'Gold', value: displayValue(player.gold) },
         { label: 'Skill Points', value: displayValue(skillPoints) },
-        {
-          label: 'Location',
-          value: `${displayValue(player.x)}/${displayValue(player.y)}`,
-        },
         { label: 'XP to Next Level', value: xpFieldValue },
       ],
     },

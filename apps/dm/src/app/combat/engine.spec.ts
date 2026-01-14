@@ -47,9 +47,6 @@ describe('runCombat orchestration with overrides', () => {
     agility: opts.agility ?? 12,
     level: opts.level ?? 1,
     isAlive: opts.isAlive ?? true,
-    x: opts.x ?? 0,
-    y: opts.y ?? 0,
-    slackId: opts.slackId,
     attackBonus: opts.attackBonus,
     damageBonus: opts.damageBonus,
     armorBonus: opts.armorBonus,
@@ -63,7 +60,6 @@ describe('runCombat orchestration with overrides', () => {
       strength: 14,
       agility: 20,
       level: 3,
-      slackId: 'S1',
     });
     const defender = makeCombatant({
       name: 'Goblin',
@@ -72,7 +68,6 @@ describe('runCombat orchestration with overrides', () => {
       strength: 8,
       agility: 5,
       level: 2,
-      slackId: 'S2',
     });
 
     const logger = {

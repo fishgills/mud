@@ -12,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { PlayerSlot, ItemType } from '@mud/database';
 import type { PlayerItem, Item, Player } from '@mud/database';
-import { Prisma } from '@mud/database';
 import {
   calculateEquipmentEffects,
   type EquippedPlayerItem,
@@ -21,9 +20,7 @@ import {
 import { computePlayerCombatStats } from '../../player/player-stats.util';
 import { PlayerService } from '../../player/player.service';
 import { PlayerItemService } from '../../player/player-item.service';
-import { MonsterService } from '../../monster/monster.service';
 import { CombatService } from '../../combat/combat.service';
-import { WorldService } from '../../world/world.service';
 import { AppError } from '../../errors/app-error';
 import type { CombatLog } from '../dto/combat-log.dto';
 import type {
@@ -81,9 +78,7 @@ export class PlayersController {
 
   constructor(
     private readonly playerService: PlayerService,
-    private readonly monsterService: MonsterService,
     private readonly combatService: CombatService,
-    private readonly worldService: WorldService,
     private readonly playerItemService: PlayerItemService,
   ) {}
 
@@ -181,19 +176,6 @@ export class PlayersController {
   @Get('all')
   async getAllPlayers(): Promise<Player[]> {
     return this.playerService.getAllPlayers();
-  }
-
-  @Get('location')
-  async getPlayersAtLocation(
-    @Query('x') rawX: string,
-    @Query('y') rawY: string,
-  ): Promise<(Player & Prisma.SlackUserInclude)[]> {
-    const x = Number.parseInt(rawX, 10);
-    const y = Number.parseInt(rawY, 10);
-    if (Number.isNaN(x) || Number.isNaN(y)) {
-      throw new BadRequestException('x and y query parameters must be numbers');
-    }
-    return this.playerService.getPlayersAtLocation(x, y);
   }
 
   @Post('stats')
@@ -354,7 +336,7 @@ export class PlayersController {
       return {
         success: true,
         data: player,
-        message: 'You have been resurrected at the starting location!',
+        message: 'You have been resurrected!',
       };
     } catch (error) {
       return {
@@ -409,9 +391,8 @@ export class PlayersController {
     const xpProgress = Math.max(0, player.xp - prevThreshold);
     const xpNeeded = Math.max(0, xpForNextLevel - player.xp);
 
-    const recentCombat = await this.combatService.getCombatLogForLocation(
-      player.x,
-      player.y,
+    const recentCombat = await this.combatService.getRecentCombatForPlayer(
+      player.id,
     );
 
     return {
@@ -445,7 +426,6 @@ export class PlayersController {
     }
 
     const targetType = input.targetType;
-    const ignoreLocationFlag = input.ignoreLocation === true;
     const attackOrigin =
       input.attackOrigin ??
       (targetType === TargetType.MONSTER
@@ -503,7 +483,6 @@ export class PlayersController {
             teamId: input.targetTeamId!,
             userId: input.targetUserId!,
           },
-          ignoreLocationFlag,
           {
             attackOrigin,
           },
@@ -645,39 +624,6 @@ export class PlayersController {
     }
   }
 
-  @Post('pickup')
-  async pickup(
-    @Body()
-    payload: {
-      teamId: string;
-      userId: string;
-      worldItemId?: number;
-    },
-  ) {
-    const { worldItemId } = payload ?? {};
-    if (
-      !worldItemId ||
-      (typeof worldItemId !== 'number' && isNaN(Number(worldItemId)))
-    ) {
-      return { success: false, message: 'worldItemId is required' };
-    }
-
-    try {
-      const player = await this.resolvePlayerFromPayload(payload);
-      const created = await this.playerItemService.pickup(
-        player.id,
-        Number(worldItemId),
-      );
-      return { success: true, data: created };
-    } catch (error) {
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Pickup failed',
-        code: error instanceof AppError ? error.code : undefined,
-      };
-    }
-  }
-
   @Post('equip')
   async equip(
     @Body()
@@ -714,38 +660,6 @@ export class PlayersController {
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Equip failed',
-        code: error instanceof AppError ? error.code : undefined,
-      };
-    }
-  }
-
-  @Post('drop')
-  async drop(
-    @Body()
-    payload: {
-      teamId: string;
-      userId: string;
-      playerItemId?: number;
-    },
-  ) {
-    const { playerItemId } = payload ?? {};
-    if (!playerItemId) {
-      return { success: false, message: 'playerItemId is required' };
-    }
-    try {
-      const player = await this.resolvePlayerFromPayload(payload);
-      const created = await this.playerItemService.drop(
-        player.id,
-        Number(playerItemId),
-      );
-      await this.playerService.recalculatePlayerHitPointsFromEquipment(
-        player.id,
-      );
-      return { success: true, data: created };
-    } catch (error) {
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Drop failed',
         code: error instanceof AppError ? error.code : undefined,
       };
     }

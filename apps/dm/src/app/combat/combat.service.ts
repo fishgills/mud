@@ -69,8 +69,6 @@ export interface Combatant {
   agility: number;
   level: number;
   isAlive: boolean;
-  x: number;
-  y: number;
   identifier?: {
     teamId: string;
     userId: string;
@@ -109,7 +107,6 @@ export class CombatService {
   private initMessenger() {
     if (!this.messenger)
       this.messenger = new CombatMessenger(
-        this.playerService,
         this.aiService,
         this.logger,
       );
@@ -427,8 +424,6 @@ export class CombatService {
       agility: player.agility,
       level: player.level,
       isAlive: player.isAlive,
-      x: player.x,
-      y: player.y,
       identifier: {
         teamId: resolvedTeamId,
         userId: resolvedUserId,
@@ -511,8 +506,6 @@ export class CombatService {
       level: 1, // Default to level 1 for monsters
       isAlive: monster.isAlive,
       damageRoll: monster.damageRoll,
-      x: monster.x,
-      y: monster.y,
     };
     this.logger.debug(
       `Monster combatant: ${combatant.name} (Str:${combatant.strength}, Agi:${combatant.agility}, HP:${combatant.hp}/${combatant.maxHp}, Lvl:${combatant.level})`,
@@ -589,7 +582,7 @@ export class CombatService {
         }
       | number,
     defenderType: 'player' | 'monster',
-    options: { ignoreLocation?: boolean; attackOrigin?: AttackOrigin } = {},
+    options: { attackOrigin?: AttackOrigin } = {},
   ): Promise<CombatResult> {
     this.logger.log(
       `⚔️ Combat initiated: ${attackerType} ${JSON.stringify(attackerId)} attacking ${defenderType} ${JSON.stringify(defenderId)}`,
@@ -698,14 +691,6 @@ export class CombatService {
         throw new Error('One or both combatants are dead');
       }
 
-      if (!options.ignoreLocation) {
-        if (attacker.x !== defender.x || attacker.y !== defender.y) {
-          this.logger.warn(
-            `❌ Combat blocked: Location mismatch - Attacker at (${attacker.x},${attacker.y}), Defender at (${defender.x},${defender.y})`,
-          );
-          throw new Error('Target is not at your location');
-        }
-      }
       perf.validationMs = Date.now() - validationStart;
 
       this.logger.debug(`✅ Pre-combat checks passed, starting combat...`);
@@ -730,7 +715,6 @@ export class CombatService {
           combatLogParticipants: {
             winner: combatLog?.winner,
             loser: combatLog?.loser,
-            location: combatLog?.location,
           },
         }),
       );
@@ -766,8 +750,6 @@ export class CombatService {
             loser: { type: loser.type, id: loser.id, name: loser.name },
             xpGained: combatLog.xpAwarded,
             goldGained: combatLog.goldAwarded,
-            x: combatLog.location.x,
-            y: combatLog.location.y,
             timestamp: new Date(),
           },
           messages,
@@ -949,23 +931,22 @@ export class CombatService {
       teamId: string;
       userId: string;
     },
-    ignoreLocation = false,
     options: { attackOrigin?: AttackOrigin } = {},
   ): Promise<CombatResult> {
     const attackOrigin = options.attackOrigin ?? AttackOrigin.TEXT_PVP;
     return this.initiateCombat(attacker, 'player', defender, 'player', {
-      ignoreLocation,
       attackOrigin,
     });
   }
 
-  async getCombatLogForLocation(
-    x: number,
-    y: number,
+  async getRecentCombatForPlayer(
+    playerId: number,
     limit = 10,
   ): Promise<PrismaCombatLog[]> {
     return this.prisma.combatLog.findMany({
-      where: { x, y },
+      where: {
+        OR: [{ attackerId: playerId }, { defenderId: playerId }],
+      },
       orderBy: { timestamp: 'desc' },
       take: limit,
     });

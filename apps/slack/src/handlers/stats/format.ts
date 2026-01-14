@@ -139,15 +139,6 @@ export function buildMonsterStatsMessage(
         },
       ],
     },
-    {
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: `📍 Location: ${displayValue(monster.x)}/${displayValue(monster.y)}`,
-        },
-      ],
-    },
   ];
 
   return {

@@ -12,7 +12,7 @@ This library provides a shared Prisma client and database utilities for the MUD 
 ## Usage
 
 ```typescript
-import { getPrismaClient, type Player, type WorldTile } from '@mud/database';
+import { getPrismaClient, type Player, type Monster } from '@mud/database';
 
 const prisma = getPrismaClient();
 
@@ -26,18 +26,17 @@ const player = await prisma.player.findFirst();
 - `disconnectPrisma()`: Properly disconnects the Prisma client
 - `PrismaClient`: The Prisma client class (for type annotations)
 - `Prisma`: The Prisma namespace (for advanced types)
-- Types: `Player`, `WorldTile`, `Biome`, `Monster`, `WeatherState`, `GameState`
+- Types: `Player`, `Monster`, `CombatLog`, `Item`, `PlayerItem`, `SlackUser`, `ShopCatalogItem`
 
 ## Database Schema
 
 The schema includes models for:
 
-- **Player**: Game player data with location tracking
-- **WorldTile**: Game world tiles with biome relationships
-- **Biome**: Environment types and descriptions
-- **Monster**: NPCs and creatures
-- **WeatherState**: Dynamic weather system
-- **GameState**: Global game state tracking
+- **Player**: Core player data and progression
+- **Monster**: Monster definitions for combat
+- **Item**: Equipment templates and stats
+- **PlayerItem**: Inventory and equipped gear
+- **ShopCatalogItem**: Rotating shop inventory
 
 ## Migrations
 

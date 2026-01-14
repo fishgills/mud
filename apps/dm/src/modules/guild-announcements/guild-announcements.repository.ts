@@ -38,7 +38,6 @@ export class GuildAnnouncementsRepository {
   > {
     const players = await this.prisma.player.findMany({
       where: {
-        isInHq: true,
         slackUser: { isNot: null },
       },
       select: {
@@ -59,23 +58,6 @@ export class GuildAnnouncementsRepository {
   async getDigestRecipients(): Promise<
     Array<{ teamId: string; userId: string }>
   > {
-    const players = await this.prisma.player.findMany({
-      where: {
-        isInHq: false,
-        slackUser: { isNot: null },
-      },
-      select: {
-        slackUser: {
-          select: {
-            teamId: true,
-            userId: true,
-          },
-        },
-      },
-    });
-
-    return players
-      .map((record) => record.slackUser)
-      .filter((slack): slack is NonNullable<typeof slack> => Boolean(slack));
+    return [];
   }
 }

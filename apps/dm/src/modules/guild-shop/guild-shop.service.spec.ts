@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import { GuildShopService } from './guild-shop.service';
 
 describe('guild-shop GuildShopService', () => {
@@ -30,21 +29,11 @@ describe('guild-shop GuildShopService', () => {
     teamId: 'T1',
     userId: 'U1',
     gold: 500,
-    isInHq: true,
   } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     playerService.getPlayer.mockResolvedValue(player);
-  });
-
-  it('rejects when player is not inside guild', async () => {
-    const service = makeService();
-    playerService.getPlayer.mockResolvedValue({ ...player, isInHq: false });
-
-    await expect(
-      service.buy({ teamId: 'T1', userId: 'U1', sku: 'potion' }),
-    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('buys catalog item and publishes receipt', async () => {

@@ -7,8 +7,6 @@ const combatStartEvent = (overrides?: Partial<GameEvent>): GameEvent =>
     timestamp: undefined,
     attacker: { type: 'player', id: 1, name: 'Hero' },
     defender: { type: 'monster', id: 2, name: 'Goblin' },
-    x: 0,
-    y: 0,
     ...overrides,
   }) as GameEvent;
 
@@ -56,11 +54,11 @@ describe('EventBus', () => {
     const listenerA = jest.fn();
     const listenerB = jest.fn();
     EventBus.on('combat:start', listenerA);
-    EventBus.on('player:move', listenerB);
+    EventBus.on('player:activity', listenerB);
 
     expect(EventBus.listenerCount('combat:start')).toBe(1);
     expect(new Set(EventBus.eventTypes())).toEqual(
-      new Set(['combat:start', 'player:move']),
+      new Set(['combat:start', 'player:activity']),
     );
 
     EventBus.clear();

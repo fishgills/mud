@@ -9,13 +9,6 @@ export enum AttackOrigin {
   DROPDOWN_PVP = 'dropdown-pvp',
 }
 
-export enum Direction {
-  NORTH = 'n',
-  EAST = 'e',
-  SOUTH = 's',
-  WEST = 'w',
-}
-
 export enum PlayerAttribute {
   STRENGTH = 'strength',
   AGILITY = 'agility',
@@ -33,15 +26,6 @@ export interface CreatePlayerRequest {
   userId?: string;
   clientType?: ClientType;
   name: string;
-  x?: number;
-  y?: number;
-}
-
-export interface MovePlayerRequest {
-  direction?: Direction;
-  distance?: number;
-  x?: number;
-  y?: number;
 }
 
 export interface PlayerStatsRequest {
@@ -56,11 +40,9 @@ export interface AttackRequest {
   targetId?: number;
   targetUserId?: string;
   targetTeamId?: string;
-  ignoreLocation?: boolean;
   attackOrigin?: AttackOrigin;
 }
 
 export interface SpawnMonsterRequest {
-  x: number;
-  y: number;
+  type?: string;
 }

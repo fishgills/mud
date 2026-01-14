@@ -105,7 +105,7 @@ ${announcement.body}`,
         : undefined;
 
     await this.eventBridge.publishNotification({
-      type: 'world',
+      type: 'announcement',
       recipients: recipients.map((recipient) => ({
         clientType: 'slack' as const,
         teamId: recipient.teamId,

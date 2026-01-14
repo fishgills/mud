@@ -1,5 +1,3 @@
-export const WORLD_CHUNK_SIZE = 50;
-
 export const getXpThresholdForLevel = (level: number): number =>
   Math.floor((100 * (level * (level + 1))) / 2);
 

@@ -59,8 +59,6 @@ describe('PlayerNotificationService', () => {
         name: 'Test Player',
         slackUser: { teamId: 'T1', userId: 'U1' },
       } as unknown as PlayerRespawnEvent['player'],
-      x: 10,
-      y: 20,
     };
 
     await listener?.(event);
@@ -87,8 +85,6 @@ describe('PlayerNotificationService', () => {
         name: 'No Slack',
         slackUser: null,
       } as unknown as PlayerRespawnEvent['player'],
-      x: 5,
-      y: 7,
     };
 
     await listener?.(event);

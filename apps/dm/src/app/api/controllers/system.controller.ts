@@ -8,23 +8,14 @@ import {
   Param,
 } from '@nestjs/common';
 import { MonsterService } from '../../monster/monster.service';
-import { GameTickService } from '../../game-tick/game-tick.service';
 import { PlayerService } from '../../player/player.service';
-import type {
-  GameStateResponse,
-  MonsterResponse,
-  TickSuccessResponse,
-  GameState,
-  HealthCheck,
-} from '../dto/responses.dto';
-import type { SpawnMonsterRequest } from '../dto/player-requests.dto';
+import type { MonsterResponse, HealthCheck } from '../dto/responses.dto';
 import { Monster } from '@mud/database';
 
 @Controller('system')
 export class SystemController {
   constructor(
     private readonly monsterService: MonsterService,
-    private readonly gameTickService: GameTickService,
     private readonly playerService: PlayerService,
   ) {}
 
@@ -54,62 +45,15 @@ export class SystemController {
   }
 
   @Post('process-tick')
-  async processTick(): Promise<TickSuccessResponse> {
-    try {
-      const result = await this.gameTickService.processTick();
-      return {
-        success: true,
-        result,
-        message: 'Tick processed successfully',
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message:
-          error instanceof Error ? error.message : 'Tick processing failed',
-      };
-    }
-  }
-
-  @Get('game-state')
-  async getGameState(): Promise<GameStateResponse> {
-    try {
-      await this.gameTickService.getGameState();
-      const monsters = await this.monsterService.getAllMonsters();
-
-      const gameState: GameState = {
-        currentTime: new Date().toISOString(),
-        totalPlayers: 0,
-        totalMonsters: monsters.length,
-      };
-
-      return {
-        success: true,
-        data: gameState,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message:
-          error instanceof Error ? error.message : 'Failed to get game state',
-      };
-    }
+  async processTick(): Promise<{ success: boolean; message: string }> {
+    return {
+      success: true,
+      message: 'Tick processing disabled',
+    };
   }
 
   @Get('monsters')
-  async getMonsters(
-    @Query('x') rawX?: string,
-    @Query('y') rawY?: string,
-  ): Promise<Monster[]> {
-    if (rawX !== undefined || rawY !== undefined) {
-      const x = Number.parseInt(rawX ?? '', 10);
-      const y = Number.parseInt(rawY ?? '', 10);
-      if (Number.isNaN(x) || Number.isNaN(y)) {
-        throw new BadRequestException('x and y must be numeric when provided');
-      }
-      return await this.monsterService.getMonstersAtLocation(x, y);
-    }
-
+  async getMonsters(): Promise<Monster[]> {
     return await this.monsterService.getAllMonsters();
   }
 
@@ -124,28 +68,15 @@ export class SystemController {
 
   @Post('monsters')
   async spawnMonster(
-    @Body() input: SpawnMonsterRequest,
+    @Body() input: { type?: string },
   ): Promise<MonsterResponse> {
-    if (
-      typeof input?.x !== 'number' ||
-      Number.isNaN(input.x) ||
-      typeof input?.y !== 'number' ||
-      Number.isNaN(input.y)
-    ) {
-      throw new BadRequestException('x and y must be provided as numbers');
-    }
-
     try {
-      const monster = await this.monsterService.spawnMonster(
-        input.x,
-        input.y,
-        1,
-      );
+      const monster = await this.monsterService.spawnMonster(input?.type);
 
       return {
         success: true,
         data: monster,
-        message: `Spawned ${monster.name} at (${input.x}, ${input.y})`,
+        message: `Spawned ${monster.name}`,
       };
     } catch (error) {
       return {

@@ -1,9 +1,5 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 
-jest.mock('./world/world.service', () => ({
-  WorldService: class WorldServiceMock {},
-}));
-
 
 describe('AppModule definition', () => {
   it('exposes expected controllers and providers', async () => {
@@ -29,7 +25,6 @@ describe('AppModule definition', () => {
       expect.arrayContaining([
         'AppController',
         'PlayersController',
-        'MovementController',
         'SystemController',
       ]),
     );

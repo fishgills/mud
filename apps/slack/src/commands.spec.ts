@@ -1,28 +1,23 @@
-import { COMMANDS, MOVEMENT_COMMANDS } from './commands';
+import { COMMANDS } from './commands';
 
 describe('commands constants', () => {
-  it('should expose each movement command exactly once', () => {
-    const uniqueCommands = new Set(MOVEMENT_COMMANDS);
-
-    expect(uniqueCommands.size).toBe(MOVEMENT_COMMANDS.length);
-    expect(uniqueCommands).toEqual(
-      new Set([
-        COMMANDS.NORTH,
-        COMMANDS.SOUTH,
-        COMMANDS.EAST,
-        COMMANDS.WEST,
-        COMMANDS.UP,
-        COMMANDS.DOWN,
-        COMMANDS.LEFT,
-        COMMANDS.RIGHT,
-      ]),
-    );
+  it('exposes unique command values', () => {
+    const commandValues = Object.values(COMMANDS);
+    expect(new Set(commandValues).size).toBe(commandValues.length);
   });
 
-  it('should ensure movement commands are part of the command catalogue', () => {
+  it('includes the core command set', () => {
     const commandValues = Object.values(COMMANDS);
-    for (const movement of MOVEMENT_COMMANDS) {
-      expect(commandValues).toContain(movement);
-    }
+    expect(commandValues).toEqual(
+      expect.arrayContaining([
+        COMMANDS.NEW,
+        COMMANDS.ATTACK,
+        COMMANDS.STATS,
+        COMMANDS.INVENTORY,
+        COMMANDS.CATALOG,
+        COMMANDS.BUY,
+        COMMANDS.SELL,
+      ]),
+    );
   });
 });

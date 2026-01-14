@@ -1,6 +1,5 @@
 import { Logger } from '@nestjs/common';
 import type { AiService } from '../../openai/ai.service';
-import type { PlayerService } from '../player/player.service';
 import type {
   DetailedCombatLog,
   CombatMessagePerformance,
@@ -12,11 +11,9 @@ import type {
   CombatNarrative,
   NarrativeOptions,
 } from './types';
-import { LocationNotificationService } from '../notifications/location-notification.service';
 
 export class CombatMessenger {
   constructor(
-    private playerService: PlayerService,
     private aiService: AiService,
     private logger: Logger,
   ) {}
@@ -237,15 +234,12 @@ export class CombatMessenger {
     const narrativeVoice = options.secondPersonName
       ? `Speak directly to ${options.secondPersonName} as "you" and keep everyone else in third person.`
       : 'Use third-person narration throughout.';
-    const locationLine = combatLog.location
-      ? `Location: (${combatLog.location.x}, ${combatLog.location.y}).`
-      : 'Location: unknown.';
     const prompt = [
       'Create a punchy, vivid two-sentence summary of a fantasy combat for a Slack message.',
       'Avoid dice jargon and Slack markdown; keep language bold and accessible.',
       narrativeVoice,
       `Result: ${combatLog.winner} defeated ${combatLog.loser} after ${roundsCompleted} rounds.`,
-      `Opening move: ${combatLog.firstAttacker}; ${locationLine}`,
+      `Opening move: ${combatLog.firstAttacker}.`,
     ].join('\n');
 
     try {
@@ -375,7 +369,6 @@ export class CombatMessenger {
       totalMs: 0,
     } as CombatMessagePerformance;
     const messages: CombatMessage[] = [];
-    const { x, y } = combatLog.location;
 
     const measure = async <T>(
       fn: () => Promise<T>,
@@ -409,21 +402,6 @@ export class CombatMessenger {
           ),
         )
       : undefined;
-    const observerLookupPromise = measure(() =>
-      this.playerService.getPlayersAtLocation(x, y, {
-        excludePlayerId: attacker.type === 'player' ? attacker.id : undefined,
-      }),
-    );
-    const observerNarrativePromise = measure(() =>
-      this.generateCombatNarrative(combatLog, {
-        attackerCombatant: attacker,
-        defenderCombatant: defender,
-      }),
-    );
-    const observerSummaryPromise = measure(() =>
-      this.generateEntertainingSummary(combatLog, {}),
-    );
-
     const attackerResult = await attackerPromise;
     const attackerMessage = attackerResult.value;
     if (attackerMessage) {
@@ -438,41 +416,9 @@ export class CombatMessenger {
       messages.push(defenderMessage);
     }
 
-    const observersResult = await observerLookupPromise;
-    perf.observerLookupMs = observersResult.duration;
-
-    const observerNarrativeResult = await observerNarrativePromise;
-    perf.observerNarrativeMs = observerNarrativeResult.duration;
-    const observerMessage = observerNarrativeResult.value;
-
-    const observerSummaryResult = await observerSummaryPromise;
-    perf.observerSummaryMs = observerSummaryResult.duration;
-    const observerSummary = observerSummaryResult.value;
-
-    for (const observer of observersResult.value) {
-      if (!LocationNotificationService.hasSlackUser(observer)) continue;
-
-      const obsId = observer.id as number | undefined;
-      if (
-        defender.type === 'player' &&
-        typeof obsId === 'number' &&
-        obsId === defender.id
-      )
-        continue;
-      const observerName = observer.name as string | undefined;
-      messages.push({
-        teamId: observer.slackUser!.teamId,
-        userId: observer.slackUser!.userId,
-        name: observerName ?? 'Someone',
-        message: `📣 Combat nearby: ${observerMessage}`,
-        role: 'observer',
-        blocks: this.buildSummaryBlocks(`📣 Combat nearby: ${observerSummary}`),
-      });
-    }
-
     perf.totalMs = Date.now() - start;
     this.logger.debug(
-      `Generated ${messages.length} combat messages (${messages.filter((m) => m.role === 'observer').length} observers)`,
+      `Generated ${messages.length} combat messages`,
     );
     return { messages, perf };
   }

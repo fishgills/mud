@@ -14,10 +14,3 @@ export enum PlayerAttribute {
   Agility = 'agility',
   Health = 'health',
 }
-
-export enum Direction {
-  North = 'north',
-  East = 'east',
-  South = 'south',
-  West = 'west',
-}

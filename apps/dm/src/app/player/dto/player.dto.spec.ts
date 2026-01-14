@@ -1,6 +1,5 @@
 import {
   CreatePlayerDto,
-  MovePlayerDto,
   PlayerStatsDto,
   AttackDto,
 } from './player.dto';
@@ -9,61 +8,24 @@ describe('Player DTOs', () => {
   describe('CreatePlayerDto', () => {
     it('should define a valid player creation DTO', () => {
       const dto: CreatePlayerDto = {
-        slackId: 'U123',
+        userId: 'U123',
+        teamId: 'T1',
         name: 'TestPlayer',
       };
 
-      expect(dto.slackId).toBe('U123');
+      expect(dto.userId).toBe('U123');
+      expect(dto.teamId).toBe('T1');
       expect(dto.name).toBe('TestPlayer');
-      expect(dto.x).toBeUndefined();
-      expect(dto.y).toBeUndefined();
     });
 
-    it('should allow optional coordinates', () => {
+    it('should allow identifiers to be omitted', () => {
       const dto: CreatePlayerDto = {
-        slackId: 'U123',
         name: 'TestPlayer',
-        x: 10,
-        y: 20,
       };
 
-      expect(dto.x).toBe(10);
-      expect(dto.y).toBe(20);
-    });
-  });
-
-  describe('MovePlayerDto', () => {
-    it('should define a valid move DTO with direction', () => {
-      const dto: MovePlayerDto = {
-        direction: 'north',
-        distance: 3,
-      };
-
-      expect(dto.direction).toBe('north');
-      expect(dto.distance).toBe(3);
-      expect(dto.x).toBeUndefined();
-      expect(dto.y).toBeUndefined();
-    });
-
-    it('should define a valid move DTO with coordinates', () => {
-      const dto: MovePlayerDto = {
-        x: 15,
-        y: 25,
-      };
-
-      expect(dto.x).toBe(15);
-      expect(dto.y).toBe(25);
-      expect(dto.direction).toBeUndefined();
-      expect(dto.distance).toBeUndefined();
-    });
-
-    it('should allow empty DTO', () => {
-      const dto: MovePlayerDto = {};
-
-      expect(dto.direction).toBeUndefined();
-      expect(dto.distance).toBeUndefined();
-      expect(dto.x).toBeUndefined();
-      expect(dto.y).toBeUndefined();
+      expect(dto.userId).toBeUndefined();
+      expect(dto.teamId).toBeUndefined();
+      expect(dto.name).toBe('TestPlayer');
     });
   });
 

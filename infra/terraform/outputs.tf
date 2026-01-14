@@ -35,7 +35,6 @@ output "public_ingress_ip" {
 output "public_service_domains" {
   description = "Domains routed through the shared GKE ingress."
   value = {
-    world = local.domain_mappings.world
     slack = local.domain_mappings.slack
     web   = local.domain_mappings.web
     www   = local.domain_mappings.www

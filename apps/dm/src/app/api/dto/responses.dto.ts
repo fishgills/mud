@@ -1,5 +1,4 @@
 import type { CombatLog } from './combat-log.dto';
-import type { TileInfo } from './tile-info.dto';
 import type { AttackOrigin } from './player-requests.dto';
 import { Monster, Player } from '@mud/database';
 
@@ -15,70 +14,14 @@ export type PlayerWithEquipmentTotals = Player & {
   xpToNextLevel?: number;
 };
 
-export interface LocationInfo {
-  location: TileInfo;
-  monsters?: Monster[];
-  players?: Player[];
-  recentCombat?: CombatLog[];
-  x: number;
-  y: number;
-}
-
-export interface TickResult {
-  tick: number;
-  gameHour: number;
-  gameDay: number;
-  monstersSpawned: number;
-  monstersMoved: number;
-  monstersPruned: number;
-  weatherUpdated: boolean;
-}
-
 export interface SuccessResponse {
   success: boolean;
   message?: string;
   code?: string;
 }
 
-export interface TickSuccessResponse extends SuccessResponse {
-  result?: TickResult;
-}
-
 export interface PlayerResponse extends SuccessResponse {
   data?: PlayerWithEquipmentTotals;
-}
-
-export interface LocationResponse extends SuccessResponse {
-  data?: LocationInfo;
-}
-
-export type SniffProximity =
-  | 'immediate'
-  | 'close'
-  | 'near'
-  | 'far'
-  | 'distant'
-  | 'unknown';
-
-export interface SniffData {
-  detectionRadius: number;
-  playerDetectionRadius: number;
-  monsterName?: string;
-  distanceLabel?: string;
-  proximity?: SniffProximity;
-  direction?: string;
-  monsterX?: number;
-  monsterY?: number;
-  playerName?: string;
-  playerDistanceLabel?: string;
-  playerProximity?: SniffProximity;
-  playerDirection?: string;
-  playerX?: number;
-  playerY?: number;
-}
-
-export interface SniffResponse extends SuccessResponse {
-  data?: SniffData;
 }
 
 export interface MonsterResponse extends SuccessResponse {
@@ -113,11 +56,6 @@ export interface InitiativeRoll {
   total: number;
 }
 
-export interface CombatLocation {
-  x: number;
-  y: number;
-}
-
 export interface DetailedCombatLog {
   combatId: string;
   participant1: string;
@@ -130,7 +68,6 @@ export interface DetailedCombatLog {
   xpAwarded: number;
   goldAwarded: number;
   timestamp: Date;
-  location: CombatLocation;
 }
 
 export interface CombatPlayerMessage {
@@ -146,9 +83,6 @@ export interface CombatMessagePerformance {
   totalMs: number;
   attackerMessageMs?: number;
   defenderMessageMs?: number;
-  observerNarrativeMs?: number;
-  observerSummaryMs?: number;
-  observerLookupMs?: number;
 }
 
 export interface CombatPerformanceBreakdown {
@@ -189,16 +123,6 @@ export interface CombatResponse extends SuccessResponse {
   perf?: AttackPerformanceStats;
 }
 
-export interface GameState {
-  currentTime: string;
-  totalPlayers: number;
-  totalMonsters: number;
-}
-
-export interface GameStateResponse extends SuccessResponse {
-  data?: GameState;
-}
-
 export interface HealthCheck {
   status: string;
   timestamp: string;
@@ -216,88 +140,4 @@ export interface PlayerStats {
   xpProgress: number;
   xpNeeded: number;
   recentCombat: CombatLog[];
-}
-
-export interface SurroundingTile {
-  x: number;
-  y: number;
-  biomeName: string;
-  description?: string;
-  direction: string;
-}
-
-export interface NearbyPlayerInfo {
-  distance: number;
-  direction: string;
-  x: number;
-  y: number;
-}
-
-export interface PlayerMoveResponse extends SuccessResponse {
-  player: Player;
-  monsters: Monster[];
-  playersAtLocation: Player[];
-}
-
-export type TeleportState = 'entered' | 'awaiting_choice' | 'exited';
-
-export interface TeleportResponse extends SuccessResponse {
-  state: TeleportState;
-  player?: Player;
-  destination?: { x: number; y: number };
-  lastWorldPosition?: { x: number | null; y: number | null };
-  mode?: 'return' | 'random';
-}
-
-export interface BiomeSectorSummary {
-  biomeName: string;
-  proportion: number;
-  predominantDirections: string[];
-}
-
-export interface VisiblePeakInfo {
-  x: number;
-  y: number;
-  height: number;
-  distance: number;
-  direction: string;
-}
-
-export interface LookViewData {
-  location: TileInfo;
-  visibilityRadius: number;
-  biomeSummary: BiomeSectorSummary[];
-  visiblePeaks: VisiblePeakInfo[];
-  nearbyPlayers: NearbyPlayerInfo[];
-  description: string;
-  monsters: Monster[];
-  items?: Array<{
-    id: number;
-    itemId: number;
-    quantity?: number;
-    quality?: string | null;
-    itemName?: string | null;
-    x?: number;
-    y?: number;
-  }>;
-}
-
-export interface PerformanceStats {
-  totalMs: number;
-  playerMs: number;
-  worldCenterNearbyMs: number;
-  worldBoundsTilesMs: number;
-  worldExtendedBoundsMs: number;
-  tilesFilterMs: number;
-  peaksSortMs: number;
-  biomeSummaryMs: number;
-  aiMs: number;
-  tilesCount: number;
-  peaksCount: number;
-  aiProvider: string;
-}
-
-export interface LookViewResponse extends SuccessResponse {
-  data?: LookViewData;
-  perf?: PerformanceStats;
 }

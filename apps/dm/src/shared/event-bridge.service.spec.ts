@@ -33,9 +33,9 @@ describe('EventBridgeService', () => {
     await service.onModuleInit();
     expect(bridgeMock.connect).toHaveBeenCalled();
 
-    await listenerSpies[0]!({ eventType: 'player:move' });
+    await listenerSpies[0]!({ eventType: 'player:activity' });
     expect(bridgeMock.publishEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ eventType: 'player:move' }),
+      expect.objectContaining({ eventType: 'player:activity' }),
     );
   });
 

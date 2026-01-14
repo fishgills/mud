@@ -37,8 +37,6 @@ export interface Combatant {
   agility: number;
   level: number;
   isAlive: boolean;
-  x: number;
-  y: number;
   slackUser?: {
     teamId: string;
     userId: string;

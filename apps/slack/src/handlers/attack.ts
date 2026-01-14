@@ -3,11 +3,7 @@ import { HandlerContext, type SayMessage } from './types';
 import { COMMANDS, ATTACK_ACTIONS } from '../commands';
 import { PlayerCommandHandler } from './base';
 import { requireCharacter } from './characterUtils';
-import {
-  buildPlayerOption,
-  buildMonsterOption,
-  type SlackOption,
-} from './entitySelection';
+import { buildMonsterOption, type SlackOption } from './entitySelection';
 import {
   buildAttackFailureMessage,
   isMissingTargetCharacterMessage,
@@ -37,24 +33,14 @@ type AttackCombatResult = {
 };
 
 type NearbyMonster = { id: string; name: string };
-type NearbyPlayer = { userId: string; teamId: string; name: string };
 
 export function buildTargetSelectionMessage(
   monsters: NearbyMonster[],
-  players: NearbyPlayer[],
 ) {
   const monsterList = monsters.map((m) => m.name).join(', ');
-  const playerList = players.map((p) => p.name).join(', ');
   const anyMonsters = monsters.length > 0;
-  const anyPlayers = players.length > 0;
 
   const options: SlackOption[] = [];
-  for (const player of players) {
-    const option = buildPlayerOption(player);
-    if (option) {
-      options.push(option);
-    }
-  }
   for (const monster of monsters) {
     const option = buildMonsterOption(monster);
     if (option) {
@@ -65,10 +51,9 @@ export function buildTargetSelectionMessage(
   const firstOption = options[0];
 
   const headerParts: string[] = [];
-  if (anyPlayers) headerParts.push(`players: ${playerList}`);
   if (anyMonsters) headerParts.push(`monsters: ${monsterList}`);
   const headerText = headerParts.length
-    ? `You see the following at your location — ${headerParts.join(' | ')}`
+    ? `Available targets — ${headerParts.join(' | ')}`
     : 'Choose a target to attack:';
 
   return {
@@ -179,14 +164,14 @@ export class AttackHandler extends PlayerCommandHandler {
       branch: string;
       dmAttackMs: number;
       dmGetPlayerMs: number;
-      dmGetLocationEntitiesMs: number;
+      dmGetMonstersMs: number;
       targetType?: string;
       attackOrigin?: AttackOrigin;
     } = {
       branch: 'initial',
       dmAttackMs: 0,
       dmGetPlayerMs: 0,
-      dmGetLocationEntitiesMs: 0,
+      dmGetMonstersMs: 0,
       targetType: undefined,
       attackOrigin: undefined,
     };
@@ -221,7 +206,6 @@ export class AttackHandler extends PlayerCommandHandler {
           targetType: TargetType.Player,
           targetUserId: targetSlackId,
           targetTeamId: this.teamId!,
-          ignoreLocation: true,
           attackOrigin: AttackOrigin.TextPvp,
         },
       });
@@ -266,49 +250,70 @@ export class AttackHandler extends PlayerCommandHandler {
       return;
     }
 
-    const { x, y } = player;
-    if (typeof x !== 'number' || typeof y !== 'number') {
-      await say({ text: 'Unable to determine your current location.' });
+    const monstersStart = Date.now();
+    const monsters = await this.dm.getMonsters();
+    metrics.dmGetMonstersMs = Date.now() - monstersStart;
+
+    const availableMonsters: NearbyMonster[] = (monsters || [])
+      .filter((monster) => monster && monster.id !== undefined)
+      .map((monster) => ({
+        id: String(monster.id),
+        name: monster.name ?? 'Unknown Monster',
+      }));
+
+    if (availableMonsters.length === 0) {
+      await say({ text: 'No monsters available to attack right now.' });
       return;
     }
 
-    const entitiesStart = Date.now();
-    const entities = await this.dm.getLocationEntities({ x, y });
-    metrics.dmGetLocationEntitiesMs = Date.now() - entitiesStart;
+    if (!maybeTarget) {
+      await say(buildTargetSelectionMessage(availableMonsters));
+      return;
+    }
 
-    const monstersHere: NearbyMonster[] = (entities.monsters || []).map(
-      (m) => ({
-        id: String(m.id ?? ''),
-        name: m.name ?? 'Unknown Monster',
-      }),
+    const normalizedTarget = maybeTarget.trim().toLowerCase();
+    const matchingMonsters = availableMonsters.filter(
+      (monster) => monster.name.toLowerCase() === normalizedTarget,
     );
-    const playersHere: NearbyPlayer[] = (entities.players || [])
-      .map((p) => {
-        const playerSlackUser = (
-          p as { slackUser?: { userId?: string; teamId?: string } }
-        ).slackUser;
-        const targetUserId = playerSlackUser?.userId;
-        const targetTeamId = playerSlackUser?.teamId;
-        if (!targetUserId || !targetTeamId) {
-          return null;
-        }
-        if (targetUserId === userId && targetTeamId === this.teamId) {
-          return null;
-        }
-        return {
-          userId: targetUserId,
-          teamId: targetTeamId,
-          name: p.name ?? 'Unknown Adventurer',
-        };
-      })
-      .filter((p): p is NearbyPlayer => p !== null);
 
-    if (monstersHere.length === 0 && playersHere.length === 0) {
-      await say({ text: 'No monsters or players here to attack!' });
+    if (matchingMonsters.length === 1) {
+      const targetId = Number(matchingMonsters[0].id);
+      if (!Number.isFinite(targetId)) {
+        await say({ text: 'Unable to resolve that monster right now.' });
+        return;
+      }
+
+      const attackStart = Date.now();
+      const attackResult = await this.dm.attack({
+        teamId: this.teamId!,
+        userId,
+        input: {
+          targetType: TargetType.Monster,
+          targetId,
+          attackOrigin: AttackOrigin.TextPve,
+        },
+      });
+      metrics.dmAttackMs = Date.now() - attackStart;
+
+      if (!attackResult.success) {
+        await say({
+          text: buildAttackFailureMessage(attackResult.message, {
+            targetKind: 'monster',
+            targetName: matchingMonsters[0].name,
+          }),
+        });
+      }
       return;
     }
 
-    await say(buildTargetSelectionMessage(monstersHere, playersHere));
+    if (matchingMonsters.length > 1) {
+      await say(buildTargetSelectionMessage(matchingMonsters));
+      return;
+    }
+
+    await say({
+      text: `I couldn't find a monster named "${maybeTarget}". Try \`attack\` to pick from the list.`,
+    });
   }
 }
 

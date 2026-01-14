@@ -47,9 +47,6 @@ export async function GET(request: Request) {
           hp: 100,
           maxHp: 100,
           gold: 10000, // Give plenty of gold for testing
-          x: 0,
-          y: 0,
-          isInHq: true, // Start in HQ so they can access the store
         },
       });
 

@@ -103,7 +103,7 @@ export const registerHomeActions = (app: App) => {
       const userId = body.user?.id;
       const teamId = body.team?.id ?? (context as { teamId?: string })?.teamId;
       if (!userId) return;
-      await dispatchCommandViaDM(client, userId, COMMANDS.LOOK, teamId);
+      await dispatchCommandViaDM(client, userId, COMMANDS.ATTACK, teamId);
     },
   );
 

@@ -1,9 +1,8 @@
-import { Direction, TargetType, AttackOrigin } from './dm-types';
+import { TargetType, AttackOrigin } from './dm-types';
 import { env } from './env';
 import type {
   Player,
   Monster,
-  WorldItem,
   Item,
   PlayerItem,
   Prisma,
@@ -79,18 +78,6 @@ export interface SuccessResponse {
   code?: string;
 }
 
-export type TeleportState = 'entered' | 'awaiting_choice' | 'exited';
-
-export type HqExitMode = 'return' | 'random';
-
-export interface TeleportResponse extends SuccessResponse {
-  state: TeleportState;
-  player?: PlayerRecord;
-  destination?: { x: number; y: number };
-  lastWorldPosition?: { x: number | null; y: number | null };
-  mode?: HqExitMode;
-}
-
 // Extended Player type with API-specific fields
 export type PlayerRecord = Player &
   Prisma.SlackUserInclude & {
@@ -98,14 +85,6 @@ export type PlayerRecord = Player &
     isCreationComplete?: boolean;
     hasMoved?: boolean;
     hasBattled?: boolean;
-    currentTile?: {
-      x: number;
-      y: number;
-      biomeName: string;
-      description?: string | null;
-    };
-    nearbyMonsters?: MonsterRecord[];
-    nearbyPlayers?: PlayerRecord[];
     equipment?: {
       head?: { id: number; quality: string } | null;
       chest?: { id: number; quality: string } | null;
@@ -120,8 +99,7 @@ export type PlayerRecord = Player &
 // Use Monster directly from Prisma
 export type MonsterRecord = Monster;
 
-// ItemRecord supports both PlayerItem (inventory) and WorldItem (world items)
-// This type is flexible to work with both API responses
+// ItemRecord represents inventory items with optional display helpers.
 type ItemDisplayMetadata = {
   // Include item relation when available
   item?: Item | null;
@@ -140,8 +118,7 @@ type ItemDisplayMetadata = {
 };
 
 export type ItemRecord =
-  | (WorldItem & ItemDisplayMetadata)
-  | (PlayerItem & ItemDisplayMetadata);
+  PlayerItem & ItemDisplayMetadata;
 
 export type EquipmentTotals = {
   attackBonus: number;
@@ -155,43 +132,8 @@ export interface ItemActionResponse extends SuccessResponse {
   data?: ItemRecord;
 }
 
-export interface SpawnLootResponse extends SuccessResponse {
-  data?: {
-    drops?: Array<{
-      id: number;
-      itemId: number;
-      quality: string;
-      quantity?: number | null;
-      rank?: number | null;
-      x: number;
-      y: number;
-      spawnedByMonsterId?: number | null;
-      itemName?: string | null;
-    }>;
-    location?: { x: number; y: number };
-  };
-}
-
-// Extended Item type for detailed item information
-export type ItemDetails = Item & {
-  value?: number;
-  damageRoll?: string | null;
-  defense?: number | null;
-  slot?: string | null;
-};
-
-export interface ItemDetailsResponse extends SuccessResponse {
-  data?: ItemDetails;
-}
-
 export interface PlayerResponse extends SuccessResponse {
   data?: PlayerRecord;
-}
-
-export interface PlayerMoveResponse extends SuccessResponse {
-  player: PlayerRecord;
-  monsters: MonsterRecord[];
-  playersAtLocation: PlayerRecord[];
 }
 
 export interface CombatResult {
@@ -247,59 +189,6 @@ export interface CombatResponse extends SuccessResponse {
   perf?: AttackPerformanceStats;
 }
 
-export type SniffProximity =
-  | 'immediate'
-  | 'close'
-  | 'near'
-  | 'far'
-  | 'distant'
-  | 'unknown';
-
-export interface SniffData {
-  detectionRadius: number;
-  playerDetectionRadius: number;
-  monsterName?: string;
-  distanceLabel?: string;
-  proximity?: SniffProximity;
-  direction?: string;
-  monsterX?: number;
-  monsterY?: number;
-  playerName?: string;
-  playerDistanceLabel?: string;
-  playerProximity?: SniffProximity;
-  playerDirection?: string;
-  playerX?: number;
-  playerY?: number;
-}
-
-export interface SniffResponse extends SuccessResponse {
-  data?: SniffData;
-}
-
-export interface LookViewData extends JsonMap {
-  description?: string;
-  location?: {
-    x: number;
-    y: number;
-    biomeName: string;
-    description?: string | null;
-  };
-}
-
-export interface LookViewResponse extends SuccessResponse {
-  data?: LookViewData;
-  perf?: JsonMap;
-}
-
-export interface LocationEntitiesResult {
-  players: PlayerRecord[];
-  monsters: MonsterRecord[];
-  items: ItemRecord[];
-}
-
-interface LocationCollectionResponse<T> extends SuccessResponse {
-  data?: T[];
-}
 
 export interface CreatePlayerRequest {
   teamId?: string;
@@ -307,25 +196,12 @@ export interface CreatePlayerRequest {
   name: string;
 }
 
-export interface MovePlayerInput {
-  direction?: Direction;
-  distance?: number;
-  x?: number;
-  y?: number;
-}
-
-export interface MovePlayerRequest {
-  teamId: string;
-  userId: string;
-  input: MovePlayerInput;
-}
 
 export interface AttackInput {
   targetType: TargetType;
   targetId?: number;
   targetUserId?: string;
   targetTeamId?: string;
-  ignoreLocation?: boolean;
   attackOrigin?: AttackOrigin;
 }
 
@@ -375,6 +251,10 @@ export async function getMonsterById(
   );
 }
 
+export async function getMonsters(): Promise<MonsterRecord[]> {
+  return dmRequest<MonsterRecord[]>('/system/monsters', HttpMethod.GET);
+}
+
 export async function getLeaderboard(params?: {
   limit?: number;
   teamId?: string;
@@ -384,37 +264,6 @@ export async function getLeaderboard(params?: {
       limit: params?.limit?.toString(),
       teamId: params?.teamId,
     },
-  });
-}
-
-export async function movePlayer(
-  input: MovePlayerRequest,
-): Promise<PlayerMoveResponse> {
-  const moveBody = normalizeMoveInput(input.input);
-  return dmRequest<PlayerMoveResponse>('/movement/move', HttpMethod.POST, {
-    body: {
-      teamId: input.teamId,
-      userId: input.userId,
-      move: moveBody,
-    },
-  });
-}
-
-export async function teleportPlayer(params: {
-  teamId: string;
-  userId: string;
-  mode?: HqExitMode;
-}): Promise<TeleportResponse> {
-  const body: Record<string, unknown> = {
-    teamId: params.teamId,
-    userId: params.userId,
-  };
-  if (params.mode) {
-    body.mode = params.mode;
-  }
-
-  return dmRequest<TeleportResponse>('/movement/teleport', HttpMethod.POST, {
-    body,
   });
 }
 
@@ -503,30 +352,6 @@ export async function deletePlayer(
   );
 }
 
-export async function sniffNearestMonster(params: {
-  teamId: string;
-  userId: string;
-}): Promise<SniffResponse> {
-  return dmRequest<SniffResponse>('/movement/sniff', HttpMethod.GET, {
-    query: {
-      teamId: params.teamId,
-      userId: params.userId,
-    },
-  });
-}
-
-export async function getLookView(params: {
-  teamId: string;
-  userId: string;
-}): Promise<LookViewResponse> {
-  return dmRequest<LookViewResponse>('/movement/look', HttpMethod.GET, {
-    query: {
-      teamId: params.teamId,
-      userId: params.userId,
-    },
-  });
-}
-
 export async function getPlayerItems(params: {
   teamId: string;
   userId: string;
@@ -537,20 +362,6 @@ export async function getPlayerItems(params: {
       userId: params.userId,
     },
   });
-}
-
-export async function pickup(input: {
-  teamId: string;
-  userId: string;
-  worldItemId?: number;
-}): Promise<SuccessResponse & { item?: ItemRecord; data?: unknown }> {
-  return dmRequest<SuccessResponse & { item?: ItemRecord; data?: unknown }>(
-    '/players/pickup',
-    HttpMethod.POST,
-    {
-      body: input,
-    },
-  );
 }
 
 export async function equip(input: {
@@ -574,110 +385,11 @@ export async function unequip(input: {
   });
 }
 
-export async function drop(input: {
-  teamId: string;
-  userId: string;
-  playerItemId?: number;
-}): Promise<ItemActionResponse> {
-  return dmRequest<ItemActionResponse>('/players/drop', HttpMethod.POST, {
-    body: input,
-  });
-}
-
-export async function spawnLoot(input: {
-  teamId: string;
-  userId: string;
-}): Promise<SpawnLootResponse> {
-  return dmRequest<SpawnLootResponse>('/loot/spawn', HttpMethod.POST, {
-    body: input,
-  });
-}
-
-export async function getItemDetails(
-  itemId: number,
-): Promise<ItemDetailsResponse> {
-  return dmRequest<ItemDetailsResponse>(
-    `/items/${encodeURIComponent(String(itemId))}`,
-    HttpMethod.GET,
-  );
-}
-
-function assertLocationResponse<T>(
-  endpoint: string,
-  response: LocationCollectionResponse<T>,
-): T[] {
-  if (!response.success) {
-    throw new Error(
-      `${endpoint} failed: ${response.message ?? 'unknown error'}`,
-    );
-  }
-  return response.data ?? [];
-}
-
-export async function getLocationPlayers(params: {
-  x: number;
-  y: number;
-}): Promise<PlayerRecord[]> {
-  const response = await dmRequest<LocationCollectionResponse<PlayerRecord>>(
-    '/location/players',
-    HttpMethod.GET,
-    {
-      query: { x: String(params.x), y: String(params.y) },
-    },
-  );
-  return assertLocationResponse('getLocationPlayers', response);
-}
-
-export async function getLocationMonsters(params: {
-  x: number;
-  y: number;
-}): Promise<MonsterRecord[]> {
-  const response = await dmRequest<LocationCollectionResponse<MonsterRecord>>(
-    '/location/monsters',
-    HttpMethod.GET,
-    {
-      query: { x: String(params.x), y: String(params.y) },
-    },
-  );
-  return assertLocationResponse('getLocationMonsters', response);
-}
-
-export async function getLocationItems(params: {
-  x: number;
-  y: number;
-}): Promise<ItemRecord[]> {
-  const response = await dmRequest<LocationCollectionResponse<ItemRecord>>(
-    '/location/items',
-    HttpMethod.GET,
-    {
-      query: { x: String(params.x), y: String(params.y) },
-    },
-  );
-  return assertLocationResponse('getLocationItems', response);
-}
-
-export async function getLocationEntities(params: {
-  x: number;
-  y: number;
-}): Promise<LocationEntitiesResult> {
-  const [players, monsters, items] = await Promise.all([
-    getLocationPlayers(params),
-    getLocationMonsters(params),
-    getLocationItems(params),
-  ]);
-
-  return { players, monsters, items };
-}
-
 // Feedback types
 export interface SubmitFeedbackRequest {
   playerId: number;
   type: 'bug' | 'suggestion' | 'general';
   content: string;
-  context?: {
-    locationName?: string;
-    coordinates?: { x: number; y: number };
-  };
 }
 
 export interface SubmitFeedbackResponse extends SuccessResponse {
@@ -735,8 +447,6 @@ export async function deleteFeedback(
 export const dmClient = {
   createPlayer,
   getPlayer,
-  movePlayer,
-  teleportPlayer,
   guildBuyItem,
   guildSellItem,
   guildListCatalog,
@@ -745,65 +455,12 @@ export const dmClient = {
   rerollPlayerStats,
   completePlayer,
   deletePlayer,
-  sniffNearestMonster,
-  getLookView,
-  getLocationEntities,
   getPlayerItems,
   getMonsterById,
-  pickup,
+  getMonsters,
   equip,
   unequip,
-  drop,
-  spawnLoot,
-  getItemDetails,
-  getLocationPlayers,
-  getLocationMonsters,
-  getLocationItems,
   submitFeedback,
   getFeedbackHistory,
   deleteFeedback,
 };
-
-type DirectionCode = 'n' | 's' | 'e' | 'w';
-
-const directionToCode: Record<Direction, DirectionCode> = {
-  [Direction.North]: 'n',
-  [Direction.South]: 's',
-  [Direction.East]: 'e',
-  [Direction.West]: 'w',
-};
-
-function normalizeMoveInput(input: MovePlayerInput): {
-  direction?: DirectionCode;
-  distance?: number;
-  x?: number;
-  y?: number;
-} {
-  const result: {
-    direction?: DirectionCode;
-    distance?: number;
-    x?: number;
-    y?: number;
-  } = {};
-
-  if (input.direction) {
-    const code = directionToCode[input.direction];
-    if (code) {
-      result.direction = code;
-    }
-  }
-
-  if (typeof input.distance === 'number' && Number.isFinite(input.distance)) {
-    result.distance = input.distance;
-  }
-
-  if (typeof input.x === 'number' && Number.isFinite(input.x)) {
-    result.x = input.x;
-  }
-
-  if (typeof input.y === 'number' && Number.isFinite(input.y)) {
-    result.y = input.y;
-  }
-
-  return result;
-}

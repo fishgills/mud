@@ -72,9 +72,6 @@ export type PlayerInventoryInput = {
   hp?: number | null;
   maxHp?: number | null;
   gold?: number | null;
-  x?: number | null;
-  y?: number | null;
-  isInHq?: boolean;
   equipment?: EquipmentMap | null;
   bag?: InventoryItemInput[] | null;
   // Alternative: items directly on player
@@ -121,8 +118,6 @@ export type InventoryModel = {
   hp: number | null;
   maxHp: number | null;
   gold: number;
-  position: { x: number | null; y: number | null };
-  isInGuild: boolean;
   equippedSlots: EquippedSlot[];
   backpackItems: InventoryItem[];
   totalEquipped: number;
@@ -338,11 +333,6 @@ export const buildInventoryModel = (
     hp: player.hp ?? null,
     maxHp: player.maxHp ?? null,
     gold: player.gold ?? 0,
-    position: {
-      x: player.x ?? null,
-      y: player.y ?? null,
-    },
-    isInGuild: player.isInHq === true,
     equippedSlots,
     backpackItems,
     totalEquipped: equippedSlots.filter((s) => !s.isEmpty).length,

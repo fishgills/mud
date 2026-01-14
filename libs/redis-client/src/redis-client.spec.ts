@@ -38,13 +38,10 @@ const createRedisClientMock = (): RedisClientMock => ({
 
 const createSampleEvent = (): GameEvent =>
   ({
-    eventType: 'player:move',
+    eventType: 'player:activity',
     timestamp: new Date('2024-01-01T00:00:00.000Z'),
-    player: { id: 1, name: 'Aventurer' },
-    fromX: 0,
-    fromY: 0,
-    toX: 1,
-    toY: 1,
+    playerId: 1,
+    source: 'test',
   }) as unknown as GameEvent;
 
 describe('RedisEventBridge', () => {
@@ -160,11 +157,11 @@ describe('RedisEventBridge', () => {
     await bridge.publishEvent(event);
 
     expect(publisher.publish).toHaveBeenCalledWith(
-      'game:player:move',
+      'game:player:activity',
       JSON.stringify(event),
     );
     expect(debugSpy).toHaveBeenCalledWith(
-      { channel: 'game:player:move', eventType: 'player:move' },
+      { channel: 'game:player:activity', eventType: 'player:activity' },
       '📤 Published event',
     );
   });
@@ -269,9 +266,12 @@ describe('RedisEventBridge', () => {
     const handler = subscriber.pSubscribe.mock.calls[0][1];
     const event = createSampleEvent();
     const serializedEvent = JSON.parse(JSON.stringify(event));
-    await handler(JSON.stringify(event), 'game:player:move');
+    await handler(JSON.stringify(event), 'game:player:activity');
 
-    expect(callback).toHaveBeenCalledWith('game:player:move', serializedEvent);
+    expect(callback).toHaveBeenCalledWith(
+      'game:player:activity',
+      serializedEvent,
+    );
 
     await handler('bad json', 'game:error');
     expect(errorSpy).toHaveBeenCalledWith(

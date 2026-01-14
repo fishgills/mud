@@ -15,7 +15,7 @@ export interface EventBridgeConfig {
 }
 
 export interface NotificationMessage {
-  type: 'combat' | 'player' | 'monster' | 'world' | 'party';
+  type: 'combat' | 'player' | 'monster' | 'party' | 'announcement';
   recipients: NotificationRecipient[];
   event: GameEvent;
 }
@@ -108,7 +108,7 @@ export class RedisEventBridge {
       throw new Error('Redis Event Bridge not connected');
     }
 
-    // Convert event type to channel name: player:move → game:player:move
+    // Convert event type to channel name: <eventType> → game:<eventType>
     const channel = `${this.channelPrefix}:${event.eventType}`;
     const message = JSON.stringify(event);
 

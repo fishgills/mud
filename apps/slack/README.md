@@ -1,18 +1,18 @@
 # Slack Bot
 
-This is a Slack bot for the MUD game, built with Slack Bolt JS. It interacts with the DM and World services via REST APIs.
+This is a Slack bot for the MUD game, built with Slack Bolt JS. It interacts with the DM service via REST APIs.
 
 ## Setup
 
-- Install dependencies: `npm install`
+- Install dependencies: `yarn install`
 - Configure Slack credentials in environment variables
-- Run the bot: `nx serve bot`
+- Run the bot: `yarn workspace @mud/slack serve`
 
 ## Features
 
 - Player creation and rerolling stats
-- Movement and attack commands
-- Interacts with DM and World services using REST endpoints
+- Combat commands and inventory management
+- Interacts with DM service using REST endpoints
 
 ## OAuth installation (optional)
 

@@ -2,15 +2,6 @@ export type CreatePlayerDto = {
   userId?: string;
   teamId?: string;
   name: string;
-  x?: number;
-  y?: number;
-};
-
-export type MovePlayerDto = {
-  direction?: string;
-  distance?: number;
-  x?: number;
-  y?: number;
 };
 
 export type PlayerStatsDto = {

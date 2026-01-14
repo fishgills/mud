@@ -115,8 +115,6 @@ export async function runCombat(
       id: combatant2.id,
       name: combatant2.name,
     },
-    x: combatant1.x,
-    y: combatant1.y,
     timestamp: new Date(),
   });
 
@@ -213,8 +211,6 @@ export async function runCombat(
         attacker: { type: attacker.type, id: attacker.id, name: attacker.name },
         defender: { type: defender.type, id: defender.id, name: defender.name },
         damage,
-        x: attacker.x,
-        y: attacker.y,
         timestamp: new Date(),
       });
     } else {
@@ -222,8 +218,6 @@ export async function runCombat(
         eventType: 'combat:miss',
         attacker: { type: attacker.type, id: attacker.id, name: attacker.name },
         defender: { type: defender.type, id: defender.id, name: defender.name },
-        x: attacker.x,
-        y: attacker.y,
         timestamp: new Date(),
       });
     }
@@ -265,7 +259,6 @@ export async function runCombat(
     xpAwarded,
     goldAwarded,
     timestamp: new Date(),
-    location: { x: combatant1.x, y: combatant1.y },
   } as DetailedCombatLog;
 
   logger.log(
@@ -278,8 +271,6 @@ export async function runCombat(
     loser: { type: loser.type, id: loser.id, name: loser.name },
     xpGained: xpAwarded,
     goldGained: goldAwarded,
-    x: combatLog.location.x,
-    y: combatLog.location.y,
     timestamp: new Date(),
   });
 

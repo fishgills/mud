@@ -9,7 +9,7 @@ export class SellHandler extends PlayerCommandHandler {
 
   protected async perform({ say }: HandlerContext) {
     await say({
-      text: `Use the \`${COMMANDS.INVENTORY}\` sell buttons while inside the guild.`,
+      text: `Use the \`${COMMANDS.INVENTORY}\` sell buttons to list items for sale.`,
     });
   }
 }

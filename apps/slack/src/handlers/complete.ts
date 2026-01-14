@@ -18,7 +18,7 @@ export class CompleteHandler extends PlayerCommandHandler {
     });
     if (response.success) {
       await say({
-        text: `✅ Character creation complete! You can now move and attack.`,
+        text: `✅ Character creation complete! You can now attack and gear up.`,
       });
       return;
     }

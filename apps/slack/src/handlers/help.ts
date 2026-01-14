@@ -8,13 +8,13 @@ export const helpHandlerHelp = `Show instructions for using the bot with "help".
 export const buildHelpBlocks = (): KnownBlock[] => [
   {
     type: 'header',
-    text: { type: 'plain_text', text: '🗺️ MUD Adventurer Guide', emoji: true },
+    text: { type: 'plain_text', text: '🗡️ MUD Adventurer Guide', emoji: true },
   },
   {
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: '🚀 *Quick Start*\n`new YourName` → `complete` → begin your quest',
+      text: '🚀 *Quick Start*\n`new YourName` → `complete` → `attack`',
     },
   },
   {
@@ -28,18 +28,8 @@ export const buildHelpBlocks = (): KnownBlock[] => [
       },
       {
         type: 'button',
-        text: { type: 'plain_text', text: 'Look', emoji: true },
-        action_id: HELP_ACTIONS.LOOK,
-      },
-      {
-        type: 'button',
         text: { type: 'plain_text', text: 'Stats', emoji: true },
         action_id: HELP_ACTIONS.STATS,
-      },
-      {
-        type: 'button',
-        text: { type: 'plain_text', text: 'Map', emoji: true },
-        action_id: HELP_ACTIONS.MAP,
       },
       {
         type: 'button',
@@ -58,7 +48,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
       },
       {
         type: 'mrkdwn',
-        text: `*Movement*\n• \`${COMMANDS.NORTH}\`/\`${COMMANDS.UP}\` - Move north\n• \`${COMMANDS.SOUTH}\`/\`${COMMANDS.DOWN}\` - Move south\n• \`${COMMANDS.EAST}\`/\`${COMMANDS.RIGHT}\` - Move east\n• \`${COMMANDS.WEST}\`/\`${COMMANDS.LEFT}\` - Move west`,
+        text: `*Combat*\n• \`${COMMANDS.ATTACK}\` - Attack a monster\n• \`${COMMANDS.ATTACK} @player\` - Attack another player\n• Combat results arrive via DM`,
       },
     ],
   },
@@ -67,20 +57,11 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     fields: [
       {
         type: 'mrkdwn',
-        text: `*Exploration*\n• \`${COMMANDS.LOOK}\` or \`${COMMANDS.LOOK_SHORT}\` - Look around\n• \`${COMMANDS.SNIFF}\` - Detect nearby monsters\n• \`${COMMANDS.MAP}\` - View world map\n• \`${COMMANDS.INSPECT}\` - Inspect target`,
+        text: `*Equipment*\n• \`${COMMANDS.CATALOG}\` - View the rotating shop\n• \`${COMMANDS.BUY} <sku>\` - Buy gear from the shop\n• \`${COMMANDS.SELL} <itemId>\` - Sell gear from inventory`,
       },
       {
         type: 'mrkdwn',
-        text: `*Combat*\n• \`${COMMANDS.ATTACK}\` - Attack target\n• \`${COMMANDS.ATTACK} @player\` - Attack player\n• \`${COMMANDS.ATTACK} monster\` - Attack monster`,
-      },
-    ],
-  },
-  {
-    type: 'section',
-    fields: [
-      {
-        type: 'mrkdwn',
-        text: `*Inventory & Items*\n• \`${COMMANDS.INVENTORY}\` - View inventory\n• \`${COMMANDS.PICKUP}\` - Pick up items\n• \`${COMMANDS.EQUIP}\` - Equip item\n• Use the inventory view to drop items`,
+        text: `*Inventory*\n• \`${COMMANDS.INVENTORY}\` - View inventory\n• \`${COMMANDS.EQUIP} <itemId> <slot>\` - Equip gear`,
       },
     ],
   },
@@ -97,7 +78,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: '*Game Systems*\n• Earn XP from monsters, quests, and discoveries.\n• Combat is turn-based; agility sets turn order and positioning matters.\n• Unlock abilities as you level and spend points in `stats`.',
+      text: '*Game Systems*\n• Earn XP and gold from combat.\n• Combat is turn-based; agility sets turn order.\n• Unlock abilities as you level and spend points in `stats`.',
     },
   },
   {
@@ -131,30 +112,6 @@ export const buildHelpBlocks = (): KnownBlock[] => [
   },
 ];
 
-const buildGuildHelpBlocks = (): KnownBlock[] => [
-  {
-    type: 'section',
-    text: {
-      type: 'mrkdwn',
-      text: '🏰 *Guild Hall Services*\nYou are inside the Guild. Take advantage of the quick commands below:',
-    },
-  },
-  {
-    type: 'section',
-    fields: [
-      {
-        type: 'mrkdwn',
-        text: `• \`${COMMANDS.GUILD}\` - Teleport here from anywhere (cooldown applies)\n• \`${COMMANDS.CATALOG}\` - View the rotating shop list\n• Use \`${COMMANDS.CATALOG}\` buttons to buy and \`${COMMANDS.INVENTORY}\` buttons to sell items.`,
-      },
-      {
-        type: 'mrkdwn',
-        text: 'The catalog rotates every 5 minutes. Check the messages from the town crier and merchants for new arrivals.',
-      },
-    ],
-  },
-  { type: 'divider' },
-];
-
 export class HelpHandler extends PlayerCommandHandler {
   constructor() {
     super(COMMANDS.HELP, 'Failed to show help', {
@@ -164,12 +121,9 @@ export class HelpHandler extends PlayerCommandHandler {
   }
 
   protected async perform({ say }: HandlerContext): Promise<void> {
-    const blocks = this.player?.isInHq
-      ? [...buildGuildHelpBlocks(), ...buildHelpBlocks()]
-      : buildHelpBlocks();
     await say({
       text: 'MUD Adventurer Guide',
-      blocks,
+      blocks: buildHelpBlocks(),
     });
   }
 }

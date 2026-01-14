@@ -11,7 +11,7 @@ GITHUB_OUTPUT="${3:-/dev/stdout}"
 if [ "$MODE" == "manual" ]; then
   # Manual deployment mode - use provided apps input
   if [ "$APPS_INPUT" == "all" ]; then
-    APPS='["dm","slack","tick","world"]'
+    APPS='["dm","slack","tick"]'
   else
     # Convert comma-separated list to JSON array
     APPS=$(echo "$APPS_INPUT" | jq -Rc 'split(",") | map(gsub("^\\s+|\\s+$"; ""))')
@@ -27,7 +27,7 @@ else
   fi
 
   # Extract application names from affected tasks
-  APPS=$(echo "$AFFECTED_OUTPUT" | jq -c '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique | map(select(. == "dm" or . == "slack" or . == "tick" or . == "world"))')
+  APPS=$(echo "$AFFECTED_OUTPUT" | jq -c '[.tasks[] | select(.package | startswith("@mud/")) | .package | sub("@mud/"; "")] | unique | map(select(. == "dm" or . == "slack" or . == "tick"))')
   echo "Affected apps: $APPS"
 
   # Extract all packages (including libs)

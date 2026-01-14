@@ -5,7 +5,5 @@ export interface CombatLog {
   defenderId: number;
   defenderType: string;
   damage: number;
-  x: number;
-  y: number;
   timestamp: Date;
 }

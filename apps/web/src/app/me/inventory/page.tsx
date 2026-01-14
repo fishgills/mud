@@ -138,9 +138,6 @@ export default async function InventoryPage() {
     hp: player.hp,
     maxHp: player.maxHp,
     gold: player.gold,
-    x: player.x,
-    y: player.y,
-    isInHq: player.isInHq,
     equipment: equipment ?? undefined,
     bag: inventoryItems,
   });

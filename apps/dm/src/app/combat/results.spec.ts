@@ -21,7 +21,6 @@ describe('applyCombatResults', () => {
       xpAwarded: 10,
       goldAwarded: 3,
       rounds: [{ damage: 5 }],
-      location: { x: 0, y: 0 },
     };
 
     const playerWinner: any = {
@@ -34,8 +33,6 @@ describe('applyCombatResults', () => {
       agility: 12,
       level: 2,
       isAlive: true,
-      x: 0,
-      y: 0,
       slackUser: { teamId: 'T1', userId: 'U1' },
     };
 
@@ -49,8 +46,6 @@ describe('applyCombatResults', () => {
       agility: 8,
       level: 1,
       isAlive: false,
-      x: 0,
-      y: 0,
     };
 
     const playerService: any = {
@@ -70,8 +65,6 @@ describe('applyCombatResults', () => {
       restorePlayerHealth: jest.fn().mockResolvedValue({
         combat: { maxHp: 20, hp: 20 },
         level: 2,
-        x: 0,
-        y: 0,
         isAlive: true,
       }),
     };
@@ -82,14 +75,10 @@ describe('applyCombatResults', () => {
         delete: jest.fn().mockResolvedValue({
           id: 99,
           name: 'Goblin',
-          x: 0,
-          y: 0,
         }),
         findUnique: jest.fn().mockResolvedValue({
           id: 99,
           name: 'Goblin',
-          x: 0,
-          y: 0,
         }),
         update: jest.fn().mockResolvedValue(undefined),
       },
@@ -143,7 +132,6 @@ describe('applyCombatResults', () => {
       xpAwarded: 5,
       goldAwarded: 0,
       rounds: [{ damage: 3 }],
-      location: { x: 1, y: 1 },
     };
 
     const playerWinner: any = {
@@ -156,8 +144,6 @@ describe('applyCombatResults', () => {
       agility: 12,
       level: 1,
       isAlive: true,
-      x: 1,
-      y: 1,
       slackUser: { teamId: 'T1', userId: 'U1' },
     };
 
@@ -171,8 +157,6 @@ describe('applyCombatResults', () => {
       agility: 10,
       level: 1,
       isAlive: false,
-      x: 1,
-      y: 1,
       slackUser: { teamId: 'T2', userId: 'U2' },
     };
 
@@ -190,21 +174,15 @@ describe('applyCombatResults', () => {
         combat: { maxHp: 10, hp: 10 },
       }),
       respawnPlayer: jest.fn().mockResolvedValue({
-        player: {
-          id: 2,
-          name: 'Other',
-          combat: { hp: 10, maxHp: 10, isAlive: true },
-          position: { x: 5, y: 5 },
-        },
-        event: {
-          eventType: 'player:respawn',
-        },
+        id: 2,
+        name: 'Other',
+        hp: 10,
+        maxHp: 10,
+        isAlive: true,
       }),
       restorePlayerHealth: jest.fn().mockResolvedValue({
         combat: { maxHp: 8, hp: 8, isAlive: true },
         level: 1,
-        x: 1,
-        y: 1,
         isAlive: true,
       }),
     };

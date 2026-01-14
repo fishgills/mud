@@ -103,24 +103,17 @@ if (receiver?.router) {
   });
 }
 
-import './handlers/move';
-import './handlers/look';
 import './handlers/attack';
-import './handlers/sniff';
 import './handlers/create';
 import './handlers/reroll';
 import './handlers/complete';
 import './handlers/delete';
-import './handlers/map';
 import './handlers/buy';
 import './handlers/sell';
-import './handlers/guild';
 import './handlers/catalog';
 import './handlers/stats';
 import './handlers/inventory';
-import './handlers/pickup';
 import './handlers/equip';
-import './handlers/loot';
 import './handlers/feedback';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { COMMANDS } from './commands';
@@ -141,12 +134,10 @@ app.event('app_mention', async ({ event, say }) => {
 • Use "${COMMANDS.DELETE}" to delete character during creation
 
 **Once you have a character:**
-• Move with "${COMMANDS.NORTH}", "${COMMANDS.SOUTH}", "${COMMANDS.EAST}", "${COMMANDS.WEST}", "${COMMANDS.UP}", "${COMMANDS.DOWN}", "${COMMANDS.LEFT}", "${COMMANDS.RIGHT}"
 • Attack monsters with "${COMMANDS.ATTACK}"
-• Sniff out nearby monsters with "${COMMANDS.SNIFF}"
 • Check stats with "${COMMANDS.STATS}"
-• View map with "${COMMANDS.MAP}"
 • Check inventory with "${COMMANDS.INVENTORY}"
+• Browse the shop with "${COMMANDS.CATALOG}"
 
 💡 **Send me "${COMMANDS.HELP}" for the full command list!**`,
   );

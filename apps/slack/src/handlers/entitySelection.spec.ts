@@ -1,11 +1,10 @@
 import {
-  buildItemOption,
   buildMonsterOption,
   buildPlayerOption,
   decodePlayerSelection,
   encodePlayerSelection,
 } from './entitySelection';
-import type { NearbyPlayer, NearbyMonster, NearbyItem } from './locationUtils';
+import type { NearbyPlayer, NearbyMonster } from './entitySelection';
 
 describe('entitySelection helpers', () => {
   it('encodes and decodes player selections', () => {
@@ -32,7 +31,6 @@ describe('entitySelection helpers', () => {
 
   it('builds player options only when identity is available', () => {
     const validPlayer: NearbyPlayer = {
-      id: 1,
       name: 'Hero',
       userId: 'U1',
       teamId: 'T1',
@@ -42,35 +40,16 @@ describe('entitySelection helpers', () => {
       value: 'P:T1:U1',
     });
 
-    const missingIdentity: NearbyPlayer = { id: 2, name: 'Mystery' };
+    const missingIdentity: NearbyPlayer = { name: 'Mystery' };
     expect(buildPlayerOption(missingIdentity)).toBeNull();
   });
 
   it('builds monster options when the id exists', () => {
-    const monster: NearbyMonster = { id: 55, name: 'Goblin', hp: 10 };
+    const monster: NearbyMonster = { id: '55', name: 'Goblin' };
     expect(buildMonsterOption(monster)).toEqual({
       text: { type: 'plain_text', text: 'Monster: Goblin', emoji: true },
       value: 'M:55',
     });
     expect(buildMonsterOption({ name: 'Ghost' } as NearbyMonster)).toBeNull();
-  });
-
-  it('creates descriptive item options including quality and quantity', () => {
-    const item: NearbyItem = {
-      id: 90,
-      itemId: 5,
-      itemName: 'Potion',
-      quality: 'Rare',
-      quantity: 3,
-    };
-    expect(buildItemOption(item)).toEqual({
-      text: {
-        type: 'plain_text',
-        text: 'Item: Potion (Rare) x3',
-        emoji: true,
-      },
-      value: 'I:90|5',
-    });
-    expect(buildItemOption({ itemName: 'Broken' } as NearbyItem)).toBeNull();
   });
 });

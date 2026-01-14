@@ -8,17 +8,11 @@ export class BuyHandler extends PlayerCommandHandler {
   }
 
   protected async perform({ teamId, userId, text, say }: HandlerContext) {
-    if (!this.player?.isInHq) {
-      await say({
-        text: `Use \`${COMMANDS.GUILD}\` to teleport to the guild before buying items.`,
-      });
-      return;
-    }
     const tokens = text.trim().split(/\s+/);
     const sku = tokens.slice(1).join(' ');
     if (!sku) {
       await say({
-        text: `Use the \`${COMMANDS.CATALOG}\` buttons in the guild hall to purchase items.`,
+        text: `Use \`${COMMANDS.CATALOG}\` to browse the shop, then \`${COMMANDS.BUY} <sku>\` to purchase items.`,
       });
       return;
     }
