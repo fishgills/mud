@@ -66,7 +66,7 @@ const app = new App({
   clientId: decodedEnv.SLACK_CLIENT_ID,
   clientSecret: decodedEnv.SLACK_CLIENT_SECRET,
   stateSecret: decodedEnv.SLACK_STATE_SECRET,
-  scopes: ['im:history', 'im:write'],
+  scopes: ['im:history', 'im:write', 'chat:write'],
   installerOptions: {
     directInstall: true,
   },

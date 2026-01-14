@@ -20,7 +20,8 @@
     "scopes": {
       "bot": [
         "im:history",
-        "im:write"
+        "im:write",
+        "chat:write"
       ]
     },
     "redirect_urls": [
