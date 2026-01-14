@@ -52,6 +52,7 @@
 - **Base URL**: The web app is available at `http://localhost:4000/www` (note the `/www` base path)
 - **Public URL**: `https://closet.battleforge.app/www` is the canonical URL for debugging (Slack requires public URLs)
 - **Nginx proxy**: `data/nginx` is the Nginx server fronting `closet.battleforge.app`; update it for proxy tweaks (ex: SSE)
+- **Docker compose**: `docker-compose.yml` defines the Nginx service that fronts `closet.battleforge.app` and proxies `/www` to the local web server
 - Prefer `https://closet.battleforge.app/www` for Playwright and debugging; avoid `localhost` in normal workflows
 
 ### Common Issues
