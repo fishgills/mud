@@ -1,4 +1,5 @@
 import type { App, BlockAction } from '@slack/bolt';
+import type { WebClient } from '@slack/web-api';
 import { dmClient } from '../dm-client';
 import { RUN_ACTIONS } from '../commands';
 import { getActionValue, getChannelIdFromBody } from './helpers';
@@ -11,28 +12,28 @@ const parseRunId = (value?: string): number | undefined => {
 };
 
 const postToUser = async (params: {
-  app: App;
+  client: WebClient;
   userId?: string;
   channelId?: string;
   text: string;
 }) => {
-  const { app, userId, channelId, text } = params;
+  const { client, userId, channelId, text } = params;
   if (channelId) {
-    await app.client.chat.postMessage({ channel: channelId, text });
+    await client.chat.postMessage({ channel: channelId, text });
     return;
   }
   if (!userId) return;
-  const dm = await app.client.conversations.open({ users: userId });
+  const dm = await client.conversations.open({ users: userId });
   const channel = dm.channel?.id;
   if (channel) {
-    await app.client.chat.postMessage({ channel, text });
+    await client.chat.postMessage({ channel, text });
   }
 };
 
 export const registerRunActions = (app: App) => {
   app.action<BlockAction>(
     RUN_ACTIONS.CONTINUE,
-    async ({ ack, body, context }) => {
+    async ({ ack, body, client, context }) => {
       await ack();
       const userId = body.user?.id;
       const teamId =
@@ -50,7 +51,7 @@ export const registerRunActions = (app: App) => {
         });
         if (!result.success) {
           await postToUser({
-            app,
+            client,
             userId,
             channelId,
             text: result.message ?? 'Unable to continue the run.',
@@ -58,7 +59,7 @@ export const registerRunActions = (app: App) => {
           return;
         }
         await postToUser({
-          app,
+          client,
           userId,
           channelId,
           text: 'Continuing the run. Check your DMs for the next round.',
@@ -68,14 +69,14 @@ export const registerRunActions = (app: App) => {
           err,
           'Unable to continue the run.',
         );
-        await postToUser({ app, userId, channelId, text: message });
+        await postToUser({ client, userId, channelId, text: message });
       }
     },
   );
 
   app.action<BlockAction>(
     RUN_ACTIONS.FINISH,
-    async ({ ack, body, context }) => {
+    async ({ ack, body, client, context }) => {
       await ack();
       const userId = body.user?.id;
       const teamId =
@@ -93,7 +94,7 @@ export const registerRunActions = (app: App) => {
         });
         if (!result.success) {
           await postToUser({
-            app,
+            client,
             userId,
             channelId,
             text: result.message ?? 'Unable to finish the run.',
@@ -101,7 +102,7 @@ export const registerRunActions = (app: App) => {
           return;
         }
         await postToUser({
-          app,
+          client,
           userId,
           channelId,
           text: 'Run cashed out. Rewards are on the way.',
@@ -111,7 +112,7 @@ export const registerRunActions = (app: App) => {
           err,
           'Unable to finish the run.',
         );
-        await postToUser({ app, userId, channelId, text: message });
+        await postToUser({ client, userId, channelId, text: message });
       }
     },
   );
