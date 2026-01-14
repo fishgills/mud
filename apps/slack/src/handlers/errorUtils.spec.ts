@@ -1,5 +1,6 @@
 import { COMMANDS } from '../commands';
 import {
+  formatSlackErrorData,
   formatSlackResponseMetadata,
   getUserFriendlyErrorMessage,
   handlePlayerNotFoundError,
@@ -60,5 +61,18 @@ describe('formatSlackResponseMetadata', () => {
 
   it('returns null when response metadata is missing', () => {
     expect(formatSlackResponseMetadata(new Error('nope'))).toBeNull();
+  });
+});
+
+describe('formatSlackErrorData', () => {
+  it('stringifies error data payloads', () => {
+    const error = { data: { ok: false, error: 'not_authed' } };
+    expect(formatSlackErrorData(error)).toBe(
+      JSON.stringify({ ok: false, error: 'not_authed' }),
+    );
+  });
+
+  it('returns null when error data is missing', () => {
+    expect(formatSlackErrorData(new Error('nope'))).toBeNull();
   });
 });

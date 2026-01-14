@@ -46,6 +46,17 @@ export function formatSlackResponseMetadata(err: unknown): string | null {
   }
 }
 
+export function formatSlackErrorData(err: unknown): string | null {
+  if (!err || typeof err !== 'object') return null;
+  const candidate = err as SlackErrorLike;
+  if (!candidate.data) return null;
+  try {
+    return JSON.stringify(candidate.data);
+  } catch {
+    return String(candidate.data);
+  }
+}
+
 /**
  * Checks if an error is a "player not found" error and returns a user-friendly message
  */

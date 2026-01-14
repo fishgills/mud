@@ -10,7 +10,10 @@ import { env } from './env';
 import type { InstallationStore, InstallationQuery } from '@slack/oauth';
 import { Logger, WebClient } from '@slack/web-api';
 import { GuildCrierService } from './services/guild-crier.service';
-import { formatSlackResponseMetadata } from './handlers/errorUtils';
+import {
+  formatSlackErrorData,
+  formatSlackResponseMetadata,
+} from './handlers/errorUtils';
 
 interface NotificationServiceOptions {
   installationStore?: InstallationStore;
@@ -272,6 +275,7 @@ export class NotificationService {
           '✅ Sent notification',
         );
       } catch (error) {
+        const errorData = formatSlackErrorData(error);
         const responseMetadata = formatSlackResponseMetadata(error);
         // Provide stack-aware debug for errors
         // Log error object for debugging; stringify may fail on circulars so pass as-is
@@ -280,6 +284,7 @@ export class NotificationService {
             teamId: recipient.teamId,
             userId: recipient.userId,
             error,
+            ...(errorData ? { errorData } : {}),
             ...(responseMetadata ? { responseMetadata } : {}),
           },
           'Error sending notification',
