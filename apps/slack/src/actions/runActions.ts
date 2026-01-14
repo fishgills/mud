@@ -58,12 +58,6 @@ export const registerRunActions = (app: App) => {
           });
           return;
         }
-        await postToUser({
-          client,
-          userId,
-          channelId,
-          text: 'Continuing the raid. Check your DMs for the next round.',
-        });
       } catch (err) {
         const message = getUserFriendlyErrorMessage(
           err,

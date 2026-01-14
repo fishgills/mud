@@ -13,10 +13,6 @@ export class ContinueRunHandler extends PlayerCommandHandler {
       await say({ text: result.message ?? 'Unable to continue the raid.' });
       return;
     }
-
-    await say({
-      text: 'Continuing the raid. Check your DMs for the next round.',
-    });
   }
 }
 
