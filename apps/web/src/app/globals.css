@@ -376,14 +376,40 @@ body {
   display: flex;
   gap: 12px;
   font-size: 11px;
+  align-items: center;
 }
 
 .inventory-equippable {
   color: var(--accent);
 }
 
+.inventory-not-equippable {
+  color: var(--ink-soft);
+}
+
 .inventory-value {
   color: var(--ink-soft);
+}
+
+.inventory-item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.inventory-button {
+  border: 1px solid rgba(123, 91, 58, 0.35);
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--ink);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.inventory-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Guild Store */

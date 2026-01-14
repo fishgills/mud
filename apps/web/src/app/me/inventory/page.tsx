@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { getPrismaClient } from '@mud/database';
+import { getPrismaClient, ItemType, PlayerSlot } from '@mud/database';
 import { buildInventoryModel } from '@mud/inventory';
 import { getSession } from '../../lib/slack-auth';
+import InventoryClient from './InventoryClient';
 
 export const metadata = {
   title: 'Inventory',
@@ -106,22 +107,33 @@ export default async function InventoryPage() {
   }
 
   // Transform database items to inventory format
-  const inventoryItems = player.playerItems.map((pi) => ({
-    id: pi.id,
-    itemId: pi.itemId,
-    itemName: pi.item.name,
-    quality: pi.quality,
-    quantity: pi.quantity,
-    rank: pi.rank,
-    equipped: pi.equipped,
-    slot: pi.slot,
-    allowedSlots: pi.item.slot ? [pi.item.slot] : [],
-    damageRoll: pi.item.damageRoll,
-    defense: pi.item.defense,
-    value: pi.item.value,
-    description: pi.item.description,
-    itemType: pi.item.type,
-  }));
+  const inventoryItems = player.playerItems.map((pi) => {
+    const allowedSlots: string[] = [];
+    if (pi.item.slot) {
+      allowedSlots.push(pi.item.slot);
+    } else if (
+      typeof pi.item.type === 'string' &&
+      pi.item.type.toUpperCase() === ItemType.WEAPON
+    ) {
+      allowedSlots.push(PlayerSlot.weapon);
+    }
+    return {
+      id: pi.id,
+      itemId: pi.itemId,
+      itemName: pi.item.name,
+      quality: pi.quality,
+      quantity: pi.quantity,
+      rank: pi.rank,
+      equipped: pi.equipped,
+      slot: pi.slot,
+      allowedSlots,
+      damageRoll: pi.item.damageRoll,
+      defense: pi.item.defense,
+      value: pi.item.value,
+      description: pi.item.description,
+      itemType: pi.item.type,
+    };
+  });
 
   // Build equipment map from equipped items
   // The inventory model builder will also check bag items for equipped=true
@@ -154,87 +166,7 @@ export default async function InventoryPage() {
         </p>
       </header>
 
-      <SectionDivider />
-
-      {/* Equipped Gear Section */}
-      <section className="inventory-section">
-        <h2 className="title-font inventory-section-title">Equipped Gear</h2>
-        <div className="inventory-grid">
-          {inventory.equippedSlots.map((slot) => (
-            <div key={slot.key} className="inventory-slot">
-              <span className="inventory-slot-label">{slot.label}</span>
-              {slot.item ? (
-                <div className="inventory-item">
-                  <span className="inventory-item-name">
-                    {slot.item.qualityBadge} {slot.item.qualityLabel}{' '}
-                    {slot.item.name}
-                  </span>
-                  {slot.item.stats.length > 0 && (
-                    <div className="inventory-item-stats">
-                      {slot.item.stats.map((stat, i) => (
-                        <span key={i} className="inventory-stat">
-                          {stat.label}: {stat.value}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <span className="inventory-empty">Empty</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <SectionDivider />
-
-      {/* Backpack Section */}
-      <section className="inventory-section">
-        <h2 className="title-font inventory-section-title">
-          Backpack ({inventory.totalBackpack} items)
-        </h2>
-        {inventory.backpackItems.length === 0 ? (
-          <p className="text-[color:var(--ink-soft)] text-sm italic">
-            Your backpack is empty.
-          </p>
-        ) : (
-          <div className="inventory-list">
-            {inventory.backpackItems.map((item) => (
-              <div key={item.id} className="inventory-backpack-item">
-                <div className="inventory-item-header">
-                  <span className="inventory-item-name">
-                    {item.qualityBadge} {item.qualityLabel} {item.name}
-                  </span>
-                  {item.quantity > 1 && (
-                    <span className="inventory-quantity">x{item.quantity}</span>
-                  )}
-                </div>
-                {item.stats.length > 0 && (
-                  <div className="inventory-item-stats">
-                    {item.stats.map((stat, i) => (
-                      <span key={i} className="inventory-stat">
-                        {stat.label}: {stat.value}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {item.description && (
-                  <p className="inventory-item-desc">{item.description}</p>
-                )}
-                <div className="inventory-item-meta">
-                  {item.canEquip && (
-                    <span className="inventory-equippable">Equippable</span>
-                  )}
-                  {item.value && (
-                    <span className="inventory-value">{item.value} gold</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      <InventoryClient inventory={inventory} />
     </main>
   );
 }
