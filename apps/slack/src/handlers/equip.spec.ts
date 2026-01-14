@@ -84,6 +84,8 @@ describe('equipHandler', () => {
       ...baseContext,
       text: `${COMMANDS.EQUIP} 15 head`,
     });
-    expect(baseContext.say).toHaveBeenCalledWith({ text: 'bad equip' });
+    expect(baseContext.say).toHaveBeenCalledWith({
+      text: expect.stringContaining('bad equip'),
+    });
   });
 });

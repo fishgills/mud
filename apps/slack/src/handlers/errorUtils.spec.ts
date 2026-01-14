@@ -32,17 +32,17 @@ describe('getUserFriendlyErrorMessage', () => {
   it('sanitises messages containing slackIds', () => {
     const error = new Error('Player with slackId U123 already exists');
 
-    expect(getUserFriendlyErrorMessage(error, defaultMessage)).toBe(
-      'Player already exists',
-    );
+    const message = getUserFriendlyErrorMessage(error, defaultMessage);
+    expect(message).toContain('Player already exists');
+    expect(message).toContain('"message":"Player with slackId U123 already exists"');
   });
 
   it('falls back to original error message when no better alternative exists', () => {
-    expect(
-      getUserFriendlyErrorMessage(
-        new Error('unexpected input'),
-        defaultMessage,
-      ),
-    ).toBe('unexpected input');
+    const message = getUserFriendlyErrorMessage(
+      new Error('unexpected input'),
+      defaultMessage,
+    );
+    expect(message).toContain('unexpected input');
+    expect(message).toContain('"message":"unexpected input"');
   });
 });

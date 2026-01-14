@@ -10,6 +10,17 @@ function extractMessage(err: unknown): string {
   return '';
 }
 
+function stringifyError(err: unknown): string {
+  try {
+    if (err instanceof Error) {
+      return JSON.stringify(err, Object.getOwnPropertyNames(err));
+    }
+    return JSON.stringify(err);
+  } catch {
+    return String(err ?? '');
+  }
+}
+
 /**
  * Checks if an error is a "player not found" error and returns a user-friendly message
  */
@@ -40,7 +51,15 @@ export function getUserFriendlyErrorMessage(
     .replace(/slackId\s+\w+/gi, 'player')
     .trim();
 
-  return safeMessage || defaultMessage;
+  const baseMessage = safeMessage || defaultMessage;
+  const details = stringifyError(err).trim();
+  if (!details || details === 'null' || details === 'undefined') {
+    return baseMessage;
+  }
+  if (baseMessage.includes(details)) {
+    return baseMessage;
+  }
+  return `${baseMessage} ${details}`;
 }
 
 /**

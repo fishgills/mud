@@ -253,6 +253,8 @@ describe('inventory handler', () => {
       say,
     } as unknown as Parameters<typeof inventoryHandler>[0]);
 
-    expect(say).toHaveBeenCalledWith({ text: 'boom' });
+    expect(say).toHaveBeenCalledWith({
+      text: expect.stringContaining('boom'),
+    });
   });
 });
