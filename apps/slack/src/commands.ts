@@ -4,7 +4,7 @@ export const COMMANDS = {
   NEW: 'new',
   HELP: 'help',
   ATTACK: 'attack',
-  RUN: 'run',
+  RUN: 'raid',
   CONTINUE: 'continue',
   STATS: 'stats',
   GUILD: 'guild',

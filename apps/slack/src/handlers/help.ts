@@ -14,7 +14,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: '🚀 *Quick Start*\n`new YourName` → `complete` → `run`',
+      text: `🚀 *Quick Start*\n\`new YourName\` → \`complete\` → \`${COMMANDS.RUN}\``,
     },
   },
   {
