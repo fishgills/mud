@@ -6,10 +6,9 @@ Mud is an AI-assisted multiplayer text adventure game built as a Turborepo monor
 
 | Path                         | Description                                                                                                                       |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/world`                 | World generation and rendering service providing REST endpoints backed by Redis caching and Prisma.                               |
 | `apps/dm`                    | \"Dungeon master\" API that drives game ticks, combat, and AI generated descriptions. Exposes REST endpoints consumed by clients. |
 | `apps/slack`                 | Slack Bolt app that handles player commands, maps, and onboarding through Slack conversations.                                    |
-| `apps/tick`                  | Lightweight worker that regularly calls the DM service to advance the world state.                                                |
+| `apps/tick`                  | Lightweight worker that regularly calls the DM service to advance the game state.                                                 |
 | `libs/database`              | Shared Prisma client and schema for PostgreSQL.                                                                                   |
 | `libs/engine`                | Client-agnostic game engine with entity management (Players, Monsters, NPCs) and factory patterns.                                |
 | `libs/event-bus`             | Process-wide EventBus for event-driven communication within services.                                                             |
@@ -25,7 +24,7 @@ Mud is an AI-assisted multiplayer text adventure game built as a Turborepo monor
 | `scripts/`                   | Deployment and operational scripts (database migrations, certificate automation, etc.).                                           |
 
 Additional service-specific docs live alongside each app (for example
-`apps/dm/SETUP.md`, `apps/dm/GAME_FLOW.md`, and `apps/world/TILE_OPERATIONS.md`).
+`apps/dm/SETUP.md` and `apps/dm/GAME_FLOW.md`).
 
 ## Event-driven architecture
 
@@ -40,10 +39,10 @@ The `@mud/event-bus` package provides a process-wide `EventBus` for communicatio
 
 ### Cross-service EventBridge (`@mud/redis-client`)
 
-For communication between services (DM ↔ Slack, DM ↔ World), the `EventBridgeService` in `apps/dm` forwards emitted events to Redis through the `@mud/redis-client` bridge. Other apps subscribe on Redis channels and receive the same payloads.
+For communication between services (DM ↔ Slack), the `EventBridgeService` in `apps/dm` forwards emitted events to Redis through the `@mud/redis-client` bridge. Other apps subscribe on Redis channels and receive the same payloads.
 
 - Channel-based routing: `notifications:slack`, `notifications:discord`
-- Notification types: combat, monster, player, world events
+- Notification types: combat, monster, player, run events
 - Multi-workspace support for Slack
 
 When adding new DM features, always publish significant state changes through the EventBus so downstream listeners and external clients stay in sync.
@@ -65,26 +64,17 @@ All services rely on the following shared configuration:
 | Variable       | Description                                                       |
 | -------------- | ----------------------------------------------------------------- |
 | `DATABASE_URL` | PostgreSQL connection string used by Prisma.                      |
-| `REDIS_URL`    | Redis connection string used by the world renderer and DM caches. |
+| `REDIS_URL`    | Redis connection string used by the DM caches and event bridge.   |
 
 ### DM service (`apps/dm`)
 
 | Variable                 | Description                                                                   |
 | ------------------------ | ----------------------------------------------------------------------------- |
 | `OPENAI_API_KEY`         | API key used for AI descriptions and responses.                               |
-| `WORLD_SERVICE_URL`      | Base URL for the world service (e.g. `https://closet.battleforge.app/world`). |
 | `COORDINATION_PREFIX`    | Redis key namespace for coordination locks (defaults to `dm:coord:`).         |
 | `TILE_DESC_LOCK_TTL_MS`  | TTL for tile description locks in Redis.                                      |
 | `TILE_DESC_COOLDOWN_MS`  | Cooldown before retrying tile descriptions.                                   |
 | `TILE_DESC_MIN_RETRY_MS` | Minimum retry delay when description generation fails.                        |
-
-### World service (`apps/world`)
-
-| Variable                          | Description                                                                        |
-| --------------------------------- | ---------------------------------------------------------------------------------- |
-| `CACHE_PREFIX`                    | Prefix for cached render artifacts.                                                |
-| `WORLD_RENDER_CACHE_TTL_MS`       | Cache lifetime for rendered map tiles (milliseconds).                              |
-| `WORLD_RENDER_COMPUTE_ON_THE_FLY` | When `true`, render missing tiles synchronously instead of requiring a warm cache. |
 
 ### Slack bot (`apps/slack`)
 
@@ -92,9 +82,7 @@ All services rely on the following shared configuration:
 | ---------------------- | -------------------------------------------------------------------------------------- |
 | `SLACK_BOT_TOKEN`      | Bot token for your Slack app.                                                          |
 | `SLACK_SIGNING_SECRET` | Signing secret for request verification.                                               |
-| `SLACK_APP_TOKEN`      | App-level token for the Bolt SDK.                                                      |
 | `DM_API_BASE_URL`      | Base URL of the DM REST API (local default `http://localhost:3000/dm`).                |
-| `WORLD_API_BASE_URL`   | Base URL of the world REST API (local default `https://closet.battleforge.app/world`). |
 | `PORT`                 | Port the Slack bot listens on (default `3002`).                                        |
 
 ### Tick worker (`apps/tick`)
@@ -138,9 +126,6 @@ Run each service in its own terminal (or use Turbo's parallel execution):
 yarn serve
 
 # Or run individual services:
-# World generation service REST API (https://closet.battleforge.app/world)
-yarn turbo run serve --filter=@mud/world
-
 # DM REST API (http://localhost:3000/dm)
 yarn turbo run serve --filter=@mud/dm
 
@@ -152,9 +137,8 @@ yarn turbo run serve --filter=@mud/tick
 ```
 
 The Slack bot registers handlers for mentions and direct messages. Once the DM
-and world services are online you can invite the bot to a channel and issue
-commands such as `new`, `north`, `look`, `attack`, and `map` to explore the
-world.
+service is online you can invite the bot to a channel and issue commands such as
+`new`, `run`, `attack`, `stats`, and `inventory`.
 
 ## Development workflows
 
@@ -166,7 +150,6 @@ world.
 
   # Run tests for specific app
   yarn turbo run test --filter=@mud/dm
-  yarn turbo run test --filter=@mud/world
   yarn turbo run test --filter=@mud/slack
   yarn turbo run test --filter=@mud/tick
   ```
@@ -226,10 +209,10 @@ Populate the following GitHub environment secrets before enabling the workflow:
 - `GCP_PROJECT_ID`, `GCP_REGION`
 - `TF_BACKEND_BUCKET`, `TF_BACKEND_PREFIX`
 - `OPENAI_API_KEY`
-- `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `SLACK_APP_TOKEN`
+- `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`
 - `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_STATE_SECRET`
 
-DNS for `slack.battleforge.app` and `world.battleforge.app` is created by
+DNS for `slack.battleforge.app` is created by
 Terraform as A records that point at the shared GKE HTTP(S) load balancer. Certificates
 are provisioned automatically via the GKE ManagedCertificate resource.
 

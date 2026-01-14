@@ -62,7 +62,7 @@
 - **Production deployment**: GKE cluster on Google Cloud Platform (see `infra/terraform/` and `docs/DEPLOYMENT.md`)
 - **Cluster name**: `mud-${environment}` (e.g., `mud-prod`)
 - **Region**: Configured via Terraform variables (typically `us-central1`)
-- **Services**: dm, world, slack, tick (all deployed as Kubernetes deployments)
+- **Services**: dm, slack, tick (all deployed as Kubernetes deployments)
 - **Supporting resources**: Cloud SQL (PostgreSQL), Memorystore (Redis), Artifact Registry, Secret Manager
 - **Debugging production**: Use `kubectl` to access pods and logs (requires gcloud authentication and cluster credentials)
 

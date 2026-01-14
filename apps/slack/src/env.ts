@@ -5,7 +5,6 @@ dotenv.config();
 export const env = cleanEnv(process.env, {
   SLACK_BOT_TOKEN: str(),
   SLACK_SIGNING_SECRET: str(),
-  SLACK_APP_TOKEN: str(),
   SLACK_CLIENT_ID: str(),
   SLACK_CLIENT_SECRET: str(),
   SLACK_STATE_SECRET: str(),

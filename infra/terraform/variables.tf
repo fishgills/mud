@@ -170,12 +170,6 @@ variable "slack_signing_secret" {
   sensitive   = true
 }
 
-variable "slack_app_token" {
-  description = "Slack app-level token."
-  type        = string
-  sensitive   = true
-}
-
 variable "slack_client_id" {
   description = "Slack OAuth client ID."
   type        = string

@@ -16,7 +16,7 @@ Teleporting players directly to the Guild Hall unlocks in-Slack buy/sell commerc
 **Storage**: PostgreSQL (Cloud SQL) for player/inventory data; Redis EventBridge for pub/sub  
 **Testing**: Jest unit/integration suites plus `apps/dm/test-dm.sh` scenario harness and contract tests in `libs/api-contracts`  
 **Target Platform**: Slack-based clients backed by GKE-hosted NestJS services  
-**Project Type**: Turborepo monorepo with multiple apps (`apps/slack`, `apps/dm`, `apps/world`, `apps/tick`)  
+**Project Type**: Turborepo monorepo with multiple apps (`apps/slack`, `apps/dm`, `apps/tick`)  
 **Performance Goals**: `guild` replies under 2s; shop transactions under 2s; crier broadcasts within 5s of DB update  
 **Constraints**: DM service is sole writer; Slack rate limits; no new secret storage (use GCP Secret Manager); reuse existing tile metadata and inventory schema  
 **Scale/Scope**: ~50 concurrent players per Guild instance, <100 shop items, announcement backlog <20 messages
@@ -25,7 +25,7 @@ Teleporting players directly to the Guild Hall unlocks in-Slack buy/sell commerc
 
 1. **Slack-First Player Experience** – Spec 'User Story 1-3' define `guild`, `buy`, `sell`, and crier outputs with timing/fallbacks (combat blocks, stock errors). Plan ensures Slack copy stays updated.
 2. **DM-Orchestrated Simulation** – Teleportation, commerce, and announcements all route through DM modules per FR-001–FR-006; Slack never mutates DB.
-3. **Event-Driven Visibility** – Commerce receipts + crier jobs emit EventBus events (`notifications:slack`, `world:announcements`) with correlation IDs, satisfying FR-004/5/6/7.
+3. **Event-Driven Visibility** – Commerce receipts + crier jobs emit EventBus events (`notifications:slack`) with correlation IDs, satisfying FR-004/5/6/7.
 4. **Test-Gated Iteration** – New Jest + `apps/dm/test-dm.sh` suites will fail first for teleport cooldowns, trade math, and crier scheduling before implementation, matching SC-001–SC-004.
 5. **Operability & Incident Readiness** – FR-007 adds structured logs/metrics (command start/end, gold delta, crier pulls) and uses existing logging/tracing stack without `.env` edits.
 
@@ -52,7 +52,7 @@ repo/
     └── contracts/
 ```
 
-**Structure Decision**: Continue using existing multi-app Turborepo: DM owns world state changes, Slack app issues commands, shared libs provide contracts/logging.
+**Structure Decision**: Continue using existing multi-app Turborepo: DM owns game state changes, Slack app issues commands, shared libs provide contracts/logging.
 
 ## Complexity Tracking
 

@@ -3,7 +3,6 @@ locals {
     openai               = "openai-api-key"
     slack_token          = "slack-token"
     slack_signing_secret = "slack-signing-secret"
-    slack_app_token      = "slack-app-token"
     slack_client_id      = "slack-client-id"
     slack_client_secret  = "slack-client-secret"
     slack_state_secret   = "slack-state-secret"
@@ -14,7 +13,6 @@ locals {
     openai               = var.openai_api_key
     slack_token          = var.slack_bot_token
     slack_signing_secret = var.slack_signing_secret
-    slack_app_token      = var.slack_app_token
     slack_client_id      = var.slack_client_id
     slack_client_secret  = var.slack_client_secret
     slack_state_secret   = var.slack_state_secret

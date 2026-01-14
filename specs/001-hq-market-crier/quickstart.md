@@ -13,7 +13,7 @@
 
 ```bash
 yarn install
-yarn serve            # spins up dm, slack, world, tick
+yarn serve            # spins up dm, slack, tick
 ```
 
 - Confirm `logs/mud-combined.log` shows DM + Slack online.

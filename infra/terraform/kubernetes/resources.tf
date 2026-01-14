@@ -62,7 +62,6 @@ locals {
     openai               = "openai-api-key"
     slack_token          = "slack-token"
     slack_signing_secret = "slack-signing-secret"
-    slack_app_token      = "slack-app-token"
     slack_client_id      = "slack-client-id"
     slack_client_secret  = "slack-client-secret"
     slack_state_secret   = "slack-state-secret"
@@ -73,7 +72,6 @@ locals {
     openai               = var.openai_api_key
     slack_token          = var.slack_bot_token
     slack_signing_secret = var.slack_signing_secret
-    slack_app_token      = var.slack_app_token
     slack_client_id      = var.slack_client_id
     slack_client_secret  = var.slack_client_secret
     slack_state_secret   = var.slack_state_secret
@@ -466,16 +464,6 @@ resource "kubernetes_deployment" "slack" {
           }
 
           env {
-            name = "SLACK_APP_TOKEN"
-            value_from {
-              secret_key_ref {
-                name = kubernetes_secret.provided["slack_app_token"].metadata[0].name
-                key  = "latest"
-              }
-            }
-          }
-
-          env {
             name = "SLACK_CLIENT_ID"
             value_from {
               secret_key_ref {
@@ -724,16 +712,6 @@ resource "kubernetes_deployment" "web" {
             value_from {
               secret_key_ref {
                 name = kubernetes_secret.provided["slack_signing_secret"].metadata[0].name
-                key  = "latest"
-              }
-            }
-          }
-
-          env {
-            name = "SLACK_APP_TOKEN"
-            value_from {
-              secret_key_ref {
-                name = kubernetes_secret.provided["slack_app_token"].metadata[0].name
                 key  = "latest"
               }
             }

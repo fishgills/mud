@@ -9,7 +9,7 @@
 
 - **Slack-First Player Experience** – Slack commands `guild`, `buy`, and `sell` described in User Stories 1-2 define the full player experience, response copy, and notification timing for co-located players; the town crier broadcasts automatically with no manual slash command.
 - **DM-Orchestrated Simulation** – Functional Requirements FR-001–FR-006 keep the DM/tick flow authoritative for teleportation, inventory, and gold transactions; no other service may mutate state.
-- **Event-Driven Visibility** – FR-004, FR-005, and FR-006 require EventBus emissions (`notifications:slack`, `world:announcements`) so Slack, world renderer, and tick worker share the same updates.
+- **Event-Driven Visibility** – FR-004, FR-005, and FR-006 require EventBus emissions (`notifications:slack`) so Slack and the tick worker share the same updates.
 - **Test-Gated Iteration** – Success Criteria SC-001–SC-004 and the Independent Tests in each User Story outline the automated scenarios that must be scripted before implementation (unit for balance math, integration for Guild visit, contract tests for announcements).
 - **Operability & Incident Readiness** – FR-007 mandates structured logging/metrics for teleportations, shop trades, and announcements so incidents can be traced without editing `.env` inputs.
 
