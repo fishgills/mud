@@ -37,8 +37,8 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlayerService.name);
   private prisma = getPrismaClient();
 
-  private readonly SKILL_POINT_INTERVAL = 4;
-  private readonly SKILL_POINTS_PER_INTERVAL = 2;
+  private readonly SKILL_POINT_INTERVAL = 5;
+  private readonly SKILL_POINTS_PER_INTERVAL = 1;
   private readonly HIT_DIE_MAX = 10;
   private readonly HIT_DIE_AVERAGE = 6; // Average roll for a d10
   private activityUnsubscribe?: () => void;
