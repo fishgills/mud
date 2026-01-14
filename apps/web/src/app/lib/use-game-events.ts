@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { withBasePath } from './base-path';
 
 type GameEventPayload = {
   type?: string;
@@ -11,23 +12,6 @@ type GameEventPayload = {
 
 type GameEventHandler = (payload: GameEventPayload, eventName: string) => void;
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
-const resolveBasePath = () => {
-  if (basePath && basePath !== '/') {
-    return basePath;
-  }
-  if (typeof window !== 'undefined') {
-    const pathname = window.location.pathname;
-    if (pathname.startsWith('/www')) {
-      return '/www';
-    }
-  }
-  return '';
-};
-const withBasePath = (path: string) => {
-  const resolved = resolveBasePath();
-  return resolved ? `${resolved}${path}` : path;
-};
 
 export const useGameEvents = (
   eventTypes: string[],

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import TopNav from './TopNav';
 import { getSession } from '../lib/slack-auth';
+import EventStreamPanel from './EventStreamPanel';
 
 type PageLayoutProps = {
   children: ReactNode;
@@ -13,6 +14,7 @@ export default async function PageLayout({ children }: PageLayoutProps) {
     <div className="page-shell">
       <TopNav isAuthenticated={!!session} />
       <div className="page-layout">{children}</div>
+      <EventStreamPanel enabled={!!session} />
     </div>
   );
 }

@@ -7,8 +7,13 @@ export const dynamic = 'force-dynamic';
 
 const encoder = new TextEncoder();
 
-const buildEventMessage = (eventName: string, payload: unknown) =>
-  `event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`;
+const buildEventMessage = (payload: unknown, eventName?: string) => {
+  const data = `data: ${JSON.stringify(payload)}\n\n`;
+  if (!eventName) {
+    return data;
+  }
+  return `event: ${eventName}\n${data}`;
+};
 
 export const GET = async (request: Request) => {
   const session = await getSession();
@@ -36,8 +41,8 @@ export const GET = async (request: Request) => {
   const recipientId = formatWebRecipientId(session.teamId, session.userId);
   console.info('[web-events] client connected', { recipientId });
 
-  const send = async (eventName: string, payload: unknown) => {
-    await writer.write(encoder.encode(buildEventMessage(eventName, payload)));
+  const send = async (payload: unknown, eventName?: string) => {
+    await writer.write(encoder.encode(buildEventMessage(payload, eventName)));
   };
 
   const unsubscribe = stream.subscribe((notification) => {
@@ -55,7 +60,7 @@ export const GET = async (request: Request) => {
       eventType: notification.event.eventType,
       recipientId,
     });
-    void send(notification.event.eventType ?? 'message', {
+    void send({
       type: notification.type,
       event: notification.event,
       message: recipient.message,
@@ -82,7 +87,7 @@ export const GET = async (request: Request) => {
     void close();
   });
 
-  await send('ready', { ok: true });
+  await send({ ok: true }, 'ready');
 
   return new Response(readable, {
     headers: {
