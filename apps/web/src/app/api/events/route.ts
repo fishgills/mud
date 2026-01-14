@@ -115,7 +115,9 @@ export const GET = async (request: Request) => {
     void close();
   });
 
-  await send({ ok: true }, 'ready');
+  queueMicrotask(() => {
+    void send({ ok: true }, 'ready');
+  });
 
   return new Response(readable, {
     headers: {
