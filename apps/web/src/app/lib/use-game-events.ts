@@ -12,8 +12,22 @@ type GameEventPayload = {
 type GameEventHandler = (payload: GameEventPayload, eventName: string) => void;
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
-const withBasePath = (path: string) =>
-  basePath && basePath !== '/' ? `${basePath}${path}` : path;
+const resolveBasePath = () => {
+  if (basePath && basePath !== '/') {
+    return basePath;
+  }
+  if (typeof window !== 'undefined') {
+    const pathname = window.location.pathname;
+    if (pathname.startsWith('/www')) {
+      return '/www';
+    }
+  }
+  return '';
+};
+const withBasePath = (path: string) => {
+  const resolved = resolveBasePath();
+  return resolved ? `${resolved}${path}` : path;
+};
 
 export const useGameEvents = (
   eventTypes: string[],
@@ -24,12 +38,13 @@ export const useGameEvents = (
       return;
     }
 
-    const source = new EventSource(withBasePath('/api/events'));
+    const url = withBasePath('/api/events');
+    const source = new EventSource(url);
     source.onopen = () => {
-      console.info('[web-events] connected');
+      console.info('[web-events] connected', { url });
     };
     source.onerror = (error) => {
-      console.warn('[web-events] connection error', error);
+      console.warn('[web-events] connection error', { url, error });
     };
     const types = eventTypes.length ? eventTypes : ['message'];
 
