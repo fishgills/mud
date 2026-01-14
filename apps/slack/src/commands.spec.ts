@@ -16,7 +16,6 @@ describe('commands constants', () => {
         COMMANDS.STATS,
         COMMANDS.INVENTORY,
         COMMANDS.CATALOG,
-        COMMANDS.BUY,
         COMMANDS.SELL,
       ]),
     );

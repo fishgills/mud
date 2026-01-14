@@ -8,7 +8,6 @@ export const COMMANDS = {
   CONTINUE: 'continue',
   STATS: 'stats',
   GUILD: 'guild',
-  BUY: 'buy',
   SELL: 'sell',
   DELETE: 'delete',
   COMPLETE: 'complete',
