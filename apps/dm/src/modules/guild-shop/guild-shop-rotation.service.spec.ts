@@ -19,9 +19,16 @@ describe('GuildShopRotationService', () => {
     releaseLock: jest.fn(),
     setCooldown: jest.fn(),
   } as unknown as Record<string, jest.Mock>;
+  const publisher = {
+    publishRefresh: jest.fn(),
+  } as unknown as Record<string, jest.Mock>;
 
   const makeService = () =>
-    new GuildShopRotationService(repository as never, coordination as never);
+    new GuildShopRotationService(
+      repository as never,
+      coordination as never,
+      publisher as never,
+    );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -30,6 +37,7 @@ describe('GuildShopRotationService', () => {
     coordination.exists.mockResolvedValue(false);
     coordination.acquireLock.mockResolvedValue('token');
     coordination.releaseLock.mockResolvedValue(true);
+    publisher.publishRefresh.mockResolvedValue(undefined);
     repository.pickRandomItems.mockResolvedValue([
       {
         id: 1,
@@ -71,6 +79,10 @@ describe('GuildShopRotationService', () => {
     expect(repository.deactivateCatalog).toHaveBeenCalled();
     expect(repository.createCatalogEntriesFromItems).toHaveBeenCalled();
     expect(coordination.setCooldown).toHaveBeenCalled();
+    expect(publisher.publishRefresh).toHaveBeenCalledWith({
+      source: 'manual',
+      items: 1,
+    });
   });
 
   it('returns false when no items are available', async () => {
@@ -81,5 +93,6 @@ describe('GuildShopRotationService', () => {
 
     expect(result.rotated).toBe(false);
     expect(repository.deactivateCatalog).not.toHaveBeenCalled();
+    expect(publisher.publishRefresh).not.toHaveBeenCalled();
   });
 });

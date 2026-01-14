@@ -73,7 +73,7 @@ export default function ShopClient({ catalog, sellItems }: ShopClientProps) {
     router.refresh();
   }, [router]);
 
-  useGameEvents(['guild.shop.receipt'], handleShopEvent);
+  useGameEvents(['guild.shop.receipt', 'guild.shop.refresh'], handleShopEvent);
 
   const handleBuy = async (sku: string) => {
     setNotice(null);

@@ -19,6 +19,12 @@ export interface GuildShopReceiptEvent extends BaseGameEvent {
   correlationId?: string;
 }
 
+export interface GuildShopRefreshEvent extends BaseGameEvent {
+  eventType: 'guild.shop.refresh';
+  source: 'tick' | 'manual';
+  items: number;
+}
+
 export interface GuildAnnouncementDeliveredEvent extends BaseGameEvent {
   eventType: 'guild.announcement.delivered';
   payload: GuildAnnouncementPayload;
@@ -200,6 +206,7 @@ export type GameEvent =
   | PlayerEquipmentEvent
   | PlayerJoinPartyEvent
   | PlayerLeavePartyEvent
+  | GuildShopRefreshEvent
   | CombatStartEvent
   | CombatHitEvent
   | CombatMissEvent

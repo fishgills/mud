@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { CoordinationService } from '../../shared/coordination.service';
 import { GuildShopRepository } from './guild-shop.repository';
 import { env } from '../../env';
+import { GuildShopPublisher } from './guild-shop.publisher';
 
 const ROTATION_LOCK_KEY = 'guild:shop:rotation:lock';
 const ROTATION_COOLDOWN_KEY = 'guild:shop:rotation:cooldown';
@@ -16,6 +17,7 @@ export class GuildShopRotationService {
   constructor(
     private readonly repository: GuildShopRepository,
     private readonly coordination: CoordinationService,
+    private readonly publisher: GuildShopPublisher,
   ) {}
 
   async rotateIfDue(source: RotationSource = 'tick'): Promise<{
@@ -64,6 +66,7 @@ export class GuildShopRotationService {
       this.logger.log(
         `Rotated guild shop with ${items.length} item(s) via ${source}`,
       );
+      void this.publisher.publishRefresh({ source, items: items.length });
       return { rotated: true, items: items.length };
     } catch (error) {
       this.logger.error('Guild shop rotation failed', error as Error);
