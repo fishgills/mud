@@ -108,6 +108,17 @@ export const registerHomeActions = (app: App) => {
   );
 
   app.action<BlockAction>(
+    HOME_ACTIONS.CONTINUE_RUN,
+    async ({ ack, body, client, context }) => {
+      await ack();
+      const userId = body.user?.id;
+      const teamId = body.team?.id ?? (context as { teamId?: string })?.teamId;
+      if (!userId) return;
+      await dispatchCommandViaDM(client, userId, COMMANDS.CONTINUE, teamId);
+    },
+  );
+
+  app.action<BlockAction>(
     HOME_ACTIONS.VIEW_STATS,
     async ({ ack, body, client, context, respond }) => {
       await ack();

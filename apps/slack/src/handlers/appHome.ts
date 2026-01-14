@@ -6,7 +6,7 @@ import {
   STAT_ACTIONS,
   FEEDBACK_ACTIONS,
 } from '../commands';
-import { getLeaderboard, getPlayer } from '../dm-client';
+import { getActiveRun, getLeaderboard, getPlayer } from '../dm-client';
 
 const buildLeaderboardBlocks = async (
   teamId?: string,
@@ -80,12 +80,21 @@ export const buildAppHomeBlocks = async (
 ): Promise<KnownBlock[]> => {
   let needsCharacter = false;
   let player: Awaited<ReturnType<typeof getPlayer>>['data'] | undefined;
+  let activeRun: Awaited<ReturnType<typeof getActiveRun>>['data'] | undefined;
 
   if (teamId && userId) {
     try {
       const playerResult = await getPlayer({ teamId, userId });
       if (playerResult.success && playerResult.data) {
         player = playerResult.data;
+        try {
+          const runResult = await getActiveRun({ teamId, userId });
+          if (runResult.success && runResult.data) {
+            activeRun = runResult.data;
+          }
+        } catch {
+          activeRun = undefined;
+        }
       } else {
         needsCharacter =
           (playerResult.message ?? '')
@@ -183,9 +192,26 @@ export const buildAppHomeBlocks = async (
   }
 
   const isPowerUser = Boolean(player.hasMoved && player.hasBattled);
+  const isRunLeader =
+    Boolean(activeRun && player?.id) &&
+    activeRun?.leaderPlayerId === player.id;
   const leaderboardBlocks = isPowerUser
     ? await buildLeaderboardBlocks(teamId)
     : [];
+
+  const primaryHomeAction = isRunLeader
+    ? {
+        type: 'button' as const,
+        text: { type: 'plain_text' as const, text: 'Continue Run' },
+        style: 'primary' as const,
+        action_id: HOME_ACTIONS.CONTINUE_RUN,
+      }
+    : {
+        type: 'button' as const,
+        text: { type: 'plain_text' as const, text: 'Resume Adventure' },
+        style: 'primary' as const,
+        action_id: HOME_ACTIONS.RESUME,
+      };
 
   const blocks: KnownBlock[] = [
     {
@@ -198,14 +224,7 @@ export const buildAppHomeBlocks = async (
     },
     {
       type: 'actions' as const,
-      elements: [
-        {
-          type: 'button' as const,
-          text: { type: 'plain_text' as const, text: 'Resume Adventure' },
-          style: 'primary' as const,
-          action_id: HOME_ACTIONS.RESUME,
-        },
-      ],
+      elements: [primaryHomeAction],
     },
     {
       type: 'section',

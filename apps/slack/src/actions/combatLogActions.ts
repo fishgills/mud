@@ -11,6 +11,34 @@ import { COMBAT_ACTIONS } from '../commands';
 
 type CombatLogEntry = { round: string; description: string };
 
+const isActionsBlock = (block: Block | KnownBlock): block is ActionsBlock =>
+  (block as { type?: string }).type === 'actions';
+
+const filterCombatLogActions = (
+  elements: ActionsBlock['elements'],
+): ActionsBlock['elements'] =>
+  elements.filter((element) => {
+    const actionId =
+      'action_id' in element ? element.action_id : undefined;
+    return (
+      actionId !== COMBAT_ACTIONS.SHOW_LOG &&
+      actionId !== COMBAT_ACTIONS.HIDE_LOG
+    );
+  });
+
+const getPreservedActionBlocks = (
+  blocks: (KnownBlock | Block)[],
+): ActionsBlock[] => {
+  const preserved: ActionsBlock[] = [];
+  for (const block of blocks) {
+    if (!isActionsBlock(block) || !Array.isArray(block.elements)) continue;
+    const elements = filterCombatLogActions(block.elements);
+    if (elements.length === 0) continue;
+    preserved.push({ ...block, elements });
+  }
+  return preserved;
+};
+
 const extractCombatLogEntries = (fullText: string): CombatLogEntry[] => {
   const marker = '**Combat Log:**';
   const start = fullText.indexOf(marker);
@@ -89,6 +117,7 @@ export const registerCombatLogActions = (app: App) => {
         | KnownBlock
         | Block
       )[];
+      const preservedActions = getPreservedActionBlocks(originalBlocks);
       const summarySection = originalBlocks.find(
         (b): b is SectionBlock =>
           typeof (b as { type?: string }).type === 'string' &&
@@ -97,6 +126,9 @@ export const registerCombatLogActions = (app: App) => {
 
       const newBlocks: (KnownBlock | Block)[] = [];
       if (summarySection) newBlocks.push(summarySection);
+      if (preservedActions.length > 0) {
+        newBlocks.push(...preservedActions);
+      }
       const divider: DividerBlock = { type: 'divider' };
       newBlocks.push(divider);
 
@@ -163,6 +195,7 @@ export const registerCombatLogActions = (app: App) => {
         | KnownBlock
         | Block
       )[];
+      const preservedActions = getPreservedActionBlocks(originalBlocks);
       const summarySection = originalBlocks.find(
         (b): b is SectionBlock =>
           typeof (b as { type?: string }).type === 'string' &&
@@ -171,6 +204,9 @@ export const registerCombatLogActions = (app: App) => {
 
       const blocks: (KnownBlock | Block)[] = [];
       if (summarySection) blocks.push(summarySection);
+      if (preservedActions.length > 0) {
+        blocks.push(...preservedActions);
+      }
       const showButton: Button = {
         type: 'button',
         action_id: COMBAT_ACTIONS.SHOW_LOG,

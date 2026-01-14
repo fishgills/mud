@@ -107,6 +107,7 @@ import './handlers/attack';
 import './handlers/create';
 import './handlers/reroll';
 import './handlers/complete';
+import './handlers/continue';
 import './handlers/delete';
 import './handlers/buy';
 import './handlers/sell';

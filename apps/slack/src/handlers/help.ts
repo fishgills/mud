@@ -48,7 +48,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
       },
       {
         type: 'mrkdwn',
-        text: `*Combat & Runs*\n• \`${COMMANDS.RUN}\` - Start a solo run\n• \`${COMMANDS.RUN} guild\` - Start a guild run\n• \`${COMMANDS.ATTACK} @name\` - Duel another player\n• Combat results arrive via DM`,
+        text: `*Combat & Runs*\n• \`${COMMANDS.RUN}\` - Start a solo run\n• \`${COMMANDS.RUN} guild\` - Start a guild run\n• \`${COMMANDS.CONTINUE}\` - Continue your active run\n• \`${COMMANDS.ATTACK} @name\` - Duel another player\n• Combat results arrive via DM`,
       },
     ],
   },

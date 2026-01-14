@@ -30,6 +30,7 @@ import {
   HELP_ACTIONS,
   STAT_ACTIONS,
   COMBAT_ACTIONS,
+  RUN_ACTIONS,
 } from './commands';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { HandlerContext } from './handlers/types';
@@ -983,6 +984,26 @@ describe('registerActions', () => {
                 type: 'section',
                 text: { type: 'mrkdwn', text: 'Summary' },
               } as unknown as KnownBlock,
+              {
+                type: 'actions',
+                elements: [
+                  {
+                    type: 'button',
+                    action_id: RUN_ACTIONS.CONTINUE,
+                    text: { type: 'plain_text', text: 'Continue' },
+                  },
+                  {
+                    type: 'button',
+                    action_id: RUN_ACTIONS.FINISH,
+                    text: { type: 'plain_text', text: 'Finish Run' },
+                  },
+                  {
+                    type: 'button',
+                    action_id: COMBAT_ACTIONS.SHOW_LOG,
+                    text: { type: 'plain_text', text: 'View full combat log' },
+                  },
+                ],
+              } as unknown as KnownBlock,
             ],
           },
         },
@@ -1006,14 +1027,20 @@ describe('registerActions', () => {
         '• Round 2: Wild Boar attacks: gore',
       );
 
-      const actionsBlock = payload.blocks.find(
-        (block) => block.type === 'actions',
-      ) as ActionsBlock;
-      expect(actionsBlock?.elements).toEqual(
+      const actionElements = payload.blocks
+        .filter((block) => block.type === 'actions')
+        .flatMap((block) => (block as ActionsBlock).elements ?? []);
+      expect(actionElements).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             action_id: COMBAT_ACTIONS.HIDE_LOG,
             text: expect.objectContaining({ text: 'Hide combat log' }),
+          }),
+          expect.objectContaining({
+            action_id: RUN_ACTIONS.CONTINUE,
+          }),
+          expect.objectContaining({
+            action_id: RUN_ACTIONS.FINISH,
           }),
         ]),
       );
@@ -1083,7 +1110,18 @@ describe('registerActions', () => {
               } as unknown as KnownBlock,
               {
                 type: 'actions',
-                elements: [],
+                elements: [
+                  {
+                    type: 'button',
+                    action_id: RUN_ACTIONS.CONTINUE,
+                    text: { type: 'plain_text', text: 'Continue' },
+                  },
+                  {
+                    type: 'button',
+                    action_id: COMBAT_ACTIONS.HIDE_LOG,
+                    text: { type: 'plain_text', text: 'Hide combat log' },
+                  },
+                ],
               } as unknown as KnownBlock,
             ],
           },
@@ -1095,14 +1133,17 @@ describe('registerActions', () => {
       const payload = update.mock.calls[0][0] as {
         blocks: KnownBlock[];
       };
-      const actionsBlock = payload.blocks.find(
-        (block) => block.type === 'actions',
-      ) as ActionsBlock;
-      expect(actionsBlock?.elements).toEqual(
+      const actionElements = payload.blocks
+        .filter((block) => block.type === 'actions')
+        .flatMap((block) => (block as ActionsBlock).elements ?? []);
+      expect(actionElements).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             action_id: COMBAT_ACTIONS.SHOW_LOG,
             text: expect.objectContaining({ text: 'View full combat log' }),
+          }),
+          expect.objectContaining({
+            action_id: RUN_ACTIONS.CONTINUE,
           }),
         ]),
       );

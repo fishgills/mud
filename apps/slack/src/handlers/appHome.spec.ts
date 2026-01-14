@@ -1,13 +1,18 @@
 import type { App } from '@slack/bolt';
 import { buildAppHomeBlocks, registerAppHome } from './appHome';
 import { HELP_ACTIONS, HOME_ACTIONS, STAT_ACTIONS } from '../commands';
-import { getPlayer } from '../dm-client';
+import { getActiveRun, getPlayer } from '../dm-client';
+import { RunStatus, RunType } from '@mud/database';
 
 // Mock the DM API client
 jest.mock('../dm-client', () => ({
   getLeaderboard: jest.fn().mockResolvedValue({
     success: true,
     data: [],
+  }),
+  getActiveRun: jest.fn().mockResolvedValue({
+    success: true,
+    data: null,
   }),
   getPlayer: jest.fn().mockResolvedValue({
     success: true,
@@ -22,6 +27,9 @@ type AppHomeHandler = (args: {
 }) => Promise<void> | void;
 
 const mockedGetPlayer = getPlayer as jest.MockedFunction<typeof getPlayer>;
+const mockedGetActiveRun = getActiveRun as jest.MockedFunction<
+  typeof getActiveRun
+>;
 
 describe('buildAppHomeBlocks', () => {
   beforeEach(() => {
@@ -41,6 +49,10 @@ describe('buildAppHomeBlocks', () => {
         hasMoved: false,
         hasBattled: false,
       },
+    });
+    mockedGetActiveRun.mockResolvedValueOnce({
+      success: true,
+      data: null,
     });
 
     const blocks = await buildAppHomeBlocks('T123', 'U123');
@@ -93,6 +105,10 @@ describe('buildAppHomeBlocks', () => {
         hasBattled: true,
         skillPoints: 1,
       },
+    });
+    mockedGetActiveRun.mockResolvedValueOnce({
+      success: true,
+      data: null,
     });
 
     const blocks = await buildAppHomeBlocks('T123', 'U123');
@@ -171,6 +187,49 @@ describe('buildAppHomeBlocks', () => {
         }),
       ],
     });
+  });
+
+  it('shows a continue run action for active run leaders', async () => {
+    mockedGetPlayer.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: 42,
+        name: 'Hero',
+        level: 4,
+        hp: 12,
+        maxHp: 30,
+        xpToNextLevel: 90,
+        hasMoved: false,
+        hasBattled: false,
+      },
+    });
+    mockedGetActiveRun.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: 7,
+        runType: RunType.SOLO,
+        status: RunStatus.ACTIVE,
+        round: 2,
+        bankedXp: 10,
+        bankedGold: 5,
+        difficultyTier: 1,
+        leaderPlayerId: 42,
+      },
+    });
+
+    const blocks = await buildAppHomeBlocks('T123', 'U123');
+
+    const continueAction = blocks.find(
+      (block) =>
+        block.type === 'actions' &&
+        'elements' in block &&
+        block.elements.some(
+          (element) =>
+            'action_id' in element &&
+            element.action_id === HOME_ACTIONS.CONTINUE_RUN,
+        ),
+    );
+    expect(continueAction).toBeDefined();
   });
 });
 

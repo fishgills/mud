@@ -5,6 +5,7 @@ export const COMMANDS = {
   HELP: 'help',
   ATTACK: 'attack',
   RUN: 'run',
+  CONTINUE: 'continue',
   STATS: 'stats',
   GUILD: 'guild',
   BUY: 'buy',
@@ -37,6 +38,7 @@ export const STAT_ACTIONS = {
 
 export const HOME_ACTIONS = {
   RESUME: 'home_action_resume',
+  CONTINUE_RUN: 'home_action_continue_run',
   VIEW_STATS: 'home_action_view_stats',
   VIEW_LEADERBOARD: 'home_action_view_leaderboard',
   DELETE_CHARACTER: 'home_action_delete_character',
