@@ -66,6 +66,7 @@ export interface GuildCatalogItem {
   buyPriceGold: number;
   sellPriceGold: number;
   stockQuantity: number;
+  slot?: string;
   tags: string[];
   damageRoll?: string;
   defense?: number;

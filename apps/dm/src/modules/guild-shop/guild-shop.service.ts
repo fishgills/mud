@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { ItemType, PlayerSlot } from '@mud/database';
 import { randomUUID } from 'crypto';
 import { PlayerService } from '../../app/player/player.service';
 import { GuildShopRepository } from './guild-shop.repository';
@@ -41,6 +42,7 @@ export class GuildShopService {
       buyPriceGold: number;
       sellPriceGold: number;
       stockQuantity: number;
+      slot?: string | null;
       tags: string[];
       damageRoll?: string | null;
       defense?: number | null;
@@ -55,6 +57,11 @@ export class GuildShopService {
       buyPriceGold: entry.buyPriceGold,
       sellPriceGold: entry.sellPriceGold ?? Math.floor(entry.buyPriceGold / 2),
       stockQuantity: entry.stockQuantity ?? 0,
+      slot:
+        entry.itemTemplate?.slot ??
+        (entry.itemTemplate?.type === ItemType.WEAPON
+          ? PlayerSlot.weapon
+          : null),
       tags: entry.tags ?? [],
       damageRoll: entry.itemTemplate?.damageRoll ?? null,
       defense: entry.itemTemplate?.defense ?? null,

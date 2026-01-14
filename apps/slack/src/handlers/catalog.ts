@@ -5,6 +5,11 @@ import type { HandlerContext } from './types';
 import type { GuildCatalogItem } from '../dm-client';
 import { getQualityBadge, formatQualityLabel } from '@mud/constants';
 
+const formatSlotLabel = (slot?: string | null) => {
+  if (!slot) return '—';
+  return slot[0].toUpperCase() + slot.slice(1);
+};
+
 const buildCatalogBlocks = (items: GuildCatalogItem[]): KnownBlock[] => {
   if (items.length === 0) {
     return [
@@ -62,6 +67,10 @@ const buildCatalogBlocks = (items: GuildCatalogItem[]): KnownBlock[] => {
         },
         {
           type: 'mrkdwn',
+          text: `*Slot*\n${formatSlotLabel(item.slot)}`,
+        },
+        {
+          type: 'mrkdwn',
           text: `*Price*\n${item.buyPriceGold} gold`,
         },
         {
@@ -73,12 +82,6 @@ const buildCatalogBlocks = (items: GuildCatalogItem[]): KnownBlock[] => {
           text: bonusLines.length
             ? `*Bonuses*\n${bonusLines.map((line) => `• ${line}`).join('\n')}`
             : '*Bonuses*\n—',
-        },
-        {
-          type: 'mrkdwn',
-          text: item.tags?.length
-            ? `*Tags*\n${item.tags.map((t) => `\`${t}\``).join(', ')}`
-            : '*Tags*\n—',
         },
       ],
     });
