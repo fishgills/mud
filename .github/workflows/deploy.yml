@@ -31,8 +31,6 @@ jobs:
         include:
           - service: dm
             dockerfile: apps/dm/Dockerfile
-          - service: world
-            dockerfile: apps/world/Dockerfile
           - service: slack
             dockerfile: apps/slack/Dockerfile
           - service: tick
@@ -114,7 +112,6 @@ jobs:
       #     TF_VAR_artifact_repo_id: ${{ env.ARTIFACT_REPO }}
       #     TF_VAR_artifact_repo_location: ${{ env.REGION }}
       #     TF_VAR_dm_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/dm:${{ env.IMAGE_TAG }}
-      #     TF_VAR_world_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/world:${{ env.IMAGE_TAG }}
       #     TF_VAR_slack_bot_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/slack:${{ env.IMAGE_TAG }}
       #     TF_VAR_tick_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/tick:${{ env.IMAGE_TAG }}
       #     TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
@@ -154,7 +151,6 @@ jobs:
           TF_VAR_artifact_repo_id: ${{ env.ARTIFACT_REPO }}
           TF_VAR_artifact_repo_location: ${{ env.REGION }}
           TF_VAR_dm_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/dm:${{ env.IMAGE_TAG }}
-          TF_VAR_world_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/world:${{ env.IMAGE_TAG }}
           TF_VAR_slack_bot_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/slack:${{ env.IMAGE_TAG }}
           TF_VAR_tick_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/tick:${{ env.IMAGE_TAG }}
           TF_VAR_web_image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/web:${{ env.IMAGE_TAG }}
