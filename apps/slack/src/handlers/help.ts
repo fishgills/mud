@@ -57,7 +57,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     fields: [
       {
         type: 'mrkdwn',
-        text: `*Equipment*\n• \`${COMMANDS.CATALOG}\` - View the rotating shop\n• Use the catalog buttons to buy gear\n• \`${COMMANDS.SELL} <itemId>\` - Sell gear from inventory`,
+        text: `*Equipment*\n• \`${COMMANDS.CATALOG}\` - View the rotating shop\n• Use the store buttons to buy gear\n• \`${COMMANDS.SELL} <itemId>\` - Sell gear from inventory`,
       },
       {
         type: 'mrkdwn',

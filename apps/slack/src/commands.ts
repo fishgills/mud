@@ -14,7 +14,7 @@ export const COMMANDS = {
   REROLL: 'reroll',
   INVENTORY: 'inventory',
   EQUIP: 'equip',
-  CATALOG: 'catalog',
+  CATALOG: 'store',
 } as const;
 
 export type CommandKey = keyof typeof COMMANDS;

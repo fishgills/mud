@@ -23,7 +23,7 @@ const buildCatalogBlocks = (items: GuildCatalogItem[]): KnownBlock[] => {
       type: 'header',
       text: {
         type: 'plain_text',
-        text: '🛒 Guild Catalog',
+        text: '🛒 Guild Store',
         emoji: true,
       },
     },
@@ -112,14 +112,14 @@ const buildCatalogBlocks = (items: GuildCatalogItem[]): KnownBlock[] => {
 
 class CatalogHandler extends PlayerCommandHandler {
   constructor() {
-    super(COMMANDS.CATALOG, 'Unable to list guild catalog');
+    super(COMMANDS.CATALOG, 'Unable to list guild store');
   }
 
   protected async perform({ say }: HandlerContext): Promise<void> {
     const items = await this.dm.guildListCatalog();
     const blocks = buildCatalogBlocks(items);
     await say({
-      text: 'Guild shop catalog',
+      text: 'Guild store',
       blocks,
     });
   }

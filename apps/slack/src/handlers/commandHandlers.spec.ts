@@ -91,7 +91,7 @@ describe('command handlers', () => {
     );
   });
 
-  it('renders the catalog list', async () => {
+  it('renders the store list', async () => {
     const say = makeSay();
     mockedDmClient.guildListCatalog.mockResolvedValueOnce([
       {
@@ -104,14 +104,14 @@ describe('command handlers', () => {
 
     await catalogHandler.handle({
       userId: 'U1',
-      text: 'catalog',
+      text: 'store',
       say,
       teamId: 'T1',
     } as HandlerContext);
 
     expect(mockedDmClient.guildListCatalog).toHaveBeenCalled();
     expect(say).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'Guild shop catalog' }),
+      expect.objectContaining({ text: 'Guild store' }),
     );
   });
 });
