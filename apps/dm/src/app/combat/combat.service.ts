@@ -381,6 +381,14 @@ export class CombatService {
     return this.formatCombatNarrative(fallback);
   }
 
+  formatCombatLog(
+    combatLog: DetailedCombatLog,
+    options: NarrativeOptions = {},
+  ): string {
+    const fallback = this.createFallbackNarrative(combatLog, options);
+    return `**Combat Log:**\n${this.formatCombatNarrative(fallback)}`;
+  }
+
   // Generate a short, entertaining summary (2-3 sentences)
 
   // Convert Player/Monster to Combatant interface

@@ -22,6 +22,7 @@ import { AppError, ErrCodes } from '../../app/errors/app-error';
 
 const RUN_ACTION_CONTINUE = 'run_action_continue';
 const RUN_ACTION_FINISH = 'run_action_finish';
+const COMBAT_ACTION_SHOW_LOG = 'combat_action_show_log';
 
 @Injectable()
 export class RunsService {
@@ -341,11 +342,18 @@ export class RunsService {
       return;
     }
 
-    const roundXp = Math.max(0, Math.floor(combatLog.xpAwarded * rewardMultiplier));
+    const roundXp = Math.max(
+      0,
+      Math.floor(combatLog.xpAwarded * rewardMultiplier),
+    );
     const roundGold = Math.max(
       0,
       Math.floor((combatLog.goldAwarded ?? 0) * rewardMultiplier),
     );
+    const combatLogText = this.combatService.formatCombatLog(combatLog, {
+      attackerCombatant: playerCombatant,
+      defenderCombatant: monster,
+    });
 
     await this.prisma.run.update({
       where: { id: run.id },
@@ -364,6 +372,7 @@ export class RunsService {
       roundGold,
       bankedXp: run.bankedXp + roundXp,
       bankedGold: run.bankedGold + roundGold,
+      combatLogText,
     });
   }
 
@@ -483,6 +492,33 @@ export class RunsService {
             action_id: RUN_ACTION_FINISH,
             value: String(params.runId),
           },
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'View full combat log' },
+            action_id: COMBAT_ACTION_SHOW_LOG,
+          },
+        ],
+      },
+    ];
+  }
+
+  private buildParticipantBlocks(summary: string) {
+    return [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: summary,
+        },
+      },
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'View full combat log' },
+            action_id: COMBAT_ACTION_SHOW_LOG,
+          },
         ],
       },
     ];
@@ -497,6 +533,7 @@ export class RunsService {
       roundGold: number;
       bankedXp: number;
       bankedGold: number;
+      combatLogText: string;
     },
   ) {
     if (!run) return;
@@ -507,9 +544,12 @@ export class RunsService {
       if (!slackUser) continue;
 
       const isLeader = participant.playerId === run.leaderPlayerId;
+      const leaderSummary = `Round ${params.round} complete. ${params.monsterName} was defeated.`;
+      const rewards = `Banked rewards: ${params.bankedXp} XP, ${params.bankedGold} gold (+${params.roundXp} XP, +${params.roundGold} gold this round).`;
+      const participantSummary = `Guild run round ${params.round} complete. Banked rewards: ${params.bankedXp} XP, ${params.bankedGold} gold.`;
       const message = isLeader
-        ? `Round ${params.round} complete. Continue or finish when ready.`
-        : `Guild run round ${params.round} complete. Banked rewards: ${params.bankedXp} XP, ${params.bankedGold} gold.`;
+        ? `${leaderSummary}\n${rewards}\n\n${params.combatLogText}`
+        : `${participantSummary}\n\n${params.combatLogText}`;
 
       recipients.push({
         clientType: 'slack',
@@ -526,7 +566,7 @@ export class RunsService {
               roundXp: params.roundXp,
               roundGold: params.roundGold,
             })
-          : undefined,
+          : this.buildParticipantBlocks(participantSummary),
       });
     }
 
