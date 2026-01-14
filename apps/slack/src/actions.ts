@@ -3,7 +3,6 @@ import { registerHelpActions } from './actions/helpActions';
 import { registerCharacterActions } from './actions/characterActions';
 import { registerHomeActions } from './actions/homeActions';
 import { registerInventoryActions } from './actions/inventoryActions';
-import { registerAttackActions } from './actions/attackActions';
 import { registerStatActions } from './actions/statActions';
 import { registerCombatLogActions } from './actions/combatLogActions';
 import { registerGuildShopActions } from './actions/guildShopActions';
@@ -15,7 +14,6 @@ export const registerActions = (app: App) => {
   registerCharacterActions(app);
   registerHomeActions(app);
   registerInventoryActions(app);
-  registerAttackActions(app);
   registerStatActions(app);
   registerCombatLogActions(app);
   registerGuildShopActions(app);

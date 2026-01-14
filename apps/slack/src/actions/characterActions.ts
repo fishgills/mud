@@ -384,7 +384,7 @@ export const registerCharacterActions = (app: App) => {
         }
 
         await ack({ response_action: 'clear' });
-        await dispatchCommandViaDM(client, userId, COMMANDS.ATTACK, teamId);
+        await dispatchCommandViaDM(client, userId, COMMANDS.RUN, teamId);
 
         if (client.views?.publish) {
           try {

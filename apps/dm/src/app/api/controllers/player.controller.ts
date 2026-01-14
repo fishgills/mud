@@ -37,7 +37,7 @@ import type {
   PlayerAttribute,
   PlayerStatsRequest,
 } from '../dto/player-requests.dto';
-import { TargetType, AttackOrigin } from '../dto/player-requests.dto';
+import { AttackOrigin, TargetType } from '../dto/player-requests.dto';
 import { getXpThresholdForLevel, getXpToNextLevel } from '@mud/constants';
 
 interface StatsUpdatePayload {
@@ -428,11 +428,14 @@ export class PlayersController {
     }
 
     const targetType = input.targetType;
-    let attackOrigin =
-      input.attackOrigin ??
-      (targetType === TargetType.MONSTER
-        ? AttackOrigin.TEXT_PVE
-        : AttackOrigin.TEXT_PVP);
+    if (targetType !== TargetType.PLAYER) {
+      return {
+        success: false,
+        message: 'PvE combat is only available through runs.',
+      };
+    }
+
+    let attackOrigin = input.attackOrigin ?? AttackOrigin.TEXT_PVP;
 
     await this.playerService.getPlayer(teamId, userId, {
       requireCreationComplete: true,
@@ -443,89 +446,58 @@ export class PlayersController {
       combatMs: 0,
     };
     let targetResolutionMs: number | undefined;
-
     let errorMessage: string | undefined;
 
     try {
-      let result: CombatResult | undefined;
+      let targetTeamId = input.targetTeamId;
+      let targetUserId = input.targetUserId;
+      const targetName = input.targetName?.trim();
 
-      if (targetType === TargetType.MONSTER) {
-        if (typeof input.targetId !== 'number') {
-          throw new BadRequestException(
-            'targetId is required for monster attacks',
-          );
-        }
-        perf.attackOrigin = attackOrigin;
-        const combatStart = Date.now();
-        perf.preCombatMs = combatStart - start;
-        result = (await this.combatService.playerAttackMonster(
-          {
-            teamId,
-            userId,
-          },
-          input.targetId,
-          { attackOrigin },
-        )) as CombatResult;
-        perf.combatMs = Date.now() - combatStart;
-      } else if (targetType === TargetType.PLAYER) {
-        let targetTeamId = input.targetTeamId;
-        let targetUserId = input.targetUserId;
-        const targetName = input.targetName?.trim();
+      if (targetName) {
+        const targetStart = Date.now();
+        const targetPlayer =
+          await this.playerService.findPlayerByName(targetName);
+        targetResolutionMs = Date.now() - targetStart;
 
-        if (targetName) {
-          const targetStart = Date.now();
-          const targetPlayer =
-            await this.playerService.findPlayerByName(targetName);
-          targetResolutionMs = Date.now() - targetStart;
-
-          if (!targetPlayer || !targetPlayer.slackUser) {
-            throw new NotFoundException('No player found with that name.');
-          }
-
-          const targetSlack = targetPlayer.slackUser;
-          if (
-            targetSlack.teamId === teamId &&
-            targetSlack.userId === userId
-          ) {
-            throw new BadRequestException("You can't attack yourself.");
-          }
-
-          targetTeamId = targetSlack.teamId;
-          targetUserId = targetSlack.userId;
-          if (targetTeamId !== teamId) {
-            attackOrigin = AttackOrigin.GHOST_PVP;
-          } else if (!input.attackOrigin) {
-            attackOrigin = AttackOrigin.TEXT_PVP;
-          }
+        if (!targetPlayer || !targetPlayer.slackUser) {
+          throw new NotFoundException('No player found with that name.');
         }
 
-        if (!targetUserId || typeof targetTeamId !== 'string') {
-          throw new BadRequestException(
-            'Must provide targetName or targetUserId for player attacks',
-          );
+        const targetSlack = targetPlayer.slackUser;
+        if (targetSlack.teamId === teamId && targetSlack.userId === userId) {
+          throw new BadRequestException("You can't attack yourself.");
         }
 
-        perf.attackOrigin = attackOrigin;
-        const combatStart = Date.now();
-        perf.preCombatMs = combatStart - start;
-        result = (await this.combatService.playerAttackPlayer(
-          {
-            teamId,
-            userId,
-          },
-          {
-            teamId: targetTeamId,
-            userId: targetUserId,
-          },
-          {
-            attackOrigin,
-          },
-        )) as CombatResult;
-        perf.combatMs = Date.now() - combatStart;
-      } else {
-        throw new BadRequestException('Invalid target type');
+        targetTeamId = targetSlack.teamId;
+        targetUserId = targetSlack.userId;
+        if (targetTeamId !== teamId) {
+          attackOrigin = AttackOrigin.GHOST_PVP;
+        }
       }
 
+      if (!targetUserId || typeof targetTeamId !== 'string') {
+        throw new BadRequestException(
+          'Must provide targetName or targetUserId for player attacks',
+        );
+      }
+
+      perf.attackOrigin = attackOrigin;
+      const combatStart = Date.now();
+      perf.preCombatMs = combatStart - start;
+      const result = (await this.combatService.playerAttackPlayer(
+        {
+          teamId,
+          userId,
+        },
+        {
+          teamId: targetTeamId,
+          userId: targetUserId,
+        },
+        {
+          attackOrigin,
+        },
+      )) as CombatResult;
+      perf.combatMs = Date.now() - combatStart;
       perf.totalMs = Date.now() - start;
       if (typeof targetResolutionMs === 'number') {
         perf.targetResolutionMs = targetResolutionMs;

@@ -1,7 +1,6 @@
 jest.mock('../dm-client', () => {
   const dmClient = {
     attack: jest.fn(),
-    getMonsters: jest.fn(),
     getPlayer: jest.fn(),
     guildBuyItem: jest.fn(),
     guildListCatalog: jest.fn(),
@@ -10,7 +9,7 @@ jest.mock('../dm-client', () => {
 });
 
 import { dmClient } from '../dm-client';
-import { TargetType, AttackOrigin } from '../dm-types';
+import { AttackOrigin, TargetType } from '../dm-types';
 import { attackHandler } from './attack';
 import { buyHandler } from './buy';
 import { catalogHandler } from './catalog';
@@ -18,7 +17,6 @@ import type { HandlerContext, SayMessage } from './types';
 
 const mockedDmClient = dmClient as unknown as {
   attack: jest.Mock;
-  getMonsters: jest.Mock;
   getPlayer: jest.Mock;
   guildBuyItem: jest.Mock;
   guildListCatalog: jest.Mock;
@@ -30,7 +28,6 @@ const makeSay = () =>
 describe('command handlers', () => {
   beforeEach(() => {
     mockedDmClient.attack.mockReset();
-    mockedDmClient.getMonsters.mockReset();
     mockedDmClient.getPlayer.mockReset();
     mockedDmClient.guildBuyItem.mockReset();
     mockedDmClient.guildListCatalog.mockReset();
@@ -40,18 +37,9 @@ describe('command handlers', () => {
     });
   });
 
-  it('attacks a mentioned player', async () => {
+  it('duels a mentioned player', async () => {
     const say = makeSay();
-    mockedDmClient.attack.mockResolvedValueOnce({
-      success: true,
-      message: 'ok',
-      data: {
-        message: 'combat summary',
-        playerMessages: [
-          { teamId: 'T1', userId: 'U1', message: 'attacker wins' },
-        ],
-      },
-    });
+    mockedDmClient.attack.mockResolvedValueOnce({ success: true });
 
     await attackHandler.handle({
       userId: 'U1',
@@ -71,21 +59,16 @@ describe('command handlers', () => {
         attackOrigin: AttackOrigin.TextPvp,
       },
     });
-    expect(say).not.toHaveBeenCalled();
+    expect(say).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Duel started. Check your DMs for combat results.',
+      }),
+    );
   });
 
-  it('attacks a player by name for ghost combat', async () => {
+  it('duels a player by name', async () => {
     const say = makeSay();
-    mockedDmClient.attack.mockResolvedValueOnce({
-      success: true,
-      message: 'ok',
-      data: {
-        message: 'combat summary',
-        playerMessages: [
-          { teamId: 'T1', userId: 'U1', message: 'attacker wins' },
-        ],
-      },
-    });
+    mockedDmClient.attack.mockResolvedValueOnce({ success: true });
 
     await attackHandler.handle({
       userId: 'U1',
@@ -105,53 +88,11 @@ describe('command handlers', () => {
         attackOrigin: undefined,
       },
     });
-    expect(say).not.toHaveBeenCalled();
-  });
-
-  it('offers a target list when no monster name is provided', async () => {
-    const say = makeSay();
-    mockedDmClient.getMonsters.mockResolvedValueOnce([
-      { id: 10, name: 'Goblin' },
-      { id: 11, name: 'Orc' },
-    ]);
-
-    await attackHandler.handle({
-      userId: 'U1',
-      text: 'attack',
-      say,
-      teamId: 'T1',
-    } as HandlerContext);
-
-    expect(mockedDmClient.getMonsters).toHaveBeenCalled();
     expect(say).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'Choose a target to attack' }),
+      expect.objectContaining({
+        text: 'Duel started. Check your DMs for combat results.',
+      }),
     );
-  });
-
-  it('attacks a named monster when a match exists', async () => {
-    const say = makeSay();
-    mockedDmClient.getMonsters.mockResolvedValueOnce([
-      { id: 10, name: 'Goblin' },
-    ]);
-    mockedDmClient.attack.mockResolvedValueOnce({ success: true });
-
-    await attackHandler.handle({
-      userId: 'U1',
-      text: 'attack Goblin',
-      say,
-      teamId: 'T1',
-    } as HandlerContext);
-
-    expect(mockedDmClient.attack).toHaveBeenCalledWith({
-      teamId: 'T1',
-      userId: 'U1',
-      input: {
-        targetType: TargetType.Monster,
-        targetId: 10,
-        attackOrigin: AttackOrigin.TextPve,
-      },
-    });
-    expect(say).not.toHaveBeenCalled();
   });
 
   it('buys items when a sku is provided', async () => {

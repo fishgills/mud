@@ -31,11 +31,6 @@ export const HELP_ACTIONS = {
   ABILITIES: 'help_action_abilities',
 } as const;
 
-export const ATTACK_ACTIONS = {
-  MONSTER_SELECT: 'attack_action_monster_select',
-  ATTACK_MONSTER: 'attack_action_attack_monster',
-} as const;
-
 export const STAT_ACTIONS = {
   OPEN_LEVEL_UP: 'stats_action_open_level_up',
 } as const;

@@ -137,8 +137,7 @@ app.event('app_mention', async ({ event, say }) => {
 
 **Once you have a character:**
 • Start a run with "${COMMANDS.RUN}"
-• Attack monsters with "${COMMANDS.ATTACK}"
-• Duel a ghost with "${COMMANDS.ATTACK} @name"
+• Duel another player with "${COMMANDS.ATTACK} @name"
 • Check stats with "${COMMANDS.STATS}"
 • Check inventory with "${COMMANDS.INVENTORY}"
 • Browse the shop with "${COMMANDS.CATALOG}"

@@ -1,5 +1,5 @@
-import { TargetType, AttackOrigin } from './dm-types';
 import { env } from './env';
+import { AttackOrigin, TargetType } from './dm-types';
 import type {
   Player,
   Monster,
@@ -191,17 +191,14 @@ export interface CombatResponse extends SuccessResponse {
   perf?: AttackPerformanceStats;
 }
 
-
 export interface CreatePlayerRequest {
   teamId?: string;
   userId?: string;
   name: string;
 }
 
-
 export interface AttackInput {
   targetType: TargetType;
-  targetId?: number;
   targetUserId?: string;
   targetTeamId?: string;
   targetName?: string;

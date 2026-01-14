@@ -256,27 +256,18 @@ describe('PlayersController', () => {
     ).rejects.toThrow('input is required');
   });
 
-  it('routes monster attacks to combatService and reports perf metrics', async () => {
-    const combatResult = { winner: 'Hero', perfBreakdown: { totalMs: 5 } };
-    combatService.playerAttackMonster.mockResolvedValue(combatResult);
-
+  it('rejects monster combat requests outside runs', async () => {
     const response = await controller.attack({
       teamId: 'T1',
       userId: 'U1',
       input: { targetType: TargetType.MONSTER, targetId: 100 },
     });
 
-    expect(combatService.playerAttackMonster).toHaveBeenCalledWith(
-      { teamId: 'T1', userId: 'U1' },
-      100,
-      { attackOrigin: AttackOrigin.TEXT_PVE },
-    );
-    expect(response.success).toBe(true);
-    expect(response.perf.attackOrigin).toBe(AttackOrigin.TEXT_PVE);
-    expect(response.data).toEqual(combatResult);
+    expect(response.success).toBe(false);
+    expect(response.message).toBe('PvE combat is only available through runs.');
   });
 
-  it('routes player attacks with explicit attack origin', async () => {
+  it('routes player duels through combat service', async () => {
     const combatResult = { winner: 'Hero' };
     combatService.playerAttackPlayer.mockResolvedValue(combatResult);
 
@@ -285,48 +276,18 @@ describe('PlayersController', () => {
       userId: 'U1',
       input: {
         targetType: TargetType.PLAYER,
-        targetTeamId: 'T2',
+        targetTeamId: 'T1',
         targetUserId: 'U2',
-        attackOrigin: AttackOrigin.DROPDOWN_PVP,
       },
     });
 
     expect(combatService.playerAttackPlayer).toHaveBeenCalledWith(
       { teamId: 'T1', userId: 'U1' },
-      { teamId: 'T2', userId: 'U2' },
-      { attackOrigin: AttackOrigin.DROPDOWN_PVP },
+      { teamId: 'T1', userId: 'U2' },
+      { attackOrigin: AttackOrigin.TEXT_PVP },
     );
     expect(response.success).toBe(true);
-    expect(response.perf.attackOrigin).toBe(AttackOrigin.DROPDOWN_PVP);
-  });
-
-  it('resolves player attacks by name for ghost combat', async () => {
-    const combatResult = { winner: 'Hero' };
-    combatService.playerAttackPlayer.mockResolvedValue(combatResult);
-    playerService.findPlayerByName.mockResolvedValue({
-      id: 2,
-      name: 'Shade',
-      slackUser: { teamId: 'T2', userId: 'U2' },
-    });
-
-    const response = await controller.attack({
-      teamId: 'T1',
-      userId: 'U1',
-      input: {
-        targetType: TargetType.PLAYER,
-        targetName: 'Shade',
-      },
-    });
-
-    expect(playerService.findPlayerByName).toHaveBeenCalledWith('Shade');
-    expect(combatService.playerAttackPlayer).toHaveBeenCalledWith(
-      { teamId: 'T1', userId: 'U1' },
-      { teamId: 'T2', userId: 'U2' },
-      { attackOrigin: AttackOrigin.GHOST_PVP },
-    );
-    expect(response.success).toBe(true);
-    expect(response.perf.attackOrigin).toBe(AttackOrigin.GHOST_PVP);
-    expect(response.perf.targetResolutionMs).toBeGreaterThanOrEqual(0);
+    expect(response.data).toEqual(combatResult);
   });
 
   it('returns stats with derived modifiers and combat logs', async () => {

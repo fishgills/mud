@@ -28,7 +28,7 @@ const helpDetailMessages: Record<string, HelpDetailMessage> = {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: '*Core loop*\n• Use `attack` to start combat and earn XP and gold.\n• Equip gear from the shop to improve your odds.',
+          text: `*Core loop*\n• Use \`${COMMANDS.RUN}\` to start combat and earn XP and gold.\n• Duel another player with \`${COMMANDS.ATTACK} @name\`.\n• Equip gear from the shop to improve your odds.`,
         },
       },
       {
@@ -96,7 +96,7 @@ const helpDetailMessages: Record<string, HelpDetailMessage> = {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: '*Actions*\n• Use `attack` to strike with your weapon, or trigger abilities that appear in combat prompts.\n• Watch the combat log for status effects, cooldowns, and enemy intents.',
+          text: `*Actions*\n• Use \`${COMMANDS.ATTACK} @name\` to duel another player.\n• Choose your next move when run combat prompts appear.\n• Watch the combat log for status effects, cooldowns, and enemy intents.`,
         },
       },
       {
@@ -128,7 +128,7 @@ const helpDetailMessages: Record<string, HelpDetailMessage> = {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: '*Using Abilities*\n• Abilities appear as options during combat alongside `attack`.\n• Many consume stamina or have cooldowns—plan combos with your party.',
+          text: '*Using Abilities*\n• Abilities appear as options during combat prompts.\n• Many consume stamina or have cooldowns—plan combos with your party.',
         },
       },
       {
