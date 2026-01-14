@@ -1,8 +1,7 @@
-import type { App, BlockAction, ViewSubmitAction } from '@slack/bolt';
-import { PlayerSlot } from '@mud/database';
+import type { App, BlockAction } from '@slack/bolt';
 import { dmClient } from '../dm-client';
 import { mapErrCodeToFriendlyMessage } from '../handlers/errorUtils';
-import { getActionValue, getChannelIdFromBody, getTriggerId } from './helpers';
+import { getActionValue, getChannelIdFromBody } from './helpers';
 import { buildItemActionMessage } from '../utils/itemDisplay';
 
 export const registerInventoryActions = (app: App) => {
@@ -12,10 +11,10 @@ export const registerInventoryActions = (app: App) => {
       await ack();
       const userId = body.user?.id;
       const teamId =
-        typeof context.teamId === 'string' ? context.teamId : undefined;
-      const triggerId = getTriggerId(body);
+        body.team?.id ?? (context as { teamId?: string })?.teamId;
+      const channelId = getChannelIdFromBody(body);
       const rawValue = getActionValue(body);
-      if (!userId || !triggerId || !rawValue) return;
+      if (!userId || !teamId || !rawValue) return;
 
       let payload: { playerItemId: number; allowedSlots?: string[] } | null =
         null;
@@ -33,76 +32,22 @@ export const registerInventoryActions = (app: App) => {
       if (!payload) return;
 
       const { playerItemId, allowedSlots = [] } = payload;
-      const defaultSlots = Object.values(PlayerSlot);
-      const slotOptions = (
-        allowedSlots.length > 0 ? allowedSlots : defaultSlots
-      ).map((slot) => ({
-        text: {
-          type: 'plain_text' as const,
-          text: slot[0].toUpperCase() + slot.slice(1),
-        },
-        value: slot,
-      }));
-
-      try {
-        await client.views.open({
-          trigger_id: triggerId,
-          view: {
-            type: 'modal',
-            callback_id: 'inventory_equip_view',
-            private_metadata: JSON.stringify({ playerItemId, userId, teamId }),
-            title: { type: 'plain_text', text: 'Equip Item' },
-            submit: { type: 'plain_text', text: 'Equip' },
-            close: { type: 'plain_text', text: 'Cancel' },
-            blocks: [
-              {
-                type: 'section',
-                text: {
-                  type: 'mrkdwn',
-                  text: `Choose a slot to equip item #${playerItemId}`,
-                },
-              },
-              {
-                type: 'input',
-                block_id: 'slot_block',
-                label: { type: 'plain_text', text: 'Slot' },
-                element: {
-                  type: 'static_select',
-                  action_id: 'selected_slot',
-                  placeholder: { type: 'plain_text', text: 'Select a slot' },
-                  options: slotOptions,
-                },
-              },
-            ],
-          },
-        });
-      } catch (err) {
-        app.logger.warn({ error: err }, 'Failed to open equip modal');
-        const dm = await client.conversations.open({ users: userId });
-        const channel = dm.channel?.id;
-        if (!channel) return;
-        await client.chat.postMessage({
-          channel,
-          text: `To equip item ${playerItemId}, type: \`equip ${playerItemId} <slot>\``,
-        });
+      const slot = allowedSlots[0];
+      if (!slot) {
+        const message = 'This item cannot be equipped.';
+        if (channelId) {
+          await client.chat.postEphemeral({
+            channel: channelId,
+            user: userId,
+            text: message,
+          });
+        } else {
+          const dm = await client.conversations.open({ users: userId });
+          const channel = dm.channel?.id;
+          if (channel) await client.chat.postMessage({ channel, text: message });
+        }
+        return;
       }
-    },
-  );
-
-  app.view<ViewSubmitAction>(
-    'inventory_equip_view',
-    async ({ ack, view, client }) => {
-      await ack();
-      const meta = view.private_metadata
-        ? JSON.parse(view.private_metadata)
-        : null;
-      const playerItemId = meta?.playerItemId;
-      const userId = meta?.userId;
-      const teamId = meta?.teamId;
-      if (!playerItemId || !userId) return;
-      const slot = view.state.values?.slot_block?.selected_slot?.selected_option
-        ?.value as string | undefined;
-      if (!slot) return;
 
       try {
         const res = await dmClient.equip({
@@ -111,27 +56,41 @@ export const registerInventoryActions = (app: App) => {
           playerItemId: Number(playerItemId),
           slot,
         });
-        const dm = await client.conversations.open({ users: userId });
-        const channel = dm.channel?.id;
-        if (channel) {
-          const resCode = (res as unknown as { code?: string })?.code;
-          const friendly = mapErrCodeToFriendlyMessage(resCode);
-          const successText = res.success
-            ? buildItemActionMessage(
-                'Equipped',
-                res.data,
-                res.message ?? `Equipped item ${playerItemId} to ${slot}`,
-                { suffix: `to ${slot}` },
-              )
-            : undefined;
-          const text = res.success
-            ? successText ?? `Equipped item ${playerItemId} to ${slot}`
-            : (friendly ??
-              `Failed to equip: ${res.message ?? 'Unknown error'}`);
-          await client.chat.postMessage({ channel, text });
+        const resCode = (res as unknown as { code?: string })?.code;
+        const friendly = mapErrCodeToFriendlyMessage(resCode);
+        const successText = res.success
+          ? buildItemActionMessage(
+              'Equipped',
+              res.data,
+              res.message ?? `Equipped item ${playerItemId} to ${slot}`,
+              { suffix: `to ${slot}` },
+            )
+          : undefined;
+        const text = res.success
+          ? successText ?? `Equipped item ${playerItemId} to ${slot}`
+          : (friendly ??
+            `Failed to equip: ${res.message ?? 'Unknown error'}`);
+        if (channelId) {
+          await client.chat.postEphemeral({
+            channel: channelId,
+            user: userId,
+            text,
+          });
+        } else {
+          const dm = await client.conversations.open({ users: userId });
+          const channel = dm.channel?.id;
+          if (channel) await client.chat.postMessage({ channel, text });
         }
       } catch (error) {
-        app.logger.warn({ error }, 'inventory_equip_view handler failed');
+        app.logger.warn({ error }, 'inventory_equip handler failed');
+        if (channelId) {
+          await client.chat.postEphemeral({
+            channel: channelId,
+            user: userId,
+            text: `Failed to equip item ${playerItemId}`,
+          });
+          return;
+        }
         const dm = await client.conversations.open({ users: userId });
         const channel = dm.channel?.id;
         if (channel) {

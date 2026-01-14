@@ -735,141 +735,33 @@ describe('registerActions', () => {
   });
 
   describe('inventory actions', () => {
-    it('opens the equip modal with allowed slots', async () => {
-      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
-      const viewsOpen = jest.fn().mockResolvedValue(undefined) as ViewsOpenMock;
-      const client: MockSlackClient = {
-        conversations: {
-          open: jest.fn() as ConversationsOpenMock,
-        },
-        chat: createChatMocks(),
-        views: { open: viewsOpen },
-      };
-
-      await actionHandlers[INVENTORY_EQUIP_ACTION]({
-        ack,
-        body: {
-          user: { id: 'U1' },
-          trigger_id: 'TR1',
-          actions: [
-            {
-              value: JSON.stringify({
-                playerItemId: 7,
-                allowedSlots: ['weapon', 'head'],
-              }),
-            },
-          ],
-        },
-        client,
-        context: { teamId: 'T1' },
-      });
-
-      expect(ack).toHaveBeenCalled();
-      expect(viewsOpen).toHaveBeenCalledWith(
-        expect.objectContaining({ trigger_id: 'TR1' }),
-      );
-
-      const { view } = viewsOpen.mock.calls[0][0] as {
-        view: {
-          private_metadata: string;
-          blocks: Array<Record<string, unknown>>;
-        };
-      };
-      expect(JSON.parse(view.private_metadata)).toEqual({
-        playerItemId: 7,
-        userId: 'U1',
-        teamId: 'T1',
-      });
-
-      const slotBlock = view.blocks.find(
-        (block) => block.block_id === 'slot_block',
-      ) as {
-        element?: {
-          options?: Array<{ value: string; text?: { text: string } }>;
-        };
-      };
-
-      expect(slotBlock?.element?.options).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            value: 'weapon',
-            text: expect.objectContaining({ text: 'Weapon' }),
-          }),
-          expect.objectContaining({
-            value: 'head',
-            text: expect.objectContaining({ text: 'Head' }),
-          }),
-        ]),
-      );
-    });
-
-    it('falls back to DM guidance when the equip modal fails', async () => {
-      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
-      const viewsOpen = jest
-        .fn()
-        .mockRejectedValue(new Error('missing scope')) as ViewsOpenMock;
-      const dmOpen = jest.fn().mockResolvedValue({
-        channel: { id: 'DM-U1' },
-      }) as ConversationsOpenMock;
-      const chat = createChatMocks();
-      const client: MockSlackClient = {
-        conversations: { open: dmOpen },
-        chat,
-        views: { open: viewsOpen },
-      };
-
-      await actionHandlers[INVENTORY_EQUIP_ACTION]({
-        ack,
-        body: {
-          user: { id: 'U1' },
-          trigger_id: 'TR2',
-          actions: [{ value: JSON.stringify({ playerItemId: 5 }) }],
-        },
-        client,
-        context: { teamId: 'T1' },
-      });
-
-      expect(dmOpen).toHaveBeenCalledWith({ users: 'U1' });
-      expect(chat.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          channel: 'DM-U1',
-          text: 'To equip item 5, type: `equip 5 <slot>`',
-        }),
-      );
-    });
-
-    it('handles equip submissions and posts the result', async () => {
+    it('equips items directly from inventory actions', async () => {
       const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
       mockedDmClient.equip.mockResolvedValueOnce({
         success: true,
         data: { item: { name: 'Shortsword' }, quality: 'Common' },
       });
-      const dmOpen = jest.fn().mockResolvedValue({
-        channel: { id: 'DM-U1' },
-      }) as ConversationsOpenMock;
       const chat = createChatMocks();
       const client: MockSlackClient = {
-        conversations: { open: dmOpen },
+        conversations: {
+          open: jest.fn() as ConversationsOpenMock,
+        },
         chat,
       };
 
-      await viewHandlers.inventory_equip_view({
+      await actionHandlers[INVENTORY_EQUIP_ACTION]({
         ack,
-        view: {
-          private_metadata: JSON.stringify({
-            playerItemId: 9,
-            userId: 'U1',
-            teamId: 'T1',
-          }),
-          state: {
-            values: {
-              slot_block: {
-                selected_slot: {
-                  selected_option: { value: 'weapon' },
-                },
-              },
+        body: {
+          user: { id: 'U1' },
+          channel: { id: 'C-INV' },
+          actions: [
+            {
+              value: JSON.stringify({
+                playerItemId: 9,
+                allowedSlots: ['weapon'],
+              }),
             },
-          },
+          ],
         },
         client,
         context: { teamId: 'T1' },
@@ -881,9 +773,10 @@ describe('registerActions', () => {
         playerItemId: 9,
         slot: 'weapon',
       });
-      expect(chat.postMessage).toHaveBeenCalledWith(
+      expect(chat.postEphemeral).toHaveBeenCalledWith(
         expect.objectContaining({
-          channel: 'DM-U1',
+          channel: 'C-INV',
+          user: 'U1',
           text: 'Equipped Common Shortsword to weapon.',
         }),
       );
