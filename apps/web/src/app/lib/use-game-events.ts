@@ -46,13 +46,28 @@ export const useGameEvents = (
     source.onerror = (error) => {
       console.warn('[web-events] connection error', { url, error });
     };
-    const types = eventTypes.length ? eventTypes : ['message'];
+    const requestedTypes = new Set(eventTypes);
+    const types = requestedTypes.size
+      ? [...requestedTypes, 'message']
+      : ['message'];
 
     const onEvent = (event: MessageEvent) => {
       if (!event?.data) return;
       try {
         const payload = JSON.parse(event.data) as GameEventPayload;
-        handler(payload, event.type);
+        const payloadEvent =
+          payload.event?.eventType ?? payload.type ?? event.type;
+        const shouldHandle =
+          requestedTypes.size === 0 ||
+          requestedTypes.has(event.type) ||
+          (payloadEvent ? requestedTypes.has(payloadEvent) : false);
+        if (shouldHandle) {
+          console.info('[web-events] received', {
+            eventName: event.type,
+            payloadEvent,
+          });
+          handler(payload, event.type);
+        }
       } catch {
         // Ignore malformed payloads.
       }
