@@ -50,8 +50,9 @@
 
 - **Local dev server**: Run `yarn workspace @mud/web serve` to start the web app
 - **Base URL**: The web app is available at `http://localhost:4000/www` (note the `/www` base path)
-- **Public tunnel**: `https://closet.battleforge.app/www` tunnels to localhost (useful for Playwright MCP testing)
-- When using Playwright MCP for browser testing, navigate to `http://localhost:4000/www` not `http://localhost:4000/`
+- **Public URL**: `https://closet.battleforge.app/www` is the canonical URL for debugging (Slack requires public URLs)
+- **Nginx proxy**: `data/nginx` is the Nginx server fronting `closet.battleforge.app`; update it for proxy tweaks (ex: SSE)
+- Prefer `https://closet.battleforge.app/www` for Playwright and debugging; avoid `localhost` in normal workflows
 
 ### Common Issues
 
