@@ -1,7 +1,16 @@
 import { Logger } from '@nestjs/common';
-import { EventBus, type PlayerRespawnEvent } from '../../shared/event-bus';
+import { getPrismaClient } from '@mud/database';
+import {
+  EventBus,
+  type PlayerLevelUpEvent,
+  type PlayerRespawnEvent,
+} from '../../shared/event-bus';
 import { EventBridgeService } from '../../shared/event-bridge.service';
 import { PlayerNotificationService } from './player-notification.service';
+
+jest.mock('@mud/database', () => ({
+  getPrismaClient: jest.fn(),
+}));
 
 jest.mock('../../shared/event-bus', () => ({
   EventBus: {
@@ -12,7 +21,14 @@ jest.mock('../../shared/event-bus', () => ({
 describe('PlayerNotificationService', () => {
   let service: PlayerNotificationService;
   let eventBridge: { publishPlayerNotification: jest.Mock };
-  let listener: ((event: PlayerRespawnEvent) => Promise<void> | void) | null;
+  let listeners: Record<
+    string,
+    ((event: PlayerRespawnEvent | PlayerLevelUpEvent) => Promise<void> | void)
+  >;
+  let prismaMock: {
+    player: { findUnique: jest.Mock };
+    guildMember: { findUnique: jest.Mock; findMany: jest.Mock };
+  };
 
   beforeEach(() => {
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
@@ -23,13 +39,19 @@ describe('PlayerNotificationService', () => {
       publishPlayerNotification: jest.fn().mockResolvedValue(undefined),
     };
 
-    listener = null;
+    listeners = {};
     (EventBus.on as jest.Mock).mockImplementation((eventType, callback) => {
-      if (eventType === 'player:respawn') {
-        listener = callback as (event: PlayerRespawnEvent) => Promise<void>;
-      }
+      listeners[eventType] = callback as (
+        event: PlayerRespawnEvent | PlayerLevelUpEvent,
+      ) => Promise<void>;
       return jest.fn();
     });
+
+    prismaMock = {
+      player: { findUnique: jest.fn() },
+      guildMember: { findUnique: jest.fn(), findMany: jest.fn() },
+    };
+    (getPrismaClient as jest.Mock).mockReturnValue(prismaMock);
 
     service = new PlayerNotificationService(
       eventBridge as unknown as EventBridgeService,
@@ -47,6 +69,10 @@ describe('PlayerNotificationService', () => {
       'player:respawn',
       expect.any(Function),
     );
+    expect(EventBus.on).toHaveBeenCalledWith(
+      'player:levelup',
+      expect.any(Function),
+    );
   });
 
   it('publishes a player notification when a respawn event has a Slack clientId', async () => {
@@ -61,7 +87,7 @@ describe('PlayerNotificationService', () => {
       } as unknown as PlayerRespawnEvent['player'],
     };
 
-    await listener?.(event);
+    await listeners['player:respawn']?.(event);
 
     expect(eventBridge.publishPlayerNotification).toHaveBeenCalledWith(
       event,
@@ -87,9 +113,92 @@ describe('PlayerNotificationService', () => {
       } as unknown as PlayerRespawnEvent['player'],
     };
 
-    await listener?.(event);
+    await listeners['player:respawn']?.(event);
 
     expect(eventBridge.publishPlayerNotification).not.toHaveBeenCalled();
+  });
+
+  it('publishes a player notification for level ups without a guild', async () => {
+    service.onModuleInit();
+    const event: PlayerLevelUpEvent = {
+      eventType: 'player:levelup',
+      timestamp: new Date(),
+      player: { id: 10, name: 'Leveler' } as PlayerLevelUpEvent['player'],
+      newLevel: 4,
+      skillPointsGained: 1,
+    };
+
+    prismaMock.player.findUnique.mockResolvedValue({
+      id: 10,
+      name: 'Leveler',
+      slackUser: { teamId: 'T1', userId: 'U1' },
+    });
+    prismaMock.guildMember.findUnique.mockResolvedValue(null);
+
+    await listeners['player:levelup']?.(event);
+
+    expect(eventBridge.publishPlayerNotification).toHaveBeenCalledWith(
+      event,
+      expect.arrayContaining([
+        expect.objectContaining({
+          clientType: 'slack',
+          teamId: 'T1',
+          userId: 'U1',
+          message: expect.stringContaining('level 4'),
+        }),
+      ]),
+    );
+  });
+
+  it('notifies guild members when a player levels up', async () => {
+    service.onModuleInit();
+    const event: PlayerLevelUpEvent = {
+      eventType: 'player:levelup',
+      timestamp: new Date(),
+      player: { id: 11, name: 'Guildie' } as PlayerLevelUpEvent['player'],
+      newLevel: 7,
+      skillPointsGained: 0,
+    };
+
+    prismaMock.player.findUnique.mockResolvedValue({
+      id: 11,
+      name: 'Guildie',
+      slackUser: { teamId: 'T2', userId: 'U2' },
+    });
+    prismaMock.guildMember.findUnique.mockResolvedValue({
+      guildId: 99,
+    });
+    prismaMock.guildMember.findMany.mockResolvedValue([
+      {
+        player: {
+          id: 11,
+          name: 'Guildie',
+          slackUser: { teamId: 'T2', userId: 'U2' },
+        },
+      },
+      {
+        player: {
+          id: 12,
+          name: 'Ally',
+          slackUser: { teamId: 'T2', userId: 'U3' },
+        },
+      },
+    ]);
+
+    await listeners['player:levelup']?.(event);
+
+    expect(eventBridge.publishPlayerNotification).toHaveBeenCalledWith(
+      event,
+      expect.arrayContaining([
+        expect.objectContaining({
+          userId: 'U2',
+        }),
+        expect.objectContaining({
+          userId: 'U3',
+          message: expect.stringContaining('Guildie'),
+        }),
+      ]),
+    );
   });
 
   it('cleans up subscriptions on destroy and logs unsubscribe errors', () => {
