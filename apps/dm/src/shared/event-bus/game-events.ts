@@ -1,4 +1,5 @@
 // Re-export game event types from @mud/redis-client
+import type { GameEvent } from '@mud/redis-client';
 export type {
   BaseGameEvent,
   PlayerSpawnEvent,
@@ -19,7 +20,12 @@ export type {
   NpcQuestOfferEvent,
   PartyCreateEvent,
   PartyDisbandEvent,
+  RunRoundEvent,
+  RunEndEvent,
   GameEvent,
   GameEventType,
-  EventListener,
 } from '@mud/redis-client';
+
+export type EventListener<T extends GameEvent = GameEvent> = (
+  event: T,
+) => void | Promise<void>;

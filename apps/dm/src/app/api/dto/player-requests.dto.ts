@@ -7,6 +7,7 @@ export enum AttackOrigin {
   TEXT_PVE = 'text-pve',
   TEXT_PVP = 'text-pvp',
   DROPDOWN_PVP = 'dropdown-pvp',
+  GHOST_PVP = 'ghost-pvp',
 }
 
 export enum PlayerAttribute {
@@ -40,6 +41,7 @@ export interface AttackRequest {
   targetId?: number;
   targetUserId?: string;
   targetTeamId?: string;
+  targetName?: string;
   attackOrigin?: AttackOrigin;
 }
 

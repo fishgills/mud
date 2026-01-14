@@ -6,6 +6,7 @@ import { AppError, ErrCodes } from '../../errors/app-error';
 const createPlayerService = () => ({
   createPlayer: jest.fn(),
   getPlayer: jest.fn(),
+  findPlayerByName: jest.fn(),
   getAllPlayers: jest.fn(),
   updatePlayerStats: jest.fn(),
   spendSkillPoint: jest.fn(),
@@ -32,21 +33,28 @@ const createPlayerItemService = () => ({
   unequip: jest.fn(),
 });
 
+const createRunsService = () => ({
+  ensurePlayerNotInRun: jest.fn(),
+});
+
 describe('PlayersController', () => {
   let controller: PlayersController;
   let playerService: ReturnType<typeof createPlayerService>;
   let combatService: ReturnType<typeof createCombatService>;
   let playerItemService: ReturnType<typeof createPlayerItemService>;
+  let runsService: ReturnType<typeof createRunsService>;
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2024-01-01T00:00:00Z'));
     playerService = createPlayerService();
     combatService = createCombatService();
     playerItemService = createPlayerItemService();
+    runsService = createRunsService();
     controller = new PlayersController(
       playerService as never,
       combatService as never,
       playerItemService as never,
+      runsService as never,
     );
   });
 
@@ -292,6 +300,35 @@ describe('PlayersController', () => {
     expect(response.perf.attackOrigin).toBe(AttackOrigin.DROPDOWN_PVP);
   });
 
+  it('resolves player attacks by name for ghost combat', async () => {
+    const combatResult = { winner: 'Hero' };
+    combatService.playerAttackPlayer.mockResolvedValue(combatResult);
+    playerService.findPlayerByName.mockResolvedValue({
+      id: 2,
+      name: 'Shade',
+      slackUser: { teamId: 'T2', userId: 'U2' },
+    });
+
+    const response = await controller.attack({
+      teamId: 'T1',
+      userId: 'U1',
+      input: {
+        targetType: TargetType.PLAYER,
+        targetName: 'Shade',
+      },
+    });
+
+    expect(playerService.findPlayerByName).toHaveBeenCalledWith('Shade');
+    expect(combatService.playerAttackPlayer).toHaveBeenCalledWith(
+      { teamId: 'T1', userId: 'U1' },
+      { teamId: 'T2', userId: 'U2' },
+      { attackOrigin: AttackOrigin.GHOST_PVP },
+    );
+    expect(response.success).toBe(true);
+    expect(response.perf.attackOrigin).toBe(AttackOrigin.GHOST_PVP);
+    expect(response.perf.targetResolutionMs).toBeGreaterThanOrEqual(0);
+  });
+
   it('returns stats with derived modifiers and combat logs', async () => {
     const player = {
       id: 1,
@@ -347,6 +384,10 @@ describe('PlayersController', () => {
       playerItemId: 21,
       slot: 'weapon',
     });
+    expect(runsService.ensurePlayerNotInRun).toHaveBeenCalledWith(
+      1,
+      'Finish your run before changing equipment.',
+    );
     expect(
       playerService.recalculatePlayerHitPointsFromEquipment,
     ).toHaveBeenCalledWith(1);
@@ -358,6 +399,10 @@ describe('PlayersController', () => {
       userId: 'U1',
       playerItemId: 31,
     });
+    expect(runsService.ensurePlayerNotInRun).toHaveBeenCalledWith(
+      1,
+      'Finish your run before changing equipment.',
+    );
     expect(unequip.success).toBe(true);
 
     const err = new AppError(ErrCodes.NOT_OWNED, 'not yours');

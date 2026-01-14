@@ -3,11 +3,13 @@
 
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  extensions = [citext]
 }
 
 enum GuildTradeDirection {
@@ -26,9 +28,20 @@ enum AnnouncementStatus {
   EXPIRED
 }
 
+enum RunType {
+  SOLO
+  GUILD
+}
+
+enum RunStatus {
+  ACTIVE
+  CASHED_OUT
+  FAILED
+}
+
 model Player {
   id                 Int                  @id @default(autoincrement())
-  name               String
+  name               String               @unique @db.Citext
   hp                 Int // Hit points (current health)
   maxHp              Int                  @default(100) // Maximum health
   strength           Int                  @default(10) // Strength attribute (1-20)
@@ -54,8 +67,13 @@ model Player {
   partyMembers       PartyMember[]
   playerItems        PlayerItem[]
   slackUser          SlackUser?
+  guildMembership    GuildMember?
+  guildInvitesSent   GuildInvite[]        @relation("GuildInviteSender")
+  guildInvitesReceived GuildInvite[]      @relation("GuildInviteRecipient")
   guildReceipts      TransactionReceipt[]
   feedbacks          Feedback[]
+  runParticipants    RunParticipant[]
+  runsLed            Run[]                @relation("RunLeader")
   // Future: discordUsers DiscordUser[], webUsers WebUser[], etc.
 }
 
@@ -71,6 +89,84 @@ model SlackUser {
   @@unique([teamId, userId])
   @@index([teamId])
   @@index([userId])
+}
+
+model Guild {
+  id        Int      @id @default(autoincrement())
+  teamId    String
+  name      String   @db.Citext
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members   GuildMember[]
+  invites   GuildInvite[]
+  runs      Run[]
+
+  @@unique([teamId, name])
+  @@index([teamId])
+}
+
+model GuildMember {
+  id        Int      @id @default(autoincrement())
+  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guildId   Int
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  Int
+  isLeader  Boolean  @default(false)
+  joinedAt  DateTime @default(now())
+
+  @@unique([guildId, playerId])
+  @@unique([playerId])
+  @@index([guildId])
+}
+
+model GuildInvite {
+  id               Int      @id @default(autoincrement())
+  guild            Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guildId          Int
+  inviter          Player   @relation("GuildInviteSender", fields: [inviterPlayerId], references: [id], onDelete: Cascade)
+  inviterPlayerId  Int
+  invitee          Player   @relation("GuildInviteRecipient", fields: [inviteePlayerId], references: [id], onDelete: Cascade)
+  inviteePlayerId  Int
+  createdAt        DateTime @default(now())
+
+  @@unique([guildId, inviteePlayerId])
+  @@index([inviteePlayerId])
+}
+
+model Run {
+  id             Int        @id @default(autoincrement())
+  runType        RunType
+  status         RunStatus  @default(ACTIVE)
+  round          Int        @default(0)
+  bankedXp       Int        @default(0)
+  bankedGold     Int        @default(0)
+  difficultyTier Int        @default(1)
+  leader         Player     @relation("RunLeader", fields: [leaderPlayerId], references: [id], onDelete: Restrict)
+  leaderPlayerId Int
+  guild          Guild?     @relation(fields: [guildId], references: [id], onDelete: SetNull)
+  guildId        Int?
+  participants   RunParticipant[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  endedAt        DateTime?
+
+  @@index([status])
+  @@index([leaderPlayerId])
+  @@index([guildId])
+}
+
+model RunParticipant {
+  id        Int      @id @default(autoincrement())
+  run       Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  runId     Int
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId  Int
+  isLeader  Boolean  @default(false)
+  joinedAt  DateTime @default(now())
+
+  @@unique([runId, playerId])
+  @@index([playerId])
 }
 
 model Monster {

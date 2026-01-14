@@ -12,6 +12,7 @@ describe('commands constants', () => {
       expect.arrayContaining([
         COMMANDS.NEW,
         COMMANDS.ATTACK,
+        COMMANDS.RUN,
         COMMANDS.STATS,
         COMMANDS.INVENTORY,
         COMMANDS.CATALOG,

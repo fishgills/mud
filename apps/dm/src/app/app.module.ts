@@ -13,6 +13,8 @@ import {
 import { GuildShopController } from '../modules/guild-shop/guild-shop.controller';
 import { GuildAnnouncementsController } from '../modules/guild-announcements/guild-announcements.controller';
 import { FeedbackController } from '../modules/feedback/feedback.controller';
+import { GuildsController } from '../modules/guilds/guilds.controller';
+import { RunsController } from '../modules/runs/runs.controller';
 import { CoordinationService } from '../shared/coordination.service';
 import { EventBridgeService } from '../shared/event-bridge.service';
 import { PlayerNotificationService } from './player/player-notification.service';
@@ -30,6 +32,8 @@ import { GuildAnnouncementsScheduler } from '../modules/guild-announcements/guil
 import { FeedbackService } from '../modules/feedback/feedback.service';
 import { FeedbackRepository } from '../modules/feedback/feedback.repository';
 import { GitHubService } from '../modules/feedback/github.service';
+import { GuildsService } from '../modules/guilds/guilds.service';
+import { RunsService } from '../modules/runs/runs.service';
 
 @Module({
   imports: [AiModule],
@@ -41,6 +45,8 @@ import { GitHubService } from '../modules/feedback/github.service';
     GuildShopController,
     GuildAnnouncementsController,
     FeedbackController,
+    GuildsController,
+    RunsController,
   ],
   providers: [
     AppService,
@@ -57,6 +63,8 @@ import { GitHubService } from '../modules/feedback/github.service';
     GuildShopRotationService,
     GuildShopRotationScheduler,
     GuildShopRotationInitializer,
+    GuildsService,
+    RunsService,
     GuildAnnouncementsService,
     GuildAnnouncementsRepository,
     GuildAnnouncementsPublisher,

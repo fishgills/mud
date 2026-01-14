@@ -16,12 +16,16 @@ describe('guild-shop GuildShopService', () => {
   const publisher = {
     publishReceipt: jest.fn(),
   } as unknown as { publishReceipt: jest.Mock };
+  const runsService = {
+    getActiveRunForPlayer: jest.fn(),
+  } as unknown as { getActiveRunForPlayer: jest.Mock };
 
   const makeService = () =>
     new GuildShopService(
       playerService as never,
       repository as never,
       publisher as never,
+      runsService as never,
     );
 
   const player = {
@@ -34,6 +38,7 @@ describe('guild-shop GuildShopService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     playerService.getPlayer.mockResolvedValue(player);
+    runsService.getActiveRunForPlayer.mockResolvedValue(null);
   });
 
   it('buys catalog item and publishes receipt', async () => {
@@ -56,9 +61,23 @@ describe('guild-shop GuildShopService', () => {
       sku: 'potion',
     });
 
+    expect(runsService.getActiveRunForPlayer).toHaveBeenCalledWith(42);
     expect(response.direction).toBe('BUY');
     expect(publisher.publishReceipt).toHaveBeenCalled();
     expect(repository.findCatalogItemBySku).toHaveBeenCalledWith('potion');
+  });
+
+  it('blocks purchases while a run is active', async () => {
+    const service = makeService();
+    runsService.getActiveRunForPlayer.mockResolvedValue({ runId: 1 });
+
+    await expect(
+      service.buy({
+        teamId: 'T1',
+        userId: 'U1',
+        sku: 'potion',
+      }),
+    ).rejects.toThrow('Finish your run before trading.');
   });
 
   it('sells player item and publishes receipt', async () => {
@@ -86,6 +105,7 @@ describe('guild-shop GuildShopService', () => {
       playerItemId: 77,
     });
 
+    expect(runsService.getActiveRunForPlayer).toHaveBeenCalledWith(42);
     expect(response.direction).toBe('SELL');
     expect(publisher.publishReceipt).toHaveBeenCalled();
   });

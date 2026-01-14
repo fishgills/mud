@@ -4,6 +4,7 @@ import { PlayerService } from '../../app/player/player.service';
 import { GuildShopRepository } from './guild-shop.repository';
 import { GuildShopPublisher } from './guild-shop.publisher';
 import type { GuildTradeResponse } from '@mud/api-contracts';
+import { RunsService } from '../runs/runs.service';
 
 interface BuyRequest {
   teamId: string;
@@ -29,6 +30,7 @@ export class GuildShopService {
     private readonly playerService: PlayerService,
     private readonly repository: GuildShopRepository,
     private readonly publisher: GuildShopPublisher,
+    private readonly runsService: RunsService,
   ) {}
 
   async listCatalog(): Promise<
@@ -68,6 +70,10 @@ export class GuildShopService {
         requireCreationComplete: true,
       },
     );
+    const activeRun = await this.runsService.getActiveRunForPlayer(player.id);
+    if (activeRun) {
+      throw new BadRequestException('Finish your run before trading.');
+    }
 
     const searchTerm = data.sku ?? data.item;
     if (!searchTerm) {
@@ -122,6 +128,10 @@ export class GuildShopService {
         requireCreationComplete: true,
       },
     );
+    const activeRun = await this.runsService.getActiveRunForPlayer(player.id);
+    if (activeRun) {
+      throw new BadRequestException('Finish your run before trading.');
+    }
 
     const quantity = data.quantity && data.quantity > 0 ? data.quantity : 1;
 

@@ -6,6 +6,8 @@ import type {
   Item,
   PlayerItem,
   Prisma,
+  RunStatus,
+  RunType,
 } from '@mud/database';
 import type {
   GuildTradeResponse,
@@ -202,6 +204,7 @@ export interface AttackInput {
   targetId?: number;
   targetUserId?: string;
   targetTeamId?: string;
+  targetName?: string;
   attackOrigin?: AttackOrigin;
 }
 
@@ -220,6 +223,48 @@ export interface SpendSkillPointRequest {
 export interface SimpleIdentifierRequest {
   teamId: string;
   userId: string;
+}
+
+export interface GuildMemberInfo {
+  playerId: number;
+  name: string;
+  userId?: string;
+  isLeader: boolean;
+  joinedAt: string;
+}
+
+export interface GuildInfoResponse extends SuccessResponse {
+  data?: {
+    guildId: number;
+    name: string;
+    teamId: string;
+    members: GuildMemberInfo[];
+  } | null;
+}
+
+export interface GuildInvitesResponse extends SuccessResponse {
+  data?: Array<{
+    guildId: number;
+    guildName: string;
+    inviterName: string;
+    createdAt: string;
+  }>;
+}
+
+export interface RunState {
+  id: number;
+  runType: RunType;
+  status: RunStatus;
+  round: number;
+  bankedXp: number;
+  bankedGold: number;
+  difficultyTier: number;
+  leaderPlayerId: number;
+  guildId?: number | null;
+}
+
+export interface RunActionResponse extends SuccessResponse {
+  data?: RunState;
 }
 
 export async function createPlayer(
@@ -385,6 +430,123 @@ export async function unequip(input: {
   });
 }
 
+export async function getActiveRun(params: {
+  teamId: string;
+  userId: string;
+}): Promise<RunActionResponse> {
+  return dmRequest<RunActionResponse>('/runs/active', HttpMethod.GET, {
+    query: {
+      teamId: params.teamId,
+      userId: params.userId,
+    },
+  });
+}
+
+export async function startRun(params: {
+  teamId: string;
+  userId: string;
+  type?: 'solo' | 'guild' | string;
+}): Promise<RunActionResponse> {
+  return dmRequest<RunActionResponse>('/runs/start', HttpMethod.POST, {
+    body: {
+      teamId: params.teamId,
+      userId: params.userId,
+      type: params.type,
+    },
+  });
+}
+
+export async function continueRun(params: {
+  teamId: string;
+  userId: string;
+  runId?: number;
+}): Promise<RunActionResponse> {
+  return dmRequest<RunActionResponse>('/runs/continue', HttpMethod.POST, {
+    body: {
+      teamId: params.teamId,
+      userId: params.userId,
+      runId: params.runId,
+    },
+  });
+}
+
+export async function finishRun(params: {
+  teamId: string;
+  userId: string;
+  runId?: number;
+}): Promise<RunActionResponse> {
+  return dmRequest<RunActionResponse>('/runs/finish', HttpMethod.POST, {
+    body: {
+      teamId: params.teamId,
+      userId: params.userId,
+      runId: params.runId,
+    },
+  });
+}
+
+export async function guildCreate(params: {
+  teamId: string;
+  userId: string;
+  name: string;
+}): Promise<SuccessResponse> {
+  return dmRequest<SuccessResponse>('/guilds/create', HttpMethod.POST, {
+    body: params,
+  });
+}
+
+export async function guildInvite(params: {
+  teamId: string;
+  userId: string;
+  targetUserId: string;
+}): Promise<SuccessResponse> {
+  return dmRequest<SuccessResponse>('/guilds/invite', HttpMethod.POST, {
+    body: params,
+  });
+}
+
+export async function guildJoin(params: {
+  teamId: string;
+  userId: string;
+  guildName?: string;
+}): Promise<SuccessResponse> {
+  return dmRequest<SuccessResponse>('/guilds/join', HttpMethod.POST, {
+    body: params,
+  });
+}
+
+export async function guildLeave(params: {
+  teamId: string;
+  userId: string;
+}): Promise<SuccessResponse> {
+  return dmRequest<SuccessResponse>('/guilds/leave', HttpMethod.POST, {
+    body: params,
+  });
+}
+
+export async function guildInfo(params: {
+  teamId: string;
+  userId: string;
+}): Promise<GuildInfoResponse> {
+  return dmRequest<GuildInfoResponse>('/guilds/info', HttpMethod.GET, {
+    query: {
+      teamId: params.teamId,
+      userId: params.userId,
+    },
+  });
+}
+
+export async function guildInvites(params: {
+  teamId: string;
+  userId: string;
+}): Promise<GuildInvitesResponse> {
+  return dmRequest<GuildInvitesResponse>('/guilds/invites', HttpMethod.GET, {
+    query: {
+      teamId: params.teamId,
+      userId: params.userId,
+    },
+  });
+}
+
 // Feedback types
 export interface SubmitFeedbackRequest {
   playerId: number;
@@ -447,6 +609,16 @@ export async function deleteFeedback(
 export const dmClient = {
   createPlayer,
   getPlayer,
+  getActiveRun,
+  startRun,
+  continueRun,
+  finishRun,
+  guildCreate,
+  guildInvite,
+  guildJoin,
+  guildLeave,
+  guildInfo,
+  guildInvites,
   guildBuyItem,
   guildSellItem,
   guildListCatalog,

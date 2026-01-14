@@ -2,7 +2,7 @@
  * Game event types following RanvierMUD's event-driven pattern
  */
 
-import { Player, Monster, Prisma } from '@mud/database';
+import { Player, Monster, Prisma, RunStatus, RunType } from '@mud/database';
 import type {
   GuildAnnouncementPayload,
   GuildTradeResponse,
@@ -49,7 +49,7 @@ export interface PlayerDeathEvent extends BaseGameEvent {
 
 export interface PlayerRespawnEvent extends BaseGameEvent {
   eventType: 'player:respawn';
-  player: Player & Prisma.SlackUserInclude;
+  player: Prisma.PlayerGetPayload<{ include: { slackUser: true } }>;
 }
 
 export interface PlayerLevelUpEvent extends BaseGameEvent {
@@ -157,6 +157,29 @@ export interface PartyDisbandEvent extends BaseGameEvent {
   partyId: number;
 }
 
+// Run Events
+export interface RunRoundEvent extends BaseGameEvent {
+  eventType: 'run:round';
+  runId: number;
+  runType: RunType;
+  round: number;
+  bankedXp: number;
+  bankedGold: number;
+  leaderId: number;
+  guildId?: number;
+}
+
+export interface RunEndEvent extends BaseGameEvent {
+  eventType: 'run:end';
+  runId: number;
+  runType: RunType;
+  status: RunStatus;
+  bankedXp: number;
+  bankedGold: number;
+  leaderId: number;
+  guildId?: number;
+}
+
 // Union type of all game events
 export type GameEvent =
   | PlayerSpawnEvent
@@ -177,6 +200,8 @@ export type GameEvent =
   | NpcQuestOfferEvent
   | PartyCreateEvent
   | PartyDisbandEvent
+  | RunRoundEvent
+  | RunEndEvent
   | GuildShopReceiptEvent
   | GuildAnnouncementDeliveredEvent;
 

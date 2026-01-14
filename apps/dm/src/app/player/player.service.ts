@@ -10,6 +10,7 @@ import {
 import {
   getPrismaClient,
   findPlayerBySlackUser,
+  findPlayerByName,
   Player,
   Prisma,
   touchWorkspaceActivity,
@@ -231,6 +232,13 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
       throw new ConflictException('Player already exists');
     }
 
+    const existingName = await this.prisma.player.findUnique({
+      where: { name },
+    });
+    if (existingName) {
+      throw new ConflictException('Character name already taken');
+    }
+
     const stats = this.generateRandomStats();
 
     const player = await this.prisma.player.create({
@@ -282,6 +290,12 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
       this.ensureCreationComplete(player);
     }
     return player;
+  }
+
+  async findPlayerByName(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    return findPlayerByName(trimmed);
   }
 
   async getAllPlayers(): Promise<Player[]> {

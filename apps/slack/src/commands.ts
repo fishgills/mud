@@ -4,6 +4,7 @@ export const COMMANDS = {
   NEW: 'new',
   HELP: 'help',
   ATTACK: 'attack',
+  RUN: 'run',
   STATS: 'stats',
   GUILD: 'guild',
   BUY: 'buy',
@@ -55,6 +56,11 @@ export const CHARACTER_ACTIONS = {
 export const COMBAT_ACTIONS = {
   SHOW_LOG: 'combat_action_show_log',
   HIDE_LOG: 'combat_action_hide_log',
+} as const;
+
+export const RUN_ACTIONS = {
+  CONTINUE: 'run_action_continue',
+  FINISH: 'run_action_finish',
 } as const;
 
 export const GUILD_SHOP_ACTIONS = {

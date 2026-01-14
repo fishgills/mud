@@ -67,7 +67,42 @@ describe('command handlers', () => {
         targetType: TargetType.Player,
         targetUserId: 'U2',
         targetTeamId: 'T1',
+        targetName: undefined,
         attackOrigin: AttackOrigin.TextPvp,
+      },
+    });
+    expect(say).not.toHaveBeenCalled();
+  });
+
+  it('attacks a player by name for ghost combat', async () => {
+    const say = makeSay();
+    mockedDmClient.attack.mockResolvedValueOnce({
+      success: true,
+      message: 'ok',
+      data: {
+        message: 'combat summary',
+        playerMessages: [
+          { teamId: 'T1', userId: 'U1', message: 'attacker wins' },
+        ],
+      },
+    });
+
+    await attackHandler.handle({
+      userId: 'U1',
+      text: 'attack @Specter',
+      say,
+      teamId: 'T1',
+    } as HandlerContext);
+
+    expect(mockedDmClient.attack).toHaveBeenCalledWith({
+      teamId: 'T1',
+      userId: 'U1',
+      input: {
+        targetType: TargetType.Player,
+        targetUserId: undefined,
+        targetTeamId: undefined,
+        targetName: 'Specter',
+        attackOrigin: undefined,
       },
     });
     expect(say).not.toHaveBeenCalled();

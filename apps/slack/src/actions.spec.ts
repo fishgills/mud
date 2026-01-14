@@ -10,6 +10,8 @@ jest.mock('./dm-client', () => {
     unequip: jest.fn(),
     getPlayer: jest.fn(),
     getMonsters: jest.fn(),
+    continueRun: jest.fn(),
+    finishRun: jest.fn(),
   };
   return {
     dmClient,
@@ -51,6 +53,8 @@ const mockedDmClient = dmClient as unknown as {
   unequip: jest.Mock;
   getPlayer: jest.Mock;
   getMonsters: jest.Mock;
+  continueRun: jest.Mock;
+  finishRun: jest.Mock;
 };
 
 type AckMock = jest.Mock<Promise<void>, unknown[]>;
@@ -174,6 +178,8 @@ describe('registerActions', () => {
     mockedDmClient.unequip.mockReset();
     mockedDmClient.getPlayer.mockReset();
     mockedDmClient.getMonsters.mockReset();
+    mockedDmClient.continueRun.mockReset();
+    mockedDmClient.finishRun.mockReset();
     const app = {
       action: jest.fn((actionId: string, handler: SlackActionHandler) => {
         actionHandlers[actionId] = handler;

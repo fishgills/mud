@@ -11,7 +11,6 @@ const COMMANDS = {
 export class FeedbackHistoryHandler extends PlayerCommandHandler {
   constructor() {
     super([COMMANDS.FEEDBACK], 'Failed to load feedback history', {
-      allowInHq: true,
       requirePlayer: true,
     });
   }

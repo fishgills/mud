@@ -14,7 +14,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: '🚀 *Quick Start*\n`new YourName` → `complete` → `attack`',
+      text: '🚀 *Quick Start*\n`new YourName` → `complete` → `run`',
     },
   },
   {
@@ -48,7 +48,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
       },
       {
         type: 'mrkdwn',
-        text: `*Combat*\n• \`${COMMANDS.ATTACK}\` - Attack a monster\n• \`${COMMANDS.ATTACK} @player\` - Attack another player\n• Combat results arrive via DM`,
+        text: `*Combat & Runs*\n• \`${COMMANDS.RUN}\` - Start a solo run\n• \`${COMMANDS.RUN} guild\` - Start a guild run\n• \`${COMMANDS.ATTACK}\` - Attack a monster\n• \`${COMMANDS.ATTACK} @name\` - Ghost duel another player\n• Combat results arrive via DM`,
       },
     ],
   },
@@ -70,6 +70,15 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     fields: [
       {
         type: 'mrkdwn',
+        text: `*Guilds*\n• \`${COMMANDS.GUILD} info\` - View your guild\n• \`${COMMANDS.GUILD} create <name>\` - Form a guild\n• \`${COMMANDS.GUILD} invite @player\` - Invite a guildmate`,
+      },
+    ],
+  },
+  {
+    type: 'section',
+    fields: [
+      {
+        type: 'mrkdwn',
         text: `*Character Info*\n• \`${COMMANDS.STATS}\` - View your stats\n• \`${COMMANDS.HELP}\` - Show this help`,
       },
     ],
@@ -78,7 +87,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: '*Game Systems*\n• Earn XP and gold from combat.\n• Combat is turn-based; agility sets turn order.\n• Unlock abilities as you level and spend points in `stats`.',
+      text: '*Game Systems*\n• Runs bank XP and gold until you cash out.\n• Combat is turn-based; agility sets turn order.\n• Unlock abilities as you level and spend points in `stats`.',
     },
   },
   {

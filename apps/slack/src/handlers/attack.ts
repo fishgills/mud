@@ -184,16 +184,18 @@ export class AttackHandler extends PlayerCommandHandler {
     if (mentionMatch || atNameMatch) {
       metrics.branch = 'direct-target';
       metrics.targetType = 'player';
-      metrics.attackOrigin = AttackOrigin.TextPvp;
-
       const targetSlackId = mentionMatch ? mentionMatch[1] : undefined;
-      if (!targetSlackId) {
+      const targetName = atNameMatch ? atNameMatch[1] : undefined;
+      metrics.attackOrigin = targetSlackId
+        ? AttackOrigin.TextPvp
+        : AttackOrigin.GhostPvp;
+      if (!targetSlackId && !targetName) {
         await say({
-          text: 'Please mention the user like "attack @username" so I can identify them.',
+          text: 'Use `attack @name` or mention the player to start a duel.',
         });
         return;
       }
-      if (targetSlackId === userId) {
+      if (targetSlackId && targetSlackId === userId) {
         await say({ text: SELF_ATTACK_ERROR });
         return;
       }
@@ -205,21 +207,30 @@ export class AttackHandler extends PlayerCommandHandler {
         input: {
           targetType: TargetType.Player,
           targetUserId: targetSlackId,
-          targetTeamId: this.teamId!,
-          attackOrigin: AttackOrigin.TextPvp,
+          targetTeamId: targetSlackId ? this.teamId! : undefined,
+          targetName,
+          attackOrigin: targetSlackId ? AttackOrigin.TextPvp : undefined,
         },
       });
       metrics.dmAttackMs = Date.now() - attackStart;
 
       if (!attackResult.success) {
+        const fallbackName = targetSlackId
+          ? `<@${targetSlackId}>`
+          : targetName
+            ? `@${targetName}`
+            : 'that player';
         await say({
           text: buildAttackFailureMessage(attackResult.message, {
             targetKind: 'player',
-            targetName: `<@${targetSlackId}>`,
+            targetName: fallbackName,
           }),
         });
 
-        if (isMissingTargetCharacterMessage(attackResult.message)) {
+        if (
+          targetSlackId &&
+          isMissingTargetCharacterMessage(attackResult.message)
+        ) {
           await notifyTargetAboutMissingCharacter(
             client,
             userId,

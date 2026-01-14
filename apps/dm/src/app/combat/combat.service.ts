@@ -733,6 +733,22 @@ export class CombatService {
       const { messages: generatedMessages, perf: generatedPerf } =
         await this.generateCombatMessages(combatLog, attacker, defender);
       messages = generatedMessages;
+      if (options.attackOrigin === AttackOrigin.GHOST_PVP) {
+        const ghostNote = 'Ghost combat: this fight crosses workspaces.';
+        messages = messages.map((message) => ({
+          ...message,
+          message: `${ghostNote}\n\n${message.message}`,
+          blocks: message.blocks
+            ? [
+                {
+                  type: 'context',
+                  elements: [{ type: 'mrkdwn', text: ghostNote }],
+                },
+                ...message.blocks,
+              ]
+            : message.blocks,
+        }));
+      }
       messagePerf = generatedPerf;
       perf.messagePrepMs = generatedPerf.totalMs;
 
@@ -886,6 +902,13 @@ export class CombatService {
     return this.initiateCombat(player, 'player', monsterId, 'monster', {
       attackOrigin,
     });
+  }
+
+  async buildPlayerCombatant(
+    teamId: string,
+    userId: string,
+  ): Promise<Combatant> {
+    return this.playerToCombatant(teamId, userId);
   }
 
   /**

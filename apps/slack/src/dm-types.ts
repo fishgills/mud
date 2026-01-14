@@ -7,6 +7,7 @@ export enum AttackOrigin {
   TextPve = 'text-pve',
   TextPvp = 'text-pvp',
   DropdownPvp = 'dropdown-pvp',
+  GhostPvp = 'ghost-pvp',
 }
 
 export enum PlayerAttribute {

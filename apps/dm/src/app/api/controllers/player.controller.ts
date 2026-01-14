@@ -22,6 +22,7 @@ import { PlayerService } from '../../player/player.service';
 import { PlayerItemService } from '../../player/player-item.service';
 import { CombatService } from '../../combat/combat.service';
 import { AppError } from '../../errors/app-error';
+import { RunsService } from '../../../modules/runs/runs.service';
 import type { CombatLog } from '../dto/combat-log.dto';
 import type {
   PlayerResponse,
@@ -80,6 +81,7 @@ export class PlayersController {
     private readonly playerService: PlayerService,
     private readonly combatService: CombatService,
     private readonly playerItemService: PlayerItemService,
+    private readonly runsService: RunsService,
   ) {}
 
   @Post()
@@ -426,7 +428,7 @@ export class PlayersController {
     }
 
     const targetType = input.targetType;
-    const attackOrigin =
+    let attackOrigin =
       input.attackOrigin ??
       (targetType === TargetType.MONSTER
         ? AttackOrigin.TEXT_PVE
@@ -440,7 +442,6 @@ export class PlayersController {
       preCombatMs: 0,
       combatMs: 0,
     };
-    perf.attackOrigin = attackOrigin;
     let targetResolutionMs: number | undefined;
 
     let errorMessage: string | undefined;
@@ -454,6 +455,7 @@ export class PlayersController {
             'targetId is required for monster attacks',
           );
         }
+        perf.attackOrigin = attackOrigin;
         const combatStart = Date.now();
         perf.preCombatMs = combatStart - start;
         result = (await this.combatService.playerAttackMonster(
@@ -466,12 +468,44 @@ export class PlayersController {
         )) as CombatResult;
         perf.combatMs = Date.now() - combatStart;
       } else if (targetType === TargetType.PLAYER) {
-        if (!input.targetUserId && typeof input.targetTeamId !== 'string') {
+        let targetTeamId = input.targetTeamId;
+        let targetUserId = input.targetUserId;
+        const targetName = input.targetName?.trim();
+
+        if (targetName) {
+          const targetStart = Date.now();
+          const targetPlayer =
+            await this.playerService.findPlayerByName(targetName);
+          targetResolutionMs = Date.now() - targetStart;
+
+          if (!targetPlayer || !targetPlayer.slackUser) {
+            throw new NotFoundException('No player found with that name.');
+          }
+
+          const targetSlack = targetPlayer.slackUser;
+          if (
+            targetSlack.teamId === teamId &&
+            targetSlack.userId === userId
+          ) {
+            throw new BadRequestException("You can't attack yourself.");
+          }
+
+          targetTeamId = targetSlack.teamId;
+          targetUserId = targetSlack.userId;
+          if (targetTeamId !== teamId) {
+            attackOrigin = AttackOrigin.GHOST_PVP;
+          } else if (!input.attackOrigin) {
+            attackOrigin = AttackOrigin.TEXT_PVP;
+          }
+        }
+
+        if (!targetUserId || typeof targetTeamId !== 'string') {
           throw new BadRequestException(
-            'Must provide targetUserId or targetId for player attacks',
+            'Must provide targetName or targetUserId for player attacks',
           );
         }
 
+        perf.attackOrigin = attackOrigin;
         const combatStart = Date.now();
         perf.preCombatMs = combatStart - start;
         result = (await this.combatService.playerAttackPlayer(
@@ -480,8 +514,8 @@ export class PlayersController {
             userId,
           },
           {
-            teamId: input.targetTeamId!,
-            userId: input.targetUserId!,
+            teamId: targetTeamId,
+            userId: targetUserId,
           },
           {
             attackOrigin,
@@ -510,6 +544,7 @@ export class PlayersController {
         perf.preCombatMs = Date.now() - start;
       }
       perf.totalMs = Date.now() - start;
+      perf.attackOrigin = attackOrigin;
       if (typeof targetResolutionMs === 'number') {
         perf.targetResolutionMs = targetResolutionMs;
       }
@@ -647,6 +682,10 @@ export class PlayersController {
     }
     try {
       const player = await this.resolvePlayerFromPayload(payload);
+      await this.runsService.ensurePlayerNotInRun(
+        player.id,
+        'Finish your run before changing equipment.',
+      );
       const updated = await this.playerItemService.equip(
         player.id,
         Number(playerItemId),
@@ -680,6 +719,10 @@ export class PlayersController {
     }
     try {
       const player = await this.resolvePlayerFromPayload(payload);
+      await this.runsService.ensurePlayerNotInRun(
+        player.id,
+        'Finish your run before changing equipment.',
+      );
       const updated = await this.playerItemService.unequip(
         player.id,
         Number(playerItemId),

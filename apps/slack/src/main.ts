@@ -115,6 +115,8 @@ import './handlers/stats';
 import './handlers/inventory';
 import './handlers/equip';
 import './handlers/feedback';
+import './handlers/guild';
+import './handlers/run';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { COMMANDS } from './commands';
 import { registerActions } from './actions';
@@ -134,7 +136,9 @@ app.event('app_mention', async ({ event, say }) => {
 • Use "${COMMANDS.DELETE}" to delete character during creation
 
 **Once you have a character:**
+• Start a run with "${COMMANDS.RUN}"
 • Attack monsters with "${COMMANDS.ATTACK}"
+• Duel a ghost with "${COMMANDS.ATTACK} @name"
 • Check stats with "${COMMANDS.STATS}"
 • Check inventory with "${COMMANDS.INVENTORY}"
 • Browse the shop with "${COMMANDS.CATALOG}"

@@ -56,6 +56,8 @@ export function mapErrCodeToFriendlyMessage(code?: string): string | null {
       return 'This item cannot be equipped.';
     case 'NOT_OWNED':
       return "You don't own that item.";
+    case 'RUN_ACTIVE':
+      return 'Finish your run before changing equipment.';
     default:
       return null;
   }

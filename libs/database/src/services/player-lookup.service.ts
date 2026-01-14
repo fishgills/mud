@@ -53,6 +53,20 @@ export async function findPlayerById(id: number) {
 }
 
 /**
+ * Find a player by their globally-unique (case-insensitive) name
+ */
+export async function findPlayerByName(name: string) {
+  const prisma = getPrismaClient();
+
+  return await prisma.player.findUnique({
+    where: { name },
+    include: {
+      slackUser: true,
+    },
+  });
+}
+
+/**
  * Find all players in a Slack workspace/team
  */
 export async function findPlayersByTeam(teamId: string) {
