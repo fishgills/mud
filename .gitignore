@@ -112,3 +112,4 @@ CHANGELOG.md
 apps/web/test-results
 apps/web/playwright-report
 .playwright-mcp
+data/certbot/conf/.certbot.lock
