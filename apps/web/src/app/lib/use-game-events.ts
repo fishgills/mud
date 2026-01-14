@@ -25,6 +25,12 @@ export const useGameEvents = (
     }
 
     const source = new EventSource(withBasePath('/api/events'));
+    source.onopen = () => {
+      console.info('[web-events] connected');
+    };
+    source.onerror = (error) => {
+      console.warn('[web-events] connection error', error);
+    };
     const types = eventTypes.length ? eventTypes : ['message'];
 
     const onEvent = (event: MessageEvent) => {

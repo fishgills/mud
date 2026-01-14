@@ -755,6 +755,15 @@ export class PlayersController {
   ): Promise<void> {
     try {
       await EventBus.emit(event);
+      this.logger.debug(
+        {
+          eventType: event.eventType,
+          playerId: event.playerId,
+          playerItemId: event.playerItemId,
+          action: event.action,
+        },
+        'player:equipment emitted',
+      );
     } catch (error) {
       this.logger.warn({ error }, 'Failed to emit player:equipment event');
     }
@@ -774,6 +783,14 @@ export class PlayersController {
           priority: 'normal',
         },
       ]);
+      this.logger.debug(
+        {
+          eventType: event.eventType,
+          teamId: event.teamId,
+          userId: event.userId,
+        },
+        'player:equipment web notification published',
+      );
     } catch (error) {
       this.logger.warn({ error }, 'Failed to publish web equipment notification');
     }

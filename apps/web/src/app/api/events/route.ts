@@ -34,6 +34,7 @@ export const GET = async (request: Request) => {
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
   const recipientId = formatWebRecipientId(session.teamId, session.userId);
+  console.info('[web-events] client connected', { recipientId });
 
   const send = async (eventName: string, payload: unknown) => {
     await writer.write(encoder.encode(buildEventMessage(eventName, payload)));
@@ -50,6 +51,10 @@ export const GET = async (request: Request) => {
       return;
     }
 
+    console.info('[web-events] delivering event', {
+      eventType: notification.event.eventType,
+      recipientId,
+    });
     void send(notification.event.eventType ?? 'message', {
       type: notification.type,
       event: notification.event,
@@ -70,6 +75,7 @@ export const GET = async (request: Request) => {
     } catch {
       // Ignore close errors on aborted connections.
     }
+    console.info('[web-events] client disconnected', { recipientId });
   };
 
   request.signal.addEventListener('abort', () => {
