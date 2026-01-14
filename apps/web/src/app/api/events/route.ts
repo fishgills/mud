@@ -16,12 +16,26 @@ const buildEventMessage = (payload: unknown, eventName?: string) => {
 };
 
 export const GET = async (request: Request) => {
+  const url = new URL(request.url);
+  const diagnostics = url.searchParams.has('diagnostics');
   const session = await getSession();
   if (!session) {
+    if (diagnostics) {
+      return Response.json(
+        { ok: false, reason: 'Unauthorized' },
+        { status: 401 },
+      );
+    }
     return new Response('Unauthorized', { status: 401 });
   }
 
   if (!process.env.REDIS_URL) {
+    if (diagnostics) {
+      return Response.json(
+        { ok: false, reason: 'REDIS_URL is not set' },
+        { status: 503 },
+      );
+    }
     return new Response('Event stream unavailable.', { status: 503 });
   }
 
@@ -30,10 +44,24 @@ export const GET = async (request: Request) => {
     stream = getWebEventStream();
     await stream.start();
   } catch (error) {
+    if (diagnostics) {
+      return Response.json(
+        {
+          ok: false,
+          reason:
+            error instanceof Error ? error.message : 'Event stream unavailable.',
+        },
+        { status: 503 },
+      );
+    }
     return new Response(
       error instanceof Error ? error.message : 'Event stream unavailable.',
       { status: 503 },
     );
+  }
+
+  if (diagnostics) {
+    return Response.json({ ok: true });
   }
 
   const { readable, writable } = new TransformStream();

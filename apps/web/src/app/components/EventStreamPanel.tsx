@@ -30,6 +30,7 @@ export default function EventStreamPanel({ enabled }: EventStreamPanelProps) {
   const [status, setStatus] = useState<'idle' | 'connected' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const counterRef = useRef(0);
+  const diagnosticsRef = useRef(0);
 
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') {
@@ -71,9 +72,49 @@ export default function EventStreamPanel({ enabled }: EventStreamPanelProps) {
       setErrorMessage(null);
     };
 
+    const runDiagnostics = async () => {
+      const now = Date.now();
+      if (now - diagnosticsRef.current < 5000) {
+        return;
+      }
+      diagnosticsRef.current = now;
+
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 2500);
+      try {
+        const response = await fetch(withBasePath('/api/events?diagnostics=1'), {
+          headers: { accept: 'application/json' },
+          signal: controller.signal,
+        });
+        const text = await response.text();
+        let reason = text;
+        try {
+          const data = JSON.parse(text) as { reason?: string };
+          if (data?.reason) {
+            reason = data.reason;
+          }
+        } catch {
+          // Leave reason as the raw response text.
+        }
+        const suffix = reason ? `: ${reason}` : '';
+        setErrorMessage(
+          `Event stream error (${response.status} ${response.statusText})${suffix}`,
+        );
+      } catch (error) {
+        const message =
+          error instanceof DOMException && error.name === 'AbortError'
+            ? 'Event stream diagnostics timed out.'
+            : 'Event stream connection error.';
+        setErrorMessage(message);
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    };
+
     source.onerror = () => {
       setStatus('error');
       setErrorMessage('Event stream connection error.');
+      void runDiagnostics();
     };
 
     source.onmessage = (event) => {
