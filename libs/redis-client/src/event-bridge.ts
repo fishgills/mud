@@ -18,6 +18,7 @@ export interface NotificationMessage {
   type: 'combat' | 'player' | 'monster' | 'party' | 'announcement' | 'run';
   recipients: NotificationRecipient[];
   event: GameEvent;
+  timestamp?: string;
 }
 
 export type NotificationRecipient =

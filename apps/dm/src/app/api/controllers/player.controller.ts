@@ -23,6 +23,8 @@ import { PlayerItemService } from '../../player/player-item.service';
 import { CombatService } from '../../combat/combat.service';
 import { AppError } from '../../errors/app-error';
 import { RunsService } from '../../../modules/runs/runs.service';
+import { EventBridgeService } from '../../../shared/event-bridge.service';
+import { EventBus, type PlayerEquipmentEvent } from '../../../shared/event-bus';
 import type { CombatLog } from '../dto/combat-log.dto';
 import type {
   PlayerResponse,
@@ -39,6 +41,7 @@ import type {
 } from '../dto/player-requests.dto';
 import { AttackOrigin, TargetType } from '../dto/player-requests.dto';
 import { getXpThresholdForLevel, getXpToNextLevel } from '@mud/constants';
+import { formatWebRecipientId } from '@mud/redis-client';
 
 interface StatsUpdatePayload {
   teamId?: string;
@@ -82,6 +85,7 @@ export class PlayersController {
     private readonly combatService: CombatService,
     private readonly playerItemService: PlayerItemService,
     private readonly runsService: RunsService,
+    private readonly eventBridge: EventBridgeService,
   ) {}
 
   @Post()
@@ -666,6 +670,19 @@ export class PlayersController {
       await this.playerService.recalculatePlayerHitPointsFromEquipment(
         player.id,
       );
+      if (payload.teamId && payload.userId) {
+        const event: PlayerEquipmentEvent = {
+          eventType: 'player:equipment',
+          playerId: player.id,
+          teamId: payload.teamId,
+          userId: payload.userId,
+          playerItemId: updated.id,
+          action: 'equip',
+          slot: updated.slot ?? slot ?? null,
+          timestamp: new Date(),
+        };
+        void this.emitEquipmentEvent(event, null);
+      }
       return { success: true, data: updated };
     } catch (error) {
       return {
@@ -702,6 +719,19 @@ export class PlayersController {
       await this.playerService.recalculatePlayerHitPointsFromEquipment(
         player.id,
       );
+      if (payload.teamId && payload.userId) {
+        const event: PlayerEquipmentEvent = {
+          eventType: 'player:equipment',
+          playerId: player.id,
+          teamId: payload.teamId,
+          userId: payload.userId,
+          playerItemId: updated.id,
+          action: 'unequip',
+          slot: updated.slot ?? null,
+          timestamp: new Date(),
+        };
+        void this.emitEquipmentEvent(event, null);
+      }
       return { success: true, data: updated };
     } catch (error) {
       return {
@@ -717,5 +747,35 @@ export class PlayersController {
     userId: string;
   }) {
     return this.playerService.getPlayer(payload.teamId, payload.userId);
+  }
+
+  private async emitEquipmentEvent(
+    event: PlayerEquipmentEvent,
+    itemName: string | null,
+  ): Promise<void> {
+    try {
+      await EventBus.emit(event);
+    } catch (error) {
+      this.logger.warn({ error }, 'Failed to emit player:equipment event');
+    }
+
+    const message =
+      event.action === 'equip'
+        ? `Equipped ${itemName ?? 'item'}.`
+        : `Unequipped ${itemName ?? 'item'}.`;
+
+    try {
+      await this.eventBridge.publishPlayerNotification(event, [
+        {
+          clientType: 'web',
+          teamId: undefined,
+          userId: formatWebRecipientId(event.teamId, event.userId),
+          message,
+          priority: 'normal',
+        },
+      ]);
+    } catch (error) {
+      this.logger.warn({ error }, 'Failed to publish web equipment notification');
+    }
   }
 }

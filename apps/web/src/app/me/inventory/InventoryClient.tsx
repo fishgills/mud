@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { InventoryItem, InventoryModel } from '@mud/inventory';
+import { useGameEvents } from '../../lib/use-game-events';
 
 type Notice = { tone: 'success' | 'error'; message: string };
 
@@ -82,6 +83,12 @@ export default function InventoryClient({
   const router = useRouter();
   const [notice, setNotice] = useState<Notice | null>(null);
   const [pending, setPending] = useState<PendingAction>(null);
+
+  const handleInventoryEvent = useCallback(() => {
+    router.refresh();
+  }, [router]);
+
+  useGameEvents(['player:equipment'], handleInventoryEvent);
 
   const handleEquip = async (item: InventoryItem) => {
     const playerItemId = item.id;

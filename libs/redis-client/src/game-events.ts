@@ -59,6 +59,16 @@ export interface PlayerLevelUpEvent extends BaseGameEvent {
   skillPointsGained: number;
 }
 
+export interface PlayerEquipmentEvent extends BaseGameEvent {
+  eventType: 'player:equipment';
+  playerId: number;
+  teamId: string;
+  userId: string;
+  playerItemId: number;
+  action: 'equip' | 'unequip';
+  slot?: string | null;
+}
+
 export interface PlayerJoinPartyEvent extends BaseGameEvent {
   eventType: 'player:party:join';
   player: Player;
@@ -187,6 +197,7 @@ export type GameEvent =
   | PlayerDeathEvent
   | PlayerRespawnEvent
   | PlayerLevelUpEvent
+  | PlayerEquipmentEvent
   | PlayerJoinPartyEvent
   | PlayerLeavePartyEvent
   | CombatStartEvent

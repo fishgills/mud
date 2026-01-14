@@ -37,12 +37,17 @@ const createRunsService = () => ({
   ensurePlayerNotInRun: jest.fn(),
 });
 
+const createEventBridgeService = () => ({
+  publishPlayerNotification: jest.fn(),
+});
+
 describe('PlayersController', () => {
   let controller: PlayersController;
   let playerService: ReturnType<typeof createPlayerService>;
   let combatService: ReturnType<typeof createCombatService>;
   let playerItemService: ReturnType<typeof createPlayerItemService>;
   let runsService: ReturnType<typeof createRunsService>;
+  let eventBridge: ReturnType<typeof createEventBridgeService>;
 
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date('2024-01-01T00:00:00Z'));
@@ -50,11 +55,13 @@ describe('PlayersController', () => {
     combatService = createCombatService();
     playerItemService = createPlayerItemService();
     runsService = createRunsService();
+    eventBridge = createEventBridgeService();
     controller = new PlayersController(
       playerService as never,
       combatService as never,
       playerItemService as never,
       runsService as never,
+      eventBridge as never,
     );
   });
 

@@ -7,6 +7,7 @@ export type {
   PlayerDeathEvent,
   PlayerRespawnEvent,
   PlayerLevelUpEvent,
+  PlayerEquipmentEvent,
   PlayerJoinPartyEvent,
   PlayerLeavePartyEvent,
   CombatStartEvent,

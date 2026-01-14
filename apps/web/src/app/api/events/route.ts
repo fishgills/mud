@@ -1,0 +1,88 @@
+import { getSession } from '../../lib/slack-auth';
+import { getWebEventStream } from '../../lib/web-event-stream';
+import { formatWebRecipientId } from '@mud/redis-client';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+const encoder = new TextEncoder();
+
+const buildEventMessage = (eventName: string, payload: unknown) =>
+  `event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`;
+
+export const GET = async (request: Request) => {
+  const session = await getSession();
+  if (!session) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  if (!process.env.REDIS_URL) {
+    return new Response('Event stream unavailable.', { status: 503 });
+  }
+
+  let stream: ReturnType<typeof getWebEventStream>;
+  try {
+    stream = getWebEventStream();
+    await stream.start();
+  } catch (error) {
+    return new Response(
+      error instanceof Error ? error.message : 'Event stream unavailable.',
+      { status: 503 },
+    );
+  }
+
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const recipientId = formatWebRecipientId(session.teamId, session.userId);
+
+  const send = async (eventName: string, payload: unknown) => {
+    await writer.write(encoder.encode(buildEventMessage(eventName, payload)));
+  };
+
+  const unsubscribe = stream.subscribe((notification) => {
+    const recipient = notification.recipients.find(
+      (entry) =>
+        entry.clientType === 'web' &&
+        typeof entry.userId === 'string' &&
+        entry.userId === recipientId,
+    );
+    if (!recipient) {
+      return;
+    }
+
+    void send(notification.event.eventType ?? 'message', {
+      type: notification.type,
+      event: notification.event,
+      message: recipient.message,
+      timestamp: notification.timestamp,
+    });
+  });
+
+  const ping = setInterval(() => {
+    void writer.write(encoder.encode(': ping\n\n'));
+  }, 25000);
+
+  const close = async () => {
+    clearInterval(ping);
+    unsubscribe();
+    try {
+      await writer.close();
+    } catch {
+      // Ignore close errors on aborted connections.
+    }
+  };
+
+  request.signal.addEventListener('abort', () => {
+    void close();
+  });
+
+  await send('ready', { ok: true });
+
+  return new Response(readable, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+    },
+  });
+};

@@ -8,3 +8,4 @@
 
 export * from './event-bridge.js';
 export * from './game-events.js';
+export * from './recipients.js';
