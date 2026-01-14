@@ -70,7 +70,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     fields: [
       {
         type: 'mrkdwn',
-        text: `*Guilds*\n• \`${COMMANDS.GUILD} info\` - View your guild\n• \`${COMMANDS.GUILD} create <name>\` - Form a guild\n• \`${COMMANDS.GUILD} invite @player\` - Invite a guildmate`,
+        text: `*Guilds*\n• \`${COMMANDS.GUILD} info\` - View your guild\n• \`${COMMANDS.GUILD} create <name>\` - Form a guild\n• \`${COMMANDS.GUILD} invite @player\` - Invite a guildmate\n• \`${COMMANDS.GUILD} invites\` - View pending invites\n• \`${COMMANDS.GUILD} join [name]\` - Accept an invite\n• \`${COMMANDS.GUILD} leave\` - Leave (disbands if you are the last member)`,
       },
     ],
   },
