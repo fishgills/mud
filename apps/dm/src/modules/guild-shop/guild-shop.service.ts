@@ -116,7 +116,10 @@ export class GuildShopService {
         correlationId,
       };
 
-      await this.publisher.publishReceipt(response);
+      await this.publisher.publishReceipt(response, {
+        teamId: data.teamId,
+        userId: data.userId,
+      });
       return response;
     } catch (error) {
       this.logger.warn('Guild shop purchase failed', error as Error);
@@ -180,7 +183,10 @@ export class GuildShopService {
         itemQuality: result.itemQuality,
       };
 
-      await this.publisher.publishReceipt(response);
+      await this.publisher.publishReceipt(response, {
+        teamId: data.teamId,
+        userId: data.userId,
+      });
       return response;
     } catch (error) {
       this.logger.warn('Guild shop sale failed', error as Error);

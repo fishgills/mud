@@ -88,7 +88,7 @@ export default function InventoryClient({
     router.refresh();
   }, [router]);
 
-  useGameEvents(['player:equipment'], handleInventoryEvent);
+  useGameEvents(['player:equipment', 'guild.shop.receipt'], handleInventoryEvent);
 
   const handleEquip = async (item: InventoryItem) => {
     const playerItemId = item.id;

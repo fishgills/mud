@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ItemStatLine } from '@mud/inventory';
 import type { GuildTradeResponse } from '@mud/api-contracts';
+import { useGameEvents } from '../../lib/use-game-events';
 
 export type ShopCatalogItemView = {
   sku: string;
@@ -67,6 +68,12 @@ export default function ShopClient({ catalog, sellItems }: ShopClientProps) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [pendingSku, setPendingSku] = useState<string | null>(null);
   const [pendingSellId, setPendingSellId] = useState<number | null>(null);
+
+  const handleShopEvent = useCallback(() => {
+    router.refresh();
+  }, [router]);
+
+  useGameEvents(['guild.shop.receipt'], handleShopEvent);
 
   const handleBuy = async (sku: string) => {
     setNotice(null);
