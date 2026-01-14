@@ -256,7 +256,7 @@ describe('PlayersController', () => {
     ).rejects.toThrow('input is required');
   });
 
-  it('rejects monster combat requests outside runs', async () => {
+  it('rejects monster combat requests outside raids', async () => {
     const response = await controller.attack({
       teamId: 'T1',
       userId: 'U1',
@@ -264,7 +264,7 @@ describe('PlayersController', () => {
     });
 
     expect(response.success).toBe(false);
-    expect(response.message).toBe('PvE combat is only available through runs.');
+    expect(response.message).toBe('PvE combat is only available through raids.');
   });
 
   it('routes player duels through combat service', async () => {
@@ -347,7 +347,7 @@ describe('PlayersController', () => {
     });
     expect(runsService.ensurePlayerNotInRun).toHaveBeenCalledWith(
       1,
-      'Finish your run before changing equipment.',
+      'Finish your raid before changing equipment.',
     );
     expect(
       playerService.recalculatePlayerHitPointsFromEquipment,
@@ -362,7 +362,7 @@ describe('PlayersController', () => {
     });
     expect(runsService.ensurePlayerNotInRun).toHaveBeenCalledWith(
       1,
-      'Finish your run before changing equipment.',
+      'Finish your raid before changing equipment.',
     );
     expect(unequip.success).toBe(true);
 

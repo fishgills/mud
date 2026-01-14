@@ -995,7 +995,7 @@ describe('registerActions', () => {
                   {
                     type: 'button',
                     action_id: RUN_ACTIONS.FINISH,
-                    text: { type: 'plain_text', text: 'Finish Run' },
+                    text: { type: 'plain_text', text: 'Finish Raid' },
                   },
                   {
                     type: 'button',

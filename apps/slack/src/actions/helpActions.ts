@@ -96,7 +96,7 @@ const helpDetailMessages: Record<string, HelpDetailMessage> = {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*Actions*\n• Use \`${COMMANDS.ATTACK} @name\` to duel another player.\n• Choose your next move when run combat prompts appear.\n• Watch the combat log for status effects, cooldowns, and enemy intents.`,
+          text: `*Actions*\n• Use \`${COMMANDS.ATTACK} @name\` to duel another player.\n• Choose your next move when raid combat prompts appear.\n• Watch the combat log for status effects, cooldowns, and enemy intents.`,
         },
       },
       {

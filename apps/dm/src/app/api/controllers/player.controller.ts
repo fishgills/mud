@@ -431,7 +431,7 @@ export class PlayersController {
     if (targetType !== TargetType.PLAYER) {
       return {
         success: false,
-        message: 'PvE combat is only available through runs.',
+        message: 'PvE combat is only available through raids.',
       };
     }
 
@@ -656,7 +656,7 @@ export class PlayersController {
       const player = await this.resolvePlayerFromPayload(payload);
       await this.runsService.ensurePlayerNotInRun(
         player.id,
-        'Finish your run before changing equipment.',
+        'Finish your raid before changing equipment.',
       );
       const updated = await this.playerItemService.equip(
         player.id,
@@ -693,7 +693,7 @@ export class PlayersController {
       const player = await this.resolvePlayerFromPayload(payload);
       await this.runsService.ensurePlayerNotInRun(
         player.id,
-        'Finish your run before changing equipment.',
+        'Finish your raid before changing equipment.',
       );
       const updated = await this.playerItemService.unequip(
         player.id,

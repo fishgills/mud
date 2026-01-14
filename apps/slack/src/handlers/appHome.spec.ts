@@ -189,7 +189,7 @@ describe('buildAppHomeBlocks', () => {
     });
   });
 
-  it('shows a continue run action for active run leaders', async () => {
+  it('shows a continue raid action for active run leaders', async () => {
     mockedGetPlayer.mockResolvedValueOnce({
       success: true,
       data: {

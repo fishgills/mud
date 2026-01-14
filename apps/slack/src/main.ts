@@ -154,7 +154,7 @@ app.event('app_mention', async ({ event, say }) => {
 • Use "${COMMANDS.DELETE}" to delete character during creation
 
 **Once you have a character:**
-• Start a run with "${COMMANDS.RUN}"
+• Start a raid with "${COMMANDS.RUN}"
 • Duel another player with "${COMMANDS.ATTACK} @name"
 • Check stats with "${COMMANDS.STATS}"
 • Check inventory with "${COMMANDS.INVENTORY}"

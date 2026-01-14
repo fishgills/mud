@@ -202,7 +202,7 @@ export const buildAppHomeBlocks = async (
   const primaryHomeAction = isRunLeader
     ? {
         type: 'button' as const,
-        text: { type: 'plain_text' as const, text: 'Continue Run' },
+        text: { type: 'plain_text' as const, text: 'Continue Raid' },
         style: 'primary' as const,
         action_id: HOME_ACTIONS.CONTINUE_RUN,
       }

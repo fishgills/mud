@@ -112,7 +112,7 @@ export function mapErrCodeToFriendlyMessage(code?: string): string | null {
     case 'NOT_OWNED':
       return "You don't own that item.";
     case 'RUN_ACTIVE':
-      return 'Finish your run before changing equipment.';
+      return 'Finish your raid before changing equipment.';
     default:
       return null;
   }

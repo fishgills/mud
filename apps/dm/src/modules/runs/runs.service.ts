@@ -88,7 +88,7 @@ export class RunsService {
     );
     if (activeRun) {
       throw new BadRequestException(
-        'A guild member is already in an active run.',
+        'A guild member is already in an active raid.',
       );
     }
 
@@ -129,7 +129,7 @@ export class RunsService {
 
     const run = await this.requireActiveRun(runId, player.id);
     if (run.leaderPlayerId !== player.id) {
-      throw new BadRequestException('Only the run leader can continue.');
+      throw new BadRequestException('Only the raid leader can continue.');
     }
 
     await this.resolveNextRound(run.id, player.id);
@@ -143,12 +143,12 @@ export class RunsService {
 
     const run = await this.requireActiveRun(runId, player.id);
     if (run.leaderPlayerId !== player.id) {
-      throw new BadRequestException('Only the run leader can finish the run.');
+      throw new BadRequestException('Only the raid leader can finish the raid.');
     }
 
     const runWithParticipants = await this.loadRunWithParticipants(run.id);
     if (!runWithParticipants) {
-      throw new BadRequestException('Run not found.');
+      throw new BadRequestException('Raid not found.');
     }
 
     const endTime = new Date();
@@ -186,7 +186,7 @@ export class RunsService {
 
     await this.publishRunEndNotifications(runWithParticipants, {
       status: RunStatus.CASHED_OUT,
-      message: `Run complete! You earned ${bankedXp} XP and ${bankedGold} gold.`,
+      message: `Raid complete! You earned ${bankedXp} XP and ${bankedGold} gold.`,
     });
 
     return runWithParticipants;
@@ -235,14 +235,14 @@ export class RunsService {
         include: { run: true },
       });
       if (!participant?.run || participant.run.status !== RunStatus.ACTIVE) {
-        throw new BadRequestException('No active run found.');
+        throw new BadRequestException('No active raid found.');
       }
       return participant.run;
     }
 
     const active = await this.getActiveRunForPlayer(playerId);
     if (!active?.run) {
-      throw new BadRequestException('No active run found.');
+      throw new BadRequestException('No active raid found.');
     }
     return active.run;
   }
@@ -278,18 +278,18 @@ export class RunsService {
   private async resolveNextRound(runId: number, leaderId: number) {
     const run = await this.loadRunWithParticipants(runId);
     if (!run) {
-      throw new BadRequestException('Run not found.');
+      throw new BadRequestException('Raid not found.');
     }
 
     if (run.status !== RunStatus.ACTIVE) {
-      throw new BadRequestException('Run is no longer active.');
+      throw new BadRequestException('Raid is no longer active.');
     }
 
     const leader = run.participants.find((participant) =>
       participant.playerId === leaderId,
     );
     if (!leader) {
-      throw new BadRequestException('Run leader not found.');
+      throw new BadRequestException('Raid leader not found.');
     }
 
     const roundNumber = run.round + 1;
@@ -302,7 +302,7 @@ export class RunsService {
 
     const leaderSlack = leader.player.slackUser;
     if (!leaderSlack) {
-      throw new BadRequestException('Run leader is missing Slack identity.');
+      throw new BadRequestException('Raid leader is missing Slack identity.');
     }
 
     const playerCombatant = await this.combatService.buildPlayerCombatant(
@@ -338,7 +338,7 @@ export class RunsService {
       run.bankedXp = 0;
       run.bankedGold = 0;
 
-      const summary = `Run failed. Round ${roundNumber} complete. ${monster.name} defeated the party.`;
+      const summary = `Raid failed. Round ${roundNumber} complete. ${monster.name} defeated the party.`;
       const rewards = 'Banked rewards: 0 XP, 0 gold.';
       await this.publishRunEndNotifications(run, {
         status: RunStatus.FAILED,
@@ -489,7 +489,7 @@ export class RunsService {
           },
           {
             type: 'button',
-            text: { type: 'plain_text', text: 'Finish Run', emoji: true },
+            text: { type: 'plain_text', text: 'Finish Raid', emoji: true },
             style: 'danger',
             action_id: RUN_ACTION_FINISH,
             value: String(params.runId),
@@ -548,7 +548,7 @@ export class RunsService {
       const isLeader = participant.playerId === run.leaderPlayerId;
       const leaderSummary = `Round ${params.round} complete. ${params.monsterName} was defeated.`;
       const rewards = `Banked rewards: ${params.bankedXp} XP, ${params.bankedGold} gold (+${params.roundXp} XP, +${params.roundGold} gold this round).`;
-      const participantSummary = `Guild run round ${params.round} complete. Banked rewards: ${params.bankedXp} XP, ${params.bankedGold} gold.`;
+      const participantSummary = `Guild raid round ${params.round} complete. Banked rewards: ${params.bankedXp} XP, ${params.bankedGold} gold.`;
       const message = isLeader
         ? `${leaderSummary}\n${rewards}\n\n${params.combatLogText}`
         : `${participantSummary}\n\n${params.combatLogText}`;

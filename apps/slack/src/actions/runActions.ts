@@ -54,7 +54,7 @@ export const registerRunActions = (app: App) => {
             client,
             userId,
             channelId,
-            text: result.message ?? 'Unable to continue the run.',
+            text: result.message ?? 'Unable to continue the raid.',
           });
           return;
         }
@@ -62,12 +62,12 @@ export const registerRunActions = (app: App) => {
           client,
           userId,
           channelId,
-          text: 'Continuing the run. Check your DMs for the next round.',
+          text: 'Continuing the raid. Check your DMs for the next round.',
         });
       } catch (err) {
         const message = getUserFriendlyErrorMessage(
           err,
-          'Unable to continue the run.',
+          'Unable to continue the raid.',
         );
         await postToUser({ client, userId, channelId, text: message });
       }
@@ -97,7 +97,7 @@ export const registerRunActions = (app: App) => {
             client,
             userId,
             channelId,
-            text: result.message ?? 'Unable to finish the run.',
+            text: result.message ?? 'Unable to finish the raid.',
           });
           return;
         }
@@ -105,12 +105,12 @@ export const registerRunActions = (app: App) => {
           client,
           userId,
           channelId,
-          text: 'Run cashed out. Rewards are on the way.',
+          text: 'Raid cashed out. Rewards are on the way.',
         });
       } catch (err) {
         const message = getUserFriendlyErrorMessage(
           err,
-          'Unable to finish the run.',
+          'Unable to finish the raid.',
         );
         await postToUser({ client, userId, channelId, text: message });
       }

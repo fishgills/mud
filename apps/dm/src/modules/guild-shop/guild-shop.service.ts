@@ -72,7 +72,7 @@ export class GuildShopService {
     );
     const activeRun = await this.runsService.getActiveRunForPlayer(player.id);
     if (activeRun) {
-      throw new BadRequestException('Finish your run before trading.');
+      throw new BadRequestException('Finish your raid before trading.');
     }
 
     const searchTerm = data.sku ?? data.item;
@@ -130,7 +130,7 @@ export class GuildShopService {
     );
     const activeRun = await this.runsService.getActiveRunForPlayer(player.id);
     if (activeRun) {
-      throw new BadRequestException('Finish your run before trading.');
+      throw new BadRequestException('Finish your raid before trading.');
     }
 
     const quantity = data.quantity && data.quantity > 0 ? data.quantity : 1;

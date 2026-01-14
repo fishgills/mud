@@ -11,11 +11,11 @@ const renderRunSummary = (run: {
   bankedXp: number;
   bankedGold: number;
 }) =>
-  `Active ${formatRunType(run.runType)} run - round ${run.round}. Banked rewards: ${run.bankedXp} XP, ${run.bankedGold} gold.`;
+  `Active ${formatRunType(run.runType)} raid - round ${run.round}. Banked rewards: ${run.bankedXp} XP, ${run.bankedGold} gold.`;
 
 export class RunHandler extends PlayerCommandHandler {
   constructor() {
-    super(COMMANDS.RUN, 'Unable to start a run');
+    super(COMMANDS.RUN, 'Unable to start a raid');
   }
 
   protected async perform({ teamId, userId, text, say }: HandlerContext) {
@@ -25,11 +25,11 @@ export class RunHandler extends PlayerCommandHandler {
     if (subcommand === 'status' || subcommand === 'info') {
       const active = await this.dm.getActiveRun({ teamId, userId });
       if (!active.success) {
-        await say({ text: active.message ?? 'Unable to load run status.' });
+        await say({ text: active.message ?? 'Unable to load raid status.' });
         return;
       }
       if (!active.data) {
-        await say({ text: 'You do not have an active run.' });
+        await say({ text: 'You do not have an active raid.' });
         return;
       }
       await say({ text: renderRunSummary(active.data) });
@@ -50,7 +50,7 @@ export class RunHandler extends PlayerCommandHandler {
           : undefined;
     if (subcommand && !runType) {
       await say({
-        text: `Try \`${COMMANDS.RUN}\`, \`${COMMANDS.RUN} solo\`, or \`${COMMANDS.RUN} guild\` to start a run.`,
+        text: `Try \`${COMMANDS.RUN}\`, \`${COMMANDS.RUN} solo\`, or \`${COMMANDS.RUN} guild\` to start a raid.`,
       });
       return;
     }
@@ -62,12 +62,12 @@ export class RunHandler extends PlayerCommandHandler {
     });
 
     if (!result.success) {
-      await say({ text: result.message ?? 'Unable to start a run.' });
+      await say({ text: result.message ?? 'Unable to start a raid.' });
       return;
     }
 
     await say({
-      text: 'Run started. Check your DMs for round results.',
+      text: 'Raid started. Check your DMs for round results.',
     });
   }
 }

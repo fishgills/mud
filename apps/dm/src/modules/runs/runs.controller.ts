@@ -77,7 +77,7 @@ export class RunsController {
     } catch (error) {
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Failed to start run',
+        message: error instanceof Error ? error.message : 'Failed to start raid',
       };
     }
   }
@@ -108,7 +108,7 @@ export class RunsController {
       return {
         success: false,
         message:
-          error instanceof Error ? error.message : 'Failed to continue run',
+          error instanceof Error ? error.message : 'Failed to continue raid',
       };
     }
   }
@@ -137,7 +137,8 @@ export class RunsController {
     } catch (error) {
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'Failed to finish run',
+        message:
+          error instanceof Error ? error.message : 'Failed to finish raid',
       };
     }
   }

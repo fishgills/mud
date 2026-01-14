@@ -48,7 +48,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
       },
       {
         type: 'mrkdwn',
-        text: `*Combat & Runs*\n• \`${COMMANDS.RUN}\` - Start a solo run\n• \`${COMMANDS.RUN} guild\` - Start a guild run\n• \`${COMMANDS.CONTINUE}\` - Continue your active run\n• \`${COMMANDS.ATTACK} @name\` - Duel another player\n• Combat results arrive via DM`,
+        text: `*Combat & Raids*\n• \`${COMMANDS.RUN}\` - Start a solo raid\n• \`${COMMANDS.RUN} guild\` - Start a guild raid\n• \`${COMMANDS.CONTINUE}\` - Continue your active raid\n• \`${COMMANDS.ATTACK} @name\` - Duel another player\n• Combat results arrive via DM`,
       },
     ],
   },
@@ -87,7 +87,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: '*Game Systems*\n• Runs bank XP and gold until you cash out.\n• Combat is turn-based; agility sets turn order.\n• Unlock abilities as you level and spend points in `stats`.',
+      text: '*Game Systems*\n• Raids bank XP and gold until you cash out.\n• Combat is turn-based; agility sets turn order.\n• Unlock abilities as you level and spend points in `stats`.',
     },
   },
   {

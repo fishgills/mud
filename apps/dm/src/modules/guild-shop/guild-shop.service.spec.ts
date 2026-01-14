@@ -67,7 +67,7 @@ describe('guild-shop GuildShopService', () => {
     expect(repository.findCatalogItemBySku).toHaveBeenCalledWith('potion');
   });
 
-  it('blocks purchases while a run is active', async () => {
+  it('blocks purchases while a raid is active', async () => {
     const service = makeService();
     runsService.getActiveRunForPlayer.mockResolvedValue({ runId: 1 });
 
@@ -77,7 +77,7 @@ describe('guild-shop GuildShopService', () => {
         userId: 'U1',
         sku: 'potion',
       }),
-    ).rejects.toThrow('Finish your run before trading.');
+    ).rejects.toThrow('Finish your raid before trading.');
   });
 
   it('sells player item and publishes receipt', async () => {
