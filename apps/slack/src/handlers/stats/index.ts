@@ -7,6 +7,7 @@ import { fetchPlayerRecord } from './lookup';
 import { resolveTarget } from './target';
 import { PlayerStatsSource } from './types';
 import { MISSING_CHARACTER_MESSAGE } from '../characterUtils';
+import { buildCharacterSheetModal } from './modal';
 
 export const statsHandlerHelp = `Show stats with "${COMMANDS.STATS}". Example: Send "${COMMANDS.STATS}" for yourself or "${COMMANDS.STATS} @player" to inspect another adventurer.`;
 
@@ -15,10 +16,32 @@ async function respondWithPlayer(
   player: PlayerStatsSource | undefined,
   message: string | undefined,
   fallbackMessage: string,
-  options: { isSelf?: boolean } = {},
+  options: {
+    isSelf?: boolean;
+    triggerId?: string;
+    client?: HandlerContext['client'];
+    teamId?: string;
+    userId?: string;
+  } = {},
 ) {
   if (player) {
-    await say(buildPlayerStatsMessage(player, { isSelf: options.isSelf }));
+    if (
+      options.client?.views?.open &&
+      options.triggerId &&
+      options.teamId &&
+      options.userId
+    ) {
+      await options.client.views.open({
+        trigger_id: options.triggerId,
+        view: buildCharacterSheetModal(player, {
+          teamId: options.teamId,
+          userId: options.userId,
+          isSelf: Boolean(options.isSelf),
+        }),
+      });
+      return;
+    }
+    await say(buildPlayerStatsMessage(player));
     return;
   }
 
@@ -31,6 +54,8 @@ export const statsHandler = async ({
   text,
   resolveUserId,
   teamId,
+  client,
+  triggerId,
 }: HandlerContext) => {
   try {
     const target = await resolveTarget(text, userId, resolveUserId);
@@ -42,6 +67,10 @@ export const statsHandler = async ({
       );
       await respondWithPlayer(say, player, message, MISSING_CHARACTER_MESSAGE, {
         isSelf: true,
+        triggerId,
+        client,
+        teamId,
+        userId,
       });
       return;
     }
@@ -58,6 +87,10 @@ export const statsHandler = async ({
       );
       await respondWithPlayer(say, player, message, fallbackMessage, {
         isSelf: isSelfLookup,
+        triggerId,
+        client,
+        teamId,
+        userId,
       });
       return;
     }

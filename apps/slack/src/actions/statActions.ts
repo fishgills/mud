@@ -1,76 +1,14 @@
 import type { App, BlockAction, ViewSubmitAction } from '@slack/bolt';
-import type { KnownBlock, ModalView } from '@slack/types';
 import { STAT_ACTIONS } from '../commands';
 import { dmClient } from '../dm-client';
-import { PlayerAttribute } from '../dm-types';
-import { buildPlayerStatsMessage } from '../handlers/stats/format';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
 import { buildAppHomeBlocks } from '../handlers/appHome';
-
-const LEVEL_UP_VIEW_ID = 'level_up_view';
-
-const attributeOptions = [
-  { label: 'Strength', value: PlayerAttribute.Strength },
-  { label: 'Agility', value: PlayerAttribute.Agility },
-  { label: 'Vitality', value: PlayerAttribute.Health },
-];
-
-const buildLevelUpView = (params: {
-  teamId: string;
-  userId: string;
-  skillPoints: number;
-}): ModalView => {
-  const blocks: KnownBlock[] = [
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `Fate grants you *${params.skillPoints}* skill point${
-          params.skillPoints === 1 ? '' : 's'
-        } to spend.`,
-      },
-    },
-    {
-      type: 'input',
-      block_id: 'attribute_block',
-      label: { type: 'plain_text', text: 'Choose your boon' },
-      element: {
-        type: 'static_select',
-        action_id: 'selected_attribute',
-        placeholder: {
-          type: 'plain_text',
-          text: 'Select Strength, Agility, or Vitality',
-        },
-        options: attributeOptions.map((option) => ({
-          text: { type: 'plain_text', text: option.label },
-          value: option.value,
-        })),
-      },
-    },
-    {
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: 'Each point permanently increases your chosen attribute.',
-        },
-      ],
-    },
-  ];
-
-  return {
-    type: 'modal',
-    callback_id: LEVEL_UP_VIEW_ID,
-    private_metadata: JSON.stringify({
-      teamId: params.teamId,
-      userId: params.userId,
-    }),
-    title: { type: 'plain_text', text: 'Level Up' },
-    submit: { type: 'plain_text', text: 'Claim Power' },
-    close: { type: 'plain_text', text: 'Cancel' },
-    blocks,
-  };
-};
+import {
+  buildCharacterSheetModal,
+  CHARACTER_SHEET_VIEW_ID,
+  parseSkillPointAttribute,
+  SKILL_POINT_BLOCK_ID,
+} from '../handlers/stats/modal';
 
 export const registerStatActions = (app: App) => {
   app.action<BlockAction>(
@@ -105,30 +43,18 @@ export const registerStatActions = (app: App) => {
           return;
         }
 
-        const skillPoints = player.skillPoints ?? 0;
-        if (skillPoints <= 0) {
-          if (respond) {
-            await respond({
-              text: 'No skill points to spend yet. Win more battles!',
-              response_type: 'ephemeral',
-              replace_original: false,
-            });
-          }
-          return;
-        }
-
         await client.views.open({
           trigger_id: triggerId,
-          view: buildLevelUpView({
+          view: buildCharacterSheetModal(player, {
             teamId,
             userId,
-            skillPoints,
+            isSelf: true,
           }),
         });
       } catch (err) {
         const errorMessage = getUserFriendlyErrorMessage(
           err,
-          'Failed to open the level up view',
+          'Failed to open the character sheet',
         );
         if (respond) {
           await respond({
@@ -142,22 +68,20 @@ export const registerStatActions = (app: App) => {
   );
 
   app.view<ViewSubmitAction>(
-    LEVEL_UP_VIEW_ID,
+    CHARACTER_SHEET_VIEW_ID,
     async ({ ack, view, client }) => {
       const meta = view.private_metadata
         ? JSON.parse(view.private_metadata)
         : null;
       const teamId = meta?.teamId as string | undefined;
       const userId = meta?.userId as string | undefined;
-      const attribute =
-        view.state.values?.attribute_block?.selected_attribute?.selected_option
-          ?.value;
+      const attribute = parseSkillPointAttribute(view.state.values);
 
       if (!attribute) {
         await ack({
           response_action: 'errors',
           errors: {
-            attribute_block: 'Select an attribute to increase.',
+            [SKILL_POINT_BLOCK_ID]: 'Select an attribute to increase.',
           },
         });
         return;
@@ -178,27 +102,21 @@ export const registerStatActions = (app: App) => {
           await ack({
             response_action: 'errors',
             errors: {
-              attribute_block:
+              [SKILL_POINT_BLOCK_ID]:
                 result.message ?? 'Unable to spend a skill point right now.',
             },
           });
           return;
         }
 
-        await ack();
-
-        const dm = await client.conversations.open({ users: userId });
-        const channel = dm.channel?.id;
-        if (channel) {
-          const statsMessage = buildPlayerStatsMessage(result.data, {
+        await ack({
+          response_action: 'update',
+          view: buildCharacterSheetModal(result.data, {
+            teamId,
+            userId,
             isSelf: true,
-          });
-          await client.chat.postMessage({
-            channel,
-            text: statsMessage.text,
-            blocks: statsMessage.blocks ?? [],
-          });
-        }
+          }),
+        });
 
         if (client.views?.publish) {
           try {
@@ -219,7 +137,7 @@ export const registerStatActions = (app: App) => {
         await ack({
           response_action: 'errors',
           errors: {
-            attribute_block: getUserFriendlyErrorMessage(
+            [SKILL_POINT_BLOCK_ID]: getUserFriendlyErrorMessage(
               err,
               'Failed to spend a skill point',
             ),

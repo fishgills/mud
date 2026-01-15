@@ -197,44 +197,34 @@ describe('registerActions', () => {
     resetHandlers();
   });
 
-  it('dispatches help quick actions via DM', async () => {
-    const statsHandler = jest
-      .fn<Promise<void>, [HandlerContext]>()
-      .mockImplementation(async (ctx) => {
-        await ctx.say({ text: 'stats result' });
-      });
-    handlers[COMMANDS.STATS] = async (ctx) => statsHandler(ctx);
-
+  it('opens the stats modal from help actions', async () => {
+    mockedDmClient.getPlayer.mockResolvedValueOnce({
+      success: true,
+      data: { id: 1, name: 'Hero', skillPoints: 0 },
+    });
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+    const viewsOpen = jest
+      .fn()
+      .mockResolvedValue(undefined) as ViewsOpenMock;
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
           channel: { id: 'C1' },
         }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+      chat: createChatMocks(),
+      views: { open: viewsOpen },
     };
 
     await actionHandlers[HELP_ACTIONS.STATS]({
       ack,
-      body: { user: { id: 'U123' }, team: { id: 'T1' } },
+      body: { user: { id: 'U123' }, team: { id: 'T1' }, trigger_id: 'T1' },
       client,
       context: { teamId: 'T1' },
     });
 
     expect(ack).toHaveBeenCalled();
-    expect(client.conversations.open).toHaveBeenCalledWith({ users: 'U123' });
-    expect(client.chat.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ channel: 'C1' }),
-    );
-    expect(statsHandler).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'U123', text: COMMANDS.STATS }),
-    );
+    expect(viewsOpen).toHaveBeenCalled();
   });
 
   it('sends deep-dive help messages when detail buttons are clicked', async () => {
@@ -397,18 +387,17 @@ describe('registerActions', () => {
 
   it('handles missing userId in help actions', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+    const viewsOpen = jest
+      .fn()
+      .mockResolvedValue(undefined) as ViewsOpenMock;
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
           channel: { id: 'C1' },
         }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+      chat: createChatMocks(),
+      views: { open: viewsOpen },
     };
 
     await actionHandlers[HELP_ACTIONS.STATS]({
@@ -419,51 +408,23 @@ describe('registerActions', () => {
     });
 
     expect(ack).toHaveBeenCalled();
-    expect(client.conversations.open).not.toHaveBeenCalled();
+    expect(viewsOpen).not.toHaveBeenCalled();
   });
 
-  it('handles missing channel in dispatchCommandViaDM', async () => {
-    const handler = jest.fn<Promise<void>, [HandlerContext]>();
-    handlers[COMMANDS.STATS] = handler;
-
+  it('does not open stats modal without a trigger id', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
-    const client: MockSlackClient = {
-      conversations: {
-        open: jest.fn().mockResolvedValue({
-          channel: null,
-        }) as ConversationsOpenMock,
-      },
-      chat: createChatMocks(),
-    };
-
-    await actionHandlers[HELP_ACTIONS.STATS]({
-      ack,
-      body: { user: { id: 'U1' }, team: { id: 'T1' } },
-      client,
-      context: { teamId: 'T1' },
-    });
-
-    expect(handler).not.toHaveBeenCalled();
-  });
-
-  it('handles missing handler in dispatchCommandViaDM', async () => {
-    const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+    const viewsOpen = jest
+      .fn()
+      .mockResolvedValue(undefined) as ViewsOpenMock;
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
           channel: { id: 'C1' },
         }) as ConversationsOpenMock,
       },
-      chat: {
-        postMessage: jest
-          .fn()
-          .mockResolvedValue(undefined) as ChatPostMessageMock,
-        update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
-      },
+      chat: createChatMocks(),
+      views: { open: viewsOpen },
     };
-
-    // Ensure no handler is registered
-    delete handlers[COMMANDS.STATS];
 
     await actionHandlers[HELP_ACTIONS.STATS]({
       ack,
@@ -472,7 +433,7 @@ describe('registerActions', () => {
       context: { teamId: 'T1' },
     });
 
-    expect(client.conversations.open).not.toHaveBeenCalled();
+    expect(viewsOpen).not.toHaveBeenCalled();
   });
 
   it('handles missing userId in CREATE action', async () => {
@@ -600,7 +561,7 @@ describe('registerActions', () => {
     expect(inventoryHandler).toHaveBeenCalled();
   });
 
-  it('opens the level-up modal when the action is clicked', async () => {
+  it('opens the character sheet modal when the action is clicked', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     const viewsOpen = jest.fn().mockResolvedValue(undefined) as ViewsOpenMock;
     mockedDmClient.getPlayer.mockResolvedValue({
@@ -631,7 +592,7 @@ describe('registerActions', () => {
     );
   });
 
-  it('spends a skill point on level-up submission and posts stats', async () => {
+  it('spends a skill point from the character sheet modal', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     mockedDmClient.spendSkillPoint.mockResolvedValue({
       success: true,
@@ -655,24 +616,20 @@ describe('registerActions', () => {
 
     const client: MockSlackClient = {
       conversations: {
-        open: jest
-          .fn()
-          .mockResolvedValue({
-            channel: { id: 'DM1' },
-          }) as ConversationsOpenMock,
+        open: jest.fn() as ConversationsOpenMock,
       },
       chat: createChatMocks(),
       views: { publish: jest.fn() as ViewsPublishMock },
     };
 
-    await viewHandlers.level_up_view({
+    await viewHandlers.character_sheet_view({
       ack,
       view: {
         private_metadata: JSON.stringify({ teamId: 'T1', userId: 'U1' }),
         state: {
           values: {
-            attribute_block: {
-              selected_attribute: {
+            character_sheet_skill_points: {
+              character_sheet_attribute: {
                 selected_option: { value: PlayerAttribute.Strength },
               },
             },
@@ -688,12 +645,12 @@ describe('registerActions', () => {
       userId: 'U1',
       attribute: PlayerAttribute.Strength,
     });
-    expect(client.chat.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ channel: 'DM1' }),
+    expect(ack).toHaveBeenCalledWith(
+      expect.objectContaining({ response_action: 'update' }),
     );
   });
 
-  it('reports errors when level-up submission fails', async () => {
+  it('reports errors when character sheet submission fails', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     mockedDmClient.spendSkillPoint.mockResolvedValue({
       success: false,
@@ -708,14 +665,14 @@ describe('registerActions', () => {
       chat: createChatMocks(),
     };
 
-    await viewHandlers.level_up_view({
+    await viewHandlers.character_sheet_view({
       ack,
       view: {
         private_metadata: JSON.stringify({ teamId: 'T1', userId: 'U1' }),
         state: {
           values: {
-            attribute_block: {
-              selected_attribute: {
+            character_sheet_skill_points: {
+              character_sheet_attribute: {
                 selected_option: { value: PlayerAttribute.Agility },
               },
             },

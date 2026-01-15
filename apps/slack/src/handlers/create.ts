@@ -52,9 +52,7 @@ export class CreateHandler extends PlayerCommandHandler {
         const introText = `Welcome <@${userId}>! Your adventure begins.`;
         const instructions =
           'Use the Home tab to reroll the dice and press Start Adventure. Power users can also type `reroll` and `complete`.';
-        const statsMessage = buildPlayerStatsMessage(result.data, {
-          isSelf: true,
-        });
+        const statsMessage = buildPlayerStatsMessage(result.data);
         await say({
           text: `${introText} ${instructions} ${statsMessage.text}`,
           blocks: [

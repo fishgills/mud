@@ -2,12 +2,6 @@ import type { KnownBlock, Block } from '@slack/types';
 import { buildCharacterSheetModel } from '@mud/character-sheet';
 import { SayMessage } from '../types';
 import { MonsterStatsSource, PlayerStatsSource } from './types';
-import { STAT_ACTIONS } from '../../commands';
-
-type PlayerStatsFormatOptions = {
-  isSelf?: boolean;
-  includeSkillPointAction?: boolean;
-};
 
 const displayValue = (value: unknown) =>
   value === undefined || value === null ? '—' : String(value);
@@ -30,30 +24,8 @@ const attributeWithModifier = (value: number | null | undefined): string => {
   return `${value} (${sign}${modifier})`;
 };
 
-const buildActionsBlock = (skillPoints: number): (KnownBlock | Block)[] => {
-  if (skillPoints <= 0) {
-    return [];
-  }
-
-  return [
-    {
-      type: 'actions',
-      block_id: 'skill_point_spend',
-      elements: [
-        {
-          type: 'button',
-          action_id: STAT_ACTIONS.OPEN_LEVEL_UP,
-          text: { type: 'plain_text', text: 'Level Up', emoji: true },
-          style: 'primary',
-        },
-      ],
-    },
-  ];
-};
-
 export function buildPlayerStatsMessage(
   player: PlayerStatsSource,
-  options: PlayerStatsFormatOptions = {},
 ) {
   const sheet = buildCharacterSheetModel(player);
 
@@ -105,10 +77,6 @@ export function buildPlayerStatsMessage(
       },
     ],
   });
-
-  if (options.isSelf && options.includeSkillPointAction !== false) {
-    blocks.push(...buildActionsBlock(sheet.skillPoints));
-  }
 
   return {
     text: sheet.summaryText,

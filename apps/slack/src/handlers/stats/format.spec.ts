@@ -1,11 +1,5 @@
-import type {
-  ActionsBlock,
-  Block,
-  KnownBlock,
-  SectionBlock,
-} from '@slack/types';
+import type { Block, KnownBlock, SectionBlock } from '@slack/types';
 import { buildPlayerStatsMessage } from './format';
-import { STAT_ACTIONS } from '../../commands';
 import type { PlayerStatsSource } from './types';
 
 describe('buildPlayerStatsMessage', () => {
@@ -27,58 +21,6 @@ describe('buildPlayerStatsMessage', () => {
     isAlive: true,
     xpToNextLevel: 250,
     ...overrides,
-  });
-
-  describe('skill point action buttons', () => {
-    it('should not include action buttons when skillPoints is 0', () => {
-      const player = createMockPlayer({ skillPoints: 0 });
-      const result = buildPlayerStatsMessage(player, { isSelf: true });
-
-      // Check that there are no action blocks
-      const actionBlocks = result.blocks?.filter(isActionsBlock);
-      expect(actionBlocks).toHaveLength(0);
-    });
-
-    it('should not include action buttons when skillPoints is negative', () => {
-      const player = createMockPlayer({ skillPoints: -1 });
-      const result = buildPlayerStatsMessage(player, { isSelf: true });
-
-      // Check that there are no action blocks
-      const actionBlocks = result.blocks?.filter(isActionsBlock);
-      expect(actionBlocks).toHaveLength(0);
-    });
-
-    it('should include a level-up action when skillPoints is positive', () => {
-      const player = createMockPlayer({ skillPoints: 2 });
-      const result = buildPlayerStatsMessage(player, { isSelf: true });
-
-      // Check that there is exactly one action block
-      const actionBlocks = result.blocks?.filter(isActionsBlock);
-      expect(actionBlocks).toHaveLength(1);
-      expect(actionBlocks?.[0]).toHaveProperty('elements');
-      expect(actionBlocks?.[0].elements).toHaveLength(1);
-      expect(actionBlocks?.[0].elements?.[0]).toEqual(
-        expect.objectContaining({ action_id: STAT_ACTIONS.OPEN_LEVEL_UP }),
-      );
-    });
-
-    it('should not include action buttons when isSelf is false, even with positive skillPoints', () => {
-      const player = createMockPlayer({ skillPoints: 2 });
-      const result = buildPlayerStatsMessage(player, { isSelf: false });
-
-      // Check that there are no action blocks
-      const actionBlocks = result.blocks?.filter(isActionsBlock);
-      expect(actionBlocks).toHaveLength(0);
-    });
-
-    it('should not include action buttons when isSelf is undefined, even with positive skillPoints', () => {
-      const player = createMockPlayer({ skillPoints: 2 });
-      const result = buildPlayerStatsMessage(player);
-
-      // Check that there are no action blocks
-      const actionBlocks = result.blocks?.filter(isActionsBlock);
-      expect(actionBlocks).toHaveLength(0);
-    });
   });
 
   describe('stat display', () => {
@@ -171,9 +113,6 @@ describe('buildPlayerStatsMessage', () => {
     });
   });
 });
-const isActionsBlock = (block: KnownBlock | Block): block is ActionsBlock =>
-  block.type === 'actions';
-
 const isSectionBlock = (block: KnownBlock | Block): block is SectionBlock =>
   block.type === 'section';
 

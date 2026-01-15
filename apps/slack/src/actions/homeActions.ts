@@ -1,27 +1,12 @@
 import type { App, BlockAction } from '@slack/bolt';
 import type { KnownBlock, ModalView } from '@slack/types';
 import { COMMANDS, HOME_ACTIONS } from '../commands';
-import { dmClient, getLeaderboard, PlayerRecord } from '../dm-client';
+import { dmClient, getLeaderboard } from '../dm-client';
 import { dispatchCommandViaDM } from './commandDispatch';
-import { buildPlayerStatsMessage } from '../handlers/stats/format';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
+import { buildCharacterSheetModal } from '../handlers/stats/modal';
 
-const VIEW_STATS_MODAL_ID = 'view_stats_modal';
 const LEADERBOARD_VIEW_ID = 'leaderboard_view';
-
-const buildStatsModal = (player: PlayerRecord): ModalView => {
-  const statsMessage = buildPlayerStatsMessage(player, {
-    isSelf: true,
-    includeSkillPointAction: false,
-  });
-  return {
-    type: 'modal',
-    callback_id: VIEW_STATS_MODAL_ID,
-    title: { type: 'plain_text', text: 'Hero Stats' },
-    close: { type: 'plain_text', text: 'Close' },
-    blocks: statsMessage.blocks ?? [],
-  };
-};
 
 const formatLeaderboardLines = (
   players: PlayerRecord[] | undefined,
@@ -144,7 +129,11 @@ export const registerHomeActions = (app: App) => {
 
         await client.views.open({
           trigger_id: triggerId,
-          view: buildStatsModal(result.data),
+          view: buildCharacterSheetModal(result.data, {
+            teamId,
+            userId,
+            isSelf: true,
+          }),
         });
       } catch (err) {
         const message = getUserFriendlyErrorMessage(
