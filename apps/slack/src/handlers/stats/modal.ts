@@ -108,8 +108,8 @@ export const buildCharacterSheetBlocks = (
       type: 'section',
       fields: [
         { type: 'mrkdwn', text: `*Name* ${displayValue(player.name)}` },
-        { type: 'mrkdwn', text: `*Level* ${displayValue(player.level)}` },
-        { type: 'mrkdwn', text: `*XP* ${formatXpLine(player)}` },
+        { type: 'mrkdwn', text: `*🏅 Level* ${displayValue(player.level)}` },
+        { type: 'mrkdwn', text: `*📈 XP* ${formatXpLine(player)}` },
       ],
     },
     { type: 'divider' },
@@ -118,15 +118,15 @@ export const buildCharacterSheetBlocks = (
       fields: [
         {
           type: 'mrkdwn',
-          text: `*Strength* ${formatAttribute(player.strength)}`,
+          text: `*💪 Strength* ${formatAttribute(player.strength)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Agility* ${formatAttribute(player.agility)}`,
+          text: `*🌀 Agility* ${formatAttribute(player.agility)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Vitality* ${formatAttribute(
+          text: `*❤️ Vitality* ${formatAttribute(
             player.health,
             player.equipmentTotals?.vitalityBonus ?? 0,
           )}`,
