@@ -26,7 +26,7 @@ resource "google_sql_database_instance" "postgres" {
     }
 
     ip_configuration {
-      ipv4_enabled    = false
+      ipv4_enabled    = true  # Enable public IP for Cloud SQL Auth Proxy
       private_network = google_compute_network.shared.self_link
       ssl_mode        = "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
     }
