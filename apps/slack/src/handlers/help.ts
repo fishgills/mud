@@ -87,7 +87,7 @@ export const buildHelpBlocks = (): KnownBlock[] => [
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: '*Game Systems*\n• Raids bank XP and gold until you cash out.\n• Combat is turn-based; agility sets turn order.\n• Unlock abilities as you level and spend points in `stats`.',
+      text: '*Game Systems*\n• Raids are multi-round dives; choose *Continue* to push or *Finish* to cash out.\n• If a raid fails, you earn no XP or gold.\n• Combat is turn-based; agility sets turn order, and raids prompt your next action each round.',
     },
   },
   {
