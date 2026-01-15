@@ -19,8 +19,11 @@ export class RunHandler extends PlayerCommandHandler {
   }
 
   protected async perform({ teamId, userId, text, say }: HandlerContext) {
-    const tokens = text.trim().split(/\s+/);
-    const subcommand = tokens[1]?.toLowerCase();
+    const trimmed = text.trim();
+    const tokens = trimmed ? trimmed.split(/\s+/) : [];
+    const firstToken = tokens[0]?.toLowerCase();
+    const subcommand =
+      firstToken === COMMANDS.RUN ? tokens[1]?.toLowerCase() : firstToken;
 
     if (subcommand === 'status' || subcommand === 'info') {
       const active = await this.dm.getActiveRun({ teamId, userId });
@@ -42,15 +45,10 @@ export class RunHandler extends PlayerCommandHandler {
       return;
     }
 
-    const runType =
-      subcommand === 'guild'
-        ? 'guild'
-        : subcommand === 'solo'
-          ? 'solo'
-          : undefined;
+    const runType = subcommand === 'guild' ? 'guild' : undefined;
     if (subcommand && !runType) {
       await say({
-        text: `Try \`${COMMANDS.RUN}\`, \`${COMMANDS.RUN} solo\`, or \`${COMMANDS.RUN} guild\` to start a raid.`,
+        text: `Try \`${COMMANDS.RUN}\` or \`${COMMANDS.RUN} guild\` to start a raid.`,
       });
       return;
     }
