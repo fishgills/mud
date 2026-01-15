@@ -167,4 +167,17 @@ describe('PlayerService', () => {
       expect.objectContaining({ eventType: 'player:death' }),
     );
   });
+
+  it('levels beyond 20 when provided enough XP', async () => {
+    const player = makePlayer({ level: 1, xp: 0 });
+    mockFindPlayerBySlackUser.mockResolvedValueOnce(player);
+    mockPrisma.player.update.mockResolvedValue(undefined);
+    mockPrisma.player.findUnique.mockResolvedValue(player);
+
+    const result = await service.updatePlayerStats('T1', 'U1', {
+      xp: 100_000,
+    });
+
+    expect(result.level).toBeGreaterThan(20);
+  });
 });
