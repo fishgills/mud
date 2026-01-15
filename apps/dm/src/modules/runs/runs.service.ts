@@ -9,7 +9,12 @@ import { PlayerService } from '../../app/player/player.service';
 import { CombatService } from '../../app/combat/combat.service';
 import { EventBridgeService } from '../../shared/event-bridge.service';
 import { GuildsService } from '../guilds/guilds.service';
-import { runCombat } from '../../app/combat/engine';
+import {
+  calculateAC,
+  getModifier,
+  parseDice,
+  runPartyCombat,
+} from '../../app/combat/engine';
 import type { Combatant } from '../../app/combat/types';
 import {
   MONSTER_TEMPLATES,
@@ -17,12 +22,17 @@ import {
   formatMonsterName,
   rollVariant,
 } from '../../app/monster/monster.types';
+import type { MonsterTemplate } from '../../app/monster/monster.types';
 import type { NotificationRecipient } from '@mud/redis-client';
 import { AppError, ErrCodes } from '../../app/errors/app-error';
 
 const RUN_ACTION_CONTINUE = 'run_action_continue';
 const RUN_ACTION_FINISH = 'run_action_finish';
 const COMBAT_ACTION_SHOW_LOG = 'combat_action_show_log';
+const ROUND_DIFFICULTY_STEP = 0.15;
+const ROUND_REWARD_STEP = 0.2;
+const MIN_SCALE = 0.8;
+const MAX_SCALE = 2.5;
 
 @Injectable()
 export class RunsService {
@@ -293,33 +303,24 @@ export class RunsService {
     }
 
     const roundNumber = run.round + 1;
-    const memberCount = run.participants.length;
-    const difficultyTier = this.calculateDifficultyTier(roundNumber, memberCount);
-    const rewardMultiplier = this.calculateRewardMultiplier(
-      roundNumber,
-      memberCount,
+    const partyCombatants = await this.buildPartyCombatants(run.participants);
+    const partySummary = this.buildPartySummaryCombatant(partyCombatants);
+    const { monster, difficultyTier, rewardMultiplier } =
+      this.buildScaledEncounter(partyCombatants, roundNumber);
+
+    const combatLog = await runPartyCombat(
+      partyCombatants,
+      monster,
+      this.logger,
     );
 
-    const leaderSlack = leader.player.slackUser;
-    if (!leaderSlack) {
-      throw new BadRequestException('Raid leader is missing Slack identity.');
-    }
-
-    const playerCombatant = await this.combatService.buildPlayerCombatant(
-      leaderSlack.teamId,
-      leaderSlack.userId,
-    );
-    playerCombatant.hp = playerCombatant.maxHp;
-    playerCombatant.isAlive = true;
-
-    const monster = this.buildRunMonster(difficultyTier, roundNumber, memberCount);
-
-    const combatLog = await runCombat(playerCombatant, monster, this.logger);
-    const playerWon = combatLog.winner === playerCombatant.name;
     const combatLogText = this.combatService.formatCombatLog(combatLog, {
-      attackerCombatant: playerCombatant,
+      attackerCombatant:
+        partyCombatants.length === 1 ? partyCombatants[0] : partySummary,
       defenderCombatant: monster,
+      combatants: partyCombatants.length > 1 ? partyCombatants : undefined,
     });
+    const playerWon = combatLog.winner !== monster.name;
 
     if (!playerWon) {
       const endTime = new Date();
@@ -378,43 +379,141 @@ export class RunsService {
     });
   }
 
-  private calculateDifficultyTier(round: number, memberCount: number) {
-    const base = 1 + Math.floor((round - 1) / 2);
-    const guildBonus = Math.floor((memberCount - 1) / 2);
-    return Math.min(5, base + guildBonus);
+  private async buildPartyCombatants(
+    participants: Array<{ player: PlayerWithSlackUser }>,
+  ): Promise<Combatant[]> {
+    const combatants = await Promise.all(
+      participants.map(async (participant) => {
+        const slackUser = participant.player.slackUser;
+        if (!slackUser) {
+          throw new BadRequestException(
+            'Raid participant is missing Slack identity.',
+          );
+        }
+
+        const combatant = await this.combatService.buildPlayerCombatant(
+          slackUser.teamId,
+          slackUser.userId,
+        );
+        combatant.hp = combatant.maxHp;
+        combatant.isAlive = true;
+        return combatant;
+      }),
+    );
+
+    return combatants;
   }
 
-  private calculateRewardMultiplier(round: number, memberCount: number) {
-    const roundBoost = (round - 1) * 0.2;
-    const partyBoost = (memberCount - 1) * 0.15;
-    return 1 + roundBoost + partyBoost;
+  private buildPartySummaryCombatant(combatants: Combatant[]): Combatant {
+    const total = combatants.reduce(
+      (acc, combatant) => {
+        acc.hp += combatant.hp;
+        acc.maxHp += combatant.maxHp;
+        acc.strength += combatant.strength;
+        acc.agility += combatant.agility;
+        acc.level += combatant.level;
+        return acc;
+      },
+      { hp: 0, maxHp: 0, strength: 0, agility: 0, level: 0 },
+    );
+
+    const count = Math.max(1, combatants.length);
+    return {
+      id: -1,
+      name: combatants.length === 1 ? combatants[0].name : 'Raid party',
+      type: 'player',
+      hp: total.hp,
+      maxHp: total.maxHp,
+      strength: Math.round(total.strength / count),
+      agility: Math.round(total.agility / count),
+      level: Math.max(1, Math.round(total.level / count)),
+      isAlive: combatants.some((combatant) => combatant.isAlive),
+    };
   }
 
-  private selectTemplateForTier(tier: number) {
-    const exact = MONSTER_TEMPLATES.filter((template) => template.tier === tier);
-    if (exact.length > 0) {
-      return exact[Math.floor(Math.random() * exact.length)];
+  private calculateRewardMultiplier(round: number, scale: number) {
+    const roundBoost = (round - 1) * ROUND_REWARD_STEP;
+    const scaleBoost = Math.max(0, scale - 1) * 0.5;
+    return Math.max(1, 1 + roundBoost + scaleBoost);
+  }
+
+  private calculateCombatantPower(combatant: Combatant): number {
+    const { count, sides } = parseDice(combatant.damageRoll ?? '1d4');
+    const averageRoll = count * (sides + 1) / 2;
+    const baseDamage = Math.max(
+      1,
+      averageRoll +
+        getModifier(combatant.strength) +
+        (combatant.damageBonus ?? 0),
+    );
+    const attackScore =
+      baseDamage * 4 +
+      (getModifier(combatant.strength) + (combatant.attackBonus ?? 0)) * 1.5;
+    const armorScore =
+      combatant.maxHp * 0.6 +
+      (calculateAC(combatant.agility) + (combatant.armorBonus ?? 0)) * 2;
+    const levelScore = combatant.level * 4;
+    return Math.max(1, Math.round(attackScore + armorScore + levelScore));
+  }
+
+  private calculateTemplatePower(template: MonsterTemplate): number {
+    const baseMaxHp = template.baseHp + template.health * 2;
+    return this.calculateCombatantPower({
+      id: 0,
+      name: template.name,
+      type: 'monster',
+      hp: baseMaxHp,
+      maxHp: baseMaxHp,
+      strength: template.strength,
+      agility: template.agility,
+      level: template.tier,
+      isAlive: true,
+      damageRoll: template.damageRoll,
+    });
+  }
+
+  private selectTemplateForPower(targetPower: number) {
+    const templates = MONSTER_TEMPLATES.map((template) => ({
+      template,
+      power: this.calculateTemplatePower(template),
+    })).sort((a, b) => a.power - b.power);
+
+    let chosen = templates[0];
+    for (const entry of templates) {
+      if (entry.power <= targetPower) {
+        chosen = entry;
+      } else {
+        break;
+      }
     }
 
-    const fallback = MONSTER_TEMPLATES.filter((template) => template.tier <= tier);
-    if (fallback.length > 0) {
-      return fallback[Math.floor(Math.random() * fallback.length)];
-    }
-
-    return MONSTER_TEMPLATES[Math.floor(Math.random() * MONSTER_TEMPLATES.length)];
+    return chosen;
   }
 
-  private buildRunMonster(
-    tier: number,
-    round: number,
-    memberCount: number,
-  ): Combatant {
-    const template = this.selectTemplateForTier(tier);
+  private buildScaledEncounter(party: Combatant[], round: number) {
+    const partyPower = party.reduce(
+      (total, combatant) => total + this.calculateCombatantPower(combatant),
+      0,
+    );
+    const difficultyMultiplier = 1 + (round - 1) * ROUND_DIFFICULTY_STEP;
+    const targetPower = partyPower * difficultyMultiplier;
+    const selection = this.selectTemplateForPower(targetPower);
+    const scale = Math.min(
+      MAX_SCALE,
+      Math.max(MIN_SCALE, targetPower / selection.power),
+    );
+
+    return {
+      monster: this.buildRunMonster(selection.template, scale),
+      difficultyTier: selection.template.tier,
+      rewardMultiplier: this.calculateRewardMultiplier(round, scale),
+    };
+  }
+
+  private buildRunMonster(template: MonsterTemplate, scale: number): Combatant {
     const variant = rollVariant();
     const variantConfig = VARIANT_CONFIG[variant];
     const variance = () => Math.floor(Math.random() * 5) - 2;
-
-    const scale = 1 + (round - 1) * 0.05 + (memberCount - 1) * 0.03;
 
     const strength = Math.max(
       1,
@@ -435,23 +534,24 @@ export class RunsService {
       ),
     );
 
-    const baseMaxHp = template.baseHp + health * 2;
+    const baseMaxHp = Math.max(1, Math.floor(template.baseHp * scale) + health * 2);
     const maxHp = Math.max(
       1,
-      Math.floor(baseMaxHp * variantConfig.hpMultiplier * scale),
+      Math.floor(baseMaxHp * variantConfig.hpMultiplier),
     );
 
     const displayName = formatMonsterName(template.name, variant);
+    const level = Math.max(1, Math.round(template.tier * scale));
 
     return {
-      id: -Math.floor(Math.random() * 1_000_000) - tier,
+      id: -Math.floor(Math.random() * 1_000_000) - template.tier,
       name: displayName,
       type: 'monster',
       hp: maxHp,
       maxHp,
       strength,
       agility,
-      level: Math.max(1, tier),
+      level,
       isAlive: true,
       damageRoll: template.damageRoll,
     };

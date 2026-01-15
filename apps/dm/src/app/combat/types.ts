@@ -16,6 +16,7 @@ export interface NarrativeOptions {
   secondPersonName?: string;
   attackerCombatant?: Combatant;
   defenderCombatant?: Combatant;
+  combatants?: Combatant[];
 }
 
 export interface CombatMessage {

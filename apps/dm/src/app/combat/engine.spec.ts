@@ -1,5 +1,5 @@
 import * as engine from './engine';
-import { runCombat } from './engine';
+import { runCombat, runPartyCombat } from './engine';
 import type { Combatant } from './types';
 
 describe('combat engine utilities', () => {
@@ -154,5 +154,69 @@ describe('runCombat orchestration with overrides', () => {
     expect(firstRound.hit).toBe(true);
     expect(result.winner).toBe('Champion');
     expect(defender.hp).toBe(0);
+  });
+});
+
+describe('runPartyCombat orchestration', () => {
+  const makeCombatant = (
+    opts: Partial<Combatant> & { name: string; id: number },
+  ): Combatant => ({
+    id: opts.id,
+    name: opts.name,
+    type: (opts.type as any) || 'player',
+    hp: opts.hp ?? 10,
+    maxHp: opts.maxHp ?? 10,
+    strength: opts.strength ?? 12,
+    agility: opts.agility ?? 12,
+    level: opts.level ?? 1,
+    isAlive: opts.isAlive ?? true,
+    attackBonus: opts.attackBonus,
+    damageBonus: opts.damageBonus,
+    armorBonus: opts.armorBonus,
+    damageRoll: opts.damageRoll,
+  });
+
+  test('party combat awards xp/gold and declares party winner', async () => {
+    const party = [
+      makeCombatant({ name: 'Fighter', id: 1, agility: 15, level: 2 }),
+      makeCombatant({ name: 'Rogue', id: 2, agility: 14, level: 2 }),
+    ];
+    const monster = makeCombatant({
+      name: 'Ogre',
+      id: 99,
+      type: 'monster',
+      hp: 6,
+      maxHp: 6,
+      strength: 8,
+      agility: 8,
+      level: 3,
+    });
+
+    const logger = {
+      log: jest.fn(),
+      debug: jest.fn(),
+      error: jest.fn(),
+      warn: jest.fn(),
+    } as any;
+
+    const overrides = {
+      rollInitiative: (agility: number) =>
+        agility >= 14
+          ? { roll: 18, modifier: 2, total: 20 }
+          : { roll: 1, modifier: -1, total: 0 },
+      rollD20: () => 20,
+      calculateDamage: () => 5,
+      calculateXpGain: () => 42,
+      calculateGoldReward: () => 13,
+    } as const;
+
+    const result = await runPartyCombat(party, monster, logger, overrides as any);
+
+    expect(result.winner).toBe('Raid party');
+    expect(result.loser).toBe('Ogre');
+    expect(result.xpAwarded).toBe(42);
+    expect(result.goldAwarded).toBe(13);
+    expect(result.initiativeRolls.length).toBe(3);
+    expect(result.rounds.length).toBeGreaterThan(0);
   });
 });

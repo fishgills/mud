@@ -47,6 +47,7 @@ interface NarrativeOptions {
   secondPersonName?: string;
   attackerCombatant?: Combatant;
   defenderCombatant?: Combatant;
+  combatants?: Combatant[];
 }
 
 export interface CombatMessage {
@@ -326,6 +327,11 @@ export class CombatService {
     options: NarrativeOptions = {},
   ): CombatNarrative {
     const combatantsByName = new Map<string, Combatant>();
+    if (options.combatants) {
+      for (const combatant of options.combatants) {
+        combatantsByName.set(combatant.name, combatant);
+      }
+    }
     if (options.attackerCombatant) {
       combatantsByName.set(
         options.attackerCombatant.name,

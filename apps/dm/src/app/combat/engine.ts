@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { EventBus } from '../../shared/event-bus';
-import type { DetailedCombatLog, CombatRound } from '../api';
+import type { DetailedCombatLog, CombatRound, InitiativeRoll } from '../api';
 import type { Combatant } from './types';
 
 // Dice and combat math utilities
@@ -269,6 +269,254 @@ export async function runCombat(
     eventType: 'combat:end',
     winner: { type: winner.type, id: winner.id, name: winner.name },
     loser: { type: loser.type, id: loser.id, name: loser.name },
+    xpGained: xpAwarded,
+    goldGained: goldAwarded,
+    timestamp: new Date(),
+  });
+
+  return combatLog;
+}
+
+export async function runPartyCombat(
+  party: Combatant[],
+  monster: Combatant,
+  logger: Logger,
+  overrides?: EngineOverrides,
+): Promise<DetailedCombatLog> {
+  if (party.length === 0) {
+    throw new Error('Party combat requires at least one player.');
+  }
+
+  const partyName = party.length === 1 ? party[0].name : 'Raid party';
+  const combatId = `combat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  logger.log(
+    `🗡️ COMBAT START: ${partyName} vs ${monster.name} [ID: ${combatId}]`,
+  );
+
+  const useRollInitiative = overrides?.rollInitiative ?? rollInitiative;
+  const useRollD20 = overrides?.rollD20 ?? rollD20;
+  const useGetModifier = overrides?.getModifier ?? getModifier;
+  const useCalculateAC = overrides?.calculateAC ?? calculateAC;
+  const useCalculateDamage = overrides?.calculateDamage ?? calculateDamage;
+
+  const combatants = [...party, monster];
+  const initiativeById = new Map<number, InitiativeRoll>();
+  const orderIndex = new Map<number, number>();
+  const initiativeRolls = combatants.map((combatant, index) => {
+    const roll = useRollInitiative(combatant.agility);
+    const entry = { name: combatant.name, ...roll };
+    initiativeById.set(combatant.id, entry);
+    orderIndex.set(combatant.id, index);
+    return entry;
+  });
+
+  const turnOrder = [...combatants].sort((a, b) => {
+    const initA = initiativeById.get(a.id)?.total ?? 0;
+    const initB = initiativeById.get(b.id)?.total ?? 0;
+    if (initA !== initB) return initB - initA;
+    if (a.agility !== b.agility) return b.agility - a.agility;
+    const indexA = orderIndex.get(a.id) ?? 0;
+    const indexB = orderIndex.get(b.id) ?? 0;
+    return indexA - indexB;
+  });
+
+  const firstAttacker = turnOrder[0]?.name ?? partyName;
+  const firstCombatant = turnOrder[0];
+  const firstDefender =
+    firstCombatant && firstCombatant.type === 'monster' ? party[0] : monster;
+
+  await EventBus.emit({
+    eventType: 'combat:start',
+    attacker: {
+      type: firstCombatant?.type ?? 'player',
+      id: firstCombatant?.id ?? party[0].id,
+      name: firstAttacker,
+    },
+    defender: {
+      type: firstDefender.type,
+      id: firstDefender.id,
+      name: firstDefender.name,
+    },
+    timestamp: new Date(),
+  });
+
+  logger.log(
+    `⚡ Initiative Results: ${initiativeRolls
+      .map((entry) => `${entry.name}=${entry.total}`)
+      .join(', ')} | ${firstAttacker} goes first!`,
+  );
+
+  const rounds: CombatRound[] = [];
+  let turnIndex = 0;
+  let roundNumber = 1;
+  const maxTurns = 100;
+
+  const partyAlive = () => party.some((combatant) => combatant.isAlive);
+  const pickTarget = () => {
+    const alive = party.filter((combatant) => combatant.isAlive);
+    if (alive.length === 0) return null;
+    return alive.sort(
+      (a, b) => a.hp - b.hp || a.name.localeCompare(b.name),
+    )[0];
+  };
+
+  while (monster.isAlive && partyAlive() && roundNumber <= maxTurns) {
+    let attacker = turnOrder[turnIndex % turnOrder.length];
+    let spins = 0;
+    while (attacker && !attacker.isAlive && spins < turnOrder.length) {
+      turnIndex++;
+      attacker = turnOrder[turnIndex % turnOrder.length];
+      spins++;
+    }
+
+    if (!attacker || !attacker.isAlive) {
+      break;
+    }
+
+    const defender = attacker.type === 'monster' ? pickTarget() : monster;
+    if (!defender) {
+      break;
+    }
+
+    logger.debug(
+      `⚔️ Turn ${roundNumber}: ${attacker.name} attacks ${defender.name}`,
+    );
+
+    const attackRoll = (overrides?.rollD20 ?? useRollD20)();
+    const baseAttackModifier = (overrides?.getModifier ?? useGetModifier)(
+      attacker.strength,
+    );
+    const attackModifier = baseAttackModifier + (attacker.attackBonus ?? 0);
+    const totalAttack = attackRoll + attackModifier;
+    const baseDefenderAC = (overrides?.calculateAC ?? useCalculateAC)(
+      defender.agility,
+    );
+    const defenderAC = baseDefenderAC + (defender.armorBonus ?? 0);
+    const hit = totalAttack >= defenderAC;
+
+    logger.debug(
+      `⚔️ Attack Roll: ${attackRoll} + Str mod: ${baseAttackModifier} + Equipment bonus: +${attacker.attackBonus ?? 0} = ${totalAttack} vs AC: ${baseDefenderAC} + Armor bonus: +${defender.armorBonus ?? 0} = ${defenderAC} [${hit ? 'HIT' : 'MISS'}]`,
+    );
+
+    let damage = 0;
+    let killed = false;
+    let baseDamage = 0;
+
+    if (hit) {
+      baseDamage = (overrides?.calculateDamage ?? useCalculateDamage)(
+        attacker.strength,
+        attacker.damageRoll,
+      );
+      const damageBonus = attacker.damageBonus ?? 0;
+      damage = Math.max(1, baseDamage + damageBonus);
+      logger.debug(
+        `⚔️ ${attacker.name} hit! Base damage (${attacker.damageRoll ?? '1d4'}): ${baseDamage}, Weapon/Equipment bonus: +${damageBonus}, Total: ${damage}`,
+      );
+      defender.hp = Math.max(0, defender.hp - damage);
+      if (defender.hp <= 0) {
+        defender.isAlive = false;
+        killed = true;
+        logger.log(`💀 ${defender.name} is defeated!`);
+      }
+    }
+
+    rounds.push({
+      roundNumber,
+      attackerName: attacker.name,
+      defenderName: defender.name,
+      attackRoll,
+      attackModifier,
+      totalAttack,
+      defenderAC,
+      hit,
+      damage,
+      defenderHpAfter: defender.hp,
+      killed,
+      baseAttackModifier,
+      attackBonus: attacker.attackBonus ?? 0,
+      baseDefenderAC,
+      armorBonus: defender.armorBonus ?? 0,
+      baseDamage,
+      damageBonus: attacker.damageBonus ?? 0,
+    });
+
+    if (hit) {
+      await EventBus.emit({
+        eventType: 'combat:hit',
+        attacker: { type: attacker.type, id: attacker.id, name: attacker.name },
+        defender: { type: defender.type, id: defender.id, name: defender.name },
+        damage,
+        timestamp: new Date(),
+      });
+    } else {
+      await EventBus.emit({
+        eventType: 'combat:miss',
+        attacker: { type: attacker.type, id: attacker.id, name: attacker.name },
+        defender: { type: defender.type, id: defender.id, name: defender.name },
+        timestamp: new Date(),
+      });
+    }
+
+    turnIndex++;
+    roundNumber++;
+  }
+
+  logger.log(`🏁 Combat completed after ${roundNumber - 1} turns`);
+
+  const partyLevel = Math.max(
+    1,
+    Math.round(party.reduce((sum, combatant) => sum + combatant.level, 0) / party.length),
+  );
+  const partyWon = monster.isAlive === false && partyAlive();
+  const winnerName = partyWon ? partyName : monster.name;
+  const loserName = partyWon ? monster.name : partyName;
+
+  const xpAwarded = (overrides?.calculateXpGain ?? calculateXpGain)(
+    partyWon ? partyLevel : monster.level,
+    partyWon ? monster.level : partyLevel,
+  );
+  const goldAwarded = (overrides?.calculateGoldReward ?? calculateGoldReward)(
+    partyWon ? partyLevel : monster.level,
+    partyWon ? monster.level : partyLevel,
+  );
+
+  const representative = party[0];
+  const winnerCombatant = partyWon ? representative : monster;
+  const loserCombatant = partyWon ? monster : representative;
+
+  logger.log(`🏆 Winner: ${winnerName}`);
+  logger.log(`💀 Loser: ${loserName}`);
+
+  const combatLog: DetailedCombatLog = {
+    combatId,
+    participant1: partyName,
+    participant2: monster.name,
+    initiativeRolls,
+    firstAttacker,
+    rounds,
+    winner: winnerName,
+    loser: loserName,
+    xpAwarded,
+    goldAwarded,
+    timestamp: new Date(),
+  } as DetailedCombatLog;
+
+  logger.log(
+    `💾 Combat log created with ${rounds.length} individual attacks and ${rounds.reduce((sum, r) => sum + r.damage, 0)} total damage`,
+  );
+
+  await EventBus.emit({
+    eventType: 'combat:end',
+    winner: {
+      type: winnerCombatant.type,
+      id: winnerCombatant.id,
+      name: winnerCombatant.name,
+    },
+    loser: {
+      type: loserCombatant.type,
+      id: loserCombatant.id,
+      name: loserCombatant.name,
+    },
     xpGained: xpAwarded,
     goldGained: goldAwarded,
     timestamp: new Date(),
