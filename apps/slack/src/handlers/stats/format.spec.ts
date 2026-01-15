@@ -109,7 +109,8 @@ describe('buildPlayerStatsMessage', () => {
       const xpField = findFieldText(result.blocks, '*XP to Next Level*');
       expect(xpField).toContain('—');
       const contextTexts = findContextTexts(result.blocks);
-      expect(contextTexts.length).toBe(0);
+      expect(contextTexts.length).toBe(1);
+      expect(contextTexts[0]).toContain('Skill points available');
     });
   });
 });

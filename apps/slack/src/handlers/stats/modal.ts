@@ -223,7 +223,12 @@ export const buildCharacterSheetModal = (
 };
 
 export const parseSkillPointAttribute = (
-  values: Record<string, Record<string, { selected_option?: { value: string } }>>,
+  values:
+    | Record<
+        string,
+        Record<string, { selected_option?: { value?: string } | null }>
+      >
+    | undefined,
 ): string | null => {
   const selected =
     values?.[SKILL_POINT_BLOCK_ID]?.[SKILL_POINT_ACTION_ID]?.selected_option

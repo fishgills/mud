@@ -524,12 +524,17 @@ describe('registerActions', () => {
   });
 
   it('tests all other HELP_ACTIONS', async () => {
-    const statsHandler = jest.fn<Promise<void>, [HandlerContext]>();
     const inventoryHandler = jest.fn<Promise<void>, [HandlerContext]>();
-    handlers[COMMANDS.STATS] = statsHandler;
     handlers[COMMANDS.INVENTORY] = inventoryHandler;
 
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+    const viewsOpen = jest
+      .fn()
+      .mockResolvedValue(undefined) as ViewsOpenMock;
+    mockedDmClient.getPlayer.mockResolvedValue({
+      success: true,
+      data: { skillPoints: 0, name: 'Hero' },
+    });
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
@@ -542,15 +547,16 @@ describe('registerActions', () => {
           .mockResolvedValue(undefined) as ChatPostMessageMock,
         update: jest.fn().mockResolvedValue(undefined) as ChatUpdateMock,
       },
+      views: { open: viewsOpen },
     };
 
     await actionHandlers[HELP_ACTIONS.STATS]({
       ack,
-      body: { user: { id: 'U1' }, team: { id: 'T1' } },
+      body: { user: { id: 'U1' }, team: { id: 'T1' }, trigger_id: 'TRIGGER' },
       client,
       context: { teamId: 'T1' },
     });
-    expect(statsHandler).toHaveBeenCalled();
+    expect(viewsOpen).toHaveBeenCalled();
 
     await actionHandlers[HELP_ACTIONS.INVENTORY]({
       ack,

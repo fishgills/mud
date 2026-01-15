@@ -75,7 +75,12 @@ export const registerStatActions = (app: App) => {
         : null;
       const teamId = meta?.teamId as string | undefined;
       const userId = meta?.userId as string | undefined;
-      const attribute = parseSkillPointAttribute(view.state.values);
+      const attribute = parseSkillPointAttribute(
+        view.state.values as Record<
+          string,
+          Record<string, { selected_option?: { value?: string } | null }>
+        >,
+      );
 
       if (!attribute) {
         await ack({

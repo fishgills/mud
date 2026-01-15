@@ -1,6 +1,7 @@
 import type { App, BlockAction } from '@slack/bolt';
 import type { KnownBlock, ModalView } from '@slack/types';
 import { COMMANDS, HOME_ACTIONS } from '../commands';
+import type { PlayerRecord } from '../dm-client';
 import { dmClient, getLeaderboard } from '../dm-client';
 import { dispatchCommandViaDM } from './commandDispatch';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
