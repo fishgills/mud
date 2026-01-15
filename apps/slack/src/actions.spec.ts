@@ -20,6 +20,10 @@ jest.mock('./dm-client', () => {
       success: true,
       data: { id: 1, name: 'Hero' },
     }),
+    getPlayerItems: jest.fn().mockResolvedValue({
+      success: true,
+      data: { id: 1, name: 'Hero', bag: [] },
+    }),
   };
 });
 
@@ -33,8 +37,7 @@ import {
   RUN_ACTIONS,
 } from './commands';
 import { getAllHandlers } from './handlers/handlerRegistry';
-import { HandlerContext } from './handlers/types';
-import { dmClient } from './dm-client';
+import { dmClient, getPlayerItems } from './dm-client';
 import { PlayerAttribute } from './dm-types';
 
 const mockedDmClient = dmClient as unknown as {
@@ -47,6 +50,7 @@ const mockedDmClient = dmClient as unknown as {
   equip: jest.Mock;
   unequip: jest.Mock;
   getPlayer: jest.Mock;
+  getPlayerItems?: jest.Mock;
   getMonsters: jest.Mock;
   continueRun: jest.Mock;
   finishRun: jest.Mock;
@@ -524,9 +528,6 @@ describe('registerActions', () => {
   });
 
   it('tests all other HELP_ACTIONS', async () => {
-    const inventoryHandler = jest.fn<Promise<void>, [HandlerContext]>();
-    handlers[COMMANDS.INVENTORY] = inventoryHandler;
-
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
     const viewsOpen = jest
       .fn()
@@ -534,6 +535,10 @@ describe('registerActions', () => {
     mockedDmClient.getPlayer.mockResolvedValue({
       success: true,
       data: { skillPoints: 0, name: 'Hero' },
+    });
+    (getPlayerItems as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { id: 1, name: 'Hero', bag: [] },
     });
     const client: MockSlackClient = {
       conversations: {
@@ -560,11 +565,17 @@ describe('registerActions', () => {
 
     await actionHandlers[HELP_ACTIONS.INVENTORY]({
       ack,
-      body: { user: { id: 'U1' }, team: { id: 'T1' } },
+      body: {
+        user: { id: 'U1' },
+        team: { id: 'T1' },
+        trigger_id: 'TRIGGER',
+      },
       client,
       context: { teamId: 'T1' },
     });
-    expect(inventoryHandler).toHaveBeenCalled();
+    expect(viewsOpen).toHaveBeenCalledWith(
+      expect.objectContaining({ trigger_id: 'TRIGGER' }),
+    );
   });
 
   it('opens the character sheet modal when the action is clicked', async () => {

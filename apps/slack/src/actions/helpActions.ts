@@ -3,8 +3,9 @@ import type { KnownBlock } from '@slack/types';
 import type { WebClient } from '@slack/web-api';
 import { COMMANDS, HELP_ACTIONS } from '../commands';
 import { dispatchCommandViaDM } from './commandDispatch';
-import { dmClient } from '../dm-client';
+import { dmClient, getPlayerItems } from '../dm-client';
 import { buildCharacterSheetModal } from '../handlers/stats/modal';
+import { buildInventoryModal } from '../handlers/inventory';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
 
 type HelpDetailMessage = {
@@ -228,13 +229,44 @@ export const registerHelpActions = (app: App) => {
 
   app.action<BlockAction>(
     HELP_ACTIONS.INVENTORY,
-    async ({ ack, body, client, context }) => {
+    async ({ ack, body, client, context, respond }) => {
       await ack();
       const userId = body.user?.id;
       const teamId =
         typeof context.teamId === 'string' ? context.teamId : undefined;
-      if (!userId) return;
-      await dispatchCommandViaDM(client, userId, COMMANDS.INVENTORY, teamId);
+      const triggerId = body.trigger_id;
+      if (!userId || !teamId || !triggerId) return;
+      try {
+        const result = await getPlayerItems({ teamId, userId });
+        if (!result.success || !result.data) {
+          const message =
+            result.message ?? 'Unable to load your inventory right now.';
+          if (respond) {
+            await respond({
+              text: message,
+              response_type: 'ephemeral',
+              replace_original: false,
+            });
+          }
+          return;
+        }
+        await client.views.open({
+          trigger_id: triggerId,
+          view: buildInventoryModal(result.data),
+        });
+      } catch (err) {
+        const message = getUserFriendlyErrorMessage(
+          err,
+          'Unable to load your inventory right now.',
+        );
+        if (respond) {
+          await respond({
+            text: message,
+            response_type: 'ephemeral',
+            replace_original: false,
+          });
+        }
+      }
     },
   );
 

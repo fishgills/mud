@@ -299,7 +299,7 @@ const buildInventoryBlocks = (player: PlayerRecord): KnownBlock[] => {
   return blocks;
 };
 
-const buildInventoryModal = (player: PlayerRecord): ModalView => ({
+export const buildInventoryModal = (player: PlayerRecord): ModalView => ({
   type: 'modal',
   title: { type: 'plain_text', text: '🎒 Inventory', emoji: true },
   close: { type: 'plain_text', text: 'Close', emoji: true },
@@ -355,4 +355,5 @@ export const __private__ = {
   resolveSlotEmoji,
   formatItemDisplay,
   formatStatLine,
+  buildInventoryModal,
 };
