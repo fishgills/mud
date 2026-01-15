@@ -2,13 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { withBasePath } from '../lib/base-path';
-
-type StreamEventPayload = {
-  type?: string;
-  event?: { eventType?: string };
-  message?: string;
-  timestamp?: string;
-};
+import { getSharedEventStream, type StreamEventPayload } from '../lib/event-stream';
 
 type StreamEntry = {
   id: number;
@@ -37,8 +31,7 @@ export default function EventStreamPanel({ enabled }: EventStreamPanelProps) {
       return;
     }
 
-    const url = withBasePath('/api/events');
-    const source = new EventSource(url);
+    const stream = getSharedEventStream();
 
     const addEntry = (eventName: string, payload: StreamEventPayload) => {
       const payloadEvent = payload.event?.eventType ?? payload.type ?? null;
@@ -65,11 +58,6 @@ export default function EventStreamPanel({ enabled }: EventStreamPanelProps) {
       } catch {
         addEntry(eventName, { message: data });
       }
-    };
-
-    source.onopen = () => {
-      setStatus('connected');
-      setErrorMessage(null);
     };
 
     const runDiagnostics = async () => {
@@ -111,22 +99,21 @@ export default function EventStreamPanel({ enabled }: EventStreamPanelProps) {
       }
     };
 
-    source.onerror = () => {
-      setStatus('error');
-      setErrorMessage('Event stream connection error.');
-      void runDiagnostics();
-    };
+    const unsubscribe = stream.subscribe((eventName, payload) => {
+      addEntry(eventName, payload);
+    });
 
-    source.onmessage = (event) => {
-      handlePayload(event.type, event.data);
-    };
-
-    source.addEventListener('ready', (event) => {
-      handlePayload(event.type, (event as MessageEvent).data);
+    const unsubscribeStatus = stream.subscribeStatus((nextStatus, message) => {
+      setStatus(nextStatus);
+      setErrorMessage(message);
+      if (nextStatus === 'error') {
+        void runDiagnostics();
+      }
     });
 
     return () => {
-      source.close();
+      unsubscribe();
+      unsubscribeStatus();
     };
   }, [enabled]);
 
