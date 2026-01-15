@@ -1,4 +1,5 @@
 import type { ModalView, KnownBlock } from '@slack/types';
+import { STAT_ACTIONS } from '../../commands';
 import { PlayerAttribute } from '../../dm-types';
 import type { EquipmentTotals } from '../../dm-client';
 
@@ -104,6 +105,10 @@ export const buildCharacterSheetBlocks = (
   options: { isSelf: boolean; includeSpendInput?: boolean },
 ): KnownBlock[] => {
   const skillPoints = Math.max(0, player.skillPoints ?? 0);
+  const showSpendInput =
+    options.isSelf && skillPoints > 0 && options.includeSpendInput !== false;
+  const showSpendButton =
+    options.isSelf && skillPoints > 0 && options.includeSpendInput === false;
   const blocks: KnownBlock[] = [
     {
       type: 'section',
@@ -156,6 +161,7 @@ export const buildCharacterSheetBlocks = (
         },
       ],
     },
+    { type: 'divider' },
     {
       type: 'section',
       fields: [
@@ -171,7 +177,24 @@ export const buildCharacterSheetBlocks = (
     },
   ];
 
-  if (options.isSelf && skillPoints > 0 && options.includeSpendInput !== false) {
+  if (showSpendButton) {
+    blocks.push(
+      { type: 'divider' },
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: 'Spend Skill Point' },
+            style: 'primary',
+            action_id: STAT_ACTIONS.OPEN_LEVEL_UP,
+          },
+        ],
+      },
+    );
+  }
+
+  if (showSpendInput) {
     blocks.push(
       { type: 'divider' },
       {
