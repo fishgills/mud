@@ -55,6 +55,9 @@
     ]
   },
   "dependencies": {},
+  "resolutions": {
+    "baseline-browser-mapping": "2.9.14"
+  },
   "workspaces": [
     "apps/*",
     "libs/*"
