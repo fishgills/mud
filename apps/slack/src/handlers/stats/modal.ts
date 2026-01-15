@@ -11,6 +11,7 @@ type CharacterSheetSource = {
   level?: number | null;
   xp?: number | null;
   xpToNextLevel?: number | null;
+  gold?: number | null;
   hp?: number | null;
   maxHp?: number | null;
   strength?: number | null;
@@ -157,10 +158,16 @@ export const buildCharacterSheetBlocks = (
     },
     {
       type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `✨ *Skill points available:* ${skillPoints}`,
-      },
+      fields: [
+        {
+          type: 'mrkdwn',
+          text: `✨ *Skill points available* ${skillPoints}`,
+        },
+        {
+          type: 'mrkdwn',
+          text: `*💰 Gold* ${displayValue(player.gold)}`,
+        },
+      ],
     },
   ];
 
