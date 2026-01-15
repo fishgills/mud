@@ -104,6 +104,7 @@ export const registerRunActions = (app: App) => {
       if (!teamId || !userId) return;
 
       try {
+        await clearRunActionButtons({ client, body, channelId });
         const result = await dmClient.finishRun({
           teamId,
           userId,
