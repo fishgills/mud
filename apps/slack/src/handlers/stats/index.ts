@@ -27,9 +27,9 @@ async function respondWithPlayer(
   if (player) {
     if (
       options.client?.views?.open &&
-      options.triggerId &&
       options.teamId &&
-      options.userId
+      options.userId &&
+      options.triggerId
     ) {
       await options.client.views.open({
         trigger_id: options.triggerId,

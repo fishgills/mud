@@ -30,7 +30,9 @@ const attributeOptions = [
 const displayValue = (value: unknown) =>
   value === undefined || value === null ? '—' : String(value);
 
-const getAbilityModifier = (value: number | null | undefined): number | null => {
+const getAbilityModifier = (
+  value: number | null | undefined,
+): number | null => {
   if (value == null) return null;
   return Math.floor((value - 10) / 2);
 };
@@ -44,7 +46,7 @@ const formatSigned = (value: number | null | undefined): string => {
 const formatXpLine = (player: CharacterSheetSource): string => {
   if (typeof player.xp !== 'number') return '—';
   if (typeof player.xpToNextLevel !== 'number') return displayValue(player.xp);
-  return `${player.xp} / ${player.xpToNextLevel}`;
+  return `${player.xp} ( Next level: ${player.xpToNextLevel})`;
 };
 
 const formatHpLine = (player: CharacterSheetSource): string => {
@@ -66,7 +68,8 @@ const formatDamageLine = (player: CharacterSheetSource): string => {
   const base = getAbilityModifier(player.strength);
   if (base == null) return '—';
   const bonus = base + (player.equipmentTotals?.damageBonus ?? 0);
-  const sign = bonus === 0 ? '' : bonus > 0 ? ` + ${bonus}` : ` - ${Math.abs(bonus)}`;
+  const sign =
+    bonus === 0 ? '' : bonus > 0 ? ` + ${bonus}` : ` - ${Math.abs(bonus)}`;
   return `${resolveDamageRoll(player)}${sign}`;
 };
 
@@ -104,9 +107,9 @@ export const buildCharacterSheetModal = (
     {
       type: 'section',
       fields: [
-        { type: 'mrkdwn', text: `*Name*\n${displayValue(player.name)}` },
-        { type: 'mrkdwn', text: `*Level*\n${displayValue(player.level)}` },
-        { type: 'mrkdwn', text: `*XP*\n${formatXpLine(player)}` },
+        { type: 'mrkdwn', text: `*Name* ${displayValue(player.name)}` },
+        { type: 'mrkdwn', text: `*Level* ${displayValue(player.level)}` },
+        { type: 'mrkdwn', text: `*XP* ${formatXpLine(player)}` },
       ],
     },
     { type: 'divider' },
@@ -115,15 +118,15 @@ export const buildCharacterSheetModal = (
       fields: [
         {
           type: 'mrkdwn',
-          text: `*Strength*\n${formatAttribute(player.strength)}`,
+          text: `*Strength* ${formatAttribute(player.strength)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Agility*\n${formatAttribute(player.agility)}`,
+          text: `*Agility* ${formatAttribute(player.agility)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Vitality*\n${formatAttribute(
+          text: `*Vitality* ${formatAttribute(
             player.health,
             player.equipmentTotals?.vitalityBonus ?? 0,
           )}`,
@@ -136,30 +139,28 @@ export const buildCharacterSheetModal = (
       fields: [
         {
           type: 'mrkdwn',
-          text: `*❤️ HP*\n${formatHpLine(player)}`,
+          text: `*❤️ HP* ${formatHpLine(player)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*🛡️ Armor Class*\n${formatArmorClass(player)}`,
+          text: `*🛡️ Armor Class* ${formatArmorClass(player)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*⚔️ Attack Bonus*\n${formatAttackBonus(player)}`,
+          text: `*⚔️ Attack Bonus* ${formatAttackBonus(player)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*🎯 Damage*\n${formatDamageLine(player)}`,
+          text: `*🎯 Damage* ${formatDamageLine(player)}`,
         },
       ],
     },
     {
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: `✨ Skill points available: ${skillPoints}`,
-        },
-      ],
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `✨ *Skill points available:* ${skillPoints}`,
+      },
     },
   ];
 
