@@ -2,16 +2,15 @@ import { COMMANDS, GUILD_SHOP_ACTIONS } from '../commands';
 import { getPlayerItems, ItemRecord } from '../dm-client';
 import type { PlayerRecord } from '../dm-client';
 import { MISSING_CHARACTER_MESSAGE } from './characterUtils';
-import type { KnownBlock, Block, ActionsBlock, Button } from '@slack/types';
+import type { KnownBlock, ActionsBlock, Button, ModalView } from '@slack/types';
 // Use Prisma-generated enum for item qualities so the mapping follows the
 // canonical backend enum values.
-import { ItemQuality, PlayerSlot } from '@mud/database';
-import { getQualityBadge, formatQualityLabel } from '@mud/constants';
+import { PlayerSlot } from '@mud/database';
 
 type PlayerWithBag = PlayerRecord & { bag?: ItemRecord[] };
 import { getUserFriendlyErrorMessage } from './errorUtils';
 import { registerHandler } from './handlerRegistry';
-import type { HandlerContext, SayMessage } from './types';
+import type { HandlerContext } from './types';
 
 type EquipmentSlotKey = PlayerSlot;
 
@@ -23,7 +22,13 @@ const EQUIPMENT_SLOTS: Array<{ key: EquipmentSlotKey; label: string }> = [
   { key: PlayerSlot.weapon, label: 'Weapon' },
 ];
 
-const defaultQuality = String(ItemQuality.Common);
+const SLOT_EMOJIS: Record<EquipmentSlotKey, string> = {
+  [PlayerSlot.head]: '🪖',
+  [PlayerSlot.chest]: '🛡️',
+  [PlayerSlot.arms]: '🧤',
+  [PlayerSlot.legs]: '👢',
+  [PlayerSlot.weapon]: '🗡️',
+};
 
 const resolvePlayerItemId = (item: ItemRecord | undefined): number | null => {
   const id = item?.id;
@@ -80,53 +85,42 @@ const buildItemStatLines = (item: ItemRecord | undefined): string[] => {
   return stats;
 };
 
-const appendItemStatsContext = (
-  blocks: Array<KnownBlock | Block>,
-  item: ItemRecord | undefined,
-): void => {
-  const statLines = buildItemStatLines(item);
-  if (statLines.length === 0) {
-    return;
-  }
-
-  blocks.push({
-    type: 'context',
-    elements: [
-      {
-        type: 'mrkdwn',
-        text: statLines.map((line) => `• ${line}`).join('\n'),
-      },
-    ],
-  });
-};
+const resolveSlotEmoji = (slot: EquipmentSlotKey | null | undefined): string =>
+  slot ? SLOT_EMOJIS[slot] ?? '🎒' : '🎒';
 
 const formatItemDisplay = (item: ItemRecord | undefined): string => {
-  if (!item) return '_Empty_';
-  const badge = getQualityBadge(item.quality ?? defaultQuality);
-  const qualityLabel = formatQualityLabel(item.quality ?? defaultQuality);
-  const name = item.itemName ?? 'Unknown Item';
-  return `${badge} ${qualityLabel} ${name}`;
+  if (!item) return '- Empty -';
+  return item.itemName ?? 'Unknown Item';
+};
+
+const formatStatLine = (item: ItemRecord | undefined): string => {
+  const statLines = buildItemStatLines(item);
+  if (statLines.length === 0) return '_No bonuses_';
+  return statLines.join(' · ');
 };
 
 const createEquippedItemBlocks = (
   slotLabel: string,
-  item: ItemRecord,
-): Array<KnownBlock | Block> => {
+  slotKey: EquipmentSlotKey,
+  item: ItemRecord | undefined,
+): KnownBlock[] => {
   const playerItemId = resolvePlayerItemId(item);
   const title = formatItemDisplay(item);
+  const stats = item ? formatStatLine(item) : null;
+  const emoji = resolveSlotEmoji(slotKey);
+  const text = stats
+    ? `*${emoji} ${slotLabel}*\n${title}\n${stats}`
+    : `*${emoji} ${slotLabel}*\n${title}`;
 
-  const blocks: Array<KnownBlock | Block> = [
+  const blocks: KnownBlock[] = [
     {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*${slotLabel}*
-${title}`,
+        text,
       },
     },
   ];
-
-  appendItemStatsContext(blocks, item);
 
   if (playerItemId !== null) {
     blocks.push({
@@ -149,15 +143,16 @@ ${title}`,
 const createBackpackItemBlocks = (
   item: ItemRecord,
   opts?: { allowSell?: boolean },
-): Array<KnownBlock | Block> => {
+): KnownBlock[] => {
   const playerItemId = resolvePlayerItemId(item);
-  const badge = getQualityBadge(item.quality ?? defaultQuality);
-  const qualityLabel = formatQualityLabel(item.quality ?? defaultQuality);
   const name = item.itemName ?? 'Unknown Item';
   const allowedSlots: string[] = Array.isArray(item.allowedSlots)
     ? item.allowedSlots
     : [];
   const equipDisabled = allowedSlots.length === 0;
+  const slot = (item.slot as EquipmentSlotKey | null | undefined) ??
+    (allowedSlots[0] as EquipmentSlotKey | undefined);
+  const emoji = resolveSlotEmoji(slot);
 
   const actions: Button[] = [];
 
@@ -184,17 +179,15 @@ const createBackpackItemBlocks = (
     }
   }
 
-  const blocks: Array<KnownBlock | Block> = [
+  const blocks: KnownBlock[] = [
     {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*${badge} ${qualityLabel} ${name}*`,
+        text: `*${emoji} ${name}*\n${formatStatLine(item)}`,
       },
     },
   ];
-
-  appendItemStatsContext(blocks, item);
 
   if (actions.length > 0) {
     blocks.push({
@@ -203,55 +196,10 @@ const createBackpackItemBlocks = (
     } as ActionsBlock);
   }
 
-  if (equipDisabled) {
-    blocks.push({
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: '_This item cannot be equipped._',
-        },
-      ],
-    });
-  }
-
   return blocks;
 };
 
-const formatSlotValue = (
-  value: number | { id: number; quality: string } | null | undefined,
-  bag?: ItemRecord[] | undefined,
-): string => {
-  if (value === null || value === undefined) {
-    return '_Empty_';
-  }
-
-  let itemId: number | undefined;
-  let quality: string | undefined;
-
-  if (typeof value === 'object' && value !== null && 'id' in value) {
-    itemId = value.id;
-    quality = value.quality;
-  } else if (typeof value === 'number') {
-    itemId = value;
-  }
-
-  if (!itemId) {
-    return 'Unknown Item';
-  }
-
-  if (Array.isArray(bag)) {
-    const found = bag.find((b) => b.id === itemId || b.itemId === itemId);
-    if (found) {
-      const itemName = found.itemName ?? 'Unknown Item';
-      return quality ? `${itemName} (${quality})` : itemName;
-    }
-  }
-
-  return quality ? `Item #${itemId} (${quality})` : `Item #${itemId}`;
-};
-
-const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
+const buildInventoryBlocks = (player: PlayerRecord): KnownBlock[] => {
   const equipment = player.equipment ?? {};
   const bag = (player as PlayerWithBag).bag ?? [];
   const bagById = new Map<number, ItemRecord>();
@@ -284,7 +232,7 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
       item = bag.find((bagItem) => bagItem.slot === key && bagItem.equipped);
     }
 
-    return { key, label, item, fallback: formatSlotValue(equippedValue, bag) };
+    return { key, label, item };
   });
 
   const equippedIds = new Set<number>();
@@ -303,66 +251,33 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
     return !(item.equipped === true);
   });
 
-  const level = player.level ?? '?';
-  const gold = player.gold ?? 0;
-  const hp = player.hp ?? 0;
-  const maxHp = player.maxHp ?? hp;
-
-  const blocks: Array<KnownBlock | Block> = [
-    {
-      type: 'header',
-      text: {
-        type: 'plain_text',
-        text: `🎒 ${player.name ?? 'Inventory'}`,
-        emoji: true,
-      },
-    },
-    {
-      type: 'section',
-      fields: [
-        {
-          type: 'mrkdwn',
-          text: `*Level*\n${level}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*HP*\n${hp}/${maxHp}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Gold*\n${gold}`,
-        },
-      ],
-    },
-    { type: 'divider' },
+  const blocks: KnownBlock[] = [
     {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: '*Equipped Gear*',
+        text: '*🧍 Equipped Gear*',
       },
     },
   ];
 
   for (const entry of equippedEntries) {
-    if (entry.item) {
-      blocks.push(...createEquippedItemBlocks(entry.label, entry.item));
-      continue;
-    }
-
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*${entry.label}*\n${entry.fallback}`,
-      },
-    });
+    blocks.push(
+      ...createEquippedItemBlocks(
+        entry.label,
+        entry.key,
+        entry.item,
+      ),
+    );
   }
 
   blocks.push({ type: 'divider' });
   blocks.push({
     type: 'section',
-    text: { type: 'mrkdwn', text: '*Backpack*' },
+    text: {
+      type: 'mrkdwn',
+      text: `*🎒 Backpack (${unequippedItems.length} items)*`,
+    },
   });
 
   if (unequippedItems.length === 0) {
@@ -381,27 +296,22 @@ const buildInventoryMessage = (player: PlayerRecord): SayMessage => {
     });
   }
 
-  blocks.push({ type: 'divider' });
-  blocks.push({
-    type: 'context',
-    elements: [
-      {
-        type: 'mrkdwn',
-        text: `Use \`${COMMANDS.STATS}\` for detailed attributes.`,
-      },
-    ],
-  });
-
-  return {
-    text: `${player.name ?? 'Inventory'}`,
-    blocks,
-  };
+  return blocks;
 };
+
+const buildInventoryModal = (player: PlayerRecord): ModalView => ({
+  type: 'modal',
+  title: { type: 'plain_text', text: '🎒 Inventory', emoji: true },
+  close: { type: 'plain_text', text: 'Close', emoji: true },
+  blocks: buildInventoryBlocks(player),
+});
 
 export const inventoryHandler = async ({
   userId,
   say,
   teamId,
+  client,
+  triggerId,
 }: HandlerContext): Promise<void> => {
   try {
     const response = await getPlayerItems({
@@ -417,7 +327,18 @@ export const inventoryHandler = async ({
     }
 
     // `getPlayerItems` returns a PlayerResponse where data includes bag
-    await say(buildInventoryMessage(response.data));
+    if (client?.views?.open && triggerId) {
+      await client.views.open({
+        trigger_id: triggerId,
+        view: buildInventoryModal(response.data),
+      });
+      return;
+    }
+
+    await say({
+      text: 'Inventory',
+      blocks: buildInventoryBlocks(response.data),
+    });
   } catch (error) {
     const message = getUserFriendlyErrorMessage(
       error,
@@ -430,6 +351,8 @@ export const inventoryHandler = async ({
 registerHandler(COMMANDS.INVENTORY, inventoryHandler);
 
 export const __private__ = {
-  buildInventoryMessage,
-  formatSlotValue,
+  buildInventoryBlocks,
+  resolveSlotEmoji,
+  formatItemDisplay,
+  formatStatLine,
 };

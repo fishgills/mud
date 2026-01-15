@@ -17,16 +17,9 @@ describe('inventory handler', () => {
     jest.clearAllMocks();
   });
 
-  it('formats equipment slot values', () => {
-    const { formatSlotValue } = __private__;
-    expect(formatSlotValue(null)).toBe('_Empty_');
-    expect(formatSlotValue(undefined)).toBe('_Empty_');
-    expect(formatSlotValue(12)).toBe('Item #12');
-  });
-
-  it('builds an inventory message that lists equipment slots once', () => {
-    const { buildInventoryMessage } = __private__;
-    const message = buildInventoryMessage({
+  it('builds inventory blocks that list equipment slots once', () => {
+    const { buildInventoryBlocks } = __private__;
+    const blocks = buildInventoryBlocks({
       id: 1,
       name: 'Hero',
       level: 3,
@@ -40,35 +33,46 @@ describe('inventory handler', () => {
         arms: 7,
         weapon: 9,
       },
+      bag: [
+        {
+          id: 5,
+          itemId: 55,
+          itemName: 'Iron Cuirass',
+          quality: 'Common',
+          equipped: true,
+          slot: 'chest',
+          allowedSlots: ['chest'],
+        },
+      ],
     });
 
-    expect(message.blocks).toBeDefined();
-    const headBlock = (message.blocks ?? []).find((block) => {
+    expect(blocks).toBeDefined();
+    const headBlock = (blocks ?? []).find((block) => {
       if (block.type !== 'section') return false;
       const sectionBlock = block as SectionBlock;
       return (
         sectionBlock.text?.type === 'mrkdwn' &&
         typeof sectionBlock.text.text === 'string' &&
-        sectionBlock.text.text.includes('*Head*')
+        sectionBlock.text.text.includes('*🪖 Head*')
       );
     }) as SectionBlock | undefined;
-    expect(headBlock?.text?.text).toContain('_Empty_');
+    expect(headBlock?.text?.text).toContain('- Empty -');
 
-    const chestBlock = (message.blocks ?? []).find((block) => {
+    const chestBlock = (blocks ?? []).find((block) => {
       if (block.type !== 'section') return false;
       const sectionBlock = block as SectionBlock;
       return (
         sectionBlock.text?.type === 'mrkdwn' &&
         typeof sectionBlock.text.text === 'string' &&
-        sectionBlock.text.text.includes('*Chest*')
+        sectionBlock.text.text.includes('*🛡️ Chest*')
       );
     }) as SectionBlock | undefined;
-    expect(chestBlock?.text?.text).toContain('Item #5');
+    expect(chestBlock?.text?.text).toContain('Iron Cuirass');
   });
 
   it('shows equipped controls and excludes equipped items from the backpack', () => {
-    const { buildInventoryMessage } = __private__;
-    const message = buildInventoryMessage({
+    const { buildInventoryBlocks } = __private__;
+    const blocks = buildInventoryBlocks({
       id: 1,
       name: 'Hero',
       level: 2,
@@ -104,7 +108,7 @@ describe('inventory handler', () => {
       ],
     } as never);
 
-    const actionBlocks = (message.blocks ?? []).filter(
+    const actionBlocks = (blocks ?? []).filter(
       (block): block is ActionsBlock => block.type === 'actions',
     );
     const allButtons = actionBlocks.flatMap((block) =>
@@ -123,21 +127,21 @@ describe('inventory handler', () => {
     expect(equipButtons.some((btn) => btn.value?.includes('102'))).toBe(true);
     expect(equipButtons.every((btn) => !btn.value?.includes('101'))).toBe(true);
 
-    const weaponSections = (message.blocks ?? []).filter((block) => {
+    const weaponSections = (blocks ?? []).filter((block) => {
       if (block.type !== 'section') return false;
       const sectionBlock = block as SectionBlock;
       return (
         sectionBlock.text?.type === 'mrkdwn' &&
         typeof sectionBlock.text.text === 'string' &&
-        sectionBlock.text.text.includes('*Weapon*')
+        sectionBlock.text.text.includes('*🗡️ Weapon*')
       );
     });
     expect(weaponSections).toHaveLength(1);
   });
 
   it('renders armor stats for items in the backpack', () => {
-    const { buildInventoryMessage } = __private__;
-    const message = buildInventoryMessage({
+    const { buildInventoryBlocks } = __private__;
+    const blocks = buildInventoryBlocks({
       id: 1,
       name: 'Hero',
       level: 2,
@@ -171,16 +175,11 @@ describe('inventory handler', () => {
       ],
     } as never);
 
-    const armorContext = (message.blocks ?? []).find(
+    const armorContext = (blocks ?? []).find(
       (block) =>
-        block.type === 'context' &&
-        Array.isArray(block.elements) &&
-        block.elements.some(
-          (element) =>
-            element.type === 'mrkdwn' &&
-            typeof element.text === 'string' &&
-            element.text.includes('Armor +4'),
-        ),
+        block.type === 'section' &&
+        typeof block.text?.text === 'string' &&
+        block.text.text.includes('Armor +4'),
     );
 
     expect(armorContext).toBeDefined();
