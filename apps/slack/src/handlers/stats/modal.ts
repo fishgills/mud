@@ -106,10 +106,7 @@ export const buildCharacterSheetModal = (
       fields: [
         { type: 'mrkdwn', text: `*Name*\n${displayValue(player.name)}` },
         { type: 'mrkdwn', text: `*Level*\n${displayValue(player.level)}` },
-        {
-          type: 'mrkdwn',
-          text: `*XP (current / next)*\n${formatXpLine(player)}`,
-        },
+        { type: 'mrkdwn', text: `*XP*\n${formatXpLine(player)}` },
       ],
     },
     { type: 'divider' },
