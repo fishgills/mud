@@ -748,6 +748,11 @@ resource "kubernetes_deployment" "web" {
           }
 
           env {
+            name  = "DM_API_BASE_URL"
+            value = "http://${local.service_names.dm}.${local.kubernetes_namespace}.svc.cluster.local/dm"
+          }
+
+          env {
             name  = "REDIS_URL"
             value = "redis://${data.google_redis_instance.cache.host}:6379"
           }
