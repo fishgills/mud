@@ -6,7 +6,7 @@ import { fetchPlayerRecord } from './lookup';
 import { resolveTarget } from './target';
 import { PlayerStatsSource } from './types';
 import { MISSING_CHARACTER_MESSAGE } from '../characterUtils';
-import { buildCharacterSheetModal } from './modal';
+import { buildCharacterSheetBlocks, buildCharacterSheetModal } from './modal';
 
 export const statsHandlerHelp = `Open the character sheet with "${COMMANDS.STATS}". Example: Send "${COMMANDS.STATS}" for yourself or "${COMMANDS.STATS} @player" to inspect another adventurer.`;
 
@@ -41,7 +41,11 @@ async function respondWithPlayer(
       return;
     }
     await say({
-      text: 'Open the Home tab and select View Stats to see your character sheet.',
+      text: 'Character Sheet',
+      blocks: buildCharacterSheetBlocks(player, {
+        isSelf: Boolean(options.isSelf),
+        includeSpendInput: false,
+      }),
     });
     return;
   }

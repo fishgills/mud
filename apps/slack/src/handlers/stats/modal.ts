@@ -98,10 +98,10 @@ const formatAttribute = (
   return `${total} (${sign}${modifier})`;
 };
 
-export const buildCharacterSheetModal = (
+export const buildCharacterSheetBlocks = (
   player: CharacterSheetSource,
-  options: { teamId: string; userId: string; isSelf: boolean },
-): ModalView => {
+  options: { isSelf: boolean; includeSpendInput?: boolean },
+): KnownBlock[] => {
   const skillPoints = Math.max(0, player.skillPoints ?? 0);
   const blocks: KnownBlock[] = [
     {
@@ -164,7 +164,7 @@ export const buildCharacterSheetModal = (
     },
   ];
 
-  if (options.isSelf && skillPoints > 0) {
+  if (options.isSelf && skillPoints > 0 && options.includeSpendInput !== false) {
     blocks.push(
       { type: 'divider' },
       {
@@ -203,6 +203,15 @@ export const buildCharacterSheetModal = (
     );
   }
 
+  return blocks;
+};
+
+export const buildCharacterSheetModal = (
+  player: CharacterSheetSource,
+  options: { teamId: string; userId: string; isSelf: boolean },
+): ModalView => {
+  const skillPoints = Math.max(0, player.skillPoints ?? 0);
+  const blocks = buildCharacterSheetBlocks(player, { isSelf: options.isSelf });
   return {
     type: 'modal',
     callback_id: CHARACTER_SHEET_VIEW_ID,
