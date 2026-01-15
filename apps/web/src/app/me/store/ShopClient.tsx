@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { ItemStatLine } from '@mud/inventory';
 import type { GuildTradeResponse } from '@mud/api-contracts';
 import { useGameEvents } from '../../lib/use-game-events';
+import { withBasePath } from '../../lib/base-path';
 
 export type ShopCatalogItemView = {
   sku: string;
@@ -39,9 +40,6 @@ type ShopClientProps = {
 };
 
 const formatPrice = (value: number) => `${value} gold`;
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
-const withBasePath = (path: string) =>
-  basePath && basePath !== '/' ? `${basePath}${path}` : path;
 
 const parseResponse = async (
   response: Response,

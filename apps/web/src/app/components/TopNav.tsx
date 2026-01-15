@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { resolveBasePath, withBasePath } from '../lib/base-path';
 
 type NavItem = {
   href: string;
@@ -33,8 +34,7 @@ export default function TopNav({ isAuthenticated = false }: TopNavProps) {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
-      await fetch(`${basePath}/api/auth/logout`, {
+      await fetch(withBasePath('/api/auth/logout'), {
         method: 'POST',
       });
       router.push('/');
@@ -44,7 +44,7 @@ export default function TopNav({ isAuthenticated = false }: TopNavProps) {
       setIsLoggingOut(false);
     }
   };
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+  const basePath = resolveBasePath();
   const normalizedPath =
     basePath && pathname.startsWith(basePath)
       ? pathname.slice(basePath.length) || '/'

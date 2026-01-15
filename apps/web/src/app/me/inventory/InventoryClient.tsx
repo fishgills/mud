@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { InventoryItem, InventoryModel } from '@mud/inventory';
 import { useGameEvents } from '../../lib/use-game-events';
+import { withBasePath } from '../../lib/base-path';
 
 type Notice = { tone: 'success' | 'error'; message: string };
 
@@ -18,10 +19,6 @@ type ItemActionResponse = {
 };
 
 type PendingAction = { type: 'equip' | 'unequip'; id: number } | null;
-
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
-const withBasePath = (path: string) =>
-  basePath && basePath !== '/' ? `${basePath}${path}` : path;
 
 const SectionDivider = () => (
   <div className="section-divider" aria-hidden="true">
