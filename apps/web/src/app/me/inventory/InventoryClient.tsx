@@ -2,7 +2,12 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { InventoryItem, InventoryModel } from '@mud/inventory';
+import type {
+  EquipmentSlotKey,
+  EquippedSlot,
+  InventoryItem,
+  InventoryModel,
+} from '@mud/inventory';
 import { useGameEvents } from '../../lib/use-game-events';
 import { withBasePath } from '../../lib/base-path';
 
@@ -85,7 +90,10 @@ export default function InventoryClient({
     router.refresh();
   }, [router]);
 
-  useGameEvents(['player:equipment', 'guild.shop.receipt'], handleInventoryEvent);
+  useGameEvents(
+    ['player:equipment', 'guild.shop.receipt'],
+    handleInventoryEvent,
+  );
 
   const handleEquip = async (item: InventoryItem) => {
     const playerItemId = item.id;
@@ -163,6 +171,60 @@ export default function InventoryClient({
   };
 
   const isPending = pending !== null;
+  const slotLookup = new Map<EquipmentSlotKey, EquippedSlot>(
+    inventory.equippedSlots.map((slot) => [slot.key, slot]),
+  );
+  const slotLabels: Record<EquipmentSlotKey, string> = {
+    head: 'Head',
+    chest: 'Chest',
+    legs: 'Legs',
+    arms: 'Arms',
+    weapon: 'Weapon',
+  };
+  const resolveSlot = (key: EquipmentSlotKey): EquippedSlot =>
+    slotLookup.get(key) ?? {
+      key,
+      label: slotLabels[key],
+      item: null,
+      isEmpty: true,
+    };
+  const renderSlot = (slot: EquippedSlot) => (
+    <div key={slot.key} className={`inventory-slot inventory-slot-${slot.key}`}>
+      <span className="inventory-slot-label">{slot.label}</span>
+      {slot.item ? (
+        <div className="inventory-item">
+          <span className="inventory-item-name">
+            {slot.item.qualityBadge} {slot.item.qualityLabel} {slot.item.name}
+          </span>
+          {slot.item.stats.length > 0 && (
+            <div className="inventory-item-stats">
+              {slot.item.stats.map((stat, i) => (
+                <span key={i} className="inventory-stat">
+                  {stat.label}: {stat.value}
+                </span>
+              ))}
+            </div>
+          )}
+          {typeof slot.item.id === 'number' ? (
+            <div className="inventory-item-actions">
+              <button
+                className="inventory-button"
+                type="button"
+                onClick={() => handleUnequip(slot.item!)}
+                disabled={isPending}
+              >
+                {pending?.type === 'unequip' && pending.id === slot.item.id
+                  ? 'Unequipping…'
+                  : 'Unequip'}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <span className="inventory-empty">Empty</span>
+      )}
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -184,45 +246,17 @@ export default function InventoryClient({
       <section className="inventory-section">
         <h2 className="title-font inventory-section-title">Equipped Gear</h2>
         <div className="inventory-grid">
-          {inventory.equippedSlots.map((slot) => (
-            <div key={slot.key} className="inventory-slot">
-              <span className="inventory-slot-label">{slot.label}</span>
-              {slot.item ? (
-                <div className="inventory-item">
-                  <span className="inventory-item-name">
-                    {slot.item.qualityBadge} {slot.item.qualityLabel}{' '}
-                    {slot.item.name}
-                  </span>
-                  {slot.item.stats.length > 0 && (
-                    <div className="inventory-item-stats">
-                      {slot.item.stats.map((stat, i) => (
-                        <span key={i} className="inventory-stat">
-                          {stat.label}: {stat.value}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {typeof slot.item.id === 'number' ? (
-                    <div className="inventory-item-actions">
-                      <button
-                        className="inventory-button"
-                        type="button"
-                        onClick={() => handleUnequip(slot.item!)}
-                        disabled={isPending}
-                      >
-                        {pending?.type === 'unequip' &&
-                        pending.id === slot.item.id
-                          ? 'Unequipping…'
-                          : 'Unequip'}
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <span className="inventory-empty">Empty</span>
-              )}
-            </div>
-          ))}
+          <div className="inventory-column inventory-column-center">
+            {renderSlot(resolveSlot('arms'))}
+          </div>
+          <div className="inventory-column">
+            {renderSlot(resolveSlot('head'))}
+            {renderSlot(resolveSlot('chest'))}
+            {renderSlot(resolveSlot('legs'))}
+          </div>
+          <div className="inventory-column inventory-column-center">
+            {renderSlot(resolveSlot('weapon'))}
+          </div>
         </div>
       </section>
 

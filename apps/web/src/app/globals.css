@@ -289,7 +289,26 @@ body {
 .inventory-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.2fr) minmax(
+      180px,
+      1fr
+    );
+}
+
+.inventory-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inventory-column-center {
+  justify-content: center;
+}
+
+@media (max-width: 720px) {
+  .inventory-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .inventory-slot {
@@ -398,8 +417,11 @@ body {
 
 .inventory-button {
   border: 1px solid rgba(180, 130, 70, 0.55);
-  background:
-    linear-gradient(160deg, rgba(124, 84, 46, 0.55), rgba(38, 26, 20, 0.85));
+  background: linear-gradient(
+    160deg,
+    rgba(124, 84, 46, 0.55),
+    rgba(38, 26, 20, 0.85)
+  );
   color: #fff4e0;
   border-radius: 999px;
   font-size: 12px;
@@ -571,8 +593,11 @@ body {
 
 .shop-button {
   border: 1px solid rgba(180, 130, 70, 0.55);
-  background:
-    linear-gradient(160deg, rgba(124, 84, 46, 0.55), rgba(38, 26, 20, 0.85));
+  background: linear-gradient(
+    160deg,
+    rgba(124, 84, 46, 0.55),
+    rgba(38, 26, 20, 0.85)
+  );
   color: #fff4e0;
   border-radius: 999px;
   font-size: 12px;
