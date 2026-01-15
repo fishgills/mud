@@ -96,6 +96,16 @@ export function buildPlayerStatsMessage(
     });
   }
 
+  blocks.push({
+    type: 'context',
+    elements: [
+      {
+        type: 'mrkdwn',
+        text: `✨ Skill points available: ${sheet.skillPoints}`,
+      },
+    ],
+  });
+
   if (options.isSelf && options.includeSkillPointAction !== false) {
     blocks.push(...buildActionsBlock(sheet.skillPoints));
   }

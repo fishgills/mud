@@ -165,6 +165,9 @@ export default async function CharacterPage() {
             {sheet.xpContext ? (
               <p className="character-note">{sheet.xpContext}</p>
             ) : null}
+            <p className="character-note">
+              Skill points available: {sheet.skillPoints}
+            </p>
           </section>
         );
       })()}
