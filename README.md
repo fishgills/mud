@@ -64,7 +64,7 @@ All services rely on the following shared configuration:
 | Variable       | Description                                                       |
 | -------------- | ----------------------------------------------------------------- |
 | `DATABASE_URL` | PostgreSQL connection string used by Prisma.                      |
-| `REDIS_URL`    | Redis connection string used by the DM caches and event bridge.   |
+| `REDIS_URL`    | Redis connection string used by the DM caches, event bridge, and web event stream. |
 
 ### DM service (`apps/dm`)
 
