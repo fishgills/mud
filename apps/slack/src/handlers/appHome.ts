@@ -264,6 +264,11 @@ export const buildAppHomeBlocks = async (
       },
       {
         type: 'button' as const,
+        text: { type: 'plain_text' as const, text: 'Store' },
+        url: 'https://battleforge.app/',
+      },
+      {
+        type: 'button' as const,
         text: { type: 'plain_text' as const, text: 'Stats' },
         action_id: HELP_ACTIONS.STATS,
       },
