@@ -747,6 +747,11 @@ resource "kubernetes_deployment" "web" {
             }
           }
 
+          env {
+            name  = "REDIS_URL"
+            value = "redis://${data.google_redis_instance.cache.host}:6379"
+          }
+
           liveness_probe {
             http_get {
               path = "/"
