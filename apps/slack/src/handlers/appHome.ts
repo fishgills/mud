@@ -193,8 +193,7 @@ export const buildAppHomeBlocks = async (
 
   const isPowerUser = Boolean(player.hasMoved && player.hasBattled);
   const isRunLeader =
-    Boolean(activeRun && player?.id) &&
-    activeRun?.leaderPlayerId === player.id;
+    Boolean(activeRun && player?.id) && activeRun?.leaderPlayerId === player.id;
   const leaderboardBlocks = isPowerUser
     ? await buildLeaderboardBlocks(teamId)
     : [];
@@ -264,7 +263,7 @@ export const buildAppHomeBlocks = async (
       },
       {
         type: 'button' as const,
-        text: { type: 'plain_text' as const, text: 'Store' },
+        text: { type: 'plain_text' as const, text: 'Web Store' },
         url: 'https://battleforge.app/',
       },
       {
