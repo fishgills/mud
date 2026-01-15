@@ -125,9 +125,9 @@ export function computeShopTemplateWeights(
   const clampedLevel = Math.max(1, Math.min(level, MAX_PLAYER_SCALE));
   return ITEM_TEMPLATES.map((template) => {
     const rarityRank = ITEM_QUALITY_PRIORITY[template.rarity] ?? 0;
-    // Exponential decay: each rarity level reduces probability significantly
-    // Base weight starts at 100 for Trash (rank 0), drops exponentially
-    const exponentialPenalty = Math.pow(2, rarityRank);
+    // Exponential decay: higher rarities are still rare, but not unattainable.
+    // Base weight starts at 100 for Trash (rank 0), drops exponentially.
+    const exponentialPenalty = Math.pow(1.7, rarityRank);
     const baseWeight = 100 / exponentialPenalty;
 
     // Apply rank-based relevance (prefer items near player level)
