@@ -23,6 +23,8 @@ interface NotificationServiceOptions {
 }
 
 export class NotificationService {
+  private static readonly SLACK_TEXT_LIMIT = 3000;
+  private static readonly SLACK_BLOCKS_LIMIT = 50;
   private bridge: RedisEventBridge;
   private readonly options: NotificationServiceOptions;
   private readonly webClients = new Map<string, WebClient>();
@@ -211,6 +213,10 @@ export class NotificationService {
           }
         }
 
+        const truncated = this.truncateSlackPayload(finalMessage, finalBlocks);
+        finalMessage = truncated.text;
+        finalBlocks = truncated.blocks;
+
         // Send the message. Prefer provided blocks (rich content) if available.
         if (Array.isArray(finalBlocks) && finalBlocks.length > 0) {
           const blocksCount = finalBlocks.length;
@@ -344,5 +350,77 @@ export class NotificationService {
     const client = new WebClient(token);
     this.webClients.set(token, client);
     return client;
+  }
+
+  private truncateSlackPayload(
+    message: string,
+    blocks?: Array<Record<string, unknown>>,
+  ): { text: string; blocks?: Array<Record<string, unknown>> } {
+    const text = this.truncateText(
+      message,
+      NotificationService.SLACK_TEXT_LIMIT,
+    );
+    if (!blocks || blocks.length === 0) {
+      return { text };
+    }
+    const truncatedBlocks = this.truncateBlocks(blocks);
+    return { text, blocks: truncatedBlocks };
+  }
+
+  private truncateBlocks(
+    blocks: Array<Record<string, unknown>>,
+  ): Array<Record<string, unknown>> {
+    const limited = blocks.slice(0, NotificationService.SLACK_BLOCKS_LIMIT);
+    return limited.map((block) => this.truncateBlock(block));
+  }
+
+  private truncateBlock(
+    block: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const next = { ...block };
+    if (typeof next.text === 'string') {
+      next.text = this.truncateText(
+        next.text,
+        NotificationService.SLACK_TEXT_LIMIT,
+      );
+    } else if (next.text && typeof next.text === 'object') {
+      next.text = this.truncateTextObject(next.text);
+    }
+    if (Array.isArray(next.fields)) {
+      next.fields = next.fields.map((field) => this.truncateTextObject(field));
+    }
+    if (Array.isArray(next.elements)) {
+      next.elements = next.elements.map((element) =>
+        this.truncateTextObject(element),
+      );
+    }
+    if (next.label && typeof next.label === 'object') {
+      next.label = this.truncateTextObject(next.label);
+    }
+    if (next.placeholder && typeof next.placeholder === 'object') {
+      next.placeholder = this.truncateTextObject(next.placeholder);
+    }
+    return next;
+  }
+
+  private truncateTextObject(value: unknown): unknown {
+    if (!value || typeof value !== 'object') return value;
+    const record = value as Record<string, unknown>;
+    if (typeof record.text === 'string') {
+      return {
+        ...record,
+        text: this.truncateText(
+          record.text,
+          NotificationService.SLACK_TEXT_LIMIT,
+        ),
+      };
+    }
+    return value;
+  }
+
+  private truncateText(text: string, limit: number): string {
+    if (text.length <= limit) return text;
+    const suffix = '...';
+    return `${text.slice(0, limit - suffix.length)}${suffix}`;
   }
 }
