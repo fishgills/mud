@@ -2,14 +2,13 @@ import { COMMANDS } from '../../commands';
 import { registerHandler } from '../handlerRegistry';
 import { getUserFriendlyErrorMessage } from '../errorUtils';
 import { HandlerContext } from '../types';
-import { buildPlayerStatsMessage } from './format';
 import { fetchPlayerRecord } from './lookup';
 import { resolveTarget } from './target';
 import { PlayerStatsSource } from './types';
 import { MISSING_CHARACTER_MESSAGE } from '../characterUtils';
 import { buildCharacterSheetModal } from './modal';
 
-export const statsHandlerHelp = `Show stats with "${COMMANDS.STATS}". Example: Send "${COMMANDS.STATS}" for yourself or "${COMMANDS.STATS} @player" to inspect another adventurer.`;
+export const statsHandlerHelp = `Open the character sheet with "${COMMANDS.STATS}". Example: Send "${COMMANDS.STATS}" for yourself or "${COMMANDS.STATS} @player" to inspect another adventurer.`;
 
 async function respondWithPlayer(
   say: HandlerContext['say'],
@@ -41,7 +40,9 @@ async function respondWithPlayer(
       });
       return;
     }
-    await say(buildPlayerStatsMessage(player));
+    await say({
+      text: 'Open the Home tab and select View Stats to see your character sheet.',
+    });
     return;
   }
 
