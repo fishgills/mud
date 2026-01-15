@@ -106,7 +106,10 @@ export const buildCharacterSheetModal = (
       fields: [
         { type: 'mrkdwn', text: `*Name*\n${displayValue(player.name)}` },
         { type: 'mrkdwn', text: `*Level*\n${displayValue(player.level)}` },
-        { type: 'mrkdwn', text: `*XP*\n${formatXpLine(player)}` },
+        {
+          type: 'mrkdwn',
+          text: `*XP (current / next)*\n${formatXpLine(player)}`,
+        },
       ],
     },
     { type: 'divider' },
@@ -205,11 +208,11 @@ export const buildCharacterSheetModal = (
   return {
     type: 'modal',
     callback_id: CHARACTER_SHEET_VIEW_ID,
-    title: { type: 'plain_text', text: '🧙 Character Sheet' },
-    close: { type: 'plain_text', text: 'Close' },
+    title: { type: 'plain_text', text: '🧙 Character Sheet', emoji: true },
+    close: { type: 'plain_text', text: 'Close', emoji: true },
     submit:
       options.isSelf && skillPoints > 0
-        ? { type: 'plain_text', text: 'Spend Point' }
+        ? { type: 'plain_text', text: 'Spend Point', emoji: true }
         : undefined,
     private_metadata: JSON.stringify({
       teamId: options.teamId,
