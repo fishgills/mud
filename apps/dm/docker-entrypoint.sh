@@ -24,6 +24,19 @@ else
   echo "ℹ️ No failed 20251122044738_guild_tweaks migration to resolve (status $RESOLVE_STATUS)"
 fi
 
+set +e
+npx prisma migrate resolve --rolled-back 20260114100813_add_runs_guilds >/dev/null 2>&1
+RUNS_GUILDS_RESOLVE_STATUS=$?
+set -e
+if [ "$RUNS_GUILDS_RESOLVE_STATUS" -eq 0 ]; then
+  echo "✅ Marked 20260114100813_add_runs_guilds as rolled back before deploy"
+else
+  echo "ℹ️ No failed 20260114100813_add_runs_guilds migration to resolve (status $RUNS_GUILDS_RESOLVE_STATUS)"
+fi
+
+echo "🧼 Ensuring player names are unique before applying migrations..."
+npx prisma db execute --schema prisma/schema.prisma --file prisma/scripts/dedupe_player_names.sql
+
 echo "⏳ Executing: npx prisma migrate deploy"
 npx prisma migrate deploy
 echo "✅ Database migrations complete"
