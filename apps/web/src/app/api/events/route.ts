@@ -1,6 +1,7 @@
 import { getSession } from '../../lib/slack-auth';
 import { getWebEventStream } from '../../lib/web-event-stream';
 import { formatWebRecipientId } from '@mud/redis-client';
+import { randomUUID } from 'crypto';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,7 +68,8 @@ export const GET = async (request: Request) => {
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
   const recipientId = formatWebRecipientId(session.teamId, session.userId);
-  console.info('[web-events] client connected', { recipientId });
+  const connectionId = randomUUID();
+  console.info('[web-events] client connected', { recipientId, connectionId });
 
   const send = async (payload: unknown, eventName?: string) => {
     await writer.write(encoder.encode(buildEventMessage(payload, eventName)));
@@ -87,6 +89,7 @@ export const GET = async (request: Request) => {
     console.info('[web-events] delivering event', {
       eventType: notification.event.eventType,
       recipientId,
+      connectionId,
     });
     void send({
       type: notification.type,
@@ -108,7 +111,7 @@ export const GET = async (request: Request) => {
     } catch {
       // Ignore close errors on aborted connections.
     }
-    console.info('[web-events] client disconnected', { recipientId });
+    console.info('[web-events] client disconnected', { recipientId, connectionId });
   };
 
   request.signal.addEventListener('abort', () => {
