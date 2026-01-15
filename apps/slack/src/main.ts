@@ -232,14 +232,33 @@ app.message(async ({ message, say, client, context }) => {
   const triggerId =
     (context as { triggerId?: string; trigger_id?: string })?.triggerId ??
     (context as { triggerId?: string; trigger_id?: string })?.trigger_id;
-  for (const [key, handler] of Object.entries(getAllHandlers())) {
-    // Check if the message starts with the command or contains it as a whole word
+  const handlers = getAllHandlers();
+  const [firstToken] = lowerText.split(/\s+/);
+  const directHandler = firstToken ? handlers[firstToken] : undefined;
+  if (directHandler) {
+    app.logger.debug(
+      { command: firstToken, userId, teamId },
+      'Dispatching handler',
+    );
+    await directHandler({
+      userId,
+      say: sayVoid,
+      text,
+      resolveUserId,
+      client,
+      teamId: teamId!,
+      triggerId,
+    });
+    return;
+  }
+
+  for (const [key, handler] of Object.entries(handlers)) {
+    // Check if the message contains the command as a whole word
     app.logger.debug({ command: key, userId, teamId }, 'Inspecting handler');
+    const normalized = key.toLowerCase();
     if (
-      lowerText === key.toLowerCase() ||
-      lowerText.startsWith(key.toLowerCase() + ' ') ||
-      lowerText.includes(' ' + key.toLowerCase() + ' ') ||
-      lowerText.endsWith(' ' + key.toLowerCase())
+      lowerText.includes(' ' + normalized + ' ') ||
+      lowerText.endsWith(' ' + normalized)
     ) {
       app.logger.debug({ command: key, userId, teamId }, 'Dispatching handler');
       await handler({
