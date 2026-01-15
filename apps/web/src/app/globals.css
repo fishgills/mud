@@ -397,19 +397,48 @@ body {
 }
 
 .inventory-button {
-  border: 1px solid rgba(123, 91, 58, 0.35);
-  background: rgba(255, 255, 255, 0.75);
-  color: var(--ink);
+  border: 1px solid rgba(180, 130, 70, 0.55);
+  background:
+    linear-gradient(160deg, rgba(124, 84, 46, 0.55), rgba(38, 26, 20, 0.85));
+  color: #fff4e0;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
   padding: 5px 12px;
   cursor: pointer;
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 221, 176, 0.2);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.inventory-button:hover:not(:disabled) {
+  border-color: rgba(223, 164, 92, 0.8);
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 236, 205, 0.3);
+  transform: translateY(-1px);
+}
+
+.inventory-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 221, 176, 0.2);
+}
+
+.inventory-button:focus-visible {
+  outline: 2px solid rgba(223, 164, 92, 0.7);
+  outline-offset: 2px;
 }
 
 .inventory-button:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* Guild Store */
@@ -541,19 +570,48 @@ body {
 }
 
 .shop-button {
-  border: 1px solid rgba(123, 91, 58, 0.35);
-  background: rgba(255, 255, 255, 0.75);
-  color: var(--ink);
+  border: 1px solid rgba(180, 130, 70, 0.55);
+  background:
+    linear-gradient(160deg, rgba(124, 84, 46, 0.55), rgba(38, 26, 20, 0.85));
+  color: #fff4e0;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
   padding: 6px 14px;
   cursor: pointer;
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 221, 176, 0.2);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.shop-button:hover:not(:disabled) {
+  border-color: rgba(223, 164, 92, 0.8);
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 236, 205, 0.3);
+  transform: translateY(-1px);
+}
+
+.shop-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 221, 176, 0.2);
+}
+
+.shop-button:focus-visible {
+  outline: 2px solid rgba(223, 164, 92, 0.7);
+  outline-offset: 2px;
 }
 
 .shop-button:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* Event Stream Panel */
