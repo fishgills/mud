@@ -1,5 +1,5 @@
 import * as engine from './engine';
-import { runCombat, runPartyCombat } from './engine';
+import { runCombat, runTeamCombat } from './engine';
 import type { Combatant } from './types';
 
 describe('combat engine utilities', () => {
@@ -157,7 +157,7 @@ describe('runCombat orchestration with overrides', () => {
   });
 });
 
-describe('runPartyCombat orchestration', () => {
+describe('runTeamCombat orchestration', () => {
   const makeCombatant = (
     opts: Partial<Combatant> & { name: string; id: number },
   ): Combatant => ({
@@ -210,7 +210,13 @@ describe('runPartyCombat orchestration', () => {
       calculateGoldReward: () => 13,
     } as const;
 
-    const result = await runPartyCombat(party, monster, logger, overrides as any);
+    const result = await runTeamCombat(
+      party,
+      [monster],
+      logger,
+      overrides as any,
+      { teamAName: 'Raid party' },
+    );
 
     expect(result.winner).toBe('Raid party');
     expect(result.loser).toBe('Ogre');

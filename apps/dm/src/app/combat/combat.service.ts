@@ -22,7 +22,7 @@ import {
   rollD20 as engineRollD20,
   rollDice as engineRollDice,
   rollInitiative as engineRollInitiative,
-  runCombat as engineRunCombat,
+  runTeamCombat as engineRunTeamCombat,
 } from './engine';
 import { CombatMessenger } from './messages';
 import { applyCombatResults, type CombatResultEffects } from './results';
@@ -534,16 +534,22 @@ export class CombatService {
   ): Promise<DetailedCombatLog> {
     // Pass service-level helper functions as overrides so unit tests that spy
     // on service internals (rollD20, calculateXpGain, etc.) continue to work.
-    return engineRunCombat(combatant1, combatant2, this.logger, {
-      rollD20: this.rollD20.bind(this),
-      rollDice: this.rollDice.bind(this),
-      getModifier: this.getModifier.bind(this),
-      calculateAC: this.calculateAC.bind(this),
-      rollInitiative: this.rollInitiative.bind(this),
-      calculateDamage: this.calculateDamage.bind(this),
-      calculateXpGain: this.calculateXpGain.bind(this),
-      calculateGoldReward: this.calculateGoldReward.bind(this),
-    });
+    return engineRunTeamCombat(
+      [combatant1],
+      [combatant2],
+      this.logger,
+      {
+        rollD20: this.rollD20.bind(this),
+        rollDice: this.rollDice.bind(this),
+        getModifier: this.getModifier.bind(this),
+        calculateAC: this.calculateAC.bind(this),
+        rollInitiative: this.rollInitiative.bind(this),
+        calculateDamage: this.calculateDamage.bind(this),
+        calculateXpGain: this.calculateXpGain.bind(this),
+        calculateGoldReward: this.calculateGoldReward.bind(this),
+      },
+      { teamAName: combatant1.name, teamBName: combatant2.name },
+    );
   }
 
   // Update HP in database and award XP

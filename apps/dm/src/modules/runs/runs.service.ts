@@ -13,7 +13,7 @@ import {
   calculateAC,
   getModifier,
   parseDice,
-  runPartyCombat,
+  runTeamCombat,
 } from '../../app/combat/engine';
 import type { Combatant } from '../../app/combat/types';
 import {
@@ -308,10 +308,14 @@ export class RunsService {
     const { monster, difficultyTier, rewardMultiplier } =
       this.buildScaledEncounter(partyCombatants, roundNumber);
 
-    const combatLog = await runPartyCombat(
+    const partyName =
+      partyCombatants.length === 1 ? partyCombatants[0].name : 'Raid party';
+    const combatLog = await runTeamCombat(
       partyCombatants,
-      monster,
+      [monster],
       this.logger,
+      undefined,
+      { teamAName: partyName, teamBName: monster.name },
     );
 
     const combatLogText = this.combatService.formatCombatLog(combatLog, {
