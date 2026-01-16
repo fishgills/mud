@@ -349,7 +349,7 @@ export class RunsService {
       defenderCombatant: monster,
       combatants: partyCombatants.length > 1 ? partyCombatants : undefined,
     });
-    const playerWon = combatLog.winner !== monster.name;
+    const playerWon = partyCombatants.some((combatant) => combatant.isAlive);
 
     if (!playerWon) {
       const endTime = new Date();

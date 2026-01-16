@@ -231,9 +231,49 @@ export async function runTeamCombat(
   const resolveOpponents = (combatant: Combatant) =>
     teamASet.has(combatant) ? teamB : teamA;
 
-  const pickTarget = (team: Combatant[]) => {
+  const pickTarget = (attacker: Combatant, team: Combatant[]) => {
     const alive = team.filter((combatant) => combatant.isAlive);
     if (alive.length === 0) return null;
+
+    if (attacker.type === 'monster' && alive.length > 1) {
+      const threatTarget = (() => {
+        let best = alive[0];
+        let bestScore = -Infinity;
+        for (const combatant of alive) {
+          const stats = effectiveStatsById.get(combatant.id);
+          if (!stats) continue;
+          const attackRating = calculateAttackRating(stats);
+          const coreDamage = calculateCoreDamage(stats);
+          const weaponAverage = estimateWeaponDamage(
+            combatant.damageRoll ?? '1d4',
+          );
+          const baseDamage = calculateBaseDamage(coreDamage, weaponAverage);
+          const score = attackRating + baseDamage;
+          if (score > bestScore) {
+            best = combatant;
+            bestScore = score;
+            continue;
+          }
+          if (score === bestScore) {
+            const indexBest = orderIndex.get(best.id) ?? 0;
+            const indexCandidate = orderIndex.get(combatant.id) ?? 0;
+            if (indexCandidate < indexBest) {
+              best = combatant;
+              bestScore = score;
+            }
+          }
+        }
+        return best;
+      })();
+
+      if (useRollRandom() < 0.8) {
+        return threatTarget;
+      }
+
+      const targetIndex = Math.floor(useRollRandom() * alive.length);
+      return alive[targetIndex] ?? threatTarget;
+    }
+
     return alive.sort((a, b) => {
       if (a.hp !== b.hp) return a.hp - b.hp;
       const indexA = orderIndex.get(a.id) ?? 0;
@@ -244,7 +284,7 @@ export async function runTeamCombat(
 
   const firstAttacker = firstCombatant?.name ?? teamAName;
   const firstDefender = firstCombatant
-    ? (pickTarget(resolveOpponents(firstCombatant)) ??
+    ? (pickTarget(firstCombatant, resolveOpponents(firstCombatant)) ??
       resolveOpponents(firstCombatant)[0])
     : teamB[0];
 
@@ -290,7 +330,7 @@ export async function runTeamCombat(
       break;
     }
 
-    const defender = pickTarget(resolveOpponents(attacker));
+    const defender = pickTarget(attacker, resolveOpponents(attacker));
     if (!defender) {
       break;
     }
