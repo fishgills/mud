@@ -29,7 +29,10 @@ import {
   rollVariant,
 } from '../../app/monster/monster.types';
 import type { MonsterTemplate } from '../../app/monster/monster.types';
-import type { NotificationRecipient } from '@mud/redis-client';
+import {
+  formatWebRecipientId,
+  type NotificationRecipient,
+} from '@mud/redis-client';
 import { AppError, ErrCodes } from '../../app/errors/app-error';
 
 const RUN_ACTION_CONTINUE = 'run_action_continue';
@@ -803,6 +806,10 @@ export class RunsService {
     if (!run) return;
 
     const recipients: NotificationRecipient[] = [];
+    const webMessage =
+      params.status === RunStatus.CASHED_OUT
+        ? 'Raid complete. Updating your character.'
+        : 'Raid ended. Updating your character.';
     for (const participant of run.participants) {
       const slackUser = participant.player.slackUser;
       if (!slackUser) continue;
@@ -812,6 +819,13 @@ export class RunsService {
         userId: slackUser.userId,
         message: params.message,
         blocks: params.blocks,
+      });
+      recipients.push({
+        clientType: 'web',
+        teamId: undefined,
+        userId: formatWebRecipientId(slackUser.teamId, slackUser.userId),
+        message: webMessage,
+        priority: 'normal',
       });
     }
 

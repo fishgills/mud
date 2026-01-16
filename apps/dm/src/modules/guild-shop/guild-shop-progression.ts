@@ -66,16 +66,16 @@ const WEAPON_DICE_LADDER: Array<{
   count: number;
   sides: number;
 }> = [
-  { minTier: 1, count: 1, sides: 4 },
-  { minTier: 3, count: 1, sides: 6 },
-  { minTier: 6, count: 1, sides: 8 },
-  { minTier: 10, count: 1, sides: 10 },
-  { minTier: 15, count: 1, sides: 12 },
-  { minTier: 22, count: 2, sides: 6 },
-  { minTier: 30, count: 2, sides: 8 },
-  { minTier: 40, count: 2, sides: 10 },
-  { minTier: 55, count: 3, sides: 8 },
-  { minTier: 75, count: 3, sides: 10 },
+  { minTier: 1, count: 1, sides: 6 },
+  { minTier: 3, count: 1, sides: 8 },
+  { minTier: 6, count: 1, sides: 10 },
+  { minTier: 10, count: 1, sides: 12 },
+  { minTier: 15, count: 2, sides: 6 },
+  { minTier: 22, count: 2, sides: 8 },
+  { minTier: 30, count: 2, sides: 10 },
+  { minTier: 40, count: 3, sides: 8 },
+  { minTier: 55, count: 3, sides: 10 },
+  { minTier: 75, count: 4, sides: 10 },
   { minTier: 100, count: 4, sides: 10 },
 ];
 

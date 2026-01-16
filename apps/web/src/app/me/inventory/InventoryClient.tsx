@@ -91,7 +91,7 @@ export default function InventoryClient({
   }, [router]);
 
   useGameEvents(
-    ['player:equipment', 'guild.shop.receipt'],
+    ['player:equipment', 'guild.shop.receipt', 'run:end'],
     handleInventoryEvent,
   );
 

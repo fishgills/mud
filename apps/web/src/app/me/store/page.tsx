@@ -244,6 +244,23 @@ export default async function StorePage() {
   const lastRefreshAt = shopState?.lastRefreshedAt
     ? shopState.lastRefreshedAt.toISOString()
     : null;
+  const renderTicketIcon = (tone: 'rare' | 'epic' | 'legendary') => (
+    <span className={`ticket-icon ticket-icon-${tone}`} aria-hidden="true">
+      <svg
+        className="ticket-icon-svg"
+        viewBox="0 0 24 24"
+        role="presentation"
+        aria-hidden="true"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2.5 2.5 0 0 0 0 5v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2.5 2.5 0 0 0 0-5V7z" />
+      </svg>
+    </span>
+  );
 
   return (
     <main className="page-card flex flex-col gap-6">
@@ -265,15 +282,29 @@ export default async function StorePage() {
           Rotates on tick events
         </p>
         <p className="text-sm text-[color:var(--ink-soft)]">
-          <span className="shop-currency-line">
+          <span className="shop-currency-line shop-ticket-counts">
             <span
               className="currency-icon currency-icon-ticket"
               aria-hidden="true"
             >
               T
             </span>
-            Tickets: Rare {ticketCounts.rare} · Epic {ticketCounts.epic} ·
-            Legendary {ticketCounts.legendary}
+            Tickets:
+            <span className="shop-ticket-count">
+              {renderTicketIcon('rare')}
+              <span className="sr-only">Rare</span>
+              {ticketCounts.rare}
+            </span>
+            <span className="shop-ticket-count">
+              {renderTicketIcon('epic')}
+              <span className="sr-only">Epic</span>
+              {ticketCounts.epic}
+            </span>
+            <span className="shop-ticket-count">
+              {renderTicketIcon('legendary')}
+              <span className="sr-only">Legendary</span>
+              {ticketCounts.legendary}
+            </span>
           </span>
         </p>
       </header>

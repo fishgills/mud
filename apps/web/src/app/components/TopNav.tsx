@@ -14,7 +14,6 @@ type NavItem = {
 const navItems: NavItem[] = [
   { href: '/', label: 'Home' },
   { href: '/me', label: 'Character', requiresAuth: true },
-  { href: '/me/inventory', label: 'Inventory', requiresAuth: true },
   { href: '/me/store', label: 'Store', requiresAuth: true },
   { href: '/privacy', label: 'Privacy' },
   { href: '/terms', label: 'Terms' },
@@ -54,7 +53,9 @@ export default function TopNav({ isAuthenticated = false }: TopNavProps) {
     if (href === '/') {
       return normalizedPath === '/';
     }
-    // For /me and /me/inventory, match exactly
+    if (href === '/me') {
+      return normalizedPath === '/me' || normalizedPath === '/me/inventory';
+    }
     return normalizedPath === href;
   };
 

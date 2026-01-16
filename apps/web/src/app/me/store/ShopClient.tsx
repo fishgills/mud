@@ -57,15 +57,15 @@ const resolveTicketInfo = (ticketRequirement?: string | null) => {
   if (!ticketRequirement) return null;
   const normalized = ticketRequirement.toLowerCase();
   if (normalized === 'rare') {
-    return { key: 'rare', label: 'Rare Ticket', icon: 'R' };
+    return { key: 'rare', label: 'Rare ticket' };
   }
   if (normalized === 'epic') {
-    return { key: 'epic', label: 'Epic Ticket', icon: 'E' };
+    return { key: 'epic', label: 'Epic ticket' };
   }
   if (normalized === 'legendary') {
-    return { key: 'legendary', label: 'Legendary Ticket', icon: 'L' };
+    return { key: 'legendary', label: 'Legendary ticket' };
   }
-  return { key: normalized, label: `${ticketRequirement} Ticket`, icon: '?' };
+  return { key: normalized, label: `${ticketRequirement} ticket` };
 };
 
 const formatCountdown = (milliseconds: number): string => {
@@ -155,7 +155,10 @@ export default function ShopClient({
     [refreshIntervalMs, router],
   );
 
-  useGameEvents(['guild.shop.receipt', 'guild.shop.refresh'], handleShopEvent);
+  useGameEvents(
+    ['guild.shop.receipt', 'guild.shop.refresh', 'run:end'],
+    handleShopEvent,
+  );
 
   useEffect(() => {
     const base = lastRefreshAt ? new Date(lastRefreshAt).getTime() : Date.now();
@@ -291,14 +294,32 @@ export default function ShopClient({
                   ) : null}
                   {ticketInfo ? (
                     <div className="shop-card-meta">
-                      <span className="shop-ticket">
+                      <span
+                        className="shop-ticket"
+                        role="img"
+                        aria-label={`${ticketInfo.label} required`}
+                      >
                         <span
                           className={`ticket-icon ticket-icon-${ticketInfo.key}`}
                           aria-hidden="true"
                         >
-                          {ticketInfo.icon}
+                          <svg
+                            className="ticket-icon-svg"
+                            viewBox="0 0 24 24"
+                            role="presentation"
+                            aria-hidden="true"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2.5 2.5 0 0 0 0 5v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2.5 2.5 0 0 0 0-5V7z" />
+                          </svg>
                         </span>
-                        <span>{ticketInfo.label}</span>
+                        <span className="shop-ticket-text">
+                          Ticket required
+                        </span>
                       </span>
                     </div>
                   ) : null}
