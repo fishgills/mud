@@ -11,6 +11,11 @@ import type {
   CombatNarrative,
   NarrativeOptions,
 } from './types';
+import {
+  calculateAttackRating,
+  calculateDefenseRating,
+  toEffectiveStats,
+} from './engine';
 
 export class CombatMessenger {
   constructor(
@@ -46,8 +51,33 @@ export class CombatMessenger {
     return secondPersonName && name === secondPersonName ? 'You' : name;
   }
 
-  private formatModifier(value: number): string {
-    return value >= 0 ? `+ ${value}` : `- ${Math.abs(value)}`;
+  private formatPercent(value: number): string {
+    return `${Math.round(value * 100)}%`;
+  }
+
+  private formatNumber(value: number): string {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  }
+
+  private formatRatingMath(
+    attacker?: Combatant,
+    defender?: Combatant,
+  ): string | null {
+    if (!attacker || !defender) return null;
+    const attackerStats = toEffectiveStats(attacker);
+    const defenderStats = toEffectiveStats(defender);
+    const attackRating = calculateAttackRating(attackerStats);
+    const defenseRating = calculateDefenseRating(defenderStats);
+    return [
+      `AR math: 10*S'(${this.formatNumber(attackerStats.strength)})`,
+      `+ 4*A'(${this.formatNumber(attackerStats.agility)})`,
+      `+ 6*L'(${this.formatNumber(attackerStats.level)})`,
+      `= ${this.formatNumber(attackRating)}`,
+      `| DR math: 10*A'(${this.formatNumber(defenderStats.agility)})`,
+      `+ 2*H'(${this.formatNumber(defenderStats.health)})`,
+      `+ 6*L'(${this.formatNumber(defenderStats.level)})`,
+      `= ${this.formatNumber(defenseRating)}`,
+    ].join(' ');
   }
 
   private formatGearList(combatant?: Combatant): string {
@@ -84,16 +114,11 @@ export class CombatMessenger {
       `HP ${combatant.hp}/${combatant.maxHp}`,
       `Str ${combatant.strength}`,
       `Agi ${combatant.agility}`,
+      `Vit ${combatant.health}`,
     ];
 
-    if (combatant.attackBonus && combatant.attackBonus !== 0) {
-      metrics.push(`Atk +${combatant.attackBonus}`);
-    }
-    if (combatant.damageBonus && combatant.damageBonus !== 0) {
-      metrics.push(`Dmg +${combatant.damageBonus}`);
-    }
-    if (combatant.armorBonus && combatant.armorBonus !== 0) {
-      metrics.push(`AC +${combatant.armorBonus}`);
+    if (combatant.damageRoll) {
+      metrics.push(`Weapon ${combatant.damageRoll}`);
     }
 
     metrics.push(`Gear: ${this.formatGearList(combatant)}`);
@@ -115,30 +140,13 @@ export class CombatMessenger {
       options.secondPersonName,
     );
 
-    // Build detailed attack calculation with equipment bonuses
-    let attackCalc = `d20 ${round.attackRoll}`;
-    if (round.baseAttackModifier !== undefined) {
-      attackCalc += ` ${this.formatModifier(round.baseAttackModifier)}`;
-    }
-    if (round.attackBonus && round.attackBonus > 0) {
-      attackCalc += ` ${this.formatModifier(round.attackBonus)}`;
-    }
-    attackCalc += ` = ${round.totalAttack}`;
-
-    // Build detailed AC calculation with armor bonuses
-    let acCalc = `${round.defenderAC}`;
-    if (
-      round.baseDefenderAC !== undefined &&
-      round.armorBonus !== undefined &&
-      round.armorBonus > 0
-    ) {
-      acCalc = `${round.baseDefenderAC} ${this.formatModifier(round.armorBonus)} = ${round.defenderAC}`;
-    }
-
-    const attackLine = `${attackerLabel} attack: ${attackCalc} vs AC ${acCalc} -> ${round.hit ? 'HIT' : 'MISS'}`;
-
+    const attackLine = `${attackerLabel} strike: AR ${this.formatNumber(round.attackRating)} vs DR ${this.formatNumber(round.defenseRating)} (hit ${this.formatPercent(round.hitChance)}) -> ${round.hit ? 'HIT' : 'MISS'}`;
+    const attacker =
+      context.combatantsByName?.get(round.attackerName) ?? undefined;
     const defender =
       context.combatantsByName?.get(round.defenderName) ?? undefined;
+    const ratingMath = this.formatRatingMath(attacker, defender);
+
     const defenderMaxHp =
       typeof defender?.maxHp === 'number' ? defender.maxHp : undefined;
     const hpAfter = round.defenderHpAfter;
@@ -147,23 +155,25 @@ export class CombatMessenger {
         ? `${hpAfter}/${defenderMaxHp}`
         : `${hpAfter}`;
 
-    // Build detailed damage calculation with weapon/equipment bonuses
     let damageLine: string;
     if (round.hit) {
-      let damageCalc = `${round.damage}`;
-      if (
-        round.baseDamage !== undefined &&
-        round.damageBonus !== undefined &&
-        round.damageBonus > 0
-      ) {
-        damageCalc = `${round.baseDamage} ${this.formatModifier(round.damageBonus)} = ${round.damage}`;
-      }
-      damageLine = `Damage: ${damageCalc} -> ${defenderLabel} HP ${hpSegment}${round.killed ? ' KO' : ''}`;
+      const weaponSegment =
+        round.weaponDamage > 0 ? ` + weapon ${round.weaponDamage}` : '';
+      const critSegment = round.crit
+        ? `, crit x${round.critMultiplier ?? 1.5}`
+        : '';
+      const breakdown = `core ${this.formatNumber(round.coreDamage)}${weaponSegment}, mit ${this.formatPercent(round.mitigation)}${critSegment}`;
+      damageLine = `Damage: ${round.damage} (${breakdown}) -> ${defenderLabel} HP ${hpSegment}${round.killed ? ' KO' : ''}`;
     } else {
       damageLine = `Damage: 0 -> ${defenderLabel} HP ${hpSegment} (miss)`;
     }
 
-    return [attackLine, damageLine].join('\n');
+    const lines = [attackLine];
+    if (ratingMath) {
+      lines.push(ratingMath);
+    }
+    lines.push(damageLine);
+    return lines.join('\n');
   }
 
   private createFallbackNarrative(
@@ -417,9 +427,7 @@ export class CombatMessenger {
     }
 
     perf.totalMs = Date.now() - start;
-    this.logger.debug(
-      `Generated ${messages.length} combat messages`,
-    );
+    this.logger.debug(`Generated ${messages.length} combat messages`);
     return { messages, perf };
   }
 }

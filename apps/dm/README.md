@@ -6,7 +6,7 @@ The DM (Dungeon Master) service manages the core game mechanics for the text-bas
 
 - **Player Management**: Create players and track stats (Strength, Health, Agility)
 - **Monster System**: Spawn monsters and resolve combat
-- **Combat System**: D&D-like combat mechanics with dice rolls, stat modifiers, and dodge chances
+- **Combat System**: Ratings-based combat with diminishing returns, hit chance clamps, and mitigation
 - **Inventory & Equipment**: Manage gear slots and compute combat bonuses
 - **Guild Shop**: Rotate catalog items and process transactions
 
@@ -39,32 +39,35 @@ Kubernetes workloads can rely on the same paths regardless of hostname.
 
 ## Player Stats
 
-Players have three core attributes (like D&D warriors):
+Players have three core attributes:
 
 - **Strength**: Affects damage dealt in combat
 - **Health**: Affects maximum hit points (HP)
-- **Agility**: Affects dodge chance in combat
+- **Agility**: Affects defense rating, initiative, and crit chance
 
 ## Combat System
 
-Combat follows simplified D&D mechanics:
+Combat follows ratings-based math with diminishing returns:
 
-- **Attack Roll**: d20 + Strength modifier + Equipment attack bonus vs AC
-- **Armor Class (AC)**: 10 + Agility modifier + Equipment armor bonus
-- **Damage**: Base damage (from Strength) + Equipment damage bonus
-- **Modifiers**: (Ability - 10) / 2 (rounded down)
-- Players gain XP for defeating monsters
+- **Effective Stats**: `S' = sqrt(S)`, `A' = sqrt(A)`, `H' = sqrt(H)`, `L' = sqrt(L)`
+- **Attack Rating (AR)**: `10*S' + 4*A' + 6*L'`
+- **Defense Rating (DR)**: `10*A' + 2*H' + 6*L'`
+- **Hit Chance**: `p_hit = clamp(sigmoid((AR - DR) / 15), 0.10, 0.90)`
+- **Base Damage**: `4 + 2*S' + 0.5*L' + weapon dice`
+- **Mitigation**: `T = 6*H' + 3*A'`, `mitigation = T / (T + 100)`
+- **Critical Hits**: `p_crit = clamp(0.05 + (A'a - A'd) / 100, 0.05, 0.25)` with 1.5x damage
+- **Initiative**: `1000*A' + 10*L' + random(0,50)` (sorted once at combat start)
 
 ### Combat Transparency
 
 All combat logs now include detailed breakdowns:
 
-- Attack calculations show: dice roll + ability modifier + equipment bonus
-- AC calculations show: base AC + ability modifier + armor bonus
-- Damage calculations show: base damage + weapon/equipment bonus
-- Equipment effects are displayed in combatant metrics (Atk +X, Dmg +Y, AC +Z)
+- Attack calculations show: attack/defense ratings and hit chance
+- AR/DR calculations show: effective stats feeding ratings and hit chance
+- Damage calculations show: core damage + weapon dice, mitigation, and crits
+- Equipment effects are displayed in combatant metrics (Str/Agi/Vit + weapon)
 
-Example: `Hero attack: d20 15 + 2 (Str) + 3 (Equipment) = 20 vs AC 10 + 1 (Agi) + 4 (Armor) = 15 -> HIT`
+Example: `Hero strike: AR 62.4 vs DR 48.7 (hit 71%) -> HIT`
 
 ## Monster Types
 
@@ -136,8 +139,8 @@ curl -X POST http://localhost:3000/dm/system/process-tick
 
 ### Combat Resolution
 
-1. Calculate damage with dice roll + stat modifier
-2. Check for dodge based on defender's agility
-3. Apply damage and check for death
+1. Compute AR/DR from effective stats and roll hit chance
+2. On hit, compute base damage + weapon dice, apply mitigation and crits
+3. Apply damage and check for defeat
 4. Award XP if monster is defeated
 5. Log combat event for history

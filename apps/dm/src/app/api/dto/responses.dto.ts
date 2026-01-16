@@ -32,28 +32,47 @@ export interface CombatRound {
   roundNumber: number;
   attackerName: string;
   defenderName: string;
-  attackRoll: number;
-  attackModifier: number;
-  totalAttack: number;
-  defenderAC: number;
+  attackRating: number;
+  defenseRating: number;
+  hitChance: number;
+  hitRoll: number;
   hit: boolean;
+  weaponDamage: number;
+  coreDamage: number;
+  baseDamage: number;
+  mitigation: number;
+  damageAfterMitigation: number;
+  critChance?: number;
+  critRoll?: number;
+  critMultiplier?: number;
+  crit?: boolean;
   damage: number;
   defenderHpAfter: number;
   killed: boolean;
-  // Bonus breakdown for transparency
-  baseAttackModifier?: number;
-  attackBonus?: number;
-  baseDefenderAC?: number;
-  armorBonus?: number;
-  baseDamage?: number;
-  damageBonus?: number;
 }
 
 export interface InitiativeRoll {
   name: string;
-  roll: number;
-  modifier: number;
+  base: number;
+  random: number;
   total: number;
+}
+
+export interface PlayerCombatStats {
+  strength: number;
+  agility: number;
+  health: number;
+  level: number;
+  effectiveStrength: number;
+  effectiveAgility: number;
+  effectiveHealth: number;
+  effectiveLevel: number;
+  attackRating: number;
+  defenseRating: number;
+  baseDamage: number;
+  mitigation: number;
+  maxHp: number;
+  weaponDamageRoll: string;
 }
 
 export interface DetailedCombatLog {
@@ -130,12 +149,7 @@ export interface HealthCheck {
 
 export interface PlayerStats {
   player: Player;
-  strengthModifier: number;
-  agilityModifier: number;
-  healthModifier: number;
-  dodgeChance: number;
-  baseDamage: string;
-  armorClass: number;
+  combat: PlayerCombatStats;
   xpForNextLevel: number;
   xpProgress: number;
   xpNeeded: number;

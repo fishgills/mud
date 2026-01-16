@@ -36,6 +36,7 @@ export interface Combatant {
   maxHp: number;
   strength: number;
   agility: number;
+  health: number;
   level: number;
   isAlive: boolean;
   slackUser?: {
@@ -47,10 +48,7 @@ export interface Combatant {
     newLevel: number;
     skillPointsAwarded: number;
   };
-  attackBonus?: number;
-  damageBonus?: number;
   damageRoll?: string;
-  armorBonus?: number;
   equippedItems?: CombatantEquipment[];
 }
 

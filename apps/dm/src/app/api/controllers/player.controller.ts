@@ -382,14 +382,13 @@ export class PlayersController {
     @Query('userId') userId: string,
   ): Promise<PlayerStats> {
     const player = await this.playerService.getPlayer(teamId, userId);
-
-    const strengthModifier = Math.floor((player.strength - 10) / 2);
-    const agilityModifier = Math.floor((player.agility - 10) / 2);
-    const healthModifier = Math.floor((player.health - 10) / 2);
-
-    const dodgeChance = Math.max(0, (player.agility - 10) * 5);
-    const baseDamage = `1d6${strengthModifier >= 0 ? '+' : ''}${strengthModifier}`;
-    const armorClass = 10 + agilityModifier;
+    const equipmentTotals = await this.playerItemService.getEquipmentTotals(
+      player.id,
+    );
+    const combat = computePlayerCombatStats({
+      ...player,
+      equipmentTotals,
+    });
 
     const xpForNextLevel = getXpThresholdForLevel(player.level);
     const prevThreshold =
@@ -403,12 +402,7 @@ export class PlayersController {
 
     return {
       player: player,
-      strengthModifier,
-      agilityModifier,
-      healthModifier,
-      dodgeChance,
-      baseDamage,
-      armorClass,
+      combat,
       xpForNextLevel,
       xpProgress,
       xpNeeded,
@@ -792,7 +786,10 @@ export class PlayersController {
         'player:equipment web notification published',
       );
     } catch (error) {
-      this.logger.warn({ error }, 'Failed to publish web equipment notification');
+      this.logger.warn(
+        { error },
+        'Failed to publish web equipment notification',
+      );
     }
   }
 }

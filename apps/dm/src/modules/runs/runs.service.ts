@@ -10,10 +10,14 @@ import { CombatService } from '../../app/combat/combat.service';
 import { EventBridgeService } from '../../shared/event-bridge.service';
 import { GuildsService } from '../guilds/guilds.service';
 import {
-  calculateAC,
-  getModifier,
-  parseDice,
+  calculateAttackRating,
+  calculateBaseDamage,
+  calculateCoreDamage,
+  calculateDefenseRating,
+  calculateMitigation,
+  estimateWeaponDamage,
   runTeamCombat,
+  toEffectiveStats,
 } from '../../app/combat/engine';
 import type { Combatant } from '../../app/combat/types';
 import {
@@ -79,11 +83,7 @@ export class RunsService {
     }
   }
 
-  async startRun(
-    teamId: string,
-    userId: string,
-    runType: RunType,
-  ) {
+  async startRun(teamId: string, userId: string, runType: RunType) {
     const player = await this.playerService.getPlayer(teamId, userId, {
       requireCreationComplete: true,
     });
@@ -153,7 +153,9 @@ export class RunsService {
 
     const run = await this.requireActiveRun(runId, player.id);
     if (run.leaderPlayerId !== player.id) {
-      throw new BadRequestException('Only the raid leader can finish the raid.');
+      throw new BadRequestException(
+        'Only the raid leader can finish the raid.',
+      );
     }
 
     const runWithParticipants = await this.loadRunWithParticipants(run.id);
@@ -185,10 +187,14 @@ export class RunsService {
         { requireCreationComplete: true },
       );
 
-      await this.playerService.updatePlayerStats(slackUser.teamId, slackUser.userId, {
-        xp: current.xp + bankedXp,
-        gold: current.gold + bankedGold,
-      });
+      await this.playerService.updatePlayerStats(
+        slackUser.teamId,
+        slackUser.userId,
+        {
+          xp: current.xp + bankedXp,
+          gold: current.gold + bankedGold,
+        },
+      );
     }
 
     runWithParticipants.status = RunStatus.CASHED_OUT;
@@ -295,8 +301,8 @@ export class RunsService {
       throw new BadRequestException('Raid is no longer active.');
     }
 
-    const leader = run.participants.find((participant) =>
-      participant.playerId === leaderId,
+    const leader = run.participants.find(
+      (participant) => participant.playerId === leaderId,
     );
     if (!leader) {
       throw new BadRequestException('Raid leader not found.');
@@ -415,10 +421,11 @@ export class RunsService {
         acc.maxHp += combatant.maxHp;
         acc.strength += combatant.strength;
         acc.agility += combatant.agility;
+        acc.health += combatant.health;
         acc.level += combatant.level;
         return acc;
       },
-      { hp: 0, maxHp: 0, strength: 0, agility: 0, level: 0 },
+      { hp: 0, maxHp: 0, strength: 0, agility: 0, health: 0, level: 0 },
     );
 
     const count = Math.max(1, combatants.length);
@@ -430,6 +437,7 @@ export class RunsService {
       maxHp: total.maxHp,
       strength: Math.round(total.strength / count),
       agility: Math.round(total.agility / count),
+      health: Math.round(total.health / count),
       level: Math.max(1, Math.round(total.level / count)),
       isAlive: combatants.some((combatant) => combatant.isAlive),
     };
@@ -442,22 +450,19 @@ export class RunsService {
   }
 
   private calculateCombatantPower(combatant: Combatant): number {
-    const { count, sides } = parseDice(combatant.damageRoll ?? '1d4');
-    const averageRoll = count * (sides + 1) / 2;
-    const baseDamage = Math.max(
-      1,
-      averageRoll +
-        getModifier(combatant.strength) +
-        (combatant.damageBonus ?? 0),
-    );
-    const attackScore =
-      baseDamage * 4 +
-      (getModifier(combatant.strength) + (combatant.attackBonus ?? 0)) * 1.5;
-    const armorScore =
-      combatant.maxHp * 0.6 +
-      (calculateAC(combatant.agility) + (combatant.armorBonus ?? 0)) * 2;
+    const effectiveStats = toEffectiveStats(combatant);
+    const weaponAverage = estimateWeaponDamage(combatant.damageRoll ?? '1d4');
+    const coreDamage = calculateCoreDamage(effectiveStats);
+    const baseDamage = calculateBaseDamage(coreDamage, weaponAverage);
+    const attackRating = calculateAttackRating(effectiveStats);
+    const defenseRating = calculateDefenseRating(effectiveStats);
+    const mitigation = calculateMitigation(effectiveStats);
+
+    const offenseScore = baseDamage * 4 + attackRating * 0.5;
+    const defenseScore =
+      combatant.maxHp * 0.6 + defenseRating * 0.4 + mitigation * 50;
     const levelScore = combatant.level * 4;
-    return Math.max(1, Math.round(attackScore + armorScore + levelScore));
+    return Math.max(1, Math.round(offenseScore + defenseScore + levelScore));
   }
 
   private calculateTemplatePower(template: MonsterTemplate): number {
@@ -470,6 +475,7 @@ export class RunsService {
       maxHp: baseMaxHp,
       strength: template.strength,
       agility: template.agility,
+      health: template.health,
       level: template.tier,
       isAlive: true,
       damageRoll: template.damageRoll,
@@ -538,7 +544,10 @@ export class RunsService {
       ),
     );
 
-    const baseMaxHp = Math.max(1, Math.floor(template.baseHp * scale) + health * 2);
+    const baseMaxHp = Math.max(
+      1,
+      Math.floor(template.baseHp * scale) + health * 2,
+    );
     const maxHp = Math.max(
       1,
       Math.floor(baseMaxHp * variantConfig.hpMultiplier),
@@ -555,6 +564,7 @@ export class RunsService {
       maxHp,
       strength,
       agility,
+      health,
       level,
       isAlive: true,
       damageRoll: template.damageRoll,
@@ -695,7 +705,11 @@ export class RunsService {
 
   private async publishRunEndNotifications(
     run: Awaited<ReturnType<RunsService['loadRunWithParticipants']>>,
-    params: { status: RunStatus; message: string; blocks?: Array<Record<string, unknown>> },
+    params: {
+      status: RunStatus;
+      message: string;
+      blocks?: Array<Record<string, unknown>>;
+    },
   ) {
     if (!run) return;
 

@@ -3,25 +3,36 @@ import { runCombat, runTeamCombat } from './engine';
 import type { Combatant } from './types';
 
 describe('combat engine utilities', () => {
-  test('getModifier and calculateAC produce expected values', () => {
-    expect(engine.getModifier(16)).toBe(3);
-    expect(engine.getModifier(10)).toBe(0);
-    expect(engine.getModifier(9)).toBe(-1);
-    expect(engine.calculateAC(14)).toBe(12); // 10 + modifier(14)=+2
+  test('effective stats and ratings follow combat formulas', () => {
+    const effective = {
+      strength: engine.effectiveStat(16),
+      agility: engine.effectiveStat(9),
+      health: engine.effectiveStat(25),
+      level: engine.effectiveStat(4),
+    };
+
+    expect(effective.strength).toBe(4);
+    expect(effective.agility).toBe(3);
+    expect(effective.health).toBe(5);
+    expect(effective.level).toBe(2);
+
+    const attackRating = engine.calculateAttackRating(effective);
+    const defenseRating = engine.calculateDefenseRating(effective);
+    expect(attackRating).toBe(64);
+    expect(defenseRating).toBe(52);
+
+    const hitChance = engine.calculateHitChance(attackRating, defenseRating);
+    expect(hitChance).toBeCloseTo(0.69, 2);
+    expect(engine.calculateHitChance(0, 1000)).toBe(0.1);
+    expect(engine.calculateHitChance(1000, 0)).toBe(0.9);
   });
 
   test('calculateXpGain and calculateGoldReward are deterministic when Math.random is mocked', () => {
-    // Mock Math.random sequence for rollDice used by calculateXpGain
-    // rollDice(2,6) will call Math.random twice. We want a sum of 7 -> use 0 (->1) and ~1 (->6)
     const mr = jest.spyOn(Math, 'random');
     mr.mockReturnValueOnce(0).mockReturnValueOnce(0.9999);
     const xp = engine.calculateXpGain(3, 4);
-    // base = 20 + 5*4 = 40, variability = (1+6)-2 = 5, levelDiff = 1 -> multiplier 1.2
-    // raw = (40+5) * 1.2 = 54 -> floor 54
     expect(xp).toBe(54);
 
-    // Now mock five Math.random calls for calculateGoldReward to yield baseGold=20
-    // Use 0.5 for each -> floor(0.5*6)+1 = 4 -> 4*5 = 20
     mr.mockReturnValueOnce(0.5)
       .mockReturnValueOnce(0.5)
       .mockReturnValueOnce(0.5)
@@ -45,11 +56,10 @@ describe('runCombat orchestration with overrides', () => {
     maxHp: opts.maxHp ?? 10,
     strength: opts.strength ?? 12,
     agility: opts.agility ?? 12,
+    health: opts.health ?? 12,
     level: opts.level ?? 1,
     isAlive: opts.isAlive ?? true,
-    attackBonus: opts.attackBonus,
-    damageBonus: opts.damageBonus,
-    armorBonus: opts.armorBonus,
+    damageRoll: opts.damageRoll,
   });
 
   test('attacker wins and xp/gold from overrides are applied to returned log', async () => {
@@ -57,16 +67,20 @@ describe('runCombat orchestration with overrides', () => {
       name: 'Hero',
       id: 1,
       hp: 12,
-      strength: 14,
+      strength: 16,
       agility: 20,
+      health: 12,
       level: 3,
+      damageRoll: '1d4',
     });
     const defender = makeCombatant({
       name: 'Goblin',
       id: 2,
       hp: 3,
+      maxHp: 3,
       strength: 8,
       agility: 5,
+      health: 8,
       level: 2,
     });
 
@@ -77,13 +91,10 @@ describe('runCombat orchestration with overrides', () => {
       warn: jest.fn(),
     } as any;
 
+    const randomQueue = [0, 0, 0.01, 0.99];
     const overrides = {
-      rollInitiative: (agility: number) =>
-        agility > 10
-          ? { roll: 19, modifier: 5, total: 24 }
-          : { roll: 1, modifier: -5, total: -4 },
-      rollD20: () => 15,
-      calculateDamage: () => 5,
+      rollRandom: () => randomQueue.shift() ?? 0,
+      rollDice: () => 4,
       calculateXpGain: () => 12,
       calculateGoldReward: () => 4,
     } as const;
@@ -103,26 +114,28 @@ describe('runCombat orchestration with overrides', () => {
     expect(result.firstAttacker).toBe('Hero');
   });
 
-  test('applies attack, damage, and armor bonuses from combatants', async () => {
+  test('computes ratings, mitigation, and weapon damage', async () => {
     const attacker = makeCombatant({
       name: 'Champion',
       id: 10,
-      strength: 10,
-      agility: 10,
-      attackBonus: 5,
-      damageBonus: 8,
-      hp: 10,
-      maxHp: 10,
+      strength: 16,
+      agility: 9,
+      health: 9,
+      level: 4,
+      damageRoll: '1d4',
+      hp: 20,
+      maxHp: 20,
     });
 
     const defender = makeCombatant({
       name: 'Guardian',
       id: 20,
       strength: 10,
-      agility: 10,
-      armorBonus: 4,
-      hp: 8,
-      maxHp: 8,
+      agility: 9,
+      health: 16,
+      level: 4,
+      hp: 30,
+      maxHp: 30,
     });
 
     const logger = {
@@ -132,10 +145,10 @@ describe('runCombat orchestration with overrides', () => {
       warn: jest.fn(),
     } as any;
 
+    const randomQueue = [0, 0, 0.01, 0.99];
     const overrides = {
-      rollInitiative: () => ({ roll: 15, modifier: 0, total: 15 }),
-      rollD20: () => 10,
-      calculateDamage: () => 1,
+      rollRandom: () => randomQueue.shift() ?? 0,
+      rollDice: () => 4,
       calculateXpGain: () => 0,
       calculateGoldReward: () => 0,
     } as const;
@@ -148,12 +161,15 @@ describe('runCombat orchestration with overrides', () => {
     );
 
     const [firstRound] = result.rounds;
-    expect(firstRound.attackModifier).toBe(5);
-    expect(firstRound.defenderAC).toBe(14);
-    expect(firstRound.damage).toBe(9);
+    expect(firstRound.attackRating).toBe(64);
+    expect(firstRound.defenseRating).toBe(50);
+    expect(firstRound.weaponDamage).toBe(4);
+    expect(firstRound.coreDamage).toBeCloseTo(13, 3);
+    expect(firstRound.baseDamage).toBeCloseTo(17, 3);
+    expect(firstRound.mitigation).toBeCloseTo(33 / 133, 3);
+    expect(firstRound.damageAfterMitigation).toBeCloseTo(12.782, 2);
+    expect(firstRound.damage).toBe(13);
     expect(firstRound.hit).toBe(true);
-    expect(result.winner).toBe('Champion');
-    expect(defender.hp).toBe(0);
   });
 });
 
@@ -168,11 +184,9 @@ describe('runTeamCombat orchestration', () => {
     maxHp: opts.maxHp ?? 10,
     strength: opts.strength ?? 12,
     agility: opts.agility ?? 12,
+    health: opts.health ?? 12,
     level: opts.level ?? 1,
     isAlive: opts.isAlive ?? true,
-    attackBonus: opts.attackBonus,
-    damageBonus: opts.damageBonus,
-    armorBonus: opts.armorBonus,
     damageRoll: opts.damageRoll,
   });
 
@@ -189,6 +203,7 @@ describe('runTeamCombat orchestration', () => {
       maxHp: 6,
       strength: 8,
       agility: 8,
+      health: 12,
       level: 3,
     });
 
@@ -199,13 +214,10 @@ describe('runTeamCombat orchestration', () => {
       warn: jest.fn(),
     } as any;
 
+    const randomQueue = [0.2, 0.1, 0.01, 0.99];
     const overrides = {
-      rollInitiative: (agility: number) =>
-        agility >= 14
-          ? { roll: 18, modifier: 2, total: 20 }
-          : { roll: 1, modifier: -1, total: 0 },
-      rollD20: () => 20,
-      calculateDamage: () => 5,
+      rollRandom: () => randomQueue.shift() ?? 0,
+      rollDice: () => 5,
       calculateXpGain: () => 42,
       calculateGoldReward: () => 13,
     } as const;

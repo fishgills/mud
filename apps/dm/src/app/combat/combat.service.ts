@@ -14,14 +14,9 @@ import type {
 } from '../api';
 import { AttackOrigin } from '../api/dto/player-requests.dto';
 import {
-  calculateAC as engineCalculateAC,
-  calculateDamage as engineCalculateDamage,
   calculateGoldReward as engineCalculateGoldReward,
   calculateXpGain as engineCalculateXpGain,
-  getModifier as engineGetModifier,
-  rollD20 as engineRollD20,
   rollDice as engineRollDice,
-  rollInitiative as engineRollInitiative,
   runTeamCombat as engineRunTeamCombat,
 } from './engine';
 import { CombatMessenger } from './messages';
@@ -68,6 +63,7 @@ export interface Combatant {
   maxHp: number;
   strength: number;
   agility: number;
+  health: number;
   level: number;
   isAlive: boolean;
   identifier?: {
@@ -83,10 +79,7 @@ export interface Combatant {
     newLevel: number;
     skillPointsAwarded: number;
   };
-  attackBonus?: number;
-  damageBonus?: number;
   damageRoll?: string;
-  armorBonus?: number;
   equippedItems?: CombatantEquipment[];
 }
 
@@ -107,17 +100,11 @@ export class CombatService {
   // Initialize messenger after DI
   private initMessenger() {
     if (!this.messenger)
-      this.messenger = new CombatMessenger(
-        this.aiService,
-        this.logger,
-      );
+      this.messenger = new CombatMessenger(this.aiService, this.logger);
   }
 
-  // Roll 1d20
-  private rollD20(): number {
-    const roll = engineRollD20();
-    this.logger.debug(`Rolled 1d20: ${roll}`);
-    return roll;
+  private rollRandom(): number {
+    return Math.random();
   }
 
   // Roll multiple dice (e.g., "20d10" for XP calculation)
@@ -125,40 +112,6 @@ export class CombatService {
     const total = engineRollDice(count, sides);
     this.logger.debug(`Rolled ${count}d${sides}: total=${total}`);
     return total;
-  }
-
-  // Calculate ability modifier (D&D 3e style: (ability - 10) / 2)
-  private getModifier(ability: number): number {
-    const modifier = engineGetModifier(ability);
-    this.logger.debug(`Ability ${ability} -> modifier ${modifier}`);
-    return modifier;
-  }
-
-  // Calculate Armor Class (10 + Dex modifier)
-  private calculateAC(agility: number): number {
-    const ac = engineCalculateAC(agility);
-    this.logger.debug(`AC calculation: ${ac} (10 + Dex mod)`);
-    return ac;
-  }
-
-  // Calculate initiative (1d20 + Dex modifier)
-  private rollInitiative(agility: number): {
-    roll: number;
-    modifier: number;
-    total: number;
-  } {
-    const result = engineRollInitiative(agility);
-    this.logger.debug(
-      `Initiative: ${result.roll} + ${result.modifier} (Dex) = ${result.total}`,
-    );
-    return result;
-  }
-
-  // Calculate damage (Weapon Dice + Str modifier, minimum 1)
-  private calculateDamage(strength: number, damageRoll = '1d4'): number {
-    const totalDamage = engineCalculateDamage(strength, damageRoll);
-    this.logger.debug(`Damage (${damageRoll ?? '1d4'}): total ${totalDamage}`);
-    return totalDamage;
   }
 
   // Calculate XP gain based on opponent difficulty and level difference
@@ -232,8 +185,12 @@ export class CombatService {
     return secondPersonName && name === secondPersonName ? 'You' : name;
   }
 
-  private formatModifier(value: number): string {
-    return value >= 0 ? `+ ${value}` : `- ${Math.abs(value)}`;
+  private formatPercent(value: number): string {
+    return `${Math.round(value * 100)}%`;
+  }
+
+  private formatNumber(value: number): string {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
   }
 
   private formatGearList(combatant?: Combatant): string {
@@ -270,16 +227,11 @@ export class CombatService {
       `HP ${combatant.hp}/${combatant.maxHp}`,
       `Str ${combatant.strength}`,
       `Agi ${combatant.agility}`,
+      `Vit ${combatant.health}`,
     ];
 
-    if (combatant.attackBonus && combatant.attackBonus !== 0) {
-      metrics.push(`Atk +${combatant.attackBonus}`);
-    }
-    if (combatant.damageBonus && combatant.damageBonus !== 0) {
-      metrics.push(`Dmg +${combatant.damageBonus}`);
-    }
-    if (combatant.armorBonus && combatant.armorBonus !== 0) {
-      metrics.push(`AC +${combatant.armorBonus}`);
+    if (combatant.damageRoll) {
+      metrics.push(`Weapon ${combatant.damageRoll}`);
     }
 
     metrics.push(`Gear: ${this.formatGearList(combatant)}`);
@@ -301,9 +253,7 @@ export class CombatService {
       options.secondPersonName,
     );
 
-    const attackLine = `${attackerLabel} attack: d20 ${round.attackRoll} ${this.formatModifier(
-      round.attackModifier,
-    )} = ${round.totalAttack} vs AC ${round.defenderAC} -> ${round.hit ? 'HIT' : 'MISS'}`;
+    const attackLine = `${attackerLabel} strike: AR ${this.formatNumber(round.attackRating)} vs DR ${this.formatNumber(round.defenseRating)} (hit ${this.formatPercent(round.hitChance)}) -> ${round.hit ? 'HIT' : 'MISS'}`;
 
     const defender =
       context.combatantsByName?.get(round.defenderName) ?? undefined;
@@ -315,9 +265,18 @@ export class CombatService {
         ? `${hpAfter}/${defenderMaxHp}`
         : `${hpAfter}`;
 
-    const damageLine = round.hit
-      ? `Damage: ${round.damage} -> ${defenderLabel} HP ${hpSegment}${round.killed ? ' KO' : ''}`
-      : `Damage: 0 -> ${defenderLabel} HP ${hpSegment} (miss)`;
+    let damageLine: string;
+    if (round.hit) {
+      const weaponSegment =
+        round.weaponDamage > 0 ? ` + weapon ${round.weaponDamage}` : '';
+      const critSegment = round.crit
+        ? `, crit x${round.critMultiplier ?? 1.5}`
+        : '';
+      const breakdown = `core ${this.formatNumber(round.coreDamage)}${weaponSegment}, mit ${this.formatPercent(round.mitigation)}${critSegment}`;
+      damageLine = `Damage: ${round.damage} (${breakdown}) -> ${defenderLabel} HP ${hpSegment}${round.killed ? ' KO' : ''}`;
+    } else {
+      damageLine = `Damage: 0 -> ${defenderLabel} HP ${hpSegment} (miss)`;
+    }
 
     return [attackLine, damageLine].join('\n');
   }
@@ -421,7 +380,11 @@ export class CombatService {
     const { totals: equipmentTotals, details: equipmentDetails } =
       calculateEquipmentEffects(equippedItems);
 
-    const effectiveMaxHp = player.maxHp;
+    const snapshot = computePlayerCombatStats({
+      ...player,
+      equipmentTotals,
+    });
+    const effectiveMaxHp = snapshot.maxHp;
     const effectiveHp = Math.min(effectiveMaxHp, player.hp);
 
     const playerWithSlack = player as PlayerWithSlackUser;
@@ -434,8 +397,9 @@ export class CombatService {
       type: 'player',
       hp: effectiveHp,
       maxHp: effectiveMaxHp,
-      strength: player.strength,
-      agility: player.agility,
+      strength: snapshot.strength,
+      agility: snapshot.agility,
+      health: snapshot.health,
       level: player.level,
       isAlive: player.isAlive,
       identifier: {
@@ -448,21 +412,8 @@ export class CombatService {
       },
     };
 
-    const snapshot = computePlayerCombatStats({
-      ...player,
-      equipmentTotals,
-    });
-    if (snapshot.gear.attackBonus > 0) {
-      combatant.attackBonus = snapshot.gear.attackBonus;
-    }
-    if (snapshot.gear.damageBonus > 0) {
-      combatant.damageBonus = snapshot.gear.damageBonus;
-    }
-    if (snapshot.gear.armorBonus > 0) {
-      combatant.armorBonus = snapshot.gear.armorBonus;
-    }
-    if (snapshot.damageRoll) {
-      combatant.damageRoll = snapshot.damageRoll;
+    if (snapshot.weaponDamageRoll) {
+      combatant.damageRoll = snapshot.weaponDamageRoll;
     }
 
     if (Array.isArray(equippedItems) && equippedItems.length > 0) {
@@ -486,7 +437,7 @@ export class CombatService {
       }
 
       this.logger.debug(
-        `Equipment bonuses for ${combatant.name}: +${equipmentTotals.attackBonus} atk, +${equipmentTotals.damageBonus} dmg, +${equipmentTotals.armorBonus} AC, +${equipmentTotals.vitalityBonus} VIT (${equippedItems.length} items)`,
+        `Equipment bonuses for ${combatant.name}: +${snapshot.statBonuses.strength} STR, +${snapshot.statBonuses.agility} AGI, +${snapshot.statBonuses.health} VIT (${equippedItems.length} items)`,
       );
     }
 
@@ -497,7 +448,7 @@ export class CombatService {
     }
 
     this.logger.debug(
-      `Player combatant: ${combatant.name} (Str:${combatant.strength}, Agi:${combatant.agility}, HP:${combatant.hp}/${combatant.maxHp}, Lvl:${combatant.level})`,
+      `Player combatant: ${combatant.name} (Str:${combatant.strength}, Agi:${combatant.agility}, Vit:${combatant.health}, HP:${combatant.hp}/${combatant.maxHp}, Lvl:${combatant.level})`,
     );
     return combatant;
   }
@@ -517,34 +468,31 @@ export class CombatService {
       maxHp: monster.maxHp,
       strength: monster.strength,
       agility: monster.agility,
+      health: monster.health,
       level: 1, // Default to level 1 for monsters
       isAlive: monster.isAlive,
       damageRoll: monster.damageRoll,
     };
     this.logger.debug(
-      `Monster combatant: ${combatant.name} (Str:${combatant.strength}, Agi:${combatant.agility}, HP:${combatant.hp}/${combatant.maxHp}, Lvl:${combatant.level})`,
+      `Monster combatant: ${combatant.name} (Str:${combatant.strength}, Agi:${combatant.agility}, Vit:${combatant.health}, HP:${combatant.hp}/${combatant.maxHp}, Lvl:${combatant.level})`,
     );
     return combatant;
   }
 
-  // Core combat logic - handles full D&D style combat
+  // Core combat logic - ratings-based combat
   private async runCombat(
     combatant1: Combatant,
     combatant2: Combatant,
   ): Promise<DetailedCombatLog> {
     // Pass service-level helper functions as overrides so unit tests that spy
-    // on service internals (rollD20, calculateXpGain, etc.) continue to work.
+    // on service internals (rollDice, calculateXpGain, etc.) continue to work.
     return engineRunTeamCombat(
       [combatant1],
       [combatant2],
       this.logger,
       {
-        rollD20: this.rollD20.bind(this),
+        rollRandom: this.rollRandom.bind(this),
         rollDice: this.rollDice.bind(this),
-        getModifier: this.getModifier.bind(this),
-        calculateAC: this.calculateAC.bind(this),
-        rollInitiative: this.rollInitiative.bind(this),
-        calculateDamage: this.calculateDamage.bind(this),
         calculateXpGain: this.calculateXpGain.bind(this),
         calculateGoldReward: this.calculateGoldReward.bind(this),
       },

@@ -20,13 +20,11 @@ import {
   type PlayerRespawnEvent,
   type PlayerActivityEvent,
 } from '../../shared/event-bus';
-import {
-  CreatePlayerDto,
-  PlayerStatsDto,
-} from './dto/player.dto';
+import { CreatePlayerDto, PlayerStatsDto } from './dto/player.dto';
 import { DiceRoll } from '@dice-roller/rpg-dice-roller';
 import { PlayerItemService } from './player-item.service';
 import { env } from '../../env';
+import { calculateMaxHp } from '../combat/engine';
 
 interface GetPlayerOptions {
   requireCreationComplete?: boolean;
@@ -39,16 +37,12 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
 
   private readonly SKILL_POINT_INTERVAL = 5;
   private readonly SKILL_POINTS_PER_INTERVAL = 1;
-  private readonly HIT_DIE_MAX = 10;
-  private readonly HIT_DIE_AVERAGE = 6; // Average roll for a d10
   private activityUnsubscribe?: () => void;
 
   private readonly CREATION_INCOMPLETE_ERROR =
     'Finish character creation before performing this action. Use "reroll" to adjust stats or "complete" when you are ready.';
 
-  constructor(
-    private readonly playerItemService: PlayerItemService,
-  ) {}
+  constructor(private readonly playerItemService: PlayerItemService) {}
 
   onModuleInit(): void {
     this.activityUnsubscribe = EventBus.on('player:activity', (event) =>
@@ -132,24 +126,9 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     return Math.floor((BASE * (level * (level + 1))) / 2);
   }
 
-  private getStatModifier(stat: number): number {
-    return Math.floor((stat - 10) / 2);
-  }
-
-  private calculateLevelUpHpGain(health: number): number {
-    const modifier = this.getStatModifier(health);
-    return Math.max(1, this.HIT_DIE_AVERAGE + modifier);
-  }
-
-  private calculatePerLevelHp(health: number): number {
-    return this.calculateLevelUpHpGain(health);
-  }
-
   private calculateMaxHpForLevel(level: number, health: number): number {
     if (level <= 0) return 0;
-    const firstLevelHp = this.calculateFirstLevelHp(health);
-    if (level === 1) return firstLevelHp;
-    return firstLevelHp + (level - 1) * this.calculatePerLevelHp(health);
+    return calculateMaxHp(health, level);
   }
 
   private applyMaxHpRecalculation(
@@ -163,17 +142,15 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     player.hp = Math.min(Math.max(0, player.hp + delta), player.maxHp);
   }
 
-  private calculateFirstLevelHp(health: number): number {
-    return Math.max(1, this.HIT_DIE_MAX + this.getStatModifier(health));
-  }
-
   private async getEquipmentHealthBonus(playerId: number): Promise<number> {
     if (!this.playerItemService?.getEquipmentTotals) {
       return 0;
     }
     try {
       const totals = await this.playerItemService.getEquipmentTotals(playerId);
-      return totals.vitalityBonus ?? 0;
+      const armorBonus = totals.armorBonus ?? 0;
+      const vitalityBonus = totals.vitalityBonus ?? 0;
+      return armorBonus + vitalityBonus;
     } catch (error) {
       this.logger.warn(
         `Failed to load equipment totals for player ${playerId}: ${error instanceof Error ? error.message : error}`,
@@ -666,8 +643,7 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     const agility = new DiceRoll('4d6k3').total;
     const health = new DiceRoll('4d6k3').total;
 
-    // Calculate starting HP using D&D first-level rule: max hit die + CON mod
-    const maxHp = this.calculateFirstLevelHp(health);
+    const maxHp = this.calculateMaxHpForLevel(1, health);
 
     return { strength, agility, health, maxHp };
   }

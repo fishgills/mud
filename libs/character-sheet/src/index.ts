@@ -45,81 +45,82 @@ export type CharacterSheetModel = {
 const displayValue = (value: unknown) =>
   value === undefined || value === null ? '—' : String(value);
 
-const getAbilityModifier = (
-  value: number | null | undefined,
-): number | null => {
-  if (value == null) {
-    return null;
-  }
-  return Math.floor((value - 10) / 2);
+const formatNumber = (value: number, decimals = 1): string => {
+  if (Number.isNaN(value)) return '—';
+  if (decimals === 0) return String(Math.round(value));
+  return Number.isInteger(value) ? String(value) : value.toFixed(decimals);
 };
 
-const attributeWithModifier = (value: number | null | undefined): string => {
-  const modifier = getAbilityModifier(value);
-  if (value == null || modifier == null) {
-    return '—';
-  }
-  const sign = modifier >= 0 ? '+' : '';
-  return `${value} (${sign}${modifier})`;
+const formatPercent = (value: number): string => `${Math.round(value * 100)}%`;
+
+const effectiveStat = (stat: number): number => Math.sqrt(Math.max(0, stat));
+
+const resolveStatBonuses = (equipmentTotals?: EquipmentTotals | null) => {
+  const strengthBonus =
+    (equipmentTotals?.attackBonus ?? 0) + (equipmentTotals?.damageBonus ?? 0);
+  const healthBonus =
+    (equipmentTotals?.armorBonus ?? 0) + (equipmentTotals?.vitalityBonus ?? 0);
+  return {
+    strength: strengthBonus,
+    agility: 0,
+    health: healthBonus,
+  };
 };
 
-const attributeWithGearBonus = (
+const formatStatWithGear = (
   value: number | null | undefined,
   gearBonus: number,
 ): string => {
   if (value == null) return '—';
-  const effectiveValue = value + gearBonus;
-  const modifier = Math.floor((effectiveValue - 10) / 2);
-  const sign = modifier >= 0 ? '+' : '';
-  let text = `${effectiveValue} (${sign}${modifier})`;
-  if (gearBonus !== 0) {
-    const bonusSign = gearBonus >= 0 ? '+' : '';
-    text += ` (base ${value}, ${bonusSign}${gearBonus} gear)`;
-  }
-  return text;
+  const total = value + gearBonus;
+  const effective = effectiveStat(total);
+  const baseText =
+    gearBonus === 0
+      ? ''
+      : `, base ${value}, ${gearBonus >= 0 ? '+' : ''}${gearBonus} gear`;
+  return `${total} (eff ${formatNumber(effective)}${baseText})`;
 };
 
-const formatSignedValue = (value: number): string => {
-  if (value === 0) {
-    return '0';
-  }
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${value}`;
+const parseDice = (dice: string): { count: number; sides: number } => {
+  const parts = dice.toLowerCase().split('d');
+  if (parts.length !== 2) return { count: 1, sides: 4 };
+  const count = parseInt(parts[0], 10);
+  const sides = parseInt(parts[1], 10);
+  if (Number.isNaN(count) || Number.isNaN(sides)) return { count: 1, sides: 4 };
+  return { count, sides };
 };
 
-const formatAttackOrDamageStat = (
-  base: number | null,
-  gearBonus: number,
-): string => {
-  if (base == null) {
-    return '—';
-  }
-  const total = base + gearBonus;
-  const totalText = formatSignedValue(total);
-  const baseText = formatSignedValue(base);
-  if (gearBonus === 0) {
-    return `${totalText} (base ${baseText})`;
-  }
-  const gearText = `${gearBonus > 0 ? '+' : ''}${gearBonus} gear`;
-  return `${totalText} (base ${baseText}, ${gearText})`;
+const averageDiceRoll = (count: number, sides: number): number =>
+  (count * (sides + 1)) / 2;
+
+const estimateWeaponDamage = (damageRoll: string): number => {
+  const { count, sides } = parseDice(damageRoll);
+  return averageDiceRoll(count, sides);
 };
 
-const formatArmorStat = (
-  agility: number | null | undefined,
-  armorBonus: number,
-): string => {
-  const modifier = getAbilityModifier(agility);
-  if (modifier == null) {
-    return '—';
-  }
-  const baseArmor = 10 + modifier;
-  const totalArmor = baseArmor + armorBonus;
-  const baseText = `${baseArmor}`;
-  if (armorBonus === 0) {
-    return `${totalArmor} (base ${baseText})`;
-  }
-  const gearText = `${armorBonus > 0 ? '+' : ''}${armorBonus} gear`;
-  return `${totalArmor} (base ${baseText}, ${gearText})`;
+const calculateAttackRating = (stats: {
+  strength: number;
+  agility: number;
+  level: number;
+}): number => 10 * stats.strength + 4 * stats.agility + 6 * stats.level;
+
+const calculateDefenseRating = (stats: {
+  agility: number;
+  health: number;
+  level: number;
+}): number => 10 * stats.agility + 2 * stats.health + 6 * stats.level;
+
+const calculateCoreDamage = (stats: {
+  strength: number;
+  level: number;
+}): number => 4 + 2 * stats.strength + 0.5 * stats.level;
+
+const calculateMitigation = (stats: {
+  health: number;
+  agility: number;
+}): number => {
+  const toughness = 6 * stats.health + 3 * stats.agility;
+  return toughness / (toughness + 100);
 };
 
 const resolveXpToNextLevel = (
@@ -152,16 +153,46 @@ export const buildCharacterSheetModel = (
   ].some((value) => value == null || value === 0);
 
   const equipmentTotals = player.equipmentTotals ?? null;
-  const attackBonus = equipmentTotals?.attackBonus ?? 0;
-  const damageBonus = equipmentTotals?.damageBonus ?? 0;
-  const armorBonus = equipmentTotals?.armorBonus ?? 0;
+  const statBonuses = resolveStatBonuses(equipmentTotals);
   const weaponDamageRoll =
     equipmentTotals?.weaponDamageRoll ??
     (typeof player.damageRoll === 'string' ? player.damageRoll : null) ??
     '1d4';
-  const baseAttackModifier = getAbilityModifier(player.strength);
-  const baseDamageModifier = getAbilityModifier(player.strength);
-  const armorText = formatArmorStat(player.agility, armorBonus);
+
+  const strength = player.strength ?? 0;
+  const agility = player.agility ?? 0;
+  const health = player.health ?? 0;
+  const level = player.level ?? 1;
+
+  const totalStrength = strength + statBonuses.strength;
+  const totalAgility = agility + statBonuses.agility;
+  const totalHealth = health + statBonuses.health;
+
+  const effectiveStrength = effectiveStat(totalStrength);
+  const effectiveAgility = effectiveStat(totalAgility);
+  const effectiveHealth = effectiveStat(totalHealth);
+  const effectiveLevel = effectiveStat(level);
+
+  const attackRating = calculateAttackRating({
+    strength: effectiveStrength,
+    agility: effectiveAgility,
+    level: effectiveLevel,
+  });
+  const defenseRating = calculateDefenseRating({
+    agility: effectiveAgility,
+    health: effectiveHealth,
+    level: effectiveLevel,
+  });
+  const coreDamage = calculateCoreDamage({
+    strength: effectiveStrength,
+    level: effectiveLevel,
+  });
+  const baseDamage = coreDamage + estimateWeaponDamage(weaponDamageRoll);
+  const mitigation = calculateMitigation({
+    health: effectiveHealth,
+    agility: effectiveAgility,
+  });
+  const initiativeBase = 1000 * effectiveAgility + 10 * effectiveLevel;
 
   const sections: CharacterSheetSection[] = [
     {
@@ -178,32 +209,31 @@ export const buildCharacterSheetModel = (
     {
       title: 'Attributes',
       fields: [
-        { label: 'Strength', value: attributeWithModifier(player.strength) },
-        { label: 'Agility', value: attributeWithModifier(player.agility) },
+        {
+          label: 'Strength',
+          value: formatStatWithGear(player.strength, statBonuses.strength),
+        },
+        {
+          label: 'Agility',
+          value: formatStatWithGear(player.agility, statBonuses.agility),
+        },
         {
           label: 'Vitality',
-          value: attributeWithGearBonus(
-            player.health,
-            equipmentTotals?.vitalityBonus ?? 0,
-          ),
+          value: formatStatWithGear(player.health, statBonuses.health),
         },
       ],
     },
     {
       title: 'Combat',
       fields: [
+        { label: 'Attack Rating', value: formatNumber(attackRating) },
+        { label: 'Defense Rating', value: formatNumber(defenseRating) },
         {
-          label: 'Attack',
-          value: formatAttackOrDamageStat(baseAttackModifier, attackBonus),
+          label: 'Avg Base Damage',
+          value: `${formatNumber(baseDamage)} (weapon ${weaponDamageRoll})`,
         },
-        {
-          label: 'Damage',
-          value: `${formatAttackOrDamageStat(
-            baseDamageModifier,
-            damageBonus,
-          )} (${weaponDamageRoll})`,
-        },
-        { label: 'Armor', value: armorText },
+        { label: 'Mitigation', value: formatPercent(mitigation) },
+        { label: 'Initiative', value: formatNumber(initiativeBase, 0) },
       ],
     },
   ];

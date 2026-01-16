@@ -6,27 +6,23 @@ import { MonsterStatsSource, PlayerStatsSource } from './types';
 const displayValue = (value: unknown) =>
   value === undefined || value === null ? '—' : String(value);
 
-const getAbilityModifier = (
-  value: number | null | undefined,
-): number | null => {
-  if (value == null) {
-    return null;
-  }
-  return Math.floor((value - 10) / 2);
+const effectiveStat = (value: number | null | undefined): number | null => {
+  if (value == null) return null;
+  return Math.sqrt(Math.max(0, value));
 };
 
-const attributeWithModifier = (value: number | null | undefined): string => {
-  const modifier = getAbilityModifier(value);
-  if (value == null || modifier == null) {
+const attributeWithEffective = (value: number | null | undefined): string => {
+  const effective = effectiveStat(value);
+  if (value == null || effective == null) {
     return '—';
   }
-  const sign = modifier >= 0 ? '+' : '';
-  return `${value} (${sign}${modifier})`;
+  const formatted = Number.isInteger(effective)
+    ? String(effective)
+    : effective.toFixed(1);
+  return `${value} (eff ${formatted})`;
 };
 
-export function buildPlayerStatsMessage(
-  player: PlayerStatsSource,
-) {
+export function buildPlayerStatsMessage(player: PlayerStatsSource) {
   const sheet = buildCharacterSheetModel(player);
 
   const blocks: (KnownBlock | Block)[] = [
@@ -105,15 +101,15 @@ export function buildMonsterStatsMessage(
         },
         {
           type: 'mrkdwn',
-          text: `*Strength*\n${attributeWithModifier(monster.strength)}`,
+          text: `*Strength*\n${attributeWithEffective(monster.strength)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Agility*\n${attributeWithModifier(monster.agility)}`,
+          text: `*Agility*\n${attributeWithEffective(monster.agility)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Vitality*\n${attributeWithModifier(monster.health)}`,
+          text: `*Vitality*\n${attributeWithEffective(monster.health)}`,
         },
       ],
     },

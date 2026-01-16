@@ -3,9 +3,78 @@ import { EventBus } from '../../shared/event-bus';
 import type { DetailedCombatLog, CombatRound, InitiativeRoll } from '../api';
 import type { Combatant } from './types';
 
-// Dice and combat math utilities
-export function rollD20(): number {
-  return Math.floor(Math.random() * 20) + 1;
+export type EffectiveStats = {
+  strength: number;
+  agility: number;
+  health: number;
+  level: number;
+};
+
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+export function effectiveStat(stat: number): number {
+  return Math.sqrt(Math.max(0, stat));
+}
+
+export function toEffectiveStats(combatant: Combatant): EffectiveStats {
+  return {
+    strength: effectiveStat(combatant.strength),
+    agility: effectiveStat(combatant.agility),
+    health: effectiveStat(combatant.health),
+    level: effectiveStat(combatant.level),
+  };
+}
+
+export function calculateAttackRating(stats: EffectiveStats): number {
+  return 10 * stats.strength + 4 * stats.agility + 6 * stats.level;
+}
+
+export function calculateDefenseRating(stats: EffectiveStats): number {
+  return 10 * stats.agility + 2 * stats.health + 6 * stats.level;
+}
+
+export function calculateHitChance(
+  attackRating: number,
+  defenseRating: number,
+): number {
+  const x = (attackRating - defenseRating) / 15;
+  const pRaw = 1 / (1 + Math.exp(-x));
+  return clamp(pRaw, 0.1, 0.9);
+}
+
+export function calculateCoreDamage(stats: EffectiveStats): number {
+  return 4 + 2 * stats.strength + 0.5 * stats.level;
+}
+
+export function calculateBaseDamage(
+  coreDamage: number,
+  weaponDamage: number,
+): number {
+  return coreDamage + weaponDamage;
+}
+
+export function calculateToughness(stats: EffectiveStats): number {
+  return 6 * stats.health + 3 * stats.agility;
+}
+
+export function calculateMitigation(stats: EffectiveStats): number {
+  const toughness = calculateToughness(stats);
+  return toughness / (toughness + 100);
+}
+
+export function calculateCritChance(
+  attacker: EffectiveStats,
+  defender: EffectiveStats,
+): number {
+  return clamp(0.05 + (attacker.agility - defender.agility) / 100, 0.05, 0.25);
+}
+
+export function calculateMaxHp(health: number, level: number): number {
+  const effectiveHealth = effectiveStat(health);
+  const effectiveLevel = effectiveStat(level);
+  return Math.max(1, Math.round(30 + 8 * effectiveHealth + 6 * effectiveLevel));
 }
 
 export function rollDice(count: number, sides: number): number {
@@ -13,24 +82,6 @@ export function rollDice(count: number, sides: number): number {
   for (let i = 0; i < count; i++)
     total += Math.floor(Math.random() * sides) + 1;
   return total;
-}
-
-export function getModifier(ability: number): number {
-  return Math.floor((ability - 10) / 2);
-}
-
-export function calculateAC(agility: number): number {
-  return 10 + getModifier(agility);
-}
-
-export function rollInitiative(agility: number): {
-  roll: number;
-  modifier: number;
-  total: number;
-} {
-  const roll = rollD20();
-  const modifier = getModifier(agility);
-  return { roll, modifier, total: roll + modifier };
 }
 
 export function parseDice(dice: string): { count: number; sides: number } {
@@ -42,11 +93,31 @@ export function parseDice(dice: string): { count: number; sides: number } {
   return { count, sides };
 }
 
-export function calculateDamage(strength: number, damageRoll = '1d4'): number {
-  const { count, sides } = parseDice(damageRoll);
-  const baseDamage = rollDice(count, sides);
-  const modifier = getModifier(strength);
-  return Math.max(1, baseDamage + modifier);
+export function averageDiceRoll(count: number, sides: number): number {
+  return (count * (sides + 1)) / 2;
+}
+
+export function estimateWeaponDamage(damageRoll?: string | null): number {
+  const { count, sides } = parseDice(damageRoll ?? '1d4');
+  return averageDiceRoll(count, sides);
+}
+
+export function rollWeaponDamage(
+  damageRoll: string | null | undefined,
+  rollDiceFn: (count: number, sides: number) => number = rollDice,
+): number {
+  const { count, sides } = parseDice(damageRoll ?? '1d4');
+  return rollDiceFn(count, sides);
+}
+
+export function rollInitiative(
+  agility: number,
+  level: number,
+  random: () => number = Math.random,
+): { base: number; random: number; total: number } {
+  const base = 1000 * effectiveStat(agility) + 10 * effectiveStat(level);
+  const randomBonus = Math.floor(random() * 51);
+  return { base, random: randomBonus, total: base + randomBonus };
 }
 
 export function calculateXpGain(
@@ -76,18 +147,13 @@ export function calculateGoldReward(
   return Math.max(5, Math.floor(baseGold * modifier));
 }
 
-// Core combat runner (keeps much of the original logic but accepts a logger)
+type InitiativeResult = { base: number; random: number; total: number };
+
+// Core combat runner (ratings-based combat math)
 type EngineOverrides = Partial<{
-  rollD20: () => number;
+  rollRandom: () => number;
   rollDice: (count: number, sides: number) => number;
-  getModifier: (ability: number) => number;
-  calculateAC: (agility: number) => number;
-  rollInitiative: (agility: number) => {
-    roll: number;
-    modifier: number;
-    total: number;
-  };
-  calculateDamage: (strength: number, damageRoll?: string) => number;
+  rollInitiative: (agility: number, level: number) => InitiativeResult;
   calculateXpGain: (winnerLevel: number, loserLevel: number) => number;
   calculateGoldReward: (victorLevel: number, targetLevel: number) => number;
 }>;
@@ -98,13 +164,10 @@ export async function runCombat(
   logger: Logger,
   overrides?: EngineOverrides,
 ): Promise<DetailedCombatLog> {
-  return runTeamCombat(
-    [combatant1],
-    [combatant2],
-    logger,
-    overrides,
-    { teamAName: combatant1.name, teamBName: combatant2.name },
-  );
+  return runTeamCombat([combatant1], [combatant2], logger, overrides, {
+    teamAName: combatant1.name,
+    teamBName: combatant2.name,
+  });
 }
 
 type TeamCombatOptions = {
@@ -130,26 +193,28 @@ export async function runTeamCombat(
     options.teamBName ?? (teamB.length === 1 ? teamB[0].name : 'Team B');
 
   const combatId = `combat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  logger.log(
-    `🗡️ COMBAT START: ${teamAName} vs ${teamBName} [ID: ${combatId}]`,
-  );
+  logger.log(`🗡️ COMBAT START: ${teamAName} vs ${teamBName} [ID: ${combatId}]`);
 
-  const useRollInitiative = overrides?.rollInitiative ?? rollInitiative;
-  const useRollD20 = overrides?.rollD20 ?? rollD20;
-  const useGetModifier = overrides?.getModifier ?? getModifier;
-  const useCalculateAC = overrides?.calculateAC ?? calculateAC;
-  const useCalculateDamage = overrides?.calculateDamage ?? calculateDamage;
+  const useRollRandom = overrides?.rollRandom ?? Math.random;
+  const useRollDice = overrides?.rollDice ?? rollDice;
 
   const combatants = [...teamA, ...teamB];
   const teamASet = new Set(teamA);
-  const initiativeById = new Map<number, InitiativeRoll>();
+  const initiativeById = new Map<number, InitiativeResult>();
+  const effectiveStatsById = new Map<number, EffectiveStats>();
   const orderIndex = new Map<number, number>();
-  const initiativeRolls = combatants.map((combatant, index) => {
-    const roll = useRollInitiative(combatant.agility);
-    const entry = { name: combatant.name, ...roll };
-    initiativeById.set(combatant.id, entry);
+
+  for (const [index, combatant] of combatants.entries()) {
     orderIndex.set(combatant.id, index);
-    return entry;
+    effectiveStatsById.set(combatant.id, toEffectiveStats(combatant));
+  }
+
+  const initiativeRolls: InitiativeRoll[] = combatants.map((combatant) => {
+    const result = overrides?.rollInitiative
+      ? overrides.rollInitiative(combatant.agility, combatant.level)
+      : rollInitiative(combatant.agility, combatant.level, useRollRandom);
+    initiativeById.set(combatant.id, result);
+    return { name: combatant.name, ...result };
   });
 
   const turnOrder = [...combatants].sort((a, b) => {
@@ -178,11 +243,10 @@ export async function runTeamCombat(
   };
 
   const firstAttacker = firstCombatant?.name ?? teamAName;
-  const firstDefender =
-    firstCombatant
-      ? pickTarget(resolveOpponents(firstCombatant)) ??
-        resolveOpponents(firstCombatant)[0]
-      : teamB[0];
+  const firstDefender = firstCombatant
+    ? (pickTarget(resolveOpponents(firstCombatant)) ??
+      resolveOpponents(firstCombatant)[0])
+    : teamB[0];
 
   await EventBus.emit({
     eventType: 'combat:start',
@@ -213,11 +277,7 @@ export async function runTeamCombat(
   const teamAlive = (team: Combatant[]) =>
     team.some((combatant) => combatant.isAlive);
 
-  while (
-    teamAlive(teamA) &&
-    teamAlive(teamB) &&
-    roundNumber <= maxTurns
-  ) {
+  while (teamAlive(teamA) && teamAlive(teamB) && roundNumber <= maxTurns) {
     let attacker = turnOrder[turnIndex % turnOrder.length];
     let spins = 0;
     while (attacker && !attacker.isAlive && spins < turnOrder.length) {
@@ -235,39 +295,53 @@ export async function runTeamCombat(
       break;
     }
 
+    const attackerStats = effectiveStatsById.get(attacker.id);
+    const defenderStats = effectiveStatsById.get(defender.id);
+    if (!attackerStats || !defenderStats) {
+      break;
+    }
+
     logger.debug(
       `⚔️ Turn ${roundNumber}: ${attacker.name} attacks ${defender.name}`,
     );
 
-    const attackRoll = (overrides?.rollD20 ?? useRollD20)();
-    const baseAttackModifier = (overrides?.getModifier ?? useGetModifier)(
-      attacker.strength,
-    );
-    const attackModifier = baseAttackModifier + (attacker.attackBonus ?? 0);
-    const totalAttack = attackRoll + attackModifier;
-    const baseDefenderAC = (overrides?.calculateAC ?? useCalculateAC)(
-      defender.agility,
-    );
-    const defenderAC = baseDefenderAC + (defender.armorBonus ?? 0);
-    const hit = totalAttack >= defenderAC;
+    const attackRating = calculateAttackRating(attackerStats);
+    const defenseRating = calculateDefenseRating(defenderStats);
+    const hitChance = calculateHitChance(attackRating, defenseRating);
+    const hitRoll = useRollRandom();
+    const hit = hitRoll < hitChance;
 
     logger.debug(
-      `⚔️ Attack Roll: ${attackRoll} + Str mod: ${baseAttackModifier} + Equipment bonus: +${attacker.attackBonus ?? 0} = ${totalAttack} vs AC: ${baseDefenderAC} + Armor bonus: +${defender.armorBonus ?? 0} = ${defenderAC} [${hit ? 'HIT' : 'MISS'}]`,
+      `⚔️ Ratings: AR ${attackRating.toFixed(2)} vs DR ${defenseRating.toFixed(2)} => hit ${(hitChance * 100).toFixed(1)}% (roll ${(hitRoll * 100).toFixed(1)}%) [${hit ? 'HIT' : 'MISS'}]`,
     );
 
+    let weaponDamage = 0;
+    let coreDamage = 0;
+    let baseDamage = 0;
+    let mitigation = calculateMitigation(defenderStats);
+    let damageAfterMitigation = 0;
+    let critChance: number | undefined;
+    let critRoll: number | undefined;
+    let crit = false;
+    let critMultiplier: number | undefined;
     let damage = 0;
     let killed = false;
-    let baseDamage = 0;
 
     if (hit) {
-      baseDamage = (overrides?.calculateDamage ?? useCalculateDamage)(
-        attacker.strength,
-        attacker.damageRoll,
-      );
-      const damageBonus = attacker.damageBonus ?? 0;
-      damage = Math.max(1, baseDamage + damageBonus);
+      weaponDamage = rollWeaponDamage(attacker.damageRoll, useRollDice);
+      coreDamage = calculateCoreDamage(attackerStats);
+      baseDamage = calculateBaseDamage(coreDamage, weaponDamage);
+      damageAfterMitigation = baseDamage * (1 - mitigation);
+      critChance = calculateCritChance(attackerStats, defenderStats);
+      critRoll = useRollRandom();
+      critMultiplier = 1.5;
+      crit = critRoll < critChance;
+      const critDamage = crit
+        ? damageAfterMitigation * critMultiplier
+        : damageAfterMitigation;
+      damage = Math.max(1, Math.round(critDamage));
       logger.debug(
-        `⚔️ ${attacker.name} hit! Base damage (${attacker.damageRoll ?? '1d4'}): ${baseDamage}, Weapon/Equipment bonus: +${damageBonus}, Total: ${damage}`,
+        `⚔️ Damage: core ${coreDamage.toFixed(2)} + weapon ${weaponDamage} = ${baseDamage.toFixed(2)} -> mitigated ${damageAfterMitigation.toFixed(2)} (${(mitigation * 100).toFixed(1)}% mit)${crit ? ' CRIT' : ''} => ${damage}`,
       );
       defender.hp = Math.max(0, defender.hp - damage);
       if (defender.hp <= 0) {
@@ -281,20 +355,23 @@ export async function runTeamCombat(
       roundNumber,
       attackerName: attacker.name,
       defenderName: defender.name,
-      attackRoll,
-      attackModifier,
-      totalAttack,
-      defenderAC,
+      attackRating,
+      defenseRating,
+      hitChance,
+      hitRoll,
       hit,
+      weaponDamage,
+      coreDamage,
+      baseDamage,
+      mitigation,
+      damageAfterMitigation,
+      critChance,
+      critRoll,
+      critMultiplier,
+      crit,
       damage,
       defenderHpAfter: defender.hp,
       killed,
-      baseAttackModifier,
-      attackBonus: attacker.attackBonus ?? 0,
-      baseDefenderAC,
-      armorBonus: defender.armorBonus ?? 0,
-      baseDamage,
-      damageBonus: attacker.damageBonus ?? 0,
     });
 
     if (hit) {

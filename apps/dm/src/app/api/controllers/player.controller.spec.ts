@@ -271,7 +271,9 @@ describe('PlayersController', () => {
     });
 
     expect(response.success).toBe(false);
-    expect(response.message).toBe('PvE combat is only available through raids.');
+    expect(response.message).toBe(
+      'PvE combat is only available through raids.',
+    );
   });
 
   it('routes player duels through combat service', async () => {
@@ -307,10 +309,19 @@ describe('PlayersController', () => {
       xp: 250,
     };
     playerService.getPlayer.mockResolvedValue(player as never);
+    playerItemService.getEquipmentTotals.mockResolvedValue({
+      attackBonus: 2,
+      damageBonus: 1,
+      armorBonus: 3,
+      vitalityBonus: 0,
+      weaponDamageRoll: '1d6',
+    });
     combatService.getRecentCombatForPlayer.mockResolvedValue([{ id: 1 }]);
 
     const stats = await controller.getPlayerStats('T1', 'U1');
-    expect(stats.strengthModifier).toBe(2);
+    expect(stats.combat.strength).toBe(17);
+    expect(stats.combat.health).toBe(13);
+    expect(stats.combat.weaponDamageRoll).toBe('1d6');
     expect(stats.xpNeeded).toBeGreaterThanOrEqual(0);
     expect(combatService.getRecentCombatForPlayer).toHaveBeenCalledWith(1);
   });
@@ -389,7 +400,6 @@ describe('PlayersController', () => {
   });
 
   it('validates equip payloads before hitting services', async () => {
-
     expect(
       await controller.equip({
         teamId: 'T1',

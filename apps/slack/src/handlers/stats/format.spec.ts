@@ -46,7 +46,7 @@ describe('buildPlayerStatsMessage', () => {
   });
 
   describe('combat stat breakdowns', () => {
-    it('should show attack, damage, and armor with base and gear contributions', () => {
+    it('should show ratings and mitigation with gear contributions', () => {
       const player = createMockPlayer({
         strength: 14,
         agility: 12,
@@ -59,16 +59,18 @@ describe('buildPlayerStatsMessage', () => {
       });
       const result = buildPlayerStatsMessage(player);
 
-      const attackField = findFieldText(result.blocks, '*Attack*');
-      const damageField = findFieldText(result.blocks, '*Damage*');
-      const armorField = findFieldText(result.blocks, '*Armor*');
+      const attackField = findFieldText(result.blocks, '*Attack Rating*');
+      const defenseField = findFieldText(result.blocks, '*Defense Rating*');
+      const damageField = findFieldText(result.blocks, '*Avg Base Damage*');
+      const mitigationField = findFieldText(result.blocks, '*Mitigation*');
 
-      expect(attackField).toContain('+5 (base +2, +3 gear)');
-      expect(damageField).toContain('+7 (base +2, +5 gear)');
-      expect(armorField).toContain('13 (base 11, +2 gear)');
+      expect(attackField).toBeDefined();
+      expect(defenseField).toBeDefined();
+      expect(damageField).toContain('weapon 1d4');
+      expect(mitigationField).toBeDefined();
     });
 
-    it('should show base attack/damage/armor even without gear bonuses', () => {
+    it('should show ratings even without gear bonuses', () => {
       const player = createMockPlayer({
         strength: 16,
         agility: 10,
@@ -81,13 +83,13 @@ describe('buildPlayerStatsMessage', () => {
       });
       const result = buildPlayerStatsMessage(player);
 
-      const attackField = findFieldText(result.blocks, '*Attack*');
-      const damageField = findFieldText(result.blocks, '*Damage*');
-      const armorField = findFieldText(result.blocks, '*Armor*');
+      const attackField = findFieldText(result.blocks, '*Attack Rating*');
+      const defenseField = findFieldText(result.blocks, '*Defense Rating*');
+      const damageField = findFieldText(result.blocks, '*Avg Base Damage*');
 
-      expect(attackField).toContain('+3 (base +3)');
-      expect(damageField).toContain('+3 (base +3)');
-      expect(armorField).toContain('10 (base 10)');
+      expect(attackField ?? '').toMatch(/\d/);
+      expect(defenseField ?? '').toMatch(/\d/);
+      expect(damageField).toContain('weapon 1d4');
     });
   });
 

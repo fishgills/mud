@@ -32,17 +32,44 @@ const attributeOptions = [
 const displayValue = (value: unknown) =>
   value === undefined || value === null ? '—' : String(value);
 
-const getAbilityModifier = (
-  value: number | null | undefined,
-): number | null => {
-  if (value == null) return null;
-  return Math.floor((value - 10) / 2);
+const formatNumber = (value: number, decimals = 1): string => {
+  if (Number.isNaN(value)) return '—';
+  if (decimals === 0) return String(Math.round(value));
+  return Number.isInteger(value) ? String(value) : value.toFixed(decimals);
 };
 
-const formatSigned = (value: number | null | undefined): string => {
+const formatPercent = (value: number): string => `${Math.round(value * 100)}%`;
+
+const effectiveStat = (value: number | null | undefined): number | null => {
+  if (value == null) return null;
+  return Math.sqrt(Math.max(0, value));
+};
+
+const resolveStatBonuses = (equipmentTotals?: EquipmentTotals | null) => {
+  const strengthBonus =
+    (equipmentTotals?.attackBonus ?? 0) + (equipmentTotals?.damageBonus ?? 0);
+  const healthBonus =
+    (equipmentTotals?.armorBonus ?? 0) + (equipmentTotals?.vitalityBonus ?? 0);
+  return {
+    strength: strengthBonus,
+    agility: 0,
+    health: healthBonus,
+  };
+};
+
+const formatStatWithGear = (
+  value: number | null | undefined,
+  gearBonus: number,
+): string => {
   if (value == null) return '—';
-  if (value === 0) return '0';
-  return value > 0 ? `+${value}` : `${value}`;
+  const total = value + gearBonus;
+  const effective = effectiveStat(total);
+  if (effective == null) return '—';
+  const baseText =
+    gearBonus === 0
+      ? ''
+      : `, base ${value}, ${gearBonus >= 0 ? '+' : ''}${gearBonus} gear`;
+  return `${total} (eff ${formatNumber(effective)}${baseText})`;
 };
 
 const formatXpLine = (player: CharacterSheetSource): string => {
@@ -66,38 +93,62 @@ const resolveDamageRoll = (player: CharacterSheetSource): string => {
   return roll;
 };
 
-const formatDamageLine = (player: CharacterSheetSource): string => {
-  const base = getAbilityModifier(player.strength);
-  if (base == null) return '—';
-  const bonus = base + (player.equipmentTotals?.damageBonus ?? 0);
-  const sign =
-    bonus === 0 ? '' : bonus > 0 ? ` + ${bonus}` : ` - ${Math.abs(bonus)}`;
-  return `${resolveDamageRoll(player)}${sign}`;
+const parseDice = (dice: string): { count: number; sides: number } => {
+  const parts = dice.toLowerCase().split('d');
+  if (parts.length !== 2) return { count: 1, sides: 4 };
+  const count = parseInt(parts[0], 10);
+  const sides = parseInt(parts[1], 10);
+  if (Number.isNaN(count) || Number.isNaN(sides)) return { count: 1, sides: 4 };
+  return { count, sides };
 };
 
-const formatArmorClass = (player: CharacterSheetSource): string => {
-  const agilityMod = getAbilityModifier(player.agility);
-  if (agilityMod == null) return '—';
-  const armorBonus = player.equipmentTotals?.armorBonus ?? 0;
-  return String(10 + agilityMod + armorBonus);
+const estimateWeaponDamage = (damageRoll: string): number => {
+  const { count, sides } = parseDice(damageRoll);
+  return (count * (sides + 1)) / 2;
 };
 
-const formatAttackBonus = (player: CharacterSheetSource): string => {
-  const base = getAbilityModifier(player.strength);
-  if (base == null) return '—';
-  const total = base + (player.equipmentTotals?.attackBonus ?? 0);
-  return formatSigned(total);
+type CombatSnapshot = {
+  attackRating: number;
+  defenseRating: number;
+  baseDamage: number;
+  mitigation: number;
+  initiative: number;
+  weaponDamageRoll: string;
 };
 
-const formatAttribute = (
-  value: number | null | undefined,
-  gearBonus = 0,
-): string => {
-  const modifier = getAbilityModifier(value);
-  if (value == null || modifier == null) return '—';
-  const total = value + gearBonus;
-  const sign = modifier >= 0 ? '+' : '';
-  return `${total} (${sign}${modifier})`;
+const computeCombatSnapshot = (
+  player: CharacterSheetSource,
+): CombatSnapshot => {
+  const bonuses = resolveStatBonuses(player.equipmentTotals);
+  const strength = (player.strength ?? 0) + bonuses.strength;
+  const agility = (player.agility ?? 0) + bonuses.agility;
+  const health = (player.health ?? 0) + bonuses.health;
+  const level = player.level ?? 1;
+
+  const effectiveStrength = effectiveStat(strength) ?? 0;
+  const effectiveAgility = effectiveStat(agility) ?? 0;
+  const effectiveHealth = effectiveStat(health) ?? 0;
+  const effectiveLevel = effectiveStat(level) ?? 0;
+
+  const attackRating =
+    10 * effectiveStrength + 4 * effectiveAgility + 6 * effectiveLevel;
+  const defenseRating =
+    10 * effectiveAgility + 2 * effectiveHealth + 6 * effectiveLevel;
+  const coreDamage = 4 + 2 * effectiveStrength + 0.5 * effectiveLevel;
+  const weaponDamageRoll = resolveDamageRoll(player);
+  const baseDamage = coreDamage + estimateWeaponDamage(weaponDamageRoll);
+  const toughness = 6 * effectiveHealth + 3 * effectiveAgility;
+  const mitigation = toughness / (toughness + 100);
+  const initiative = 1000 * effectiveAgility + 10 * effectiveLevel;
+
+  return {
+    attackRating,
+    defenseRating,
+    baseDamage,
+    mitigation,
+    initiative,
+    weaponDamageRoll,
+  };
 };
 
 export const buildCharacterSheetBlocks = (
@@ -109,6 +160,8 @@ export const buildCharacterSheetBlocks = (
     options.isSelf && skillPoints > 0 && options.includeSpendInput !== false;
   const showSpendButton =
     options.isSelf && skillPoints > 0 && options.includeSpendInput === false;
+  const bonuses = resolveStatBonuses(player.equipmentTotals);
+  const combat = computeCombatSnapshot(player);
   const blocks: KnownBlock[] = [
     {
       type: 'section',
@@ -124,17 +177,23 @@ export const buildCharacterSheetBlocks = (
       fields: [
         {
           type: 'mrkdwn',
-          text: `*💪 Strength* ${formatAttribute(player.strength)}`,
+          text: `*💪 Strength* ${formatStatWithGear(
+            player.strength,
+            bonuses.strength,
+          )}`,
         },
         {
           type: 'mrkdwn',
-          text: `*🌀 Agility* ${formatAttribute(player.agility)}`,
+          text: `*🌀 Agility* ${formatStatWithGear(
+            player.agility,
+            bonuses.agility,
+          )}`,
         },
         {
           type: 'mrkdwn',
-          text: `*❤️ Vitality* ${formatAttribute(
+          text: `*❤️ Vitality* ${formatStatWithGear(
             player.health,
-            player.equipmentTotals?.vitalityBonus ?? 0,
+            bonuses.health,
           )}`,
         },
       ],
@@ -149,15 +208,23 @@ export const buildCharacterSheetBlocks = (
         },
         {
           type: 'mrkdwn',
-          text: `*🛡️ Armor Class* ${formatArmorClass(player)}`,
+          text: `*⚔️ Attack Rating* ${formatNumber(combat.attackRating)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*⚔️ Attack Bonus* ${formatAttackBonus(player)}`,
+          text: `*🛡️ Defense Rating* ${formatNumber(combat.defenseRating)}`,
         },
         {
           type: 'mrkdwn',
-          text: `*🎯 Damage* ${formatDamageLine(player)}`,
+          text: `*🎯 Avg Base Damage* ${formatNumber(combat.baseDamage)} (weapon ${combat.weaponDamageRoll})`,
+        },
+        {
+          type: 'mrkdwn',
+          text: `*🧱 Mitigation* ${formatPercent(combat.mitigation)}`,
+        },
+        {
+          type: 'mrkdwn',
+          text: `*⚡ Initiative* ${formatNumber(combat.initiative, 0)}`,
         },
       ],
     },
@@ -199,36 +266,26 @@ export const buildCharacterSheetBlocks = (
       { type: 'divider' },
       {
         type: 'section',
+        block_id: SKILL_POINT_BLOCK_ID,
         text: {
           type: 'mrkdwn',
-          text: `*Spend a skill point*\nYou have ${skillPoints} to invest.`,
+          text: '*Spend a skill point*',
         },
-      },
-      {
-        type: 'input',
-        block_id: SKILL_POINT_BLOCK_ID,
-        label: { type: 'plain_text', text: 'Choose an attribute' },
-        element: {
-          type: 'static_select',
+        accessory: {
           action_id: SKILL_POINT_ACTION_ID,
+          type: 'static_select',
           placeholder: {
             type: 'plain_text',
-            text: 'Select Strength, Agility, or Vitality',
+            text: 'Select a stat',
           },
-          options: attributeOptions.map((option) => ({
-            text: { type: 'plain_text', text: option.label },
-            value: option.value,
+          options: attributeOptions.map((attribute) => ({
+            text: {
+              type: 'plain_text',
+              text: attribute.label,
+            },
+            value: attribute.value,
           })),
         },
-      },
-      {
-        type: 'context',
-        elements: [
-          {
-            type: 'mrkdwn',
-            text: 'Each point permanently increases the chosen attribute.',
-          },
-        ],
       },
     );
   }
@@ -236,39 +293,55 @@ export const buildCharacterSheetBlocks = (
   return blocks;
 };
 
+export const parseSkillPointAttribute = (
+  values: Record<
+    string,
+    Record<string, { selected_option?: { value?: string } | null }>
+  >,
+): PlayerAttribute | null => {
+  const selection =
+    values?.[SKILL_POINT_BLOCK_ID]?.[SKILL_POINT_ACTION_ID]?.selected_option
+      ?.value;
+  if (
+    selection === PlayerAttribute.Strength ||
+    selection === PlayerAttribute.Agility ||
+    selection === PlayerAttribute.Health
+  ) {
+    return selection;
+  }
+  return null;
+};
+
 export const buildCharacterSheetModal = (
   player: CharacterSheetSource,
-  options: { teamId: string; userId: string; isSelf: boolean },
-): ModalView => {
-  const skillPoints = Math.max(0, player.skillPoints ?? 0);
-  const blocks = buildCharacterSheetBlocks(player, { isSelf: options.isSelf });
+  options: {
+    teamId: string;
+    userId: string;
+    isSelf: boolean;
+    includeSpendInput?: boolean;
+  },
+) => {
+  const includeSpendInput =
+    options.includeSpendInput ?? Boolean(options.isSelf);
+  const privateMetadata = JSON.stringify({
+    teamId: options.teamId,
+    userId: options.userId,
+  });
+
   return {
     type: 'modal',
     callback_id: CHARACTER_SHEET_VIEW_ID,
-    title: { type: 'plain_text', text: '🧙 Character Sheet', emoji: true },
-    close: { type: 'plain_text', text: 'Close', emoji: true },
-    submit:
-      options.isSelf && skillPoints > 0
-        ? { type: 'plain_text', text: 'Spend Point', emoji: true }
-        : undefined,
-    private_metadata: JSON.stringify({
-      teamId: options.teamId,
-      userId: options.userId,
+    private_metadata: privateMetadata,
+    title: { type: 'plain_text', text: 'Character Sheet' },
+    submit: includeSpendInput
+      ? { type: 'plain_text', text: 'Spend Skill Point' }
+      : undefined,
+    close: includeSpendInput
+      ? { type: 'plain_text', text: 'Cancel' }
+      : undefined,
+    blocks: buildCharacterSheetBlocks(player, {
+      isSelf: options.isSelf,
+      includeSpendInput,
     }),
-    blocks,
-  };
-};
-
-export const parseSkillPointAttribute = (
-  values:
-    | Record<
-        string,
-        Record<string, { selected_option?: { value?: string } | null }>
-      >
-    | undefined,
-): string | null => {
-  const selected =
-    values?.[SKILL_POINT_BLOCK_ID]?.[SKILL_POINT_ACTION_ID]?.selected_option
-      ?.value;
-  return selected ?? null;
+  } as ModalView;
 };

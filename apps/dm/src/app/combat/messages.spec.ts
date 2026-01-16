@@ -12,12 +12,21 @@ const makeCombatLog = (): DetailedCombatLog => ({
       roundNumber: 1,
       attackerName: 'Hero',
       defenderName: 'Goblin',
-      attackRoll: 15,
-      attackModifier: 2,
-      totalAttack: 17,
-      defenderAC: 12,
+      attackRating: 60,
+      defenseRating: 40,
+      hitChance: 0.72,
+      hitRoll: 0.12,
       hit: true,
-      damage: 5,
+      weaponDamage: 3,
+      coreDamage: 12,
+      baseDamage: 15,
+      mitigation: 0.2,
+      damageAfterMitigation: 12,
+      critChance: 0.05,
+      critRoll: 0.99,
+      critMultiplier: 1.5,
+      crit: false,
+      damage: 12,
       defenderHpAfter: 0,
       killed: true,
     },
@@ -48,11 +57,10 @@ describe('CombatMessenger', () => {
       maxHp: 12,
       strength: 14,
       agility: 12,
+      health: 11,
       level: 5,
       isAlive: true,
-      attackBonus: 2,
-      damageBonus: 3,
-      armorBonus: 1,
+      damageRoll: '1d8',
       equippedItems: [
         { name: 'Fine Longsword', slot: 'weapon', quality: 'Fine' },
       ],
@@ -65,6 +73,7 @@ describe('CombatMessenger', () => {
       maxHp: 8,
       strength: 10,
       agility: 11,
+      health: 9,
       level: 2,
       isAlive: true,
     } as any;
@@ -76,11 +85,12 @@ describe('CombatMessenger', () => {
 
     expect(aiService.getText).not.toHaveBeenCalled();
     expect(narrative).toContain(
-      'Hero (Lvl 5, HP 12/12, Str 14, Agi 12, Atk +2, Dmg +3, AC +1, Gear: Fine Longsword [Fine]) vs Goblin (Lvl 2, HP 8/8, Str 10, Agi 11, Gear: none)',
+      'Hero (Lvl 5, HP 12/12, Str 14, Agi 12, Vit 11, Weapon 1d8, Gear: Fine Longsword [Fine]) vs Goblin (Lvl 2, HP 8/8, Str 10, Agi 11, Vit 9, Gear: none)',
     );
     expect(narrative).toContain('Round 1');
-    expect(narrative).toContain('Hero attack: d20 15');
-    expect(narrative).toContain('= 17 vs AC 12 -> HIT');
+    expect(narrative).toContain('Hero strike: AR');
+    expect(narrative).toContain("AR math: 10*S'");
+    expect(narrative).toContain('-> HIT');
     expect(narrative).toContain('Damage:');
     expect(narrative).toContain('Goblin HP 0/8 KO');
   });
@@ -99,6 +109,7 @@ describe('CombatMessenger', () => {
       maxHp: 10,
       strength: 12,
       agility: 12,
+      health: 10,
       level: 4,
       isAlive: true,
       levelUp: { previousLevel: 3, newLevel: 4, skillPointsAwarded: 1 },
@@ -111,6 +122,7 @@ describe('CombatMessenger', () => {
       maxHp: 8,
       strength: 10,
       agility: 11,
+      health: 9,
       level: 2,
       isAlive: true,
     } as any;
@@ -160,7 +172,10 @@ describe('CombatMessenger', () => {
       } as any,
     };
 
-    const nonPlayer = { type: 'monster', slackUser: { teamId: 'T2', userId: 'U2' } } as any;
+    const nonPlayer = {
+      type: 'monster',
+      slackUser: { teamId: 'T2', userId: 'U2' },
+    } as any;
     expect(
       await messenger.buildParticipantMessage(
         log,
@@ -195,6 +210,7 @@ describe('CombatMessenger', () => {
       maxHp: 12,
       strength: 14,
       agility: 12,
+      health: 11,
       level: 5,
       isAlive: true,
     } as any;
@@ -207,6 +223,7 @@ describe('CombatMessenger', () => {
       maxHp: 11,
       strength: 11,
       agility: 11,
+      health: 10,
       level: 4,
       isAlive: true,
     } as any;
