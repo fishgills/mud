@@ -5,6 +5,7 @@ import { Logger } from '@nestjs/common';
 import type { DetailedCombatLog } from '../api';
 import type { Combatant } from './types';
 import { AttackOrigin } from '../api/dto/player-requests.dto';
+import { serializeCombatLog } from './combat-log.util';
 
 export interface CombatResultEffects {
   playerRespawnEvents: PlayerRespawnEvent[];
@@ -217,6 +218,8 @@ export async function applyCombatResults(
       defenderId: loser.id,
       defenderType: loser.type,
       damage: totalDamage,
+      combatId: combatLog.combatId,
+      log: serializeCombatLog(combatLog),
     },
   });
 

@@ -8,8 +8,66 @@ import type {
   SectionBlock,
 } from '@slack/types';
 import { COMBAT_ACTIONS } from '../commands';
+import { getCombatLog, type DetailedCombatLog } from '../dm-client';
 
 type CombatLogEntry = { round: string; description: string };
+
+const formatNumber = (value: number): string =>
+  Number.isInteger(value) ? String(value) : value.toFixed(1);
+
+const formatPercent = (value: number): string => `${Math.round(value * 100)}%`;
+
+const buildEntriesFromLog = (log: DetailedCombatLog): CombatLogEntry[] => {
+  return log.rounds.map((round) => {
+    const attackLine = `${round.attackerName} strike: AR ${formatNumber(round.attackRating)} vs DR ${formatNumber(round.defenseRating)} (hit ${formatPercent(round.hitChance)}) -> ${round.hit ? 'HIT' : 'MISS'}`;
+    let damageLine: string;
+    if (round.hit) {
+      const weaponSegment =
+        round.weaponDamage > 0 ? ` + weapon ${round.weaponDamage}` : '';
+      const critSegment = round.crit
+        ? `, crit x${round.critMultiplier ?? 1.5}`
+        : '';
+      const breakdown = `core ${formatNumber(round.coreDamage)}${weaponSegment}, mit ${formatPercent(round.mitigation)}${critSegment}`;
+      damageLine = `Damage: ${round.damage} (${breakdown}) -> ${round.defenderName} HP ${round.defenderHpAfter}${round.killed ? ' KO' : ''}`;
+    } else {
+      damageLine = `Damage: 0 -> ${round.defenderName} HP ${round.defenderHpAfter} (miss)`;
+    }
+
+    return {
+      round: String(round.roundNumber),
+      description: `${attackLine}\n${damageLine}`,
+    };
+  });
+};
+
+const parseCombatLogValue = (value: unknown): string | undefined => {
+  if (typeof value !== 'string' || value.trim().length === 0) return undefined;
+  const trimmed = value.trim();
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed) as { combatId?: string };
+      if (typeof parsed?.combatId === 'string') return parsed.combatId;
+    } catch {
+      return undefined;
+    }
+  }
+  return trimmed;
+};
+
+type ActionElement = BlockAction['actions'][number];
+
+const isActionWithValue = (
+  action: ActionElement,
+): action is ActionElement & { value: string } =>
+  typeof (action as { value?: unknown }).value === 'string';
+
+const getActionValue = (
+  actions?: BlockAction['actions'],
+): string | undefined => {
+  if (!actions || actions.length === 0) return undefined;
+  const candidate = actions.find(isActionWithValue);
+  return candidate?.value;
+};
 
 const isActionsBlock = (block: Block | KnownBlock): block is ActionsBlock =>
   (block as { type?: string }).type === 'actions';
@@ -18,8 +76,7 @@ const filterCombatLogActions = (
   elements: ActionsBlock['elements'],
 ): ActionsBlock['elements'] =>
   elements.filter((element) => {
-    const actionId =
-      'action_id' in element ? element.action_id : undefined;
+    const actionId = 'action_id' in element ? element.action_id : undefined;
     return (
       actionId !== COMBAT_ACTIONS.SHOW_LOG &&
       actionId !== COMBAT_ACTIONS.HIDE_LOG
@@ -97,6 +154,7 @@ export const registerCombatLogActions = (app: App) => {
     async ({ ack, body, client }) => {
       await ack();
 
+      const combatId = parseCombatLogValue(getActionValue(body.actions));
       const channelId =
         body.channel?.id ||
         (typeof body.container?.channel_id === 'string'
@@ -137,7 +195,22 @@ export const registerCombatLogActions = (app: App) => {
         text: { type: 'mrkdwn', text: '*Combat Log*' },
       } as SectionBlock);
 
-      const entries = extractCombatLogEntries(fullText);
+      let entries: CombatLogEntry[] = [];
+      if (combatId) {
+        try {
+          const response = await getCombatLog(combatId);
+          if (response.success && response.data) {
+            entries = buildEntriesFromLog(response.data);
+          }
+        } catch {
+          entries = [];
+        }
+      }
+
+      if (entries.length === 0) {
+        entries = extractCombatLogEntries(fullText);
+      }
+
       if (entries.length > 0) {
         for (const group of chunk(entries, 12)) {
           const blockText = group
@@ -161,6 +234,9 @@ export const registerCombatLogActions = (app: App) => {
         text: { type: 'plain_text', text: 'Hide combat log' },
         style: 'danger',
       };
+      if (combatId) {
+        hideButton.value = combatId;
+      }
       const actions: ActionsBlock = { type: 'actions', elements: [hideButton] };
       newBlocks.push(actions);
 
@@ -178,6 +254,7 @@ export const registerCombatLogActions = (app: App) => {
     async ({ ack, body, client }) => {
       await ack();
 
+      const combatId = parseCombatLogValue(getActionValue(body.actions));
       const channelId =
         body.channel?.id ||
         (typeof body.container?.channel_id === 'string'
@@ -213,6 +290,9 @@ export const registerCombatLogActions = (app: App) => {
         text: { type: 'plain_text', text: 'View full combat log' },
         style: 'primary',
       };
+      if (combatId) {
+        showButton.value = combatId;
+      }
       const showActions: ActionsBlock = {
         type: 'actions',
         elements: [showButton],

@@ -128,6 +128,10 @@ export interface CombatResult {
   perfBreakdown?: CombatPerformanceBreakdown;
 }
 
+export interface CombatLogDetailResponse extends SuccessResponse {
+  data?: DetailedCombatLog;
+}
+
 export interface AttackPerformanceStats {
   totalMs: number;
   preCombatMs: number;

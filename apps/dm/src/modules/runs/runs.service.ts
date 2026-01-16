@@ -19,6 +19,7 @@ import {
   runTeamCombat,
   toEffectiveStats,
 } from '../../app/combat/engine';
+import { serializeCombatLog } from '../../app/combat/combat-log.util';
 import type { Combatant } from '../../app/combat/types';
 import {
   MONSTER_TEMPLATES,
@@ -324,6 +325,24 @@ export class RunsService {
       { teamAName: partyName, teamBName: monster.name },
     );
 
+    const totalDamage = combatLog.rounds.reduce(
+      (total, round) => total + round.damage,
+      0,
+    );
+    await this.prisma.combatLog.create({
+      data: {
+        combatId: combatLog.combatId,
+        attackerId: leader.playerId,
+        attackerType: 'player',
+        defenderId: monster.id,
+        defenderType: 'monster',
+        damage: totalDamage,
+        log: serializeCombatLog(combatLog),
+        runId: run.id,
+        runRound: roundNumber,
+      },
+    });
+
     const combatLogText = this.combatService.formatCombatLog(combatLog, {
       attackerCombatant:
         partyCombatants.length === 1 ? partyCombatants[0] : partySummary,
@@ -354,7 +373,10 @@ export class RunsService {
       await this.publishRunEndNotifications(run, {
         status: RunStatus.FAILED,
         message: `${summary}\n${rewards}\n\n${combatLogText}`,
-        blocks: this.buildParticipantBlocks(`${summary}\n${rewards}`),
+        blocks: this.buildParticipantBlocks(
+          `${summary}\n${rewards}`,
+          combatLog.combatId,
+        ),
       });
 
       return;
@@ -386,6 +408,7 @@ export class RunsService {
       bankedXp: run.bankedXp + roundXp,
       bankedGold: run.bankedGold + roundGold,
       combatLogText,
+      combatId: combatLog.combatId,
     });
   }
 
@@ -579,6 +602,7 @@ export class RunsService {
     bankedGold: number;
     roundXp: number;
     roundGold: number;
+    combatId?: string;
   }) {
     const summary = `Round ${params.round} complete. ${params.monsterName} was defeated.`;
     const rewards = `Banked rewards: ${params.bankedXp} XP, ${params.bankedGold} gold (+${params.roundXp} XP, +${params.roundGold} gold this round).`;
@@ -612,13 +636,14 @@ export class RunsService {
             type: 'button',
             text: { type: 'plain_text', text: 'View full combat log' },
             action_id: COMBAT_ACTION_SHOW_LOG,
+            ...(params.combatId ? { value: params.combatId } : {}),
           },
         ],
       },
     ];
   }
 
-  private buildParticipantBlocks(summary: string) {
+  private buildParticipantBlocks(summary: string, combatId?: string) {
     return [
       {
         type: 'section',
@@ -634,6 +659,7 @@ export class RunsService {
             type: 'button',
             text: { type: 'plain_text', text: 'View full combat log' },
             action_id: COMBAT_ACTION_SHOW_LOG,
+            ...(combatId ? { value: combatId } : {}),
           },
         ],
       },
@@ -650,6 +676,7 @@ export class RunsService {
       bankedXp: number;
       bankedGold: number;
       combatLogText: string;
+      combatId?: string;
     },
   ) {
     if (!run) return;
@@ -681,8 +708,9 @@ export class RunsService {
               bankedGold: params.bankedGold,
               roundXp: params.roundXp,
               roundGold: params.roundGold,
+              combatId: params.combatId,
             })
-          : this.buildParticipantBlocks(participantSummary),
+          : this.buildParticipantBlocks(participantSummary, params.combatId),
       });
     }
 

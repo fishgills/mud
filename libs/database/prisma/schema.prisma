@@ -190,11 +190,15 @@ model Monster {
 }
 model CombatLog {
   id           Int      @id @default(autoincrement())
+  combatId     String?  @unique
   attackerId   Int // Player or Monster ID
   attackerType String // "player" or "monster"
   defenderId   Int // Player or Monster ID
   defenderType String // "player" or "monster"
   damage       Int
+  log          Json?
+  runId        Int?
+  runRound     Int?
   timestamp    DateTime @default(now())
 }
 

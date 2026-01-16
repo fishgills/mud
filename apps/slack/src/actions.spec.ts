@@ -24,6 +24,7 @@ jest.mock('./dm-client', () => {
       success: true,
       data: { id: 1, name: 'Hero', bag: [] },
     }),
+    getCombatLog: jest.fn().mockResolvedValue({ success: false }),
   };
 });
 
@@ -37,7 +38,7 @@ import {
   RUN_ACTIONS,
 } from './commands';
 import { getAllHandlers } from './handlers/handlerRegistry';
-import { dmClient, getPlayerItems } from './dm-client';
+import { dmClient, getCombatLog, getPlayerItems } from './dm-client';
 import { PlayerAttribute } from './dm-types';
 
 const mockedDmClient = dmClient as unknown as {
@@ -55,6 +56,7 @@ const mockedDmClient = dmClient as unknown as {
   continueRun: jest.Mock;
   finishRun: jest.Mock;
 };
+const mockedGetCombatLog = getCombatLog as jest.Mock;
 
 type AckMock = jest.Mock<Promise<void>, unknown[]>;
 type ConversationsOpenMock = jest.Mock<
@@ -207,9 +209,7 @@ describe('registerActions', () => {
       data: { id: 1, name: 'Hero', skillPoints: 0 },
     });
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
-    const viewsOpen = jest
-      .fn()
-      .mockResolvedValue(undefined) as ViewsOpenMock;
+    const viewsOpen = jest.fn().mockResolvedValue(undefined) as ViewsOpenMock;
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
@@ -269,7 +269,6 @@ describe('registerActions', () => {
     }
     expect(ack).toHaveBeenCalledTimes(detailActions.length);
   });
-
 
   it('opens the create character modal and falls back to DM on failure', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
@@ -391,9 +390,7 @@ describe('registerActions', () => {
 
   it('handles missing userId in help actions', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
-    const viewsOpen = jest
-      .fn()
-      .mockResolvedValue(undefined) as ViewsOpenMock;
+    const viewsOpen = jest.fn().mockResolvedValue(undefined) as ViewsOpenMock;
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
@@ -417,9 +414,7 @@ describe('registerActions', () => {
 
   it('does not open stats modal without a trigger id', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
-    const viewsOpen = jest
-      .fn()
-      .mockResolvedValue(undefined) as ViewsOpenMock;
+    const viewsOpen = jest.fn().mockResolvedValue(undefined) as ViewsOpenMock;
     const client: MockSlackClient = {
       conversations: {
         open: jest.fn().mockResolvedValue({
@@ -529,9 +524,7 @@ describe('registerActions', () => {
 
   it('tests all other HELP_ACTIONS', async () => {
     const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
-    const viewsOpen = jest
-      .fn()
-      .mockResolvedValue(undefined) as ViewsOpenMock;
+    const viewsOpen = jest.fn().mockResolvedValue(undefined) as ViewsOpenMock;
     mockedDmClient.getPlayer.mockResolvedValue({
       success: true,
       data: { skillPoints: 0, name: 'Hero' },
@@ -836,6 +829,46 @@ describe('registerActions', () => {
         chat,
       };
 
+      mockedGetCombatLog.mockResolvedValueOnce({
+        success: true,
+        data: {
+          combatId: 'combat-123',
+          participant1: 'You',
+          participant2: 'Wild Boar',
+          initiativeRolls: [],
+          firstAttacker: 'You',
+          rounds: [
+            {
+              roundNumber: 1,
+              attackerName: 'You',
+              defenderName: 'Wild Boar',
+              attackRating: 60,
+              defenseRating: 40,
+              hitChance: 0.72,
+              hitRoll: 0.12,
+              hit: true,
+              weaponDamage: 3,
+              coreDamage: 12,
+              baseDamage: 15,
+              mitigation: 0.2,
+              damageAfterMitigation: 12,
+              critChance: 0.05,
+              critRoll: 0.99,
+              critMultiplier: 1.5,
+              crit: false,
+              damage: 12,
+              defenderHpAfter: 0,
+              killed: true,
+            },
+          ],
+          winner: 'You',
+          loser: 'Wild Boar',
+          xpAwarded: 10,
+          goldAwarded: 2,
+          timestamp: '2023-01-01T00:00:00Z',
+        },
+      });
+
       const fullText =
         '**Combat Log:**Round 1 You attack: swing\nDamage roll: 7\nRound 2 Wild Boar attacks: gore\nDamage roll: 8';
 
@@ -843,6 +876,7 @@ describe('registerActions', () => {
         ack,
         body: {
           channel: { id: 'C-COMBAT' },
+          actions: [{ value: 'combat-123' }],
           message: {
             ts: 'TS-COMBAT',
             text: fullText,
@@ -888,10 +922,10 @@ describe('registerActions', () => {
       ) as SectionBlock;
 
       expect(detailedBlock?.text?.text).toContain(
-        '• Round 1: You attack: swing\n    Damage roll: 7',
+        '• Round 1: You strike: AR 60 vs DR 40 (hit 72%) -> HIT',
       );
       expect(detailedBlock?.text?.text).toContain(
-        '• Round 2: Wild Boar attacks: gore',
+        'Damage: 12 (core 12 + weapon 3, mit 20%) -> Wild Boar HP 0 KO',
       );
 
       const actionElements = payload.blocks
@@ -923,10 +957,13 @@ describe('registerActions', () => {
         chat,
       };
 
+      mockedGetCombatLog.mockResolvedValueOnce({ success: false });
+
       await actionHandlers[COMBAT_ACTIONS.SHOW_LOG]({
         ack,
         body: {
           channel: { id: 'C-COMBAT' },
+          actions: [{ value: 'combat-missing' }],
           message: {
             ts: 'TS-COMBAT',
             text: 'Summary only',
@@ -967,6 +1004,7 @@ describe('registerActions', () => {
         ack,
         body: {
           channel: { id: 'C-COMBAT' },
+          actions: [{ value: 'combat-123' }],
           message: {
             ts: 'TS-COMBAT',
             text: 'Summary',
@@ -1008,6 +1046,7 @@ describe('registerActions', () => {
           expect.objectContaining({
             action_id: COMBAT_ACTIONS.SHOW_LOG,
             text: expect.objectContaining({ text: 'View full combat log' }),
+            value: 'combat-123',
           }),
           expect.objectContaining({
             action_id: RUN_ACTIONS.CONTINUE,

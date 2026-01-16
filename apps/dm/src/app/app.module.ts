@@ -9,6 +9,7 @@ import {
   PlayersController,
   SystemController,
   ItemController,
+  CombatController,
 } from './api/controllers';
 import { GuildShopController } from '../modules/guild-shop/guild-shop.controller';
 import { GuildAnnouncementsController } from '../modules/guild-announcements/guild-announcements.controller';
@@ -42,6 +43,7 @@ import { RunsService } from '../modules/runs/runs.service';
     PlayersController,
     SystemController,
     ItemController,
+    CombatController,
     GuildShopController,
     GuildAnnouncementsController,
     FeedbackController,

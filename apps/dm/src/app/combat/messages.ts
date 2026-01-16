@@ -266,7 +266,10 @@ export class CombatMessenger {
     return `${combatLog.winner} defeats ${combatLog.loser} in a hard-fought battle.`;
   }
 
-  private buildSummaryBlocks(summary: string): Array<Record<string, unknown>> {
+  private buildSummaryBlocks(
+    summary: string,
+    combatId?: string,
+  ): Array<Record<string, unknown>> {
     return [
       { type: 'section', text: { type: 'mrkdwn', text: summary } },
       {
@@ -277,6 +280,7 @@ export class CombatMessenger {
             action_id: 'combat_action_show_log',
             text: { type: 'plain_text', text: 'View full combat log' },
             style: 'primary',
+            ...(combatId ? { value: combatId } : {}),
           },
         ],
       },
@@ -365,6 +369,7 @@ export class CombatMessenger {
           rewards,
           participant.levelUp,
         ),
+        combatLog.combatId,
       ),
     } as CombatMessage;
   }

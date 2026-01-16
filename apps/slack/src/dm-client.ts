@@ -119,8 +119,7 @@ type ItemDisplayMetadata = {
   computedBonuses?: EquipmentTotals;
 };
 
-export type ItemRecord =
-  PlayerItem & ItemDisplayMetadata;
+export type ItemRecord = PlayerItem & ItemDisplayMetadata;
 
 export type EquipmentTotals = {
   attackBonus: number;
@@ -155,6 +154,54 @@ export interface CombatResult {
     blocks?: Array<Record<string, unknown>>;
   }>;
   perfBreakdown?: CombatPerformanceBreakdown;
+}
+
+export interface CombatLogRound {
+  roundNumber: number;
+  attackerName: string;
+  defenderName: string;
+  attackRating: number;
+  defenseRating: number;
+  hitChance: number;
+  hitRoll: number;
+  hit: boolean;
+  weaponDamage: number;
+  coreDamage: number;
+  baseDamage: number;
+  mitigation: number;
+  damageAfterMitigation: number;
+  critChance?: number;
+  critRoll?: number;
+  critMultiplier?: number;
+  crit?: boolean;
+  damage: number;
+  defenderHpAfter: number;
+  killed: boolean;
+}
+
+export interface InitiativeRoll {
+  name: string;
+  base: number;
+  random: number;
+  total: number;
+}
+
+export interface DetailedCombatLog {
+  combatId: string;
+  participant1: string;
+  participant2: string;
+  initiativeRolls: InitiativeRoll[];
+  firstAttacker: string;
+  rounds: CombatLogRound[];
+  winner: string;
+  loser: string;
+  xpAwarded: number;
+  goldAwarded: number;
+  timestamp: string;
+}
+
+export interface CombatLogResponse extends SuccessResponse {
+  data?: DetailedCombatLog;
 }
 
 export interface AttackPerformanceStats {
@@ -351,6 +398,15 @@ export async function attack(input: AttackRequest): Promise<CombatResponse> {
   return dmRequest<CombatResponse>('/players/attack', HttpMethod.POST, {
     body: input,
   });
+}
+
+export async function getCombatLog(
+  combatId: string,
+): Promise<CombatLogResponse> {
+  return dmRequest<CombatLogResponse>(
+    `/combat/logs/${encodeURIComponent(combatId)}`,
+    HttpMethod.GET,
+  );
 }
 
 export async function spendSkillPoint(

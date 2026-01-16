@@ -120,7 +120,12 @@ describe('applyCombatResults', () => {
       where: { id: 99 },
     });
     expect(prisma.combatLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.any(Object) }),
+      expect.objectContaining({
+        data: expect.objectContaining({
+          combatId: 'c1',
+          log: combatLog,
+        }),
+      }),
     );
   });
 
@@ -219,6 +224,13 @@ describe('applyCombatResults', () => {
     expect(playerService.getPlayer).toHaveBeenCalledWith('T1', 'U1', {
       requireCreationComplete: true,
     });
-    expect(prisma.combatLog.create).toHaveBeenCalled();
+    expect(prisma.combatLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          combatId: 'c2',
+          log: combatLog,
+        }),
+      }),
+    );
   });
 });

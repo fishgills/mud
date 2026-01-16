@@ -21,6 +21,7 @@ import {
 } from './engine';
 import { CombatMessenger } from './messages';
 import { applyCombatResults, type CombatResultEffects } from './results';
+import { normalizeCombatLog } from './combat-log.util';
 import {
   calculateEquipmentEffects,
   type EquippedPlayerItem,
@@ -925,6 +926,19 @@ export class CombatService {
       orderBy: { timestamp: 'desc' },
       take: limit,
     });
+  }
+
+  async getCombatLogByCombatId(
+    combatId: string,
+  ): Promise<DetailedCombatLog | null> {
+    const record = await this.prisma.combatLog.findFirst({
+      where: { combatId },
+      select: { log: true },
+    });
+    if (!record?.log || typeof record.log !== 'object') {
+      return null;
+    }
+    return normalizeCombatLog(record.log as unknown as DetailedCombatLog);
   }
 
   private async emitPlayerActivityEvent(
