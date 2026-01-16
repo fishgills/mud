@@ -122,10 +122,9 @@ type ItemDisplayMetadata = {
 export type ItemRecord = PlayerItem & ItemDisplayMetadata;
 
 export type EquipmentTotals = {
-  attackBonus: number;
-  damageBonus: number;
-  armorBonus: number;
-  vitalityBonus: number;
+  strengthBonus: number;
+  agilityBonus: number;
+  healthBonus: number;
   weaponDamageRoll: string | null;
 };
 

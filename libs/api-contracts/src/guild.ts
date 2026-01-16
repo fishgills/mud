@@ -71,4 +71,14 @@ export interface GuildCatalogItem {
   damageRoll?: string;
   defense?: number;
   quality?: string;
+  tier?: number;
+  offsetK?: number;
+  itemPower?: number;
+  strengthBonus?: number;
+  agilityBonus?: number;
+  healthBonus?: number;
+  weaponDiceCount?: number;
+  weaponDiceSides?: number;
+  ticketRequirement?: string;
+  archetype?: string;
 }

@@ -552,10 +552,9 @@ export class PlayersController {
         return acc;
       }, new Map<number, EquipmentTotals>());
       const emptyBonuses: EquipmentTotals = {
-        attackBonus: 0,
-        damageBonus: 0,
-        armorBonus: 0,
-        vitalityBonus: 0,
+        strengthBonus: 0,
+        agilityBonus: 0,
+        healthBonus: 0,
         weaponDamageRoll: null,
       };
 
@@ -593,10 +592,9 @@ export class PlayersController {
             description: item?.description ?? null,
             itemType: item?.type ?? null,
             computedBonuses: {
-              attackBonus: applied.attackBonus ?? 0,
-              damageBonus: applied.damageBonus ?? 0,
-              armorBonus: applied.armorBonus ?? 0,
-              vitalityBonus: applied.vitalityBonus ?? 0,
+              strengthBonus: applied.strengthBonus ?? 0,
+              agilityBonus: applied.agilityBonus ?? 0,
+              healthBonus: applied.healthBonus ?? 0,
               weaponDamageRoll: applied.weaponDamageRoll ?? null,
             },
             createdAt:

@@ -1,8 +1,7 @@
 export type EquipmentTotals = {
-  attackBonus?: number;
-  damageBonus?: number;
-  armorBonus?: number;
-  vitalityBonus?: number;
+  strengthBonus?: number;
+  agilityBonus?: number;
+  healthBonus?: number;
   weaponDamageRoll?: string | null;
 };
 
@@ -56,14 +55,10 @@ const formatPercent = (value: number): string => `${Math.round(value * 100)}%`;
 const effectiveStat = (stat: number): number => Math.sqrt(Math.max(0, stat));
 
 const resolveStatBonuses = (equipmentTotals?: EquipmentTotals | null) => {
-  const strengthBonus =
-    (equipmentTotals?.attackBonus ?? 0) + (equipmentTotals?.damageBonus ?? 0);
-  const healthBonus =
-    (equipmentTotals?.armorBonus ?? 0) + (equipmentTotals?.vitalityBonus ?? 0);
   return {
-    strength: strengthBonus,
-    agility: 0,
-    health: healthBonus,
+    strength: equipmentTotals?.strengthBonus ?? 0,
+    agility: equipmentTotals?.agilityBonus ?? 0,
+    health: equipmentTotals?.healthBonus ?? 0,
   };
 };
 

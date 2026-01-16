@@ -488,6 +488,13 @@ body {
   border: 1px solid transparent;
 }
 
+.shop-timer {
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .shop-notice-success {
   background: rgba(76, 119, 74, 0.18);
   border-color: rgba(76, 119, 74, 0.4);
@@ -563,6 +570,68 @@ body {
   gap: 6px 12px;
   font-size: 12px;
   color: var(--ink-soft);
+}
+
+.shop-currency-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.currency-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  background: rgba(18, 14, 14, 0.6);
+}
+
+.currency-icon-gold {
+  color: #dca34e;
+}
+
+.currency-icon-ticket {
+  color: #9cc4ff;
+}
+
+.shop-ticket {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ticket-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  background: rgba(18, 14, 14, 0.6);
+}
+
+.ticket-icon-rare {
+  color: #7fb7ff;
+}
+
+.ticket-icon-epic {
+  color: #f3a864;
+}
+
+.ticket-icon-legendary {
+  color: #f2d06a;
 }
 
 .shop-tag-list {

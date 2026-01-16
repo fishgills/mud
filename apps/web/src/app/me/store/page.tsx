@@ -16,6 +16,11 @@ export const metadata = {
   title: 'Guild Store',
 };
 
+const formatWeaponRoll = (count?: number | null, sides?: number | null) => {
+  if (!count || !sides) return null;
+  return `${count}d${sides}`;
+};
+
 const getPlayerForStore = async (teamId: string, userId: string) => {
   const prisma = getPrismaClient();
   const slackUser = await prisma.slackUser.findUnique({
@@ -46,6 +51,13 @@ const getShopCatalog = async () => {
     where: { isActive: true },
     include: { itemTemplate: true },
     orderBy: [{ buyPriceGold: 'asc' }, { name: 'asc' }],
+  });
+};
+
+const getShopState = async () => {
+  const prisma = getPrismaClient();
+  return prisma.guildShopState.findFirst({
+    orderBy: { lastRefreshedAt: 'desc' },
   });
 };
 
@@ -98,9 +110,10 @@ export default async function StorePage() {
     );
   }
 
-  const [player, catalog] = await Promise.all([
+  const [player, catalog, shopState] = await Promise.all([
     getPlayerForStore(session.teamId, session.userId),
     getShopCatalog(),
+    getShopState(),
   ]);
 
   if (!player) {
@@ -138,6 +151,12 @@ export default async function StorePage() {
     value: pi.item.value,
     description: pi.item.description,
     itemType: pi.item.type,
+    computedBonuses: {
+      strengthBonus: pi.item.strengthBonus ?? 0,
+      agilityBonus: pi.item.agilityBonus ?? 0,
+      healthBonus: pi.item.healthBonus ?? 0,
+      weaponDamageRoll: pi.item.damageRoll ?? null,
+    },
   }));
 
   const equipment: Record<string, { id: number; quality: string } | null> = {};
@@ -169,8 +188,13 @@ export default async function StorePage() {
       tags: item.tags ?? [],
       qualityBadge: getQualityBadge(quality),
       qualityLabel: getQualityLabel(quality),
-      damageRoll: item.itemTemplate?.damageRoll ?? null,
-      defense: item.itemTemplate?.defense ?? null,
+      damageRoll:
+        item.itemTemplate?.damageRoll ??
+        formatWeaponRoll(item.weaponDiceCount, item.weaponDiceSides),
+      strengthBonus: item.strengthBonus,
+      agilityBonus: item.agilityBonus,
+      healthBonus: item.healthBonus,
+      ticketRequirement: item.ticketRequirement,
     };
   });
 
@@ -206,6 +230,21 @@ export default async function StorePage() {
       };
     });
 
+  const ticketCounts = {
+    rare: player.rareTickets ?? 0,
+    epic: player.epicTickets ?? 0,
+    legendary: player.legendaryTickets ?? 0,
+  };
+  const refreshIntervalRaw = Number(
+    process.env.GUILD_SHOP_ROTATION_INTERVAL_MS,
+  );
+  const refreshIntervalMs = Number.isFinite(refreshIntervalRaw)
+    ? refreshIntervalRaw
+    : 0;
+  const lastRefreshAt = shopState?.lastRefreshedAt
+    ? shopState.lastRefreshedAt.toISOString()
+    : null;
+
   return (
     <main className="page-card flex flex-col gap-6">
       <header className="flex flex-col gap-2">
@@ -213,7 +252,29 @@ export default async function StorePage() {
           Guild Store
         </h1>
         <p className="text-sm text-[color:var(--ink-soft)]">
-          Gold {inventory.gold} · Rotates on tick events
+          <span className="shop-currency-line">
+            <span
+              className="currency-icon currency-icon-gold"
+              aria-hidden="true"
+            >
+              G
+            </span>
+            Gold {inventory.gold}
+          </span>
+          <span aria-hidden="true"> · </span>
+          Rotates on tick events
+        </p>
+        <p className="text-sm text-[color:var(--ink-soft)]">
+          <span className="shop-currency-line">
+            <span
+              className="currency-icon currency-icon-ticket"
+              aria-hidden="true"
+            >
+              T
+            </span>
+            Tickets: Rare {ticketCounts.rare} · Epic {ticketCounts.epic} ·
+            Legendary {ticketCounts.legendary}
+          </span>
         </p>
       </header>
 
@@ -226,7 +287,14 @@ export default async function StorePage() {
         </p>
       </section>
 
-      <ShopClient catalog={catalogView} sellItems={sellItems} />
+      <ShopClient
+        catalog={catalogView}
+        sellItems={sellItems}
+        playerGold={inventory.gold}
+        ticketCounts={ticketCounts}
+        refreshIntervalMs={refreshIntervalMs}
+        lastRefreshAt={lastRefreshAt}
+      />
     </main>
   );
 }

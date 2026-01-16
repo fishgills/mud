@@ -46,14 +46,10 @@ const effectiveStat = (value: number | null | undefined): number | null => {
 };
 
 const resolveStatBonuses = (equipmentTotals?: EquipmentTotals | null) => {
-  const strengthBonus =
-    (equipmentTotals?.attackBonus ?? 0) + (equipmentTotals?.damageBonus ?? 0);
-  const healthBonus =
-    (equipmentTotals?.armorBonus ?? 0) + (equipmentTotals?.vitalityBonus ?? 0);
   return {
-    strength: strengthBonus,
-    agility: 0,
-    health: healthBonus,
+    strength: equipmentTotals?.strengthBonus ?? 0,
+    agility: equipmentTotals?.agilityBonus ?? 0,
+    health: equipmentTotals?.healthBonus ?? 0,
   };
 };
 

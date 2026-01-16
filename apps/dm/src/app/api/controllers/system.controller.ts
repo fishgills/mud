@@ -11,12 +11,14 @@ import { MonsterService } from '../../monster/monster.service';
 import { PlayerService } from '../../player/player.service';
 import type { MonsterResponse, HealthCheck } from '../dto/responses.dto';
 import { Monster } from '@mud/database';
+import { GuildShopRotationService } from '../../../modules/guild-shop/guild-shop-rotation.service';
 
 @Controller('system')
 export class SystemController {
   constructor(
     private readonly monsterService: MonsterService,
     private readonly playerService: PlayerService,
+    private readonly guildShopRotation: GuildShopRotationService,
   ) {}
 
   @Get('health')
@@ -46,9 +48,12 @@ export class SystemController {
 
   @Post('process-tick')
   async processTick(): Promise<{ success: boolean; message: string }> {
+    const rotation = await this.guildShopRotation.rotateIfDue('tick');
     return {
       success: true,
-      message: 'Tick processing disabled',
+      message: rotation.rotated
+        ? `Tick processed: shop rotated (${rotation.items ?? 0} items).`
+        : 'Tick processed: no shop rotation.',
     };
   }
 

@@ -26,6 +26,16 @@ export class GuildShopController {
       damageRoll: item.damageRoll ?? undefined,
       defense: item.defense ?? undefined,
       quality: item.quality ?? undefined,
+      tier: item.tier ?? undefined,
+      offsetK: item.offsetK ?? undefined,
+      itemPower: item.itemPower ?? undefined,
+      strengthBonus: item.strengthBonus ?? undefined,
+      agilityBonus: item.agilityBonus ?? undefined,
+      healthBonus: item.healthBonus ?? undefined,
+      weaponDiceCount: item.weaponDiceCount ?? undefined,
+      weaponDiceSides: item.weaponDiceSides ?? undefined,
+      ticketRequirement: item.ticketRequirement ?? undefined,
+      archetype: item.archetype ?? undefined,
     }));
   }
 

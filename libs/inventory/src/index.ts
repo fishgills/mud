@@ -19,10 +19,9 @@ export const EQUIPMENT_SLOTS: Array<{ key: EquipmentSlotKey; label: string }> =
 
 // Types for computed bonuses from equipment
 export type EquipmentBonuses = {
-  attackBonus?: number;
-  damageBonus?: number;
-  armorBonus?: number;
-  vitalityBonus?: number;
+  strengthBonus?: number;
+  agilityBonus?: number;
+  healthBonus?: number;
   weaponDamageRoll?: string | null;
 };
 
@@ -171,33 +170,27 @@ const buildItemStats = (item: InventoryItemInput): ItemStatLine[] => {
   }
 
   if (bonuses) {
-    if (bonuses.attackBonus) {
+    if (bonuses.strengthBonus) {
       stats.push({
-        label: 'Attack',
-        value: formatSignedStat(bonuses.attackBonus),
+        label: 'Strength',
+        value: formatSignedStat(bonuses.strengthBonus),
       });
     }
-    if (bonuses.damageBonus) {
+    if (bonuses.agilityBonus) {
       stats.push({
-        label: 'Damage Bonus',
-        value: formatSignedStat(bonuses.damageBonus),
+        label: 'Agility',
+        value: formatSignedStat(bonuses.agilityBonus),
       });
     }
-    if (bonuses.armorBonus) {
+    if (bonuses.healthBonus) {
       stats.push({
-        label: 'Armor',
-        value: formatSignedStat(bonuses.armorBonus),
+        label: 'Health',
+        value: formatSignedStat(bonuses.healthBonus),
       });
-    } else {
-      const rawDefense =
-        typeof item.defense === 'number' && item.defense !== 0
-          ? item.defense
-          : (item.item?.defense ?? null);
-      if (typeof rawDefense === 'number' && rawDefense !== 0) {
-        stats.push({ label: 'Armor', value: formatSignedStat(rawDefense) });
-      }
     }
-  } else {
+  }
+
+  if (stats.length === 0) {
     const rawDefense =
       typeof item.defense === 'number' && item.defense !== 0
         ? item.defense

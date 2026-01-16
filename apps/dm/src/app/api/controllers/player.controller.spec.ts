@@ -136,14 +136,16 @@ describe('PlayersController', () => {
   it('returns player data with equipment totals', async () => {
     const player = { id: 7, name: 'Hero' };
     playerService.getPlayer.mockResolvedValue(player as never);
-    playerItemService.getEquipmentTotals.mockResolvedValue({ attackBonus: 2 });
+    playerItemService.getEquipmentTotals.mockResolvedValue({
+      strengthBonus: 2,
+    });
 
     const response = await controller.getPlayer('T1', 'U1');
 
     expect(response.success).toBe(true);
     expect(response.data).toMatchObject({
       id: 7,
-      equipmentTotals: { attackBonus: 2 },
+      equipmentTotals: { strengthBonus: 2 },
     });
   });
 
@@ -310,10 +312,9 @@ describe('PlayersController', () => {
     };
     playerService.getPlayer.mockResolvedValue(player as never);
     playerItemService.getEquipmentTotals.mockResolvedValue({
-      attackBonus: 2,
-      damageBonus: 1,
-      armorBonus: 3,
-      vitalityBonus: 0,
+      strengthBonus: 3,
+      agilityBonus: 1,
+      healthBonus: 3,
       weaponDamageRoll: '1d6',
     });
     combatService.getRecentCombatForPlayer.mockResolvedValue([{ id: 1 }]);
@@ -329,7 +330,7 @@ describe('PlayersController', () => {
   it('lists player items and surfaces bag/allowed slot metadata', async () => {
     const player = { id: 1, name: 'Hero' };
     playerService.getPlayer.mockResolvedValue(player as never);
-    playerItemService.getEquipmentTotals.mockResolvedValue({ armorBonus: 1 });
+    playerItemService.getEquipmentTotals.mockResolvedValue({ healthBonus: 1 });
     playerItemService.listBag.mockResolvedValue([
       {
         id: 10,

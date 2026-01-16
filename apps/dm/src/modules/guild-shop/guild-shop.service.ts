@@ -6,6 +6,7 @@ import { GuildShopRepository } from './guild-shop.repository';
 import { GuildShopPublisher } from './guild-shop.publisher';
 import type { GuildTradeResponse } from '@mud/api-contracts';
 import { RunsService } from '../runs/runs.service';
+import { formatWeaponRoll } from './guild-shop-progression';
 
 interface BuyRequest {
   teamId: string;
@@ -47,6 +48,16 @@ export class GuildShopService {
       damageRoll?: string | null;
       defense?: number | null;
       quality?: string | null;
+      tier?: number | null;
+      offsetK?: number | null;
+      itemPower?: number | null;
+      strengthBonus?: number | null;
+      agilityBonus?: number | null;
+      healthBonus?: number | null;
+      weaponDiceCount?: number | null;
+      weaponDiceSides?: number | null;
+      ticketRequirement?: string | null;
+      archetype?: string | null;
     }>
   > {
     const entries = await this.repository.listActiveCatalog();
@@ -63,9 +74,23 @@ export class GuildShopService {
           ? PlayerSlot.weapon
           : null),
       tags: entry.tags ?? [],
-      damageRoll: entry.itemTemplate?.damageRoll ?? null,
+      damageRoll:
+        entry.itemTemplate?.damageRoll ??
+        (entry.weaponDiceCount && entry.weaponDiceSides
+          ? formatWeaponRoll(entry.weaponDiceCount, entry.weaponDiceSides)
+          : null),
       defense: entry.itemTemplate?.defense ?? null,
       quality: entry.quality ?? null,
+      tier: entry.tier ?? null,
+      offsetK: entry.offsetK ?? null,
+      itemPower: entry.itemPower ?? null,
+      strengthBonus: entry.strengthBonus ?? null,
+      agilityBonus: entry.agilityBonus ?? null,
+      healthBonus: entry.healthBonus ?? null,
+      weaponDiceCount: entry.weaponDiceCount ?? null,
+      weaponDiceSides: entry.weaponDiceSides ?? null,
+      ticketRequirement: entry.ticketRequirement ?? null,
+      archetype: entry.archetype ?? null,
     }));
   }
 
@@ -124,9 +149,8 @@ export class GuildShopService {
     } catch (error) {
       this.logger.warn('Guild shop purchase failed', error as Error);
       if (error instanceof BadRequestException) throw error;
-      throw new BadRequestException(
-        error instanceof Error ? error.message : 'Purchase failed',
-      );
+      const message = this.resolvePurchaseError(error);
+      throw new BadRequestException(message);
     }
   }
 
@@ -196,4 +220,23 @@ export class GuildShopService {
     }
   }
 
+  private resolvePurchaseError(error: unknown): string {
+    if (!(error instanceof Error)) {
+      return 'Purchase failed';
+    }
+    switch (error.message) {
+      case 'INSUFFICIENT_STOCK':
+        return 'That item just sold out.';
+      case 'INSUFFICIENT_GOLD':
+        return 'You do not have enough gold.';
+      case 'INSUFFICIENT_EPIC_TICKETS':
+        return 'An Epic Ticket is required for this item.';
+      case 'INSUFFICIENT_LEGENDARY_TICKETS':
+        return 'A Legendary Ticket is required for this item.';
+      case 'INSUFFICIENT_RARE_TICKETS':
+        return 'A Rare Ticket is required for this item.';
+      default:
+        return error.message || 'Purchase failed';
+    }
+  }
 }

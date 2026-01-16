@@ -34,12 +34,10 @@ export type PlayerCombatSnapshot = {
 const resolveStatBonuses = (
   gear: EquipmentTotals,
 ): { strength: number; agility: number; health: number } => {
-  const strengthBonus = (gear.attackBonus ?? 0) + (gear.damageBonus ?? 0);
-  const healthBonus = (gear.armorBonus ?? 0) + (gear.vitalityBonus ?? 0);
   return {
-    strength: strengthBonus,
-    agility: 0,
-    health: healthBonus,
+    strength: gear.strengthBonus ?? 0,
+    agility: gear.agilityBonus ?? 0,
+    health: gear.healthBonus ?? 0,
   };
 };
 
@@ -50,10 +48,9 @@ export function computePlayerCombatStats(
   player: Player & { equipmentTotals?: EquipmentTotals },
 ): PlayerCombatSnapshot {
   const gear: EquipmentTotals = {
-    attackBonus: player.equipmentTotals?.attackBonus ?? 0,
-    damageBonus: player.equipmentTotals?.damageBonus ?? 0,
-    armorBonus: player.equipmentTotals?.armorBonus ?? 0,
-    vitalityBonus: player.equipmentTotals?.vitalityBonus ?? 0,
+    strengthBonus: player.equipmentTotals?.strengthBonus ?? 0,
+    agilityBonus: player.equipmentTotals?.agilityBonus ?? 0,
+    healthBonus: player.equipmentTotals?.healthBonus ?? 0,
     weaponDamageRoll: player.equipmentTotals?.weaponDamageRoll ?? '1d4',
   };
 

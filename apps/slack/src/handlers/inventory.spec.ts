@@ -165,10 +165,9 @@ describe('inventory handler', () => {
           slot: null,
           allowedSlots: ['chest'],
           computedBonuses: {
-            attackBonus: 0,
-            damageBonus: 0,
-            armorBonus: 4,
-            vitalityBonus: 0,
+            strengthBonus: 0,
+            agilityBonus: 0,
+            healthBonus: 4,
             weaponDamageRoll: null,
           },
         },
@@ -179,7 +178,7 @@ describe('inventory handler', () => {
       (block) =>
         block.type === 'section' &&
         typeof block.text?.text === 'string' &&
-        block.text.text.includes('Armor +4'),
+        block.text.text.includes('Health +4'),
     );
 
     expect(armorContext).toBeDefined();

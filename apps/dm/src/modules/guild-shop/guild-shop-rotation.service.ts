@@ -4,9 +4,14 @@ import { CoordinationService } from '../../shared/coordination.service';
 import { GuildShopRepository } from './guild-shop.repository';
 import { env } from '../../env';
 import { GuildShopPublisher } from './guild-shop.publisher';
+import {
+  computeGlobalTier,
+  generateShopListings,
+  hasChaseItem,
+} from './guild-shop-progression';
 
 const ROTATION_LOCK_KEY = 'guild:shop:rotation:lock';
-const ROTATION_COOLDOWN_KEY = 'guild:shop:rotation:cooldown';
+const CHASE_PITY_REFRESHES = 20;
 
 type RotationSource = 'tick' | 'manual';
 
@@ -24,13 +29,6 @@ export class GuildShopRotationService {
     rotated: boolean;
     items?: number;
   }> {
-    const cooldownActive = await this.coordination.exists(
-      ROTATION_COOLDOWN_KEY,
-    );
-    if (cooldownActive) {
-      return { rotated: false };
-    }
-
     const lockToken = randomUUID();
     const lock = await this.coordination.acquireLock(
       ROTATION_LOCK_KEY,
@@ -42,32 +40,49 @@ export class GuildShopRotationService {
     }
 
     try {
-      // Choose a rotation size between 7 and 13 for variety
-      const randomCount = 7 + Math.floor(Math.random() * 7); // Random between 7-13
-      const items = await this.repository.pickRandomItems(randomCount);
-      if (!items.length) {
-        this.logger.warn(
-          'Guild shop rotation skipped; no eligible items were found.',
-        );
+      const now = Date.now();
+      const state = await this.repository.getShopState();
+      const lastRefreshedAt = state?.lastRefreshedAt?.getTime() ?? 0;
+      const due =
+        source === 'manual' ||
+        !state ||
+        now - lastRefreshedAt >= env.GUILD_SHOP_ROTATION_INTERVAL_MS;
+      if (!due) {
         return { rotated: false };
       }
 
-      await this.repository.deactivateCatalog();
-      await this.repository.createCatalogEntriesFromItems(items, {
-        rotationIntervalMinutes: Math.max(
-          1,
-          Math.floor(env.GUILD_SHOP_ROTATION_INTERVAL_MS / 60_000),
-        ),
+      const medianLevel = await this.repository.getMedianPlayerLevel(
+        env.ACTIVE_PLAYER_WINDOW_MINUTES,
+      );
+      const globalTier = computeGlobalTier(medianLevel);
+      const refreshesSinceChase = state?.refreshesSinceChase ?? 0;
+      const forceChase = refreshesSinceChase >= CHASE_PITY_REFRESHES;
+      const listings = generateShopListings({ globalTier, forceChase });
+      if (!listings.length) {
+        this.logger.warn('Guild shop rotation skipped; no listings generated.');
+        return { rotated: false };
+      }
+
+      const refreshId = randomUUID();
+      const chaseHit = hasChaseItem(listings);
+      const refreshCounter = chaseHit ? 0 : refreshesSinceChase + 1;
+
+      await this.repository.replaceCatalog(listings, {
+        refreshId,
+        refreshesSinceChase: refreshCounter,
+        globalTier,
+        medianLevel,
+        refreshedAt: new Date(),
       });
-      await this.coordination.setCooldown(
-        ROTATION_COOLDOWN_KEY,
-        env.GUILD_SHOP_ROTATION_INTERVAL_MS,
-      );
+
       this.logger.log(
-        `Rotated guild shop with ${items.length} item(s) via ${source}`,
+        `Rotated guild shop with ${listings.length} item(s) via ${source}`,
       );
-      void this.publisher.publishRefresh({ source, items: items.length });
-      return { rotated: true, items: items.length };
+      void this.publisher.publishRefresh({
+        source,
+        items: listings.length,
+      });
+      return { rotated: true, items: listings.length };
     } catch (error) {
       this.logger.error('Guild shop rotation failed', error as Error);
       return { rotated: false };

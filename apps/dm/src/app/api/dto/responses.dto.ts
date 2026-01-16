@@ -3,10 +3,10 @@ import type { AttackOrigin } from './player-requests.dto';
 import { Monster, Player } from '@mud/database';
 
 export interface EquipmentTotalsDto {
-  attackBonus: number;
-  damageBonus: number;
-  armorBonus: number;
-  vitalityBonus: number;
+  strengthBonus: number;
+  agilityBonus: number;
+  healthBonus: number;
+  weaponDamageRoll?: string | null;
 }
 
 export type PlayerWithEquipmentTotals = Player & {

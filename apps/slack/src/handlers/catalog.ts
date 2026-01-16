@@ -10,6 +10,9 @@ const formatSlotLabel = (slot?: string | null) => {
   return slot[0].toUpperCase() + slot.slice(1);
 };
 
+const formatSignedStat = (value: number): string =>
+  value >= 0 ? `+${value}` : `${value}`;
+
 const buildCatalogBlocks = (items: GuildCatalogItem[]): KnownBlock[] => {
   if (items.length === 0) {
     return [
@@ -37,7 +40,7 @@ const buildCatalogBlocks = (items: GuildCatalogItem[]): KnownBlock[] => {
       elements: [
         {
           type: 'mrkdwn',
-          text: `Use the buttons below or type \`${COMMANDS.CATALOG}\` again to refresh. Sell items via \`${COMMANDS.INVENTORY}\`. Stock rotates every 5 minutes.`,
+          text: `Use the buttons below or type \`${COMMANDS.CATALOG}\` again to refresh. Sell items via \`${COMMANDS.INVENTORY}\`. Stock rotates on tick events.`,
         },
       ],
     },
@@ -48,53 +51,58 @@ const buildCatalogBlocks = (items: GuildCatalogItem[]): KnownBlock[] => {
     if (item.damageRoll) {
       bonusLines.push(`*Damage*: ${item.damageRoll}`);
     }
-    if (typeof item.defense === 'number' && item.defense !== 0) {
-      bonusLines.push(`*Defense*: ${item.defense}`);
+    if (typeof item.strengthBonus === 'number' && item.strengthBonus !== 0) {
+      bonusLines.push(`*Strength*: ${formatSignedStat(item.strengthBonus)}`);
+    }
+    if (typeof item.agilityBonus === 'number' && item.agilityBonus !== 0) {
+      bonusLines.push(`*Agility*: ${formatSignedStat(item.agilityBonus)}`);
+    }
+    if (typeof item.healthBonus === 'number' && item.healthBonus !== 0) {
+      bonusLines.push(`*Health*: ${formatSignedStat(item.healthBonus)}`);
     }
     const qualityBadge = getQualityBadge(item.quality);
     const qualityLabel = formatQualityLabel(item.quality);
+    const fields: Array<{ type: 'mrkdwn'; text: string }> = [
+      {
+        type: 'mrkdwn',
+        text: `*Item*\n${item.name}`,
+      },
+      {
+        type: 'mrkdwn',
+        text: `*Quality*\n${qualityBadge} ${qualityLabel}`,
+      },
+      {
+        type: 'mrkdwn',
+        text: `*Slot*\n${formatSlotLabel(item.slot)}`,
+      },
+      {
+        type: 'mrkdwn',
+        text: `*Price*\n${item.buyPriceGold} gold`,
+      },
+      {
+        type: 'mrkdwn',
+        text: `*Stock*\n${item.stockQuantity}`,
+      },
+    ];
+
+    if (item.ticketRequirement) {
+      fields.push({
+        type: 'mrkdwn',
+        text: `*Ticket*\n${item.ticketRequirement} Ticket`,
+      });
+    }
+
+    fields.push({
+      type: 'mrkdwn',
+      text: bonusLines.length
+        ? `*Bonuses*\n${bonusLines.map((line) => `• ${line}`).join('\n')}`
+        : '*Bonuses*\n—',
+    });
 
     blocks.push({
       type: 'section',
-      fields: [
-        {
-          type: 'mrkdwn',
-          text: `*Item*\n${item.name}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Quality*\n${qualityBadge} ${qualityLabel}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Slot*\n${formatSlotLabel(item.slot)}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Price*\n${item.buyPriceGold} gold`,
-        },
-        {
-          type: 'mrkdwn',
-          text: `*Stock*\n${item.stockQuantity}`,
-        },
-        {
-          type: 'mrkdwn',
-          text: bonusLines.length
-            ? `*Bonuses*\n${bonusLines.map((line) => `• ${line}`).join('\n')}`
-            : '*Bonuses*\n—',
-        },
-      ],
+      fields,
     });
-
-    if (item.description) {
-      blocks.push({
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: item.description,
-        },
-      });
-    }
 
     blocks.push({
       type: 'actions',

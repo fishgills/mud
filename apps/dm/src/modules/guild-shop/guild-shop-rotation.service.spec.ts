@@ -1,27 +1,55 @@
 import { GuildShopRotationService } from './guild-shop-rotation.service';
+import { generateShopListings, hasChaseItem } from './guild-shop-progression';
+import { ItemQuality, ItemType, PlayerSlot } from '@mud/database';
+import type { GeneratedShopListing } from './guild-shop-progression';
 
 jest.mock('../../env', () => ({
   env: {
-    GUILD_SHOP_ROTATION_SIZE: 6,
     GUILD_SHOP_ROTATION_INTERVAL_MS: 300_000,
+    ACTIVE_PLAYER_WINDOW_MINUTES: 30,
   },
+}));
+
+jest.mock('./guild-shop-progression', () => ({
+  computeGlobalTier: jest.fn(() => 3),
+  generateShopListings: jest.fn(),
+  hasChaseItem: jest.fn(),
 }));
 
 describe('GuildShopRotationService', () => {
   const repository = {
-    pickRandomItems: jest.fn(),
-    deactivateCatalog: jest.fn(),
-    createCatalogEntriesFromItems: jest.fn(),
+    getShopState: jest.fn(),
+    getMedianPlayerLevel: jest.fn(),
+    replaceCatalog: jest.fn(),
   } as unknown as Record<string, jest.Mock>;
   const coordination = {
-    exists: jest.fn(),
     acquireLock: jest.fn(),
     releaseLock: jest.fn(),
-    setCooldown: jest.fn(),
   } as unknown as Record<string, jest.Mock>;
   const publisher = {
     publishRefresh: jest.fn(),
   } as unknown as Record<string, jest.Mock>;
+
+  const listing: GeneratedShopListing = {
+    name: 'Fierce Blade T3 #1',
+    description: 'Tier 3 blade.',
+    slot: PlayerSlot.weapon,
+    itemType: ItemType.WEAPON,
+    tier: 3,
+    offsetK: 0,
+    itemPower: 12,
+    strengthBonus: 8,
+    agilityBonus: 4,
+    healthBonus: 0,
+    weaponDiceCount: 1,
+    weaponDiceSides: 6,
+    priceGold: 24,
+    stockQuantity: 2,
+    quality: ItemQuality.Common,
+    tags: ['tier:3'],
+    archetype: 'Offense',
+    ticketRequirement: null,
+  };
 
   const makeService = () =>
     new GuildShopRotationService(
@@ -32,67 +60,77 @@ describe('GuildShopRotationService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Mock Math.random to return 0, so 7 + Math.floor(0 * 7) = 7
-    jest.spyOn(Math, 'random').mockReturnValue(0);
-    coordination.exists.mockResolvedValue(false);
     coordination.acquireLock.mockResolvedValue('token');
     coordination.releaseLock.mockResolvedValue(true);
     publisher.publishRefresh.mockResolvedValue(undefined);
-    repository.pickRandomItems.mockResolvedValue([
-      {
-        id: 1,
-        name: 'Item',
-        description: 'desc',
-        value: 50,
-        type: 'consumable',
-        damageRoll: '1d4',
-        defense: 0,
-        slot: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as never,
-    ]);
+    repository.getMedianPlayerLevel.mockResolvedValue(5);
+    (generateShopListings as jest.Mock).mockReturnValue([listing]);
+    (hasChaseItem as jest.Mock).mockReturnValue(false);
   });
 
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('skips when cooldown is active', async () => {
+  it('skips rotation when not due', async () => {
     const service = makeService();
-    coordination.exists.mockResolvedValue(true);
-
-    const result = await service.rotateIfDue('manual');
-
-    expect(result.rotated).toBe(false);
-    expect(repository.pickRandomItems).not.toHaveBeenCalled();
-  });
-
-  it('performs rotation when lock is acquired', async () => {
-    const service = makeService();
-
-    const result = await service.rotateIfDue('manual');
-
-    expect(result.rotated).toBe(true);
-    // With Math.random() = 0, randomCount = 7 + Math.floor(0 * 7) = 7
-    expect(repository.pickRandomItems).toHaveBeenCalledWith(7);
-    expect(repository.deactivateCatalog).toHaveBeenCalled();
-    expect(repository.createCatalogEntriesFromItems).toHaveBeenCalled();
-    expect(coordination.setCooldown).toHaveBeenCalled();
-    expect(publisher.publishRefresh).toHaveBeenCalledWith({
-      source: 'manual',
-      items: 1,
+    repository.getShopState.mockResolvedValue({
+      id: 1,
+      refreshId: 'prev',
+      refreshesSinceChase: 1,
+      globalTier: 2,
+      medianLevel: 2,
+      lastRefreshedAt: new Date(),
     });
-  });
-
-  it('returns false when no items are available', async () => {
-    const service = makeService();
-    repository.pickRandomItems.mockResolvedValue([]);
 
     const result = await service.rotateIfDue('tick');
 
     expect(result.rotated).toBe(false);
-    expect(repository.deactivateCatalog).not.toHaveBeenCalled();
-    expect(publisher.publishRefresh).not.toHaveBeenCalled();
+    expect(repository.replaceCatalog).not.toHaveBeenCalled();
+  });
+
+  it('rotates when due', async () => {
+    const service = makeService();
+    repository.getShopState.mockResolvedValue({
+      id: 1,
+      refreshId: 'prev',
+      refreshesSinceChase: 1,
+      globalTier: 2,
+      medianLevel: 2,
+      lastRefreshedAt: new Date(Date.now() - 600_000),
+    });
+
+    const result = await service.rotateIfDue('tick');
+
+    expect(result.rotated).toBe(true);
+    expect(repository.replaceCatalog).toHaveBeenCalledWith(
+      [listing],
+      expect.objectContaining({
+        globalTier: 3,
+        medianLevel: 5,
+      }),
+    );
+    expect(publisher.publishRefresh).toHaveBeenCalledWith({
+      source: 'tick',
+      items: 1,
+    });
+  });
+
+  it('resets chase counter when a chase item appears', async () => {
+    const service = makeService();
+    repository.getShopState.mockResolvedValue({
+      id: 1,
+      refreshId: 'prev',
+      refreshesSinceChase: 5,
+      globalTier: 2,
+      medianLevel: 2,
+      lastRefreshedAt: new Date(Date.now() - 600_000),
+    });
+    (hasChaseItem as jest.Mock).mockReturnValue(true);
+
+    await service.rotateIfDue('tick');
+
+    expect(repository.replaceCatalog).toHaveBeenCalledWith(
+      [listing],
+      expect.objectContaining({
+        refreshesSinceChase: 0,
+      }),
+    );
   });
 });

@@ -48,6 +48,9 @@ model Player {
   agility            Int                  @default(10) // Agility attribute (1-20)
   health             Int                  @default(10) // Health attribute (1-20, affects max HP)
   gold               Int                  @default(0)
+  rareTickets        Int                  @default(0)
+  epicTickets        Int                  @default(0)
+  legendaryTickets   Int                  @default(0)
   xp                 Int                  @default(0)
   level              Int                  @default(1)
   skillPoints        Int                  @default(0)
@@ -206,6 +209,17 @@ model ShopCatalogItem {
   id                     Int                  @id @default(autoincrement())
   sku                    String               @unique
   name                   String               @unique
+  refreshId              String               @default("")
+  tier                   Int                  @default(1)
+  offsetK                Int                  @default(0)
+  itemPower              Int                  @default(0)
+  strengthBonus          Int                  @default(0)
+  agilityBonus           Int                  @default(0)
+  healthBonus            Int                  @default(0)
+  weaponDiceCount        Int?
+  weaponDiceSides        Int?
+  archetype              String?
+  ticketRequirement      TicketTier?
   description            String               @default("")
   buyPriceGold           Int
   sellPriceGold          Int
@@ -238,6 +252,17 @@ model TransactionReceipt {
   createdAt         DateTime            @default(now())
 
   @@index([playerId, createdAt])
+}
+
+model GuildShopState {
+  id                   Int      @id @default(autoincrement())
+  refreshId            String
+  refreshesSinceChase  Int      @default(0)
+  globalTier           Int      @default(1)
+  medianLevel          Int      @default(1)
+  lastRefreshedAt      DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model AnnouncementRecord {
@@ -288,6 +313,13 @@ model Item {
   damageRoll      String? // Damage dice (e.g. "1d8")
   defense         Int?              @default(0) // Defense bonus for armor
   slot            PlayerSlot? // Optional equip slot for equippable items
+  itemPower       Int?
+  tier            Int?
+  strengthBonus   Int               @default(0)
+  agilityBonus    Int               @default(0)
+  healthBonus     Int               @default(0)
+  weaponDiceCount Int?
+  weaponDiceSides Int?
   rank            Int?
   playerItems     PlayerItem[]
   createdAt       DateTime          @default(now())
@@ -312,6 +344,12 @@ enum ItemQuality {
   Transcendent
   Primal
   Divine
+}
+
+enum TicketTier {
+  Rare
+  Epic
+  Legendary
 }
 
 enum PlayerSlot {

@@ -148,9 +148,7 @@ export class PlayerService implements OnModuleInit, OnModuleDestroy {
     }
     try {
       const totals = await this.playerItemService.getEquipmentTotals(playerId);
-      const armorBonus = totals.armorBonus ?? 0;
-      const vitalityBonus = totals.vitalityBonus ?? 0;
-      return armorBonus + vitalityBonus;
+      return totals.healthBonus ?? 0;
     } catch (error) {
       this.logger.warn(
         `Failed to load equipment totals for player ${playerId}: ${error instanceof Error ? error.message : error}`,

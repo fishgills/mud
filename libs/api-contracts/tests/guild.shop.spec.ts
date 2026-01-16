@@ -32,11 +32,17 @@ describe('guild-shop contracts', () => {
       sellPriceGold: 50,
       stockQuantity: 3,
       tags: ['consumable'],
-      attack: 0,
-      defense: 2,
+      tier: 4,
+      itemPower: 12,
+      strengthBonus: 6,
+      agilityBonus: 4,
+      healthBonus: 2,
+      weaponDiceCount: 1,
+      weaponDiceSides: 8,
+      ticketRequirement: 'Epic',
       quality: 'Fine',
     };
     expect(item.tags).toContain('consumable');
-    expect(item.defense).toBeGreaterThanOrEqual(0);
+    expect(item.itemPower).toBeGreaterThan(0);
   });
 });

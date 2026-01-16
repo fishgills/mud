@@ -9,9 +9,14 @@ import {
   type PlayerItem,
   type ShopCatalogItem,
   type TransactionReceipt,
+  type GuildShopState,
   ItemQuality,
+  TicketTier,
 } from '@mud/database';
-import { pickShopTemplatesForLevel, ITEM_TEMPLATES } from '@mud/constants';
+import {
+  formatWeaponRoll,
+  type GeneratedShopListing,
+} from './guild-shop-progression';
 
 interface PurchaseResult {
   updatedPlayer: Player;
@@ -29,9 +34,49 @@ interface SellResult {
   itemQuality: string;
 }
 
+interface ShopStateUpdate {
+  refreshId: string;
+  refreshesSinceChase: number;
+  globalTier: number;
+  medianLevel: number;
+  refreshedAt: Date;
+}
+
 @Injectable()
 export class GuildShopRepository {
   private readonly prisma = getPrismaClient();
+
+  async getShopState(): Promise<GuildShopState | null> {
+    return this.prisma.guildShopState.findFirst({
+      orderBy: { id: 'desc' },
+    });
+  }
+
+  async getMedianPlayerLevel(minutesThreshold: number): Promise<number> {
+    const cutoff = new Date(Date.now() - minutesThreshold * 60 * 1000);
+    const players = await this.prisma.player.findMany({
+      where: {
+        lastAction: { gte: cutoff },
+        isAlive: true,
+        isCreationComplete: true,
+      },
+      select: { level: true },
+      orderBy: { level: 'asc' },
+    });
+
+    if (players.length === 0) {
+      return 1;
+    }
+
+    const mid = Math.floor(players.length / 2);
+    if (players.length % 2 === 1) {
+      return Math.max(1, players[mid].level);
+    }
+
+    const lower = players[mid - 1]?.level ?? 1;
+    const upper = players[mid]?.level ?? lower;
+    return Math.max(1, Math.floor((lower + upper) / 2));
+  }
 
   async findCatalogItemBySku(sku: string): Promise<ShopCatalogItem | null> {
     const normalized = sku.trim().toLowerCase();
@@ -103,18 +148,49 @@ export class GuildShopRepository {
       if (freshCatalog.stockQuantity < quantity) {
         throw new Error('INSUFFICIENT_STOCK');
       }
+      const freshPlayer = await tx.player.findUnique({
+        where: { id: player.id },
+      });
+      if (!freshPlayer) {
+        throw new Error('PLAYER_NOT_FOUND');
+      }
       const totalCost = freshCatalog.buyPriceGold * quantity;
-      if (player.gold < totalCost) {
+      if (freshPlayer.gold < totalCost) {
         throw new Error('INSUFFICIENT_GOLD');
       }
       if (!freshCatalog.itemTemplateId) {
         throw new Error('ITEM_TEMPLATE_MISSING');
       }
 
+      const ticketRequirement = freshCatalog.ticketRequirement;
+      if (ticketRequirement === TicketTier.Epic) {
+        if ((freshPlayer.epicTickets ?? 0) < quantity) {
+          throw new Error('INSUFFICIENT_EPIC_TICKETS');
+        }
+      } else if (ticketRequirement === TicketTier.Legendary) {
+        if ((freshPlayer.legendaryTickets ?? 0) < quantity) {
+          throw new Error('INSUFFICIENT_LEGENDARY_TICKETS');
+        }
+      } else if (ticketRequirement === TicketTier.Rare) {
+        if ((freshPlayer.rareTickets ?? 0) < quantity) {
+          throw new Error('INSUFFICIENT_RARE_TICKETS');
+        }
+      }
+
+      const ticketUpdates: Prisma.PlayerUpdateInput = {};
+      if (ticketRequirement === TicketTier.Epic) {
+        ticketUpdates.epicTickets = { decrement: quantity };
+      } else if (ticketRequirement === TicketTier.Legendary) {
+        ticketUpdates.legendaryTickets = { decrement: quantity };
+      } else if (ticketRequirement === TicketTier.Rare) {
+        ticketUpdates.rareTickets = { decrement: quantity };
+      }
+
       const updatedPlayer = await tx.player.update({
         where: { id: player.id },
         data: {
-          gold: player.gold - totalCost,
+          gold: { decrement: totalCost },
+          ...ticketUpdates,
         },
       });
 
@@ -259,155 +335,93 @@ export class GuildShopRepository {
     });
   }
 
-  async pickRandomItems(count: number): Promise<Item[]> {
-    const limit = Math.max(7, Math.min(13, count));
-    // Choose merchant level midpoint for the shop — could be made configurable
-    const merchantLevel = 10;
-    // Use exponential rarity weighting for shop items
-    const templates = pickShopTemplatesForLevel(merchantLevel, limit);
-
-    const items: Item[] = [];
-    for (const template of templates) {
-      const record = await this.prisma.item.findFirst({
-        where: { name: template.name },
-      });
-      if (record) items.push(record);
-    }
-
-    // If we couldn't find any matches in the DB, fall back to random selection
-    if (items.length === 0) {
-      const rows = await this.prisma.$queryRaw<Item[]>`
-        SELECT *
-        FROM "Item"
-        WHERE "value" >= 0
-        ORDER BY RANDOM()
-        LIMIT ${limit}
-      `;
-      return rows;
-    }
-
-    // Ensure we return exactly `limit` items by filling with random items
-    if (items.length < limit) {
-      const rows = await this.prisma.item.findMany({
-        where: {
-          value: { gte: 0 },
-          NOT: { name: { in: items.map((i) => i.name) } },
-        },
-        orderBy: { id: 'asc' },
-        take: Math.max(0, limit - items.length),
-      });
-      return items.concat(rows);
-    }
-
-    return items.slice(0, limit);
-  }
-
-  async createCatalogEntriesFromItems(
-    items: Item[],
-    options: { rotationIntervalMinutes: number },
+  async replaceCatalog(
+    listings: GeneratedShopListing[],
+    state: ShopStateUpdate,
   ): Promise<void> {
-    if (items.length === 0) return;
-    const uniqueItems: Item[] = [];
-    const seenNames = new Set<string>();
-    for (const item of items) {
-      const nameKey = (item.name ?? '').toLowerCase();
-      if (!nameKey || seenNames.has(nameKey)) {
-        continue;
+    if (listings.length === 0) return;
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.shopCatalogItem.deleteMany({ where: { isActive: true } });
+
+      for (const [index, listing] of listings.entries()) {
+        const damageRoll =
+          listing.weaponDiceCount && listing.weaponDiceSides
+            ? formatWeaponRoll(listing.weaponDiceCount, listing.weaponDiceSides)
+            : null;
+        const item = await tx.item.create({
+          data: {
+            name: listing.name,
+            type: listing.itemType,
+            description: listing.description,
+            value: listing.priceGold,
+            damageRoll: damageRoll ?? undefined,
+            defense: 0,
+            slot: listing.slot,
+            itemPower: listing.itemPower,
+            tier: listing.tier,
+            strengthBonus: listing.strengthBonus,
+            agilityBonus: listing.agilityBonus,
+            healthBonus: listing.healthBonus,
+            weaponDiceCount: listing.weaponDiceCount ?? undefined,
+            weaponDiceSides: listing.weaponDiceSides ?? undefined,
+          },
+        });
+
+        const sellPrice = Math.max(1, Math.floor(listing.priceGold * 0.5));
+        const sku = `guild-${state.refreshId}-${index}`;
+        await tx.shopCatalogItem.create({
+          data: {
+            sku,
+            name: listing.name,
+            description: listing.description,
+            buyPriceGold: listing.priceGold,
+            sellPriceGold: sellPrice,
+            stockQuantity: listing.stockQuantity,
+            maxStock: listing.stockQuantity,
+            tags: listing.tags,
+            isActive: true,
+            itemTemplateId: item.id,
+            quality: listing.quality ?? ItemQuality.Common,
+            refreshId: state.refreshId,
+            tier: listing.tier,
+            offsetK: listing.offsetK,
+            itemPower: listing.itemPower,
+            strengthBonus: listing.strengthBonus,
+            agilityBonus: listing.agilityBonus,
+            healthBonus: listing.healthBonus,
+            weaponDiceCount: listing.weaponDiceCount ?? undefined,
+            weaponDiceSides: listing.weaponDiceSides ?? undefined,
+            archetype: listing.archetype,
+            ticketRequirement: listing.ticketRequirement ?? undefined,
+          },
+        });
       }
-      seenNames.add(nameKey);
-      uniqueItems.push(item);
-    }
 
-    if (uniqueItems.length === 0) return;
-    const timestamp = Date.now();
-    await this.prisma.shopCatalogItem.deleteMany({
-      where: {
-        name: { in: uniqueItems.map((item) => item.name) },
-      },
-    });
-    await this.prisma.shopCatalogItem.createMany({
-      data: uniqueItems.map((item, index) => {
-        const quality = this.rollQuality();
-        const buyPrice = this.computeBuyPrice(item, quality);
-        const sellPrice = this.computeSellPrice(buyPrice);
-        const stockQuantity = this.computeStockQuantity();
-        const template = ITEM_TEMPLATES.find(
-          (t) =>
-            (t.name ?? '').toLowerCase() === (item.name ?? '').toLowerCase(),
-        );
-        const rankTag = template?.rank ? [`rank:${template.rank}`] : [];
-        return {
-          sku: `guild-${item.id}-${timestamp}-${index}`,
-          name: item.name,
-          description: item.description ?? '',
-          buyPriceGold: buyPrice,
-          sellPriceGold: sellPrice,
-          stockQuantity,
-          maxStock: stockQuantity,
-          restockIntervalMinutes: options.rotationIntervalMinutes,
-          tags: item.type ? [item.type, ...rankTag] : rankTag,
-          isActive: true,
-          itemTemplateId: item.id,
-          quality,
-        };
-      }),
-    });
-  }
-
-  private rollQuality(): ItemQuality {
-    const r = Math.random();
-    if (r < 0.6) return ItemQuality.Common;
-    if (r < 0.85) return ItemQuality.Uncommon;
-    if (r < 0.95) return ItemQuality.Rare;
-    if (r < 0.99) return ItemQuality.Epic;
-    return ItemQuality.Legendary;
-  }
-
-  private computeBuyPrice(item: Item, quality: ItemQuality): number {
-    const baseValue = Math.max(5, item.value ?? 0);
-
-    let avgDamage = 0;
-    if (item.damageRoll) {
-      const parts = item.damageRoll.toLowerCase().split('d');
-      if (parts.length === 2) {
-        const count = parseInt(parts[0], 10);
-        const sides = parseInt(parts[1], 10);
-        if (!isNaN(count) && !isNaN(sides)) {
-          avgDamage = (count * (sides + 1)) / 2;
-        }
+      const existingState = await tx.guildShopState.findFirst({
+        orderBy: { id: 'desc' },
+      });
+      if (existingState) {
+        await tx.guildShopState.update({
+          where: { id: existingState.id },
+          data: {
+            refreshId: state.refreshId,
+            refreshesSinceChase: state.refreshesSinceChase,
+            globalTier: state.globalTier,
+            medianLevel: state.medianLevel,
+            lastRefreshedAt: state.refreshedAt,
+          },
+        });
+      } else {
+        await tx.guildShopState.create({
+          data: {
+            refreshId: state.refreshId,
+            refreshesSinceChase: state.refreshesSinceChase,
+            globalTier: state.globalTier,
+            medianLevel: state.medianLevel,
+            lastRefreshedAt: state.refreshedAt,
+          },
+        });
       }
-    }
-
-    const statBonus = avgDamage * 12 + (item.defense ?? 0) * 10;
-    const effectiveBase = baseValue + statBonus;
-    const variance = Math.round(effectiveBase * 0.15 * Math.random());
-    const multiplier = QUALITY_MULTIPLIERS[quality] ?? 1;
-    return Math.max(1, Math.floor((effectiveBase + variance) * multiplier));
-  }
-
-  private computeSellPrice(buyPrice: number): number {
-    return Math.max(1, Math.floor(buyPrice * 0.5));
-  }
-
-  private computeStockQuantity(): number {
-    return Math.max(1, 2 + Math.floor(Math.random() * 4));
+    });
   }
 }
-
-const QUALITY_MULTIPLIERS: Record<ItemQuality, number> = {
-  [ItemQuality.Trash]: 0.6,
-  [ItemQuality.Poor]: 0.8,
-  [ItemQuality.Common]: 1,
-  [ItemQuality.Uncommon]: 1.15,
-  [ItemQuality.Fine]: 1.3,
-  [ItemQuality.Superior]: 1.5,
-  [ItemQuality.Rare]: 1.8,
-  [ItemQuality.Epic]: 2.2,
-  [ItemQuality.Legendary]: 2.8,
-  [ItemQuality.Mythic]: 3.5,
-  [ItemQuality.Artifact]: 4.3,
-  [ItemQuality.Ascended]: 5.3,
-  [ItemQuality.Transcendent]: 6.4,
-  [ItemQuality.Primal]: 7.6,
-  [ItemQuality.Divine]: 9,
-};

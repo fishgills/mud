@@ -150,7 +150,7 @@ describe('CombatService', () => {
   });
 
   describe('equipment effects', () => {
-    it('derives bonuses from equipped items with quality multipliers', () => {
+    it('derives bonuses from equipped items and weapon dice', () => {
       const weapon = {
         id: 1,
         playerId: 10,
@@ -160,7 +160,9 @@ describe('CombatService', () => {
           id: 100,
           name: 'Sword',
           damageRoll: '1d8',
-          defense: 0,
+          strengthBonus: 2,
+          agilityBonus: 1,
+          healthBonus: 0,
           slot: 'weapon',
           type: 'weapon',
         },
@@ -174,15 +176,17 @@ describe('CombatService', () => {
           id: 101,
           name: 'Armor',
           damageRoll: '1d4',
-          defense: 3,
+          strengthBonus: 0,
+          agilityBonus: 0,
+          healthBonus: 3,
           slot: 'chest',
         },
       };
 
       const result = calculateEquipmentEffects([weapon as any, armor as any]);
       expect(result.totals.weaponDamageRoll).toBe('1d8');
-      expect(result.totals.armorBonus).toBeGreaterThan(0);
-      expect(result.totals.vitalityBonus).toBe(0);
+      expect(result.totals.strengthBonus).toBeGreaterThan(0);
+      expect(result.totals.healthBonus).toBeGreaterThan(0);
     });
   });
 

@@ -24,7 +24,6 @@ import { GuildShopService } from '../modules/guild-shop/guild-shop.service';
 import { GuildShopRepository } from '../modules/guild-shop/guild-shop.repository';
 import { GuildShopPublisher } from '../modules/guild-shop/guild-shop.publisher';
 import { GuildShopRotationService } from '../modules/guild-shop/guild-shop-rotation.service';
-import { GuildShopRotationScheduler } from '../modules/guild-shop/guild-shop-rotation.scheduler';
 import { GuildShopRotationInitializer } from '../modules/guild-shop/guild-shop-rotation.initializer';
 import { GuildAnnouncementsService } from '../modules/guild-announcements/guild-announcements.service';
 import { GuildAnnouncementsRepository } from '../modules/guild-announcements/guild-announcements.repository';
@@ -63,7 +62,6 @@ import { RunsService } from '../modules/runs/runs.service';
     GuildShopRepository,
     GuildShopPublisher,
     GuildShopRotationService,
-    GuildShopRotationScheduler,
     GuildShopRotationInitializer,
     GuildsService,
     RunsService,

@@ -51,10 +51,9 @@ describe('buildPlayerStatsMessage', () => {
         strength: 14,
         agility: 12,
         equipmentTotals: {
-          attackBonus: 3,
-          damageBonus: 5,
-          armorBonus: 2,
-          vitalityBonus: 0,
+          strengthBonus: 5,
+          agilityBonus: 3,
+          healthBonus: 2,
         },
       });
       const result = buildPlayerStatsMessage(player);
@@ -75,10 +74,9 @@ describe('buildPlayerStatsMessage', () => {
         strength: 16,
         agility: 10,
         equipmentTotals: {
-          attackBonus: 0,
-          damageBonus: 0,
-          armorBonus: 0,
-          vitalityBonus: 0,
+          strengthBonus: 0,
+          agilityBonus: 0,
+          healthBonus: 0,
         },
       });
       const result = buildPlayerStatsMessage(player);

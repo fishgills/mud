@@ -50,7 +50,9 @@ export const GET = async (request: Request) => {
         {
           ok: false,
           reason:
-            error instanceof Error ? error.message : 'Event stream unavailable.',
+            error instanceof Error
+              ? error.message
+              : 'Event stream unavailable.',
         },
         { status: 503 },
       );
@@ -76,25 +78,28 @@ export const GET = async (request: Request) => {
   };
 
   const unsubscribe = stream.subscribe((notification) => {
+    const eventType = notification.event.eventType;
+    const isBroadcast = eventType === 'guild.shop.refresh';
     const recipient = notification.recipients.find(
       (entry) =>
         entry.clientType === 'web' &&
         typeof entry.userId === 'string' &&
         entry.userId === recipientId,
     );
-    if (!recipient) {
+    if (!recipient && !isBroadcast) {
       return;
     }
 
     console.info('[web-events] delivering event', {
-      eventType: notification.event.eventType,
+      eventType,
       recipientId,
       connectionId,
+      broadcast: isBroadcast,
     });
     void send({
       type: notification.type,
       event: notification.event,
-      message: recipient.message,
+      message: recipient?.message ?? 'Store refreshed.',
       timestamp: notification.timestamp,
     });
   });
@@ -111,7 +116,10 @@ export const GET = async (request: Request) => {
     } catch {
       // Ignore close errors on aborted connections.
     }
-    console.info('[web-events] client disconnected', { recipientId, connectionId });
+    console.info('[web-events] client disconnected', {
+      recipientId,
+      connectionId,
+    });
   };
 
   request.signal.addEventListener('abort', () => {

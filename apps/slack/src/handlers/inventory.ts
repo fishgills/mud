@@ -42,6 +42,25 @@ const formatSignedStat = (value: number): string => {
   return value >= 0 ? `+${value}` : `${value}`;
 };
 
+const normalizeTicketCount = (value: number | null | undefined): number =>
+  Number.isFinite(value) ? Number(value) : 0;
+
+const buildTicketSummaryBlock = (player: PlayerRecord): KnownBlock => {
+  const rare = normalizeTicketCount(player.rareTickets);
+  const epic = normalizeTicketCount(player.epicTickets);
+  const legendary = normalizeTicketCount(player.legendaryTickets);
+
+  return {
+    type: 'context',
+    elements: [
+      {
+        type: 'mrkdwn',
+        text: `🎟️ Tickets: *${rare}* Rare · *${epic}* Epic · *${legendary}* Legendary`,
+      },
+    ],
+  };
+};
+
 const buildItemStatLines = (item: ItemRecord | undefined): string[] => {
   if (!item) return [];
   const stats: string[] = [];
@@ -55,24 +74,18 @@ const buildItemStatLines = (item: ItemRecord | undefined): string[] => {
     stats.push(`Damage ${damageRoll}`);
   }
   if (bonuses) {
-    if (bonuses.attackBonus) {
-      stats.push(`Attack ${formatSignedStat(bonuses.attackBonus)}`);
+    if (bonuses.strengthBonus) {
+      stats.push(`Strength ${formatSignedStat(bonuses.strengthBonus)}`);
     }
-    if (bonuses.damageBonus) {
-      stats.push(`Damage Bonus ${formatSignedStat(bonuses.damageBonus)}`);
+    if (bonuses.agilityBonus) {
+      stats.push(`Agility ${formatSignedStat(bonuses.agilityBonus)}`);
     }
-    if (bonuses.armorBonus) {
-      stats.push(`Armor ${formatSignedStat(bonuses.armorBonus)}`);
-    } else {
-      const rawDefense =
-        typeof item.defense === 'number' && item.defense !== 0
-          ? item.defense
-          : (item.item?.defense ?? null);
-      if (typeof rawDefense === 'number' && rawDefense !== 0) {
-        stats.push(`Armor ${formatSignedStat(rawDefense)}`);
-      }
+    if (bonuses.healthBonus) {
+      stats.push(`Health ${formatSignedStat(bonuses.healthBonus)}`);
     }
-  } else {
+  }
+
+  if (stats.length === 0) {
     const rawDefense =
       typeof item.defense === 'number' && item.defense !== 0
         ? item.defense
@@ -86,7 +99,7 @@ const buildItemStatLines = (item: ItemRecord | undefined): string[] => {
 };
 
 const resolveSlotEmoji = (slot: EquipmentSlotKey | null | undefined): string =>
-  slot ? SLOT_EMOJIS[slot] ?? '🎒' : '🎒';
+  slot ? (SLOT_EMOJIS[slot] ?? '🎒') : '🎒';
 
 const formatItemDisplay = (item: ItemRecord | undefined): string => {
   if (!item) return '- Empty -';
@@ -150,7 +163,8 @@ const createBackpackItemBlocks = (
     ? item.allowedSlots
     : [];
   const equipDisabled = allowedSlots.length === 0;
-  const slot = (item.slot as EquipmentSlotKey | null | undefined) ??
+  const slot =
+    (item.slot as EquipmentSlotKey | null | undefined) ??
     (allowedSlots[0] as EquipmentSlotKey | undefined);
   const emoji = resolveSlotEmoji(slot);
 
@@ -261,13 +275,11 @@ const buildInventoryBlocks = (player: PlayerRecord): KnownBlock[] => {
     },
   ];
 
+  blocks.unshift(buildTicketSummaryBlock(player));
+
   for (const entry of equippedEntries) {
     blocks.push(
-      ...createEquippedItemBlocks(
-        entry.label,
-        entry.key,
-        entry.item,
-      ),
+      ...createEquippedItemBlocks(entry.label, entry.key, entry.item),
     );
   }
 

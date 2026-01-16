@@ -43,10 +43,9 @@ jest.mock('@dice-roller/rpg-dice-roller', () => ({
 
 const createPlayerItemService = () => ({
   getEquipmentTotals: jest.fn().mockResolvedValue({
-    attackBonus: 0,
-    damageBonus: 0,
-    armorBonus: 0,
-    vitalityBonus: 0,
+    strengthBonus: 0,
+    agilityBonus: 0,
+    healthBonus: 0,
   }),
 });
 

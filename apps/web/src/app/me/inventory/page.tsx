@@ -154,6 +154,12 @@ export default async function InventoryPage() {
     bag: inventoryItems,
   });
 
+  const ticketCounts = {
+    rare: player.rareTickets ?? 0,
+    epic: player.epicTickets ?? 0,
+    legendary: player.legendaryTickets ?? 0,
+  };
+
   return (
     <main className="page-card flex flex-col gap-6">
       <header className="flex flex-col gap-2">
@@ -163,6 +169,10 @@ export default async function InventoryPage() {
         <p className="text-sm text-[color:var(--ink-soft)]">
           Level {inventory.level ?? '?'} · HP {inventory.hp ?? '?'}/
           {inventory.maxHp ?? '?'} · Gold {inventory.gold}
+        </p>
+        <p className="text-sm text-[color:var(--ink-soft)]">
+          Tickets: Rare {ticketCounts.rare} · Epic {ticketCounts.epic} ·
+          Legendary {ticketCounts.legendary}
         </p>
       </header>
 

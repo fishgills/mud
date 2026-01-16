@@ -3,6 +3,7 @@ import {
   getPrismaClient,
   RunStatus,
   RunType,
+  TicketTier,
   type PlayerWithSlackUser,
 } from '@mud/database';
 import { PlayerService } from '../../app/player/player.service';
@@ -34,6 +35,7 @@ import { AppError, ErrCodes } from '../../app/errors/app-error';
 const RUN_ACTION_CONTINUE = 'run_action_continue';
 const RUN_ACTION_FINISH = 'run_action_finish';
 const COMBAT_ACTION_SHOW_LOG = 'combat_action_show_log';
+const BASE_DIFFICULTY = 0.9;
 const ROUND_DIFFICULTY_STEP = 0.15;
 const ROUND_REWARD_STEP = 0.2;
 const MIN_SCALE = 0.8;
@@ -173,6 +175,12 @@ export class RunsService {
     const bankedXp = runWithParticipants.bankedXp;
     const bankedGold = runWithParticipants.bankedGold;
 
+    const depth = Math.max(1, runWithParticipants.round ?? 1);
+    const ticketReward = this.rollTicketReward(depth);
+    const ticketMessage = ticketReward
+      ? `Ticket reward: ${this.formatTicketLabel(ticketReward)}.`
+      : null;
+
     for (const participant of runWithParticipants.participants) {
       const slackUser = participant.player.slackUser;
       if (!slackUser) {
@@ -196,17 +204,69 @@ export class RunsService {
           gold: current.gold + bankedGold,
         },
       );
+
+      if (ticketReward) {
+        await this.prisma.player.update({
+          where: { id: participant.playerId },
+          data: this.buildTicketUpdate(ticketReward),
+        });
+      }
     }
 
     runWithParticipants.status = RunStatus.CASHED_OUT;
     runWithParticipants.endedAt = endTime;
 
+    const baseMessage = `Raid complete! You earned ${bankedXp} XP and ${bankedGold} gold.`;
+    const fullMessage = ticketMessage
+      ? `${baseMessage}\n${ticketMessage}`
+      : baseMessage;
+
     await this.publishRunEndNotifications(runWithParticipants, {
       status: RunStatus.CASHED_OUT,
-      message: `Raid complete! You earned ${bankedXp} XP and ${bankedGold} gold.`,
+      message: fullMessage,
     });
 
     return runWithParticipants;
+  }
+
+  private rollTicketReward(depth: number): TicketTier | null {
+    const clamp = (value: number, min: number, max: number) =>
+      Math.max(min, Math.min(max, value));
+    const pRare = clamp(0.1 + 0.02 * depth, 0.1, 0.6);
+    const pEpic = clamp(0.02 + 0.01 * depth, 0.02, 0.25);
+    const pLegendary = clamp(0.005 + 0.002 * depth, 0.005, 0.05);
+
+    const roll = Math.random();
+    if (roll < pLegendary) {
+      return TicketTier.Legendary;
+    }
+    if (roll < pEpic) {
+      return TicketTier.Epic;
+    }
+    if (roll < pRare) {
+      return TicketTier.Rare;
+    }
+    return null;
+  }
+
+  private buildTicketUpdate(ticket: TicketTier): {
+    rareTickets?: { increment: number };
+    epicTickets?: { increment: number };
+    legendaryTickets?: { increment: number };
+  } {
+    if (ticket === TicketTier.Legendary) {
+      return { legendaryTickets: { increment: 1 } };
+    }
+    if (ticket === TicketTier.Epic) {
+      return { epicTickets: { increment: 1 } };
+    }
+    return { rareTickets: { increment: 1 } };
+  }
+
+  private formatTicketLabel(ticket: TicketTier): string {
+    if (ticket === TicketTier.Legendary) return 'Legendary Ticket';
+    if (ticket === TicketTier.Epic) return 'Epic Ticket';
+    return 'Rare Ticket';
   }
 
   private async resolveParticipants(playerId: number, runType: RunType) {
@@ -528,7 +588,8 @@ export class RunsService {
       (total, combatant) => total + this.calculateCombatantPower(combatant),
       0,
     );
-    const difficultyMultiplier = 1 + (round - 1) * ROUND_DIFFICULTY_STEP;
+    const difficultyMultiplier =
+      BASE_DIFFICULTY + (round - 1) * ROUND_DIFFICULTY_STEP;
     const targetPower = partyPower * difficultyMultiplier;
     const selection = this.selectTemplateForPower(targetPower);
     const scale = Math.min(
