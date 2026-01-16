@@ -160,12 +160,25 @@ export interface CombatLogRound {
   roundNumber: number;
   attackerName: string;
   defenderName: string;
+  attackerEffectiveStats?: {
+    strength: number;
+    agility: number;
+    health: number;
+    level: number;
+  };
+  defenderEffectiveStats?: {
+    strength: number;
+    agility: number;
+    health: number;
+    level: number;
+  };
   attackRating: number;
   defenseRating: number;
   hitChance: number;
   hitRoll: number;
   hit: boolean;
   weaponDamage: number;
+  weaponDamageRoll?: string | null;
   coreDamage: number;
   baseDamage: number;
   mitigation: number;

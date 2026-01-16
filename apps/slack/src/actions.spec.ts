@@ -842,12 +842,25 @@ describe('registerActions', () => {
               roundNumber: 1,
               attackerName: 'You',
               defenderName: 'Wild Boar',
+              attackerEffectiveStats: {
+                strength: 3.7,
+                agility: 3.5,
+                health: 3.2,
+                level: 2.0,
+              },
+              defenderEffectiveStats: {
+                strength: 3.1,
+                agility: 3.3,
+                health: 3.0,
+                level: 1.4,
+              },
               attackRating: 60,
               defenseRating: 40,
               hitChance: 0.72,
               hitRoll: 0.12,
               hit: true,
               weaponDamage: 3,
+              weaponDamageRoll: '1d8',
               coreDamage: 12,
               baseDamage: 15,
               mitigation: 0.2,
@@ -922,11 +935,13 @@ describe('registerActions', () => {
       ) as SectionBlock;
 
       expect(detailedBlock?.text?.text).toContain(
-        '• Round 1: You strike: AR 60 vs DR 40 (hit 72%) -> HIT',
+        '• Round 1: You strike: AR 60 vs DR 40 (hit 72% (roll 12.0%)) -> HIT',
       );
+      expect(detailedBlock?.text?.text).toContain("AR math: 10*S'");
       expect(detailedBlock?.text?.text).toContain(
-        'Damage: 12 (core 12 + weapon 3, mit 20%) -> Wild Boar HP 0 KO',
+        'Damage: 12 (core 12, weapon roll 1d8 -> 3, mit 20% (crit roll 99.0%)) -> Wild Boar HP 0 KO',
       );
+      expect(detailedBlock?.text?.text).toContain('    AR math:');
 
       const actionElements = payload.blocks
         .filter((block) => block.type === 'actions')
