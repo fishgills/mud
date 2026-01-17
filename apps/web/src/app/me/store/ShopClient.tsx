@@ -6,6 +6,7 @@ import type { ItemStatLine } from '@mud/inventory';
 import type { GuildTradeResponse } from '@mud/api-contracts';
 import { useGameEvents } from '../../lib/use-game-events';
 import { withBasePath } from '../../lib/base-path';
+import StoreItemSection, { type StoreItemCardView } from './StoreItemSection';
 
 export type ShopCatalogItemView = {
   sku: string;
@@ -83,19 +84,25 @@ const formatCountdown = (milliseconds: number): string => {
   return `${minutes}:${paddedSeconds}`;
 };
 
-const buildStatSummary = (item: ShopCatalogItemView): string[] => {
-  const stats: string[] = [];
+const buildStatSummary = (item: ShopCatalogItemView): ItemStatLine[] => {
+  const stats: ItemStatLine[] = [];
   if (item.damageRoll) {
-    stats.push(`Damage ${item.damageRoll}`);
+    stats.push({ label: 'Damage', value: item.damageRoll });
   }
   if (typeof item.strengthBonus === 'number' && item.strengthBonus !== 0) {
-    stats.push(`Strength ${formatSignedStat(item.strengthBonus)}`);
+    stats.push({
+      label: 'Strength',
+      value: formatSignedStat(item.strengthBonus),
+    });
   }
   if (typeof item.agilityBonus === 'number' && item.agilityBonus !== 0) {
-    stats.push(`Agility ${formatSignedStat(item.agilityBonus)}`);
+    stats.push({
+      label: 'Agility',
+      value: formatSignedStat(item.agilityBonus),
+    });
   }
   if (typeof item.healthBonus === 'number' && item.healthBonus !== 0) {
-    stats.push(`Health ${formatSignedStat(item.healthBonus)}`);
+    stats.push({ label: 'Health', value: formatSignedStat(item.healthBonus) });
   }
   return stats;
 };
@@ -175,6 +182,103 @@ export default function ShopClient({
   const timeLeftMs = Math.max(0, nextRefreshAt - now);
   const countdownLabel = formatCountdown(timeLeftMs);
   const showTimer = Number.isFinite(refreshIntervalMs) && refreshIntervalMs > 0;
+  const forSaleItems: StoreItemCardView[] = catalog.map((item) => {
+    const stats = buildStatSummary(item);
+    const ticketInfo = resolveTicketInfo(item.ticketRequirement);
+    const hasTicket = ticketInfo
+      ? (ticketCounts as Record<string, number>)[ticketInfo.key] > 0
+      : true;
+    const hasGold = playerGold >= item.buyPriceGold;
+    const canBuy =
+      item.stockQuantity > 0 &&
+      hasTicket &&
+      hasGold &&
+      !(pendingSku !== null && pendingSku !== item.sku);
+    const visibleTags = item.tags.filter(
+      (tag) =>
+        !tag.startsWith('tier:') &&
+        !tag.startsWith('archetype:') &&
+        !tag.startsWith('slot:'),
+    );
+
+    return {
+      id: item.sku,
+      name: item.name,
+      qualityBadge: item.qualityBadge,
+      qualityLabel: item.qualityLabel,
+      stats,
+      headerAside: formatPrice(item.buyPriceGold),
+      meta: ticketInfo ? (
+        <span
+          className="shop-ticket"
+          role="img"
+          aria-label={`${ticketInfo.label} required`}
+        >
+          <span
+            className={`ticket-icon ticket-icon-${ticketInfo.key}`}
+            aria-hidden="true"
+          >
+            <svg
+              className="ticket-icon-svg"
+              viewBox="0 0 24 24"
+              role="presentation"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2.5 2.5 0 0 0 0 5v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2.5 2.5 0 0 0 0-5V7z" />
+            </svg>
+          </span>
+          <span className="shop-ticket-text">Ticket required</span>
+        </span>
+      ) : null,
+      footer: visibleTags.length ? (
+        <div className="shop-tag-list">
+          {visibleTags.map((tag) => (
+            <span key={tag} className="shop-tag">
+              {tag}
+            </span>
+          ))}
+        </div>
+      ) : null,
+      actions: (
+        <>
+          <span className="shop-stock">
+            Stock {Math.max(0, item.stockQuantity)}
+          </span>
+          <button
+            className="shop-button"
+            type="button"
+            onClick={() => handleBuy(item.sku)}
+            disabled={!canBuy}
+          >
+            {pendingSku === item.sku ? 'Buying…' : 'Buy'}
+          </button>
+        </>
+      ),
+    };
+  });
+  const sellBackpackItems: StoreItemCardView[] = sellItems.map((item) => ({
+    id: item.id,
+    name: item.name,
+    qualityBadge: item.qualityBadge,
+    qualityLabel: item.qualityLabel,
+    quantity: item.quantity,
+    stats: item.stats,
+    actions: (
+      <button
+        className="shop-button"
+        type="button"
+        onClick={() => handleSell(item.id)}
+        disabled={pendingSellId !== null && pendingSellId !== item.id}
+      >
+        {pendingSellId === item.id ? 'Selling…' : 'Sell'}
+      </button>
+    ),
+  }));
 
   const handleBuy = async (sku: string) => {
     setNotice(null);
@@ -248,160 +352,17 @@ export default function ShopClient({
         </div>
       ) : null}
 
-      <section className="shop-section">
-        <h2 className="title-font shop-section-title">For Sale</h2>
-        {catalog.length === 0 ? (
-          <p className="text-sm text-[color:var(--ink-soft)]">
-            The guild merchants are restocking. Check back in a few minutes.
-          </p>
-        ) : (
-          <div className="shop-grid">
-            {catalog.map((item) => {
-              const stats = buildStatSummary(item);
-              const ticketInfo = resolveTicketInfo(item.ticketRequirement);
-              const hasTicket = ticketInfo
-                ? (ticketCounts as Record<string, number>)[ticketInfo.key] > 0
-                : true;
-              const hasGold = playerGold >= item.buyPriceGold;
-              const canBuy =
-                item.stockQuantity > 0 &&
-                hasTicket &&
-                hasGold &&
-                !(pendingSku !== null && pendingSku !== item.sku);
-              const visibleTags = item.tags.filter(
-                (tag) =>
-                  !tag.startsWith('tier:') && !tag.startsWith('archetype:'),
-              );
-              return (
-                <article key={item.sku} className="shop-card">
-                  <header className="shop-card-header">
-                    <div className="shop-card-name">
-                      <span className="shop-quality">{item.qualityBadge}</span>
-                      <span>
-                        {item.qualityLabel} {item.name}
-                      </span>
-                    </div>
-                    <span className="shop-price">
-                      {formatPrice(item.buyPriceGold)}
-                    </span>
-                  </header>
-                  {stats.length > 0 ? (
-                    <div className="shop-card-meta">
-                      {stats.map((stat) => (
-                        <span key={stat}>{stat}</span>
-                      ))}
-                    </div>
-                  ) : null}
-                  {ticketInfo ? (
-                    <div className="shop-card-meta">
-                      <span
-                        className="shop-ticket"
-                        role="img"
-                        aria-label={`${ticketInfo.label} required`}
-                      >
-                        <span
-                          className={`ticket-icon ticket-icon-${ticketInfo.key}`}
-                          aria-hidden="true"
-                        >
-                          <svg
-                            className="ticket-icon-svg"
-                            viewBox="0 0 24 24"
-                            role="presentation"
-                            aria-hidden="true"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2.5 2.5 0 0 0 0 5v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2.5 2.5 0 0 0 0-5V7z" />
-                          </svg>
-                        </span>
-                        <span className="shop-ticket-text">
-                          Ticket required
-                        </span>
-                      </span>
-                    </div>
-                  ) : null}
-                  {visibleTags.length ? (
-                    <div className="shop-tag-list">
-                      {visibleTags.map((tag) => (
-                        <span key={tag} className="shop-tag">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="shop-actions">
-                    <span className="shop-stock">
-                      Stock {Math.max(0, item.stockQuantity)}
-                    </span>
-                    <button
-                      className="shop-button"
-                      type="button"
-                      onClick={() => handleBuy(item.sku)}
-                      disabled={!canBuy}
-                    >
-                      {pendingSku === item.sku ? 'Buying…' : 'Buy'}
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
+      <StoreItemSection
+        title="For Sale"
+        items={forSaleItems}
+        emptyMessage="The guild merchants are restocking. Check back in a few minutes."
+      />
 
-      <section className="shop-section">
-        <h2 className="title-font shop-section-title">Sell from Backpack</h2>
-        {sellItems.length === 0 ? (
-          <p className="text-sm text-[color:var(--ink-soft)]">
-            You do not have any unequipped items to sell.
-          </p>
-        ) : (
-          <div className="shop-sell-list">
-            {sellItems.map((item) => (
-              <article key={item.id} className="shop-card shop-sell-card">
-                <header className="shop-card-header">
-                  <div className="shop-card-name">
-                    <span className="shop-quality">{item.qualityBadge}</span>
-                    <span>
-                      {item.qualityLabel} {item.name}
-                    </span>
-                    {item.quantity > 1 ? (
-                      <span className="shop-quantity">x{item.quantity}</span>
-                    ) : null}
-                  </div>
-                  <span className="shop-price">
-                    {formatPrice(item.sellPriceGold)}
-                  </span>
-                </header>
-                {item.stats.length > 0 ? (
-                  <div className="shop-card-meta">
-                    {item.stats.map((stat) => (
-                      <span key={stat.label}>
-                        {stat.label}: {stat.value}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-                <div className="shop-actions">
-                  <button
-                    className="shop-button"
-                    type="button"
-                    onClick={() => handleSell(item.id)}
-                    disabled={
-                      pendingSellId !== null && pendingSellId !== item.id
-                    }
-                  >
-                    {pendingSellId === item.id ? 'Selling…' : 'Sell'}
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+      <StoreItemSection
+        title="Sell from Backpack"
+        items={sellBackpackItems}
+        emptyMessage="You do not have any unequipped items to sell."
+      />
     </div>
   );
 }

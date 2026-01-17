@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getXpToNextLevel } from '@mud/constants';
 import { getPrismaClient, ItemType, PlayerSlot } from '@mud/database';
 import { buildInventoryModel } from '@mud/inventory';
 import { buildCharacterSheetModel } from '@mud/character-sheet';
@@ -149,6 +150,11 @@ export default async function CharacterPage() {
       value: pi.item.value,
       description: pi.item.description,
       itemType: pi.item.type,
+      computedBonuses: {
+        strengthBonus: pi.item.strengthBonus ?? 0,
+        agilityBonus: pi.item.agilityBonus ?? 0,
+        healthBonus: pi.item.healthBonus ?? 0,
+      },
     };
   });
 
@@ -194,9 +200,14 @@ export default async function CharacterPage() {
     equipment: equipment ?? undefined,
     bag: inventoryItems,
   });
+  const xpToNextLevel =
+    typeof player.level === 'number' && typeof player.xp === 'number'
+      ? getXpToNextLevel(player.level, player.xp)
+      : null;
   const characterSheet = buildCharacterSheetModel({
     ...player,
     equipmentTotals,
+    xpToNextLevel,
   });
   const ticketCounts = {
     rare: player.rareTickets ?? 0,

@@ -354,6 +354,9 @@ body {
 }
 
 .inventory-item-name {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
   font-size: 14px;
   color: var(--ink);
 }
@@ -530,12 +533,6 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
-}
-
-.shop-sell-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 
 .shop-card {

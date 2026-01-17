@@ -8,6 +8,10 @@ import type {
   InventoryItem,
   InventoryModel,
 } from '@mud/inventory';
+import BackpackList, {
+  type BackpackListItem,
+} from '../../components/BackpackList';
+import ItemCard from '../../components/ItemCard';
 import { useGameEvents } from '../../lib/use-game-events';
 import { withBasePath } from '../../lib/base-path';
 
@@ -75,6 +79,11 @@ const resolveItemLabel = (item: InventoryItem) => {
     return `${item.qualityLabel} ${item.name}`;
   }
   return item.name || 'item';
+};
+
+const resolveSellPrice = (value: number | null | undefined) => {
+  if (typeof value !== 'number') return null;
+  return Math.max(1, Math.floor(value * 0.5));
 };
 
 export default function InventoryClient({
@@ -192,21 +201,15 @@ export default function InventoryClient({
     <div key={slot.key} className={`inventory-slot inventory-slot-${slot.key}`}>
       <span className="inventory-slot-label">{slot.label}</span>
       {slot.item ? (
-        <div className="inventory-item">
-          <span className="inventory-item-name">
-            {slot.item.qualityBadge} {slot.item.qualityLabel} {slot.item.name}
-          </span>
-          {slot.item.stats.length > 0 && (
-            <div className="inventory-item-stats">
-              {slot.item.stats.map((stat, i) => (
-                <span key={i} className="inventory-stat">
-                  {stat.label}: {stat.value}
-                </span>
-              ))}
-            </div>
-          )}
-          {typeof slot.item.id === 'number' ? (
-            <div className="inventory-item-actions">
+        <ItemCard
+          variant="slot"
+          name={slot.item.name}
+          qualityBadge={slot.item.qualityBadge}
+          qualityLabel={slot.item.qualityLabel}
+          stats={slot.item.stats}
+          sellPriceGold={resolveSellPrice(slot.item.value)}
+          actions={
+            typeof slot.item.id === 'number' ? (
               <button
                 className="inventory-button"
                 type="button"
@@ -217,13 +220,47 @@ export default function InventoryClient({
                   ? 'Unequipping…'
                   : 'Unequip'}
               </button>
-            </div>
-          ) : null}
-        </div>
+            ) : null
+          }
+        />
       ) : (
         <span className="inventory-empty">Empty</span>
       )}
     </div>
+  );
+  const backpackItems: BackpackListItem[] = inventory.backpackItems.map(
+    (item) => ({
+      id: item.id ?? null,
+      name: item.name,
+      qualityBadge: item.qualityBadge,
+      qualityLabel: item.qualityLabel,
+      quantity: item.quantity,
+      stats: item.stats,
+      description: item.description,
+      sellPriceGold: resolveSellPrice(item.value),
+      meta: (
+        <span
+          className={
+            item.canEquip ? 'inventory-equippable' : 'inventory-not-equippable'
+          }
+        >
+          {item.canEquip ? 'Equippable' : 'Not equippable'}
+        </span>
+      ),
+      actions:
+        item.canEquip && typeof item.id === 'number' ? (
+          <button
+            className="inventory-button"
+            type="button"
+            onClick={() => handleEquip(item)}
+            disabled={isPending}
+          >
+            {pending?.type === 'equip' && pending.id === item.id
+              ? 'Equipping…'
+              : 'Equip'}
+          </button>
+        ) : null,
+    }),
   );
 
   return (
@@ -266,69 +303,7 @@ export default function InventoryClient({
         <h2 className="title-font inventory-section-title">
           Backpack ({inventory.totalBackpack} items)
         </h2>
-        {inventory.backpackItems.length === 0 ? (
-          <p className="text-[color:var(--ink-soft)] text-sm italic">
-            Your backpack is empty.
-          </p>
-        ) : (
-          <div className="inventory-list">
-            {inventory.backpackItems.map((item, index) => (
-              <div
-                key={item.id ?? `${item.name}-${index}`}
-                className="inventory-backpack-item"
-              >
-                <div className="inventory-item-header">
-                  <span className="inventory-item-name">
-                    {item.qualityBadge} {item.qualityLabel} {item.name}
-                  </span>
-                  {item.quantity > 1 && (
-                    <span className="inventory-quantity">x{item.quantity}</span>
-                  )}
-                </div>
-                {item.stats.length > 0 && (
-                  <div className="inventory-item-stats">
-                    {item.stats.map((stat, i) => (
-                      <span key={i} className="inventory-stat">
-                        {stat.label}: {stat.value}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {item.description && (
-                  <p className="inventory-item-desc">{item.description}</p>
-                )}
-                <div className="inventory-item-meta">
-                  <span
-                    className={
-                      item.canEquip
-                        ? 'inventory-equippable'
-                        : 'inventory-not-equippable'
-                    }
-                  >
-                    {item.canEquip ? 'Equippable' : 'Not equippable'}
-                  </span>
-                  {item.value && (
-                    <span className="inventory-value">{item.value} gold</span>
-                  )}
-                </div>
-                {item.canEquip && typeof item.id === 'number' ? (
-                  <div className="inventory-item-actions">
-                    <button
-                      className="inventory-button"
-                      type="button"
-                      onClick={() => handleEquip(item)}
-                      disabled={isPending}
-                    >
-                      {pending?.type === 'equip' && pending.id === item.id
-                        ? 'Equipping…'
-                        : 'Equip'}
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
+        <BackpackList items={backpackItems} />
       </section>
     </div>
   );
