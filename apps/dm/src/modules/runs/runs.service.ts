@@ -43,6 +43,7 @@ const ROUND_DIFFICULTY_STEP = 0.15;
 const ROUND_REWARD_STEP = 0.2;
 const MIN_SCALE = 0.8;
 const MAX_SCALE = 2.5;
+const GUILD_DIFFICULTY_MULTIPLIER = 0.9;
 
 @Injectable()
 export class RunsService {
@@ -376,7 +377,9 @@ export class RunsService {
     const partyCombatants = await this.buildPartyCombatants(run.participants);
     const partySummary = this.buildPartySummaryCombatant(partyCombatants);
     const { monster, difficultyTier, rewardMultiplier } =
-      this.buildScaledEncounter(partyCombatants, roundNumber);
+      this.buildScaledEncounter(partyCombatants, roundNumber, {
+        isGuild: run.runType === RunType.GUILD,
+      });
 
     const partyName =
       partyCombatants.length === 1 ? partyCombatants[0].name : 'Raid party';
@@ -586,13 +589,18 @@ export class RunsService {
     return chosen;
   }
 
-  private buildScaledEncounter(party: Combatant[], round: number) {
+  private buildScaledEncounter(
+    party: Combatant[],
+    round: number,
+    options?: { isGuild?: boolean },
+  ) {
     const partyPower = party.reduce(
       (total, combatant) => total + this.calculateCombatantPower(combatant),
       0,
     );
     const difficultyMultiplier =
-      BASE_DIFFICULTY + (round - 1) * ROUND_DIFFICULTY_STEP;
+      (BASE_DIFFICULTY + (round - 1) * ROUND_DIFFICULTY_STEP) *
+      (options?.isGuild ? GUILD_DIFFICULTY_MULTIPLIER : 1);
     const targetPower = partyPower * difficultyMultiplier;
     const selection = this.selectTemplateForPower(targetPower);
     const scale = Math.min(
