@@ -238,15 +238,6 @@ export default function InventoryClient({
       stats: item.stats,
       description: item.description,
       sellPriceGold: resolveSellPrice(item.value),
-      meta: (
-        <span
-          className={
-            item.canEquip ? 'inventory-equippable' : 'inventory-not-equippable'
-          }
-        >
-          {item.canEquip ? 'Equippable' : 'Not equippable'}
-        </span>
-      ),
       actions:
         item.canEquip && typeof item.id === 'number' ? (
           <button

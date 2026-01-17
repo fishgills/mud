@@ -49,6 +49,24 @@ const SLOT_LABELS: Record<PlayerSlot, string> = {
   [PlayerSlot.head]: 'Helm',
 };
 
+const ARCHETYPE_LABELS: Record<ShopArchetype, string> = {
+  Offense: 'Fierce',
+  Evasion: 'Swift',
+  Tank: 'Stalwart',
+  Balanced: 'Tempered',
+};
+
+const VARIANT_SUFFIXES = [
+  'Prime',
+  'Echo',
+  'Nova',
+  'Vanguard',
+  'Apex',
+  'Ember',
+  'Rune',
+  'Gale',
+];
+
 const ARCHETYPE_WEIGHTS: Record<
   ShopArchetype,
   { strength: number; agility: number; health: number }
@@ -222,9 +240,20 @@ const rollArchetype = (rng: () => number): ShopArchetype => {
   return 'Balanced';
 };
 
-const buildListingName = (slot: PlayerSlot, index: number): string => {
+const buildListingBaseName = (
+  slot: PlayerSlot,
+  archetype: ShopArchetype,
+): string => {
   const label = SLOT_LABELS[slot];
-  return `${label} #${index + 1}`;
+  const archetypeLabel = ARCHETYPE_LABELS[archetype];
+  return `${archetypeLabel} ${label}`;
+};
+
+const applyVariantSuffix = (name: string, variantIndex: number): string => {
+  if (variantIndex === 0) return name;
+  const suffix = VARIANT_SUFFIXES[variantIndex - 1];
+  if (suffix) return `${name} ${suffix}`;
+  return `${name} Variant ${variantIndex + 1}`;
 };
 
 const buildListingDescription = (slot: PlayerSlot): string => {
@@ -247,7 +276,7 @@ export const generateShopListings = (params: {
     offsets[chaseIndex] = CHASE_OFFSET;
   }
 
-  return slots.map((slot, index) => {
+  const drafts = slots.map((slot, index) => {
     const offsetK = offsets[index];
     const tier = Math.max(1, globalTier + offsetK);
     const archetype = rollArchetype(rng);
@@ -260,9 +289,10 @@ export const generateShopListings = (params: {
     const ticketRequirement = resolveTicketRequirement(offsetK);
     const quality = resolveQualityForOffset(offsetK);
     const tags = [`tier:${tier}`, `slot:${slot}`];
+    const baseName = buildListingBaseName(slot, archetype);
 
     return {
-      name: buildListingName(slot, index),
+      baseName,
       description: buildListingDescription(slot),
       slot,
       itemType: isWeapon ? ItemType.WEAPON : ItemType.ARMOR,
@@ -280,6 +310,24 @@ export const generateShopListings = (params: {
       tags,
       archetype,
       ticketRequirement,
+    };
+  });
+
+  const nameTotals = new Map<string, number>();
+  for (const draft of drafts) {
+    nameTotals.set(draft.baseName, (nameTotals.get(draft.baseName) ?? 0) + 1);
+  }
+
+  const nameIndexes = new Map<string, number>();
+  return drafts.map(({ baseName, ...listing }) => {
+    const total = nameTotals.get(baseName) ?? 1;
+    const index = nameIndexes.get(baseName) ?? 0;
+    nameIndexes.set(baseName, index + 1);
+    const name = total > 1 ? applyVariantSuffix(baseName, index) : baseName;
+
+    return {
+      ...listing,
+      name,
     };
   });
 };

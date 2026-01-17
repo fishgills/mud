@@ -144,7 +144,10 @@ export default function ItemCard({
         <div className={styles.meta}>
           {showSellPrice ? (
             <span className={styles.price || undefined}>
-              Sell price: {formatSellPrice(sellPriceGold)}
+              Sell price:{' '}
+              <span className="inventory-gold">
+                {formatSellPrice(sellPriceGold)}
+              </span>
             </span>
           ) : null}
           {meta}

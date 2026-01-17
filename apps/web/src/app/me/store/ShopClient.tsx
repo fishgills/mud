@@ -268,6 +268,7 @@ export default function ShopClient({
     qualityLabel: item.qualityLabel,
     quantity: item.quantity,
     stats: item.stats,
+    sellPriceGold: item.sellPriceGold,
     actions: (
       <button
         className="shop-button"
@@ -362,6 +363,7 @@ export default function ShopClient({
         title="Sell from Backpack"
         items={sellBackpackItems}
         emptyMessage="You do not have any unequipped items to sell."
+        showSellPrice
       />
     </div>
   );

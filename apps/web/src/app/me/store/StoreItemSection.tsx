@@ -12,6 +12,7 @@ export type StoreItemCardView = {
   quantity?: number | null;
   stats?: ItemStatLine[] | null;
   description?: string | null;
+  sellPriceGold?: number | null;
   headerAside?: ReactNode;
   meta?: ReactNode;
   footer?: ReactNode;
@@ -22,12 +23,14 @@ type StoreItemSectionProps = {
   title: string;
   items: StoreItemCardView[];
   emptyMessage: string;
+  showSellPrice?: boolean;
 };
 
 export default function StoreItemSection({
   title,
   items,
   emptyMessage,
+  showSellPrice = false,
 }: StoreItemSectionProps) {
   return (
     <section className="shop-section">
@@ -46,7 +49,8 @@ export default function StoreItemSection({
               quantity={item.quantity ?? undefined}
               stats={item.stats ?? undefined}
               description={item.description}
-              showSellPrice={false}
+              sellPriceGold={item.sellPriceGold}
+              showSellPrice={showSellPrice}
               headerAside={item.headerAside}
               meta={item.meta}
               footer={item.footer}

@@ -432,6 +432,10 @@ body {
   color: var(--ink-soft);
 }
 
+.inventory-gold {
+  color: #dca34e;
+}
+
 .inventory-item-actions {
   display: flex;
   gap: 8px;

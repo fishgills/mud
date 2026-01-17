@@ -31,7 +31,7 @@ describe('GuildShopRotationService', () => {
   } as unknown as Record<string, jest.Mock>;
 
   const listing: GeneratedShopListing = {
-    name: 'Fierce Blade T3 #1',
+    name: 'Fierce Blade',
     description: 'Tier 3 blade.',
     slot: PlayerSlot.weapon,
     itemType: ItemType.WEAPON,
