@@ -1,5 +1,7 @@
 export class SubmitFeedbackDto {
-  playerId!: number;
+  playerId?: number;
+  teamId?: string;
+  userId?: string;
   type!: 'bug' | 'suggestion' | 'general';
   content!: string;
 }
@@ -18,6 +20,7 @@ export interface SubmitFeedbackResponse {
   feedbackId?: number;
   githubIssueUrl?: string;
   rejectionReason?: string;
+  ignored?: boolean;
 }
 
 export interface FeedbackHistoryItem {

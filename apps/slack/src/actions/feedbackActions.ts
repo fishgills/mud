@@ -287,32 +287,11 @@ export const registerFeedbackActions = (app: App) => {
 
       // Submit feedback to DM service
       try {
-        if (!playerId) {
-          // Need player ID - fetch it
-          logger?.debug?.(
-            '[FEEDBACK-ACTIONS] No playerId in metadata, fetching player',
-          );
-          const playerResult = await dmClient.getPlayer({ teamId, userId });
-          if (!playerResult.success || !playerResult.data) {
-            logger?.warn?.(
-              '[FEEDBACK-ACTIONS] Player not found for feedback submission',
-            );
-            await sendFeedbackDM(client, userId, {
-              success: false,
-              message:
-                "Couldn't submit feedback - you need a character first! Type `new` to create one.",
-            });
-            return;
-          }
-          metadata.playerId = playerResult.data.id;
-          logger?.debug?.(
-            `[FEEDBACK-ACTIONS] Fetched playerId=${metadata.playerId}`,
-          );
-        }
-
         logger?.debug?.('[FEEDBACK-ACTIONS] Calling dmClient.submitFeedback');
         const result = await dmClient.submitFeedback({
-          playerId: metadata.playerId!,
+          teamId,
+          userId,
+          ...(playerId ? { playerId } : {}),
           type: typeValue as 'bug' | 'suggestion' | 'general',
           content: contentValue,
         });
@@ -323,9 +302,11 @@ export const registerFeedbackActions = (app: App) => {
         await sendFeedbackDM(client, userId, {
           success: result.success,
           message: result.success
-            ? result.githubIssueUrl
-              ? `✅ Thank you for your feedback! It has been submitted for review.`
-              : `✅ Thank you for your feedback! It has been recorded.`
+            ? result.ignored
+              ? '✅ Thanks for taking the time to share feedback.'
+              : result.githubIssueUrl
+                ? `✅ Thank you for your feedback! It has been submitted for review.`
+                : `✅ Thank you for your feedback! It has been recorded.`
             : `❌ ${result.rejectionReason ?? 'Unable to submit feedback at this time.'}`,
           githubUrl: result.githubIssueUrl,
         });

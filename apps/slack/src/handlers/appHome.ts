@@ -78,6 +78,21 @@ export const buildAppHomeBlocks = async (
   teamId?: string,
   userId?: string,
 ): Promise<KnownBlock[]> => {
+  const feedbackActionsBlock: KnownBlock = {
+    type: 'actions',
+    elements: [
+      {
+        type: 'button' as const,
+        text: {
+          type: 'plain_text' as const,
+          text: '📝 Give Feedback',
+          emoji: true,
+        },
+        action_id: FEEDBACK_ACTIONS.OPEN_MODAL,
+      },
+    ],
+  };
+
   let needsCharacter = false;
   let player: Awaited<ReturnType<typeof getPlayer>>['data'] | undefined;
   let activeRun: Awaited<ReturnType<typeof getActiveRun>>['data'] | undefined;
@@ -157,6 +172,7 @@ export const buildAppHomeBlocks = async (
           ].join('\n'),
         },
       },
+      feedbackActionsBlock,
     ];
   }
 
@@ -188,6 +204,7 @@ export const buildAppHomeBlocks = async (
           },
         ],
       },
+      feedbackActionsBlock,
     ];
   }
 
@@ -273,6 +290,8 @@ export const buildAppHomeBlocks = async (
       },
     ],
   });
+  blocks.push({ type: 'divider' });
+  blocks.push(feedbackActionsBlock);
 
   if (isPowerUser) {
     blocks.push({ type: 'divider' }, ...leaderboardBlocks);
@@ -336,15 +355,6 @@ export const buildAppHomeBlocks = async (
           type: 'button' as const,
           text: { type: 'plain_text' as const, text: 'Command Reference' },
           action_id: HELP_ACTIONS.COMMAND_REFERENCE,
-        },
-        {
-          type: 'button' as const,
-          text: {
-            type: 'plain_text' as const,
-            text: '📝 Give Feedback',
-            emoji: true,
-          },
-          action_id: FEEDBACK_ACTIONS.OPEN_MODAL,
         },
       ],
     });

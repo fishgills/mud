@@ -1,6 +1,11 @@
 import type { App } from '@slack/bolt';
 import { buildAppHomeBlocks, registerAppHome } from './appHome';
-import { HELP_ACTIONS, HOME_ACTIONS, STAT_ACTIONS } from '../commands';
+import {
+  HELP_ACTIONS,
+  HOME_ACTIONS,
+  STAT_ACTIONS,
+  FEEDBACK_ACTIONS,
+} from '../commands';
 import { getActiveRun, getPlayer } from '../dm-client';
 import { RunStatus, RunType } from '@mud/database';
 
@@ -89,6 +94,18 @@ describe('buildAppHomeBlocks', () => {
         block.text.text.includes('Leaderboards'),
     );
     expect(leaderboardHeader).toBeUndefined();
+
+    const feedbackAction = blocks.find(
+      (block) =>
+        block.type === 'actions' &&
+        'elements' in block &&
+        block.elements.some(
+          (element) =>
+            'action_id' in element &&
+            element.action_id === FEEDBACK_ACTIONS.OPEN_MODAL,
+        ),
+    );
+    expect(feedbackAction).toBeDefined();
   });
 
   it('shows power user sections after moving and battling', async () => {
@@ -152,6 +169,18 @@ describe('buildAppHomeBlocks', () => {
         ),
     );
     expect(leaderboardAction).toBeDefined();
+
+    const feedbackAction = blocks.find(
+      (block) =>
+        block.type === 'actions' &&
+        'elements' in block &&
+        block.elements.some(
+          (element) =>
+            'action_id' in element &&
+            element.action_id === FEEDBACK_ACTIONS.OPEN_MODAL,
+        ),
+    );
+    expect(feedbackAction).toBeDefined();
   });
 
   it('shows a create character button when no player exists', async () => {
@@ -162,7 +191,7 @@ describe('buildAppHomeBlocks', () => {
 
     const blocks = await buildAppHomeBlocks('T123', 'U123');
 
-    expect(blocks).toHaveLength(5);
+    expect(blocks).toHaveLength(6);
     expect(blocks[1]).toMatchObject({
       type: 'section',
       text: expect.objectContaining({
@@ -184,6 +213,15 @@ describe('buildAppHomeBlocks', () => {
         expect.objectContaining({
           type: 'mrkdwn',
           text: expect.stringContaining('Takes about 30 seconds'),
+        }),
+      ],
+    });
+    expect(blocks[5]).toMatchObject({
+      type: 'actions',
+      elements: [
+        expect.objectContaining({
+          type: 'button',
+          action_id: FEEDBACK_ACTIONS.OPEN_MODAL,
         }),
       ],
     });

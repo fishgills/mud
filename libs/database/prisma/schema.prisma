@@ -380,8 +380,10 @@ model PlayerItem {
 
 model Feedback {
   id              Int      @id @default(autoincrement())
-  playerId        Int
-  player          Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId        Int?
+  player          Player?  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  submitterTeamId String?
+  submitterUserId String?
   type            String // bug, suggestion, general (player-selected)
   category        String? // LLM-classified: bug, feature, balance, ux, question, praise
   priority        String? // LLM-assigned: low, medium, high
@@ -395,6 +397,7 @@ model Feedback {
   updatedAt       DateTime @updatedAt
 
   @@index([playerId])
+  @@index([submitterTeamId, submitterUserId])
   @@index([createdAt])
 }
 

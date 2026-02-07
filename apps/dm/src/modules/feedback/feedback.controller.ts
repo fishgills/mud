@@ -24,7 +24,9 @@ export class FeedbackController {
   async submitFeedback(
     @Body() dto: SubmitFeedbackDto,
   ): Promise<SubmitFeedbackResponse> {
-    this.logger.log(`Received feedback submission from player ${dto.playerId}`);
+    this.logger.log(
+      `Received feedback submission from player=${dto.playerId ?? 'none'} submitter=${dto.teamId ?? 'none'}/${dto.userId ?? 'none'}`,
+    );
     this.logger.debug(
       `Feedback details: type=${dto.type}, contentLength=${dto.content.length}`,
     );

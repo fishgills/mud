@@ -40,6 +40,7 @@ Field descriptions:
 
 Rules:
 - Reject feedback containing personal attacks, harassment, real-world issues, or nonsensical text
+- Reject spam, repeated gibberish, off-topic promotions, and abusive language
 - Accept even brief feedback if genuine (e.g., "combat is too hard" is valid)
 - Be generous—players may not articulate perfectly
 - For the summary, write it as if it's a GitHub issue title`;

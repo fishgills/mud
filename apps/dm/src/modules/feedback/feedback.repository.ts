@@ -6,7 +6,9 @@ export class FeedbackRepository {
   private readonly logger = new Logger(FeedbackRepository.name);
 
   async create(data: {
-    playerId: number;
+    playerId?: number;
+    submitterTeamId?: string;
+    submitterUserId?: string;
     type: string;
     content: string;
     category?: string;
@@ -18,7 +20,7 @@ export class FeedbackRepository {
     githubIssueNum?: number;
   }) {
     this.logger.debug(
-      `[FEEDBACK-REPO] Creating feedback: playerId=${data.playerId}, type=${data.type}, status=${data.status}`,
+      `[FEEDBACK-REPO] Creating feedback: playerId=${data.playerId ?? 'none'}, submitter=${data.submitterTeamId ?? 'none'}/${data.submitterUserId ?? 'none'}, type=${data.type}, status=${data.status}`,
     );
     const result = await getPrismaClient().feedback.create({
       data,
@@ -71,6 +73,28 @@ export class FeedbackRepository {
       },
     });
     this.logger.debug(`[FEEDBACK-REPO] Recent feedback count: ${count}`);
+    return count;
+  }
+
+  async countRecentBySubmitter(
+    teamId: string,
+    userId: string,
+    sinceMs: number = 60 * 60 * 1000, // 1 hour
+  ) {
+    const since = new Date(Date.now() - sinceMs);
+    this.logger.debug(
+      `[FEEDBACK-REPO] Counting recent feedback for submitter=${teamId}/${userId} since ${since.toISOString()}`,
+    );
+    const count = await getPrismaClient().feedback.count({
+      where: {
+        submitterTeamId: teamId,
+        submitterUserId: userId,
+        createdAt: { gte: since },
+      },
+    });
+    this.logger.debug(
+      `[FEEDBACK-REPO] Recent submitter feedback count: ${count}`,
+    );
     return count;
   }
 

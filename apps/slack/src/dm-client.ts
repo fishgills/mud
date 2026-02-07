@@ -614,7 +614,9 @@ export async function guildInvites(params: {
 
 // Feedback types
 export interface SubmitFeedbackRequest {
-  playerId: number;
+  playerId?: number;
+  teamId?: string;
+  userId?: string;
   type: 'bug' | 'suggestion' | 'general';
   content: string;
 }
@@ -623,6 +625,7 @@ export interface SubmitFeedbackResponse extends SuccessResponse {
   feedbackId?: number;
   githubIssueUrl?: string;
   rejectionReason?: string;
+  ignored?: boolean;
 }
 
 export interface FeedbackHistoryItem {

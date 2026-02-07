@@ -16,6 +16,12 @@ import {
 
 const RATE_LIMIT_MS = 60 * 60 * 1000; // 1 hour
 
+type FeedbackSubmitter = {
+  playerId?: number;
+  teamId?: string;
+  userId?: string;
+};
+
 @Injectable()
 export class FeedbackService {
   private readonly logger = new Logger(FeedbackService.name);
@@ -29,24 +35,45 @@ export class FeedbackService {
   async submitFeedback(
     dto: SubmitFeedbackDto,
   ): Promise<SubmitFeedbackResponse> {
-    this.logger.log(`Processing feedback from player ${dto.playerId}`);
+    const submitter = this.resolveSubmitter(dto);
+    if (!submitter) {
+      this.logger.warn(
+        '[FEEDBACK-FLOW] Missing submitter identity (playerId or teamId/userId required)',
+      );
+      return {
+        success: false,
+        rejectionReason: 'Missing feedback submitter identity.',
+      };
+    }
+
+    const submitterLabel = submitter.playerId
+      ? `player:${submitter.playerId}`
+      : `slack:${submitter.teamId}/${submitter.userId}`;
+    this.logger.log(`Processing feedback from ${submitterLabel}`);
     this.logger.debug(
-      `[FEEDBACK-FLOW] Starting feedback submission: playerId=${dto.playerId}, type=${dto.type}`,
+      `[FEEDBACK-FLOW] Starting feedback submission: submitter=${submitterLabel}, type=${dto.type}`,
     );
 
     // Check rate limit
     this.logger.debug(
-      `[FEEDBACK-FLOW] Checking rate limit for player ${dto.playerId}`,
+      `[FEEDBACK-FLOW] Checking rate limit for ${submitterLabel}`,
     );
-    const recentCount = await this.repository.countRecentByPlayerId(
-      dto.playerId,
-      RATE_LIMIT_MS,
-    );
+    const recentCount =
+      submitter.playerId !== undefined
+        ? await this.repository.countRecentByPlayerId(
+            submitter.playerId,
+            RATE_LIMIT_MS,
+          )
+        : await this.repository.countRecentBySubmitter(
+            submitter.teamId!,
+            submitter.userId!,
+            RATE_LIMIT_MS,
+          );
     this.logger.debug(
       `[FEEDBACK-FLOW] Rate limit check: recentCount=${recentCount}`,
     );
     if (recentCount > 0) {
-      this.logger.warn(`Player ${dto.playerId} is rate limited`);
+      this.logger.warn(`Submitter ${submitterLabel} is rate limited`);
       return {
         success: false,
         rejectionReason:
@@ -85,33 +112,24 @@ export class FeedbackService {
       this.logger.debug(
         `[FEEDBACK-FLOW] Using fallback path due to LLM failure`,
       );
-      return this.createFeedbackWithFallback(dto);
+      return this.createFeedbackWithFallback(dto, submitter);
     }
 
     if (!validation.isValid) {
-      // Create rejected feedback record
-      await this.repository.create({
-        playerId: dto.playerId,
-        type: dto.type,
-        content: dto.content,
-        status: 'rejected',
-        rejectionReason:
-          validation.rejectionReason ?? 'Feedback was not accepted',
-      });
-
-      this.logger.log(`Feedback rejected: ${validation.rejectionReason}`);
-
+      this.logger.log(
+        `Ignoring non-legitimate feedback from ${submitterLabel}: ${validation.rejectionReason ?? 'rejected by moderation'}`,
+      );
       return {
-        success: false,
-        rejectionReason:
-          validation.rejectionReason ??
-          'Your feedback could not be processed. Please ensure it is related to the game.',
+        success: true,
+        ignored: true,
       };
     }
 
     // Create feedback record
     const feedback = await this.repository.create({
-      playerId: dto.playerId,
+      playerId: submitter.playerId,
+      submitterTeamId: submitter.teamId,
+      submitterUserId: submitter.userId,
       type: dto.type,
       content: dto.content,
       category: validation.category,
@@ -276,6 +294,7 @@ export class FeedbackService {
 
   private async createFeedbackWithFallback(
     dto: SubmitFeedbackDto,
+    submitter: FeedbackSubmitter,
   ): Promise<SubmitFeedbackResponse> {
     // Create feedback with minimal classification
     const summary =
@@ -283,7 +302,9 @@ export class FeedbackService {
     const category = dto.type === 'bug' ? 'bug' : 'feature';
 
     const feedback = await this.repository.create({
-      playerId: dto.playerId,
+      playerId: submitter.playerId,
+      submitterTeamId: submitter.teamId,
+      submitterUserId: submitter.userId,
       type: dto.type,
       content: dto.content,
       category,
@@ -317,5 +338,24 @@ export class FeedbackService {
       feedbackId: feedback.id,
       githubIssueUrl: githubResult?.url,
     };
+  }
+
+  private resolveSubmitter(dto: SubmitFeedbackDto): FeedbackSubmitter | null {
+    if (dto.playerId !== undefined && dto.playerId !== null) {
+      return {
+        playerId: dto.playerId,
+        teamId: dto.teamId,
+        userId: dto.userId,
+      };
+    }
+
+    if (dto.teamId && dto.userId) {
+      return {
+        teamId: dto.teamId,
+        userId: dto.userId,
+      };
+    }
+
+    return null;
   }
 }
