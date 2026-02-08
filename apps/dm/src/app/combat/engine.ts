@@ -358,7 +358,7 @@ export async function runTeamCombat(
     let weaponDamage = 0;
     let coreDamage = 0;
     let baseDamage = 0;
-    let mitigation = calculateMitigation(defenderStats);
+    const mitigation = calculateMitigation(defenderStats);
     let damageAfterMitigation = 0;
     let critChance: number | undefined;
     let critRoll: number | undefined;
