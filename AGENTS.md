@@ -77,17 +77,3 @@
 
 - Node.js 20 / TypeScript 5 (NestJS services) + NestJS, Slack Bolt SDK, Prisma ORM, `@mud/event-bus`, `@mud/logging`, Datadog tracing (001-hq-market-crier)
 - PostgreSQL (Cloud SQL) for player/inventory data; Redis EventBridge for pub/sub (001-hq-market-crier)
-
-## Recent Changes
-
-- 001-hq-market-crier: Added Node.js 20 / TypeScript 5 (NestJS services) + NestJS, Slack Bolt SDK, Prisma ORM, `@mud/event-bus`, `@mud/logging`, Datadog tracing
-
-## Agent Notes (2026-02-08)
-
-- apps/slack actions repeatedly re-implement action context extraction (userId/teamId/triggerId/channelId) and DM/ephemeral posting; consider shared helpers in `apps/slack/src/actions/helpers.ts` to reduce duplication across action handlers.
-- apps/slack has duplicated formatting logic for leaderboards (app home vs home actions), item stat formatting (inventory vs catalog), and stats formatting helpers (stats/format.ts vs stats/modal.ts); consider shared utility modules.
-- Mixed handler styles (class-based vs function + `registerHandler`) lead to repeated error handling and parsing; standardize on a wrapper or base class to reduce divergence.
-- Slack service: `apps/slack/src/notification.service.ts` sends notifications sequentially per recipient, does per-recipient installation lookup, and opens a DM each time; caching and concurrency limits could improve latency without hitting Slack rate limits.
-- Slack service: `apps/slack/src/dm-client.ts` is a monolith mixing request logic, types, and endpoint wrappers; splitting by domain would reduce churn and make imports more targeted.
-- Slack service duplicates Slack block/text truncation logic in both `apps/slack/src/notification.service.ts` and `apps/slack/src/handlers/combatMessaging.ts`; a shared utility would keep message-size handling consistent.
-- Refactor baseline now exists: use `apps/slack/src/actions/helpers.ts` (`getActionContext`, `postToUser`, `postEphemeralOrDm`) and `apps/slack/src/utils/slackPayload.ts` (`truncateSlackPayload`) before adding new ad-hoc action/message helper code.
