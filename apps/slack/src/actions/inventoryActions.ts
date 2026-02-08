@@ -1,7 +1,7 @@
 import type { App, BlockAction } from '@slack/bolt';
 import { dmClient } from '../dm-client';
 import { mapErrCodeToFriendlyMessage } from '../handlers/errorUtils';
-import { getActionValue, getChannelIdFromBody } from './helpers';
+import { getActionContext, getActionValue, postEphemeralOrDm } from './helpers';
 import { buildItemActionMessage } from '../utils/itemDisplay';
 
 export const registerInventoryActions = (app: App) => {
@@ -9,10 +9,7 @@ export const registerInventoryActions = (app: App) => {
     'inventory_equip',
     async ({ ack, body, client, context }) => {
       await ack();
-      const userId = body.user?.id;
-      const teamId =
-        body.team?.id ?? (context as { teamId?: string })?.teamId;
-      const channelId = getChannelIdFromBody(body);
+      const { userId, teamId, channelId } = getActionContext(body, context);
       const rawValue = getActionValue(body);
       if (!userId || !teamId || !rawValue) return;
 
@@ -34,18 +31,12 @@ export const registerInventoryActions = (app: App) => {
       const { playerItemId, allowedSlots = [] } = payload;
       const slot = allowedSlots[0];
       if (!slot) {
-        const message = 'This item cannot be equipped.';
-        if (channelId) {
-          await client.chat.postEphemeral({
-            channel: channelId,
-            user: userId,
-            text: message,
-          });
-        } else {
-          const dm = await client.conversations.open({ users: userId });
-          const channel = dm.channel?.id;
-          if (channel) await client.chat.postMessage({ channel, text: message });
-        }
+        await postEphemeralOrDm({
+          client,
+          userId,
+          channelId,
+          text: 'This item cannot be equipped.',
+        });
         return;
       }
 
@@ -67,38 +58,17 @@ export const registerInventoryActions = (app: App) => {
             )
           : undefined;
         const text = res.success
-          ? successText ?? `Equipped item ${playerItemId} to ${slot}`
-          : (friendly ??
-            `Failed to equip: ${res.message ?? 'Unknown error'}`);
-        if (channelId) {
-          await client.chat.postEphemeral({
-            channel: channelId,
-            user: userId,
-            text,
-          });
-        } else {
-          const dm = await client.conversations.open({ users: userId });
-          const channel = dm.channel?.id;
-          if (channel) await client.chat.postMessage({ channel, text });
-        }
+          ? (successText ?? `Equipped item ${playerItemId} to ${slot}`)
+          : (friendly ?? `Failed to equip: ${res.message ?? 'Unknown error'}`);
+        await postEphemeralOrDm({ client, userId, channelId, text });
       } catch (error) {
         app.logger.warn({ error }, 'inventory_equip handler failed');
-        if (channelId) {
-          await client.chat.postEphemeral({
-            channel: channelId,
-            user: userId,
-            text: `Failed to equip item ${playerItemId}`,
-          });
-          return;
-        }
-        const dm = await client.conversations.open({ users: userId });
-        const channel = dm.channel?.id;
-        if (channel) {
-          await client.chat.postMessage({
-            channel,
-            text: `Failed to equip item ${playerItemId}`,
-          });
-        }
+        await postEphemeralOrDm({
+          client,
+          userId,
+          channelId,
+          text: `Failed to equip item ${playerItemId}`,
+        });
       }
     },
   );
@@ -107,9 +77,7 @@ export const registerInventoryActions = (app: App) => {
     'inventory_unequip',
     async ({ ack, body, client, context }) => {
       await ack();
-      const userId = body.user?.id;
-      const teamId =
-        body.team?.id ?? (context as { teamId?: string })?.teamId;
+      const { userId, teamId, channelId } = getActionContext(body, context);
       if (!teamId || !userId) {
         app.logger.warn(
           { userId, teamId },
@@ -118,7 +86,6 @@ export const registerInventoryActions = (app: App) => {
         return;
       }
       const value = getActionValue(body);
-      const channelId = getChannelIdFromBody(body);
       if (!userId || !value) return;
       try {
         const res = await dmClient.unequip({
@@ -136,29 +103,18 @@ export const registerInventoryActions = (app: App) => {
             )
           : undefined;
         const text = res.success
-          ? successText ?? `Unequipped item ${value}.`
+          ? (successText ?? `Unequipped item ${value}.`)
           : (friendly ??
             `Failed to unequip: ${res.message ?? 'Unknown error'}`);
-        if (channelId) {
-          await client.chat.postEphemeral({
-            channel: channelId,
-            user: userId,
-            text,
-          });
-        } else {
-          const dm = await client.conversations.open({ users: userId });
-          const channel = dm.channel?.id;
-          if (channel) await client.chat.postMessage({ channel, text });
-        }
+        await postEphemeralOrDm({ client, userId, channelId, text });
       } catch (error) {
         app.logger.warn({ error }, 'inventory_unequip failed');
-        if (channelId) {
-          await client.chat.postEphemeral({
-            channel: channelId,
-            user: userId,
-            text: 'Failed to unequip item',
-          });
-        }
+        await postEphemeralOrDm({
+          client,
+          userId,
+          channelId,
+          text: 'Failed to unequip item',
+        });
       }
     },
   );

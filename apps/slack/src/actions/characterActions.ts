@@ -10,6 +10,7 @@ import { dmClient } from '../dm-client';
 import { dispatchCommandViaDM } from './commandDispatch';
 import { buildAppHomeBlocks } from '../handlers/appHome';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
+import { getActionContext, postToUser } from './helpers';
 
 const CREATE_CHARACTER_VIEW_ID = 'create_character_view';
 const CREATE_CHARACTER_FINALIZE_VIEW_ID = 'create_character_finalize_view';
@@ -197,7 +198,7 @@ export const registerCharacterActions = (app: App) => {
     HELP_ACTIONS.CREATE,
     async ({ ack, body, client }) => {
       await ack();
-      const triggerId = body.trigger_id;
+      const { triggerId, userId } = getActionContext(body);
       if (!triggerId) return;
       try {
         await client.views.open({
@@ -205,13 +206,10 @@ export const registerCharacterActions = (app: App) => {
           view: buildCreateCharacterView(),
         });
       } catch {
-        const userId = body.user?.id;
         if (!userId) return;
-        const dm = await client.conversations.open({ users: userId });
-        const channel = dm.channel?.id;
-        if (!channel) return;
-        await client.chat.postMessage({
-          channel,
+        await postToUser({
+          client,
+          userId,
           text: 'If the portal will not open, type: `new YourName`',
         });
       }
@@ -233,8 +231,7 @@ export const registerCharacterActions = (app: App) => {
       }
 
       const userId = body.user?.id;
-      const teamId =
-        typeof context.teamId === 'string' ? context.teamId : undefined;
+      const teamId = getActionContext(body, context).teamId;
       if (!userId || !teamId) {
         await ack({
           response_action: 'errors',
@@ -370,16 +367,13 @@ export const registerCharacterActions = (app: App) => {
         const result = await dmClient.completePlayer({ teamId, userId });
         if (!result.success) {
           await ack();
-          const dm = await client.conversations.open({ users: userId });
-          const channel = dm.channel?.id;
-          if (channel) {
-            await client.chat.postMessage({
-              channel,
-              text:
-                result.message ??
-                'Unable to complete character creation right now.',
-            });
-          }
+          await postToUser({
+            client,
+            userId,
+            text:
+              result.message ??
+              'Unable to complete character creation right now.',
+          });
           return;
         }
 
@@ -403,17 +397,14 @@ export const registerCharacterActions = (app: App) => {
         }
       } catch (err) {
         await ack();
-        const dm = await client.conversations.open({ users: userId });
-        const channel = dm.channel?.id;
-        if (channel) {
-          await client.chat.postMessage({
-            channel,
-            text: getUserFriendlyErrorMessage(
-              err,
-              'Failed to complete character creation',
-            ),
-          });
-        }
+        await postToUser({
+          client,
+          userId,
+          text: getUserFriendlyErrorMessage(
+            err,
+            'Failed to complete character creation',
+          ),
+        });
       }
     },
   );
@@ -422,9 +413,7 @@ export const registerCharacterActions = (app: App) => {
     HOME_ACTIONS.DELETE_CHARACTER,
     async ({ ack, body, client, context }) => {
       await ack();
-      const userId = body.user?.id;
-      const teamId = body.team?.id ?? (context as { teamId?: string })?.teamId;
-      const triggerId = body.trigger_id;
+      const { userId, teamId, triggerId } = getActionContext(body, context);
       if (!userId || !teamId || !triggerId) return;
 
       try {
@@ -433,17 +422,14 @@ export const registerCharacterActions = (app: App) => {
           view: buildDeleteCharacterView({ teamId, userId }),
         });
       } catch (err) {
-        const dm = await client.conversations.open({ users: userId });
-        const channel = dm.channel?.id;
-        if (channel) {
-          await client.chat.postMessage({
-            channel,
-            text: getUserFriendlyErrorMessage(
-              err,
-              'Unable to open delete confirmation',
-            ),
-          });
-        }
+        await postToUser({
+          client,
+          userId,
+          text: getUserFriendlyErrorMessage(
+            err,
+            'Unable to open delete confirmation',
+          ),
+        });
       }
     },
   );
@@ -483,14 +469,11 @@ export const registerCharacterActions = (app: App) => {
         if (views?.close) {
           await views.close({ view_id: viewId });
         }
-        const dm = await client.conversations.open({ users: userId });
-        const channel = dm.channel?.id;
-        if (channel) {
-          await client.chat.postMessage({
-            channel,
-            text: 'Your tale is erased. Ready to roll a new hero?',
-          });
-        }
+        await postToUser({
+          client,
+          userId,
+          text: 'Your tale is erased. Ready to roll a new hero?',
+        });
 
         if (client.views?.publish) {
           try {

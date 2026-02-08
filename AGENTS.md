@@ -15,7 +15,8 @@
 - Never use gcloud cli to make modifications. Treat it as read only and use it for gathering information or debugging.
 - Slack manifest updates: prefer editing `apps/slack-manifest/manifest/base.json`. Files under `apps/slack-manifest/manifest/generated/` are generated and should not be edited manually.
 - Slack manifest token refresh: if the manifest tool returns `token_expired`, refresh via Slack API `tooling.tokens.rotate` using `SLACK_MANIFEST_REFRESH_TOKEN` (see https://docs.slack.dev/reference/methods/tooling.tokens.rotate/).
-
+- ALWAYS read the latest context in AGENTS.md before starting a task.
+- ALWAYS update AGENTS.md with important findings and lesson for future agents.
 - Slack bot communication note:
   - All player-facing Slack communications are delivered via direct message (DM) with the bot. Commands that affect nearby players (for example, `pickup`) DM the acting player with detailed results and DM other players at the same x/y with a short, vague notification.
 
@@ -76,3 +77,13 @@
 ## Recent Changes
 
 - 001-hq-market-crier: Added Node.js 20 / TypeScript 5 (NestJS services) + NestJS, Slack Bolt SDK, Prisma ORM, `@mud/event-bus`, `@mud/logging`, Datadog tracing
+
+## Agent Notes (2026-02-08)
+
+- apps/slack actions repeatedly re-implement action context extraction (userId/teamId/triggerId/channelId) and DM/ephemeral posting; consider shared helpers in `apps/slack/src/actions/helpers.ts` to reduce duplication across action handlers.
+- apps/slack has duplicated formatting logic for leaderboards (app home vs home actions), item stat formatting (inventory vs catalog), and stats formatting helpers (stats/format.ts vs stats/modal.ts); consider shared utility modules.
+- Mixed handler styles (class-based vs function + `registerHandler`) lead to repeated error handling and parsing; standardize on a wrapper or base class to reduce divergence.
+- Slack service: `apps/slack/src/notification.service.ts` sends notifications sequentially per recipient, does per-recipient installation lookup, and opens a DM each time; caching and concurrency limits could improve latency without hitting Slack rate limits.
+- Slack service: `apps/slack/src/dm-client.ts` is a monolith mixing request logic, types, and endpoint wrappers; splitting by domain would reduce churn and make imports more targeted.
+- Slack service duplicates Slack block/text truncation logic in both `apps/slack/src/notification.service.ts` and `apps/slack/src/handlers/combatMessaging.ts`; a shared utility would keep message-size handling consistent.
+- Refactor baseline now exists: use `apps/slack/src/actions/helpers.ts` (`getActionContext`, `postToUser`, `postEphemeralOrDm`) and `apps/slack/src/utils/slackPayload.ts` (`truncateSlackPayload`) before adding new ad-hoc action/message helper code.

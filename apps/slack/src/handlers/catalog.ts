@@ -4,14 +4,12 @@ import { PlayerCommandHandler } from './base';
 import type { HandlerContext } from './types';
 import type { GuildCatalogItem } from '../dm-client';
 import { getQualityBadge, formatQualityLabel } from '@mud/constants';
+import { formatSignedStat } from '../utils/itemDisplay';
 
 const formatSlotLabel = (slot?: string | null) => {
   if (!slot) return '—';
   return slot[0].toUpperCase() + slot.slice(1);
 };
-
-const formatSignedStat = (value: number): string =>
-  value >= 0 ? `+${value}` : `${value}`;
 
 const buildCatalogBlocks = (items: GuildCatalogItem[]): KnownBlock[] => {
   if (items.length === 0) {

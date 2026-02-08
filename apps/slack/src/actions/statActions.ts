@@ -1,6 +1,7 @@
 import type { App, BlockAction, ViewSubmitAction } from '@slack/bolt';
 import { STAT_ACTIONS } from '../commands';
 import { dmClient } from '../dm-client';
+import { getActionContext } from './helpers';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
 import { buildAppHomeBlocks } from '../handlers/appHome';
 import {
@@ -16,9 +17,7 @@ export const registerStatActions = (app: App) => {
     async ({ ack, body, client, context, respond }) => {
       await ack();
 
-      const userId = body.user?.id;
-      const teamId = body.team?.id ?? (context as { teamId?: string })?.teamId;
-      const triggerId = body.trigger_id;
+      const { userId, teamId, triggerId } = getActionContext(body, context);
       if (!teamId || !userId || !triggerId) {
         app.logger.warn(
           { actionId: STAT_ACTIONS.OPEN_LEVEL_UP, userId, teamId },

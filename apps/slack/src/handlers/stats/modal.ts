@@ -2,6 +2,7 @@ import type { ModalView, KnownBlock } from '@slack/types';
 import { STAT_ACTIONS } from '../../commands';
 import { PlayerAttribute } from '../../dm-types';
 import type { EquipmentTotals } from '../../dm-client';
+import { displayValue, effectiveStat } from './utils';
 
 export const CHARACTER_SHEET_VIEW_ID = 'character_sheet_view';
 export const SKILL_POINT_BLOCK_ID = 'character_sheet_skill_points';
@@ -29,9 +30,6 @@ const attributeOptions = [
   { label: 'Vitality', value: PlayerAttribute.Health },
 ];
 
-const displayValue = (value: unknown) =>
-  value === undefined || value === null ? '—' : String(value);
-
 const formatNumber = (value: number, decimals = 1): string => {
   if (Number.isNaN(value)) return '—';
   if (decimals === 0) return String(Math.round(value));
@@ -39,11 +37,6 @@ const formatNumber = (value: number, decimals = 1): string => {
 };
 
 const formatPercent = (value: number): string => `${Math.round(value * 100)}%`;
-
-const effectiveStat = (value: number | null | undefined): number | null => {
-  if (value == null) return null;
-  return Math.sqrt(Math.max(0, value));
-};
 
 const resolveStatBonuses = (equipmentTotals?: EquipmentTotals | null) => {
   return {

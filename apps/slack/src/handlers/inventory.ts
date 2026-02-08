@@ -6,6 +6,7 @@ import type { KnownBlock, ActionsBlock, Button, ModalView } from '@slack/types';
 // Use Prisma-generated enum for item qualities so the mapping follows the
 // canonical backend enum values.
 import { PlayerSlot } from '@mud/database';
+import { formatSignedStat } from '../utils/itemDisplay';
 
 type PlayerWithBag = PlayerRecord & { bag?: ItemRecord[] };
 import { getUserFriendlyErrorMessage } from './errorUtils';
@@ -33,13 +34,6 @@ const SLOT_EMOJIS: Record<EquipmentSlotKey, string> = {
 const resolvePlayerItemId = (item: ItemRecord | undefined): number | null => {
   const id = item?.id;
   return typeof id === 'number' ? id : null;
-};
-
-const formatSignedStat = (value: number): string => {
-  if (!Number.isFinite(value)) {
-    return '0';
-  }
-  return value >= 0 ? `+${value}` : `${value}`;
 };
 
 const normalizeTicketCount = (value: number | null | undefined): number =>

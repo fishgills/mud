@@ -3,6 +3,7 @@ import type { ModalView, KnownBlock } from '@slack/types';
 import { FEEDBACK_ACTIONS } from '../commands';
 import { dmClient } from '../dm-client';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
+import { getActionContext, postToUser } from './helpers';
 
 const FEEDBACK_MODAL_VIEW_ID = 'feedback_modal_submit';
 
@@ -120,9 +121,7 @@ export const registerFeedbackActions = (app: App) => {
       await ack();
       logger?.debug?.('[FEEDBACK-ACTIONS] Open modal action triggered');
 
-      const userId = body.user?.id;
-      const teamId = body.team?.id ?? (context as { teamId?: string })?.teamId;
-      const triggerId = body.trigger_id;
+      const { userId, teamId, triggerId } = getActionContext(body, context);
 
       if (!userId || !teamId || !triggerId) {
         logger?.warn?.(
@@ -175,8 +174,7 @@ export const registerFeedbackActions = (app: App) => {
     async ({ ack, body, client, context, action, logger }) => {
       await ack();
 
-      const userId = body.user?.id;
-      const teamId = body.team?.id ?? (context as { teamId?: string })?.teamId;
+      const { userId, teamId } = getActionContext(body, context);
 
       if (!userId || !teamId) {
         logger?.warn?.(
@@ -331,10 +329,6 @@ async function sendFeedbackDM(
   result: { success: boolean; message: string; githubUrl?: string },
 ) {
   try {
-    const dm = await client.conversations.open({ users: userId });
-    const channel = dm.channel?.id;
-    if (!channel) return;
-
     const blocks: KnownBlock[] = [
       {
         type: 'section',
@@ -357,8 +351,9 @@ async function sendFeedbackDM(
       });
     }
 
-    await client.chat.postMessage({
-      channel,
+    await postToUser({
+      client,
+      userId,
       text: result.message,
       blocks,
     });

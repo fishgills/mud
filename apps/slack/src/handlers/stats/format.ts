@@ -2,14 +2,7 @@ import type { KnownBlock, Block } from '@slack/types';
 import { buildCharacterSheetModel } from '@mud/character-sheet';
 import { SayMessage } from '../types';
 import { MonsterStatsSource, PlayerStatsSource } from './types';
-
-const displayValue = (value: unknown) =>
-  value === undefined || value === null ? '—' : String(value);
-
-const effectiveStat = (value: number | null | undefined): number | null => {
-  if (value == null) return null;
-  return Math.sqrt(Math.max(0, value));
-};
+import { displayValue, effectiveStat } from './utils';
 
 const attributeWithEffective = (value: number | null | undefined): string => {
   const effective = effectiveStat(value);

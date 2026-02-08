@@ -4,27 +4,12 @@ import { COMMANDS, HOME_ACTIONS } from '../commands';
 import type { PlayerRecord } from '../dm-client';
 import { dmClient, getLeaderboard } from '../dm-client';
 import { dispatchCommandViaDM } from './commandDispatch';
+import { getActionContext, postToUser } from './helpers';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
+import { formatLeaderboardLines } from '../handlers/leaderboard';
 import { buildCharacterSheetModal } from '../handlers/stats/modal';
 
 const LEADERBOARD_VIEW_ID = 'leaderboard_view';
-
-const formatLeaderboardLines = (
-  players: PlayerRecord[] | undefined,
-  emptyLabel: string,
-) => {
-  if (!players || players.length === 0) {
-    return `_${emptyLabel}_`;
-  }
-  return players
-    .map((player, index) => {
-      const rank = index + 1;
-      const name = player.name ?? 'Unknown';
-      const level = player.level ?? '-';
-      return `*${rank}.* ${name} - L${level}`;
-    })
-    .join('\n');
-};
 
 const buildLeaderboardView = (params: {
   workspacePlayers: PlayerRecord[];
@@ -49,14 +34,14 @@ const buildLeaderboardView = (params: {
           type: 'mrkdwn',
           text: `*This workspace*\\n${formatLeaderboardLines(
             params.workspacePlayers,
-            'No heroes yet',
+            { emptyLabel: 'No heroes yet', style: 'rank' },
           )}`,
         },
         {
           type: 'mrkdwn',
           text: `*Across all workspaces*\\n${formatLeaderboardLines(
             params.globalPlayers,
-            'No legends recorded yet',
+            { emptyLabel: 'No legends recorded yet', style: 'rank' },
           )}`,
         },
       ],
@@ -86,8 +71,7 @@ export const registerHomeActions = (app: App) => {
     HOME_ACTIONS.RESUME,
     async ({ ack, body, client, context }) => {
       await ack();
-      const userId = body.user?.id;
-      const teamId = body.team?.id ?? (context as { teamId?: string })?.teamId;
+      const { userId, teamId } = getActionContext(body, context);
       if (!userId) return;
       await dispatchCommandViaDM(client, userId, COMMANDS.RUN, teamId);
     },
@@ -97,8 +81,7 @@ export const registerHomeActions = (app: App) => {
     HOME_ACTIONS.CONTINUE_RUN,
     async ({ ack, body, client, context }) => {
       await ack();
-      const userId = body.user?.id;
-      const teamId = body.team?.id ?? (context as { teamId?: string })?.teamId;
+      const { userId, teamId } = getActionContext(body, context);
       if (!userId) return;
       await dispatchCommandViaDM(client, userId, COMMANDS.CONTINUE, teamId);
     },
@@ -108,9 +91,7 @@ export const registerHomeActions = (app: App) => {
     HOME_ACTIONS.VIEW_STATS,
     async ({ ack, body, client, context, respond }) => {
       await ack();
-      const userId = body.user?.id;
-      const teamId = body.team?.id ?? (context as { teamId?: string })?.teamId;
-      const triggerId = body.trigger_id;
+      const { userId, teamId, triggerId } = getActionContext(body, context);
       if (!userId || !teamId || !triggerId) return;
 
       try {
@@ -156,9 +137,7 @@ export const registerHomeActions = (app: App) => {
     HOME_ACTIONS.VIEW_LEADERBOARD,
     async ({ ack, body, client, context, respond }) => {
       await ack();
-      const userId = body.user?.id;
-      const teamId = body.team?.id ?? (context as { teamId?: string })?.teamId;
-      const triggerId = body.trigger_id;
+      const { userId, teamId, triggerId } = getActionContext(body, context);
       if (!userId || !teamId || !triggerId) return;
 
       try {
@@ -191,14 +170,7 @@ export const registerHomeActions = (app: App) => {
           });
           return;
         }
-        const dm = await client.conversations.open({ users: userId });
-        const channel = dm.channel?.id;
-        if (channel) {
-          await client.chat.postMessage({
-            channel,
-            text: message,
-          });
-        }
+        await postToUser({ client, userId, text: message });
       }
     },
   );
