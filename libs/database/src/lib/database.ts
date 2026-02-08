@@ -10,7 +10,6 @@ import {
   GuildTradeDirection,
   ItemType,
   type Player,
-  type GuildShopState,
   type SlackUser,
   type Monster,
   type Item,
