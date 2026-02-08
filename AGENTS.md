@@ -16,7 +16,11 @@
 - Slack manifest updates: prefer editing `apps/slack-manifest/manifest/base.json`. Files under `apps/slack-manifest/manifest/generated/` are generated and should not be edited manually.
 - Slack manifest token refresh: if the manifest tool returns `token_expired`, refresh via Slack API `tooling.tokens.rotate` using `SLACK_MANIFEST_REFRESH_TOKEN` (see https://docs.slack.dev/reference/methods/tooling.tokens.rotate/).
 - ALWAYS read the latest context in AGENTS.md before starting a task.
-- ALWAYS update AGENTS.md with important findings and lesson for future agents.
+- If there is something important you have learned about this codebase that future Agents would find useful, _document it here_.
+  - Technology changes
+  - Architecture mismatch
+  - Core functionality
+  - Anything else deemed important but not day to day changes. Think "Future agent could benefit from knowing this"
 - Slack bot communication note:
   - All player-facing Slack communications are delivered via direct message (DM) with the bot. Commands that affect nearby players (for example, `pickup`) DM the acting player with detailed results and DM other players at the same x/y with a short, vague notification.
 
