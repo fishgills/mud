@@ -34,6 +34,11 @@ export class FeedbackController {
     this.logger.debug(
       `Feedback submission result: success=${result.success}, feedbackId=${result.feedbackId ?? 'none'}`,
     );
+    if (!result.success && result.rejectionReason) {
+      this.logger.warn(
+        `Feedback rejected: reason="${result.rejectionReason}" player=${dto.playerId ?? 'none'} submitter=${dto.teamId ?? 'none'}/${dto.userId ?? 'none'}`,
+      );
+    }
     return result;
   }
 

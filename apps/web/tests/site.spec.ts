@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '/www';
-const normalizedBasePath = basePath && basePath !== '/' ? basePath : '';
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+const normalizedBasePath =
+  basePath && basePath !== '/' ? basePath.replace(/\/$/, '') : '';
 const withBasePath = (href: string) =>
   normalizedBasePath ? `${normalizedBasePath}${href}` : href;
 
@@ -22,8 +23,8 @@ test('home page has required links', async ({ page }) => {
     'aria-current',
     'page',
   );
-  await expect(nav.getByRole('link', { name: 'Character' })).toBeVisible();
-  await expect(nav.getByRole('link', { name: 'Store' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Character' })).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: 'Store' })).toHaveCount(0);
   await expect(nav.getByRole('link', { name: 'Privacy' })).toBeVisible();
   await expect(nav.getByRole('link', { name: 'Terms' })).toBeVisible();
   await expect(nav.getByRole('link', { name: 'Support' })).toBeVisible();
@@ -41,7 +42,7 @@ test('character page prompts sign in when unauthenticated', async ({
 
   await expect(page).toHaveTitle('BattleForge | Character');
   await expect(
-    page.getByRole('heading', { name: 'Your Character', level: 1 }),
+    page.getByRole('heading', { name: 'Character', level: 1 }),
   ).toBeVisible();
   await expect(page.getByText('You are not signed in.')).toBeVisible();
   await expect(
@@ -49,7 +50,7 @@ test('character page prompts sign in when unauthenticated', async ({
   ).toHaveAttribute('href', withBasePath('/api/auth/slack/start'));
   await expect(
     page.getByRole('link', { name: 'Character', exact: true }),
-  ).toHaveAttribute('aria-current', 'page');
+  ).toHaveCount(0);
 });
 
 test('store page prompts sign in when unauthenticated', async ({ page }) => {
@@ -65,7 +66,7 @@ test('store page prompts sign in when unauthenticated', async ({ page }) => {
   ).toHaveAttribute('href', withBasePath('/api/auth/slack/start'));
   await expect(
     page.getByRole('link', { name: 'Store', exact: true }),
-  ).toHaveAttribute('aria-current', 'page');
+  ).toHaveCount(0);
 });
 
 test('terms page provides terms', async ({ page }) => {
