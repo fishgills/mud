@@ -6,7 +6,7 @@ const normalizedBasePath =
   basePath && basePath !== '/' ? basePath.replace(/\/$/, '') : '';
 const baseURL = `http://127.0.0.1:${port}${normalizedBasePath}`;
 const webServerCommand = process.env.CI
-  ? `yarn build && yarn start -p ${port}`
+  ? `yarn turbo build --filter=@mud/web... && yarn start -p ${port}`
   : 'yarn serve';
 
 export default defineConfig({

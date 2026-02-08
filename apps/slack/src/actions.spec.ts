@@ -31,7 +31,6 @@ jest.mock('./dm-client', () => {
 import type { ActionsBlock, KnownBlock, SectionBlock } from '@slack/types';
 import { registerActions } from './actions';
 import {
-  COMMANDS,
   HELP_ACTIONS,
   STAT_ACTIONS,
   COMBAT_ACTIONS,
