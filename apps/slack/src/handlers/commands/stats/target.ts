@@ -1,5 +1,5 @@
-import { COMMANDS } from '../../commands';
-import { HandlerContext } from '../types';
+import { COMMANDS } from '../../../commands';
+import { HandlerContext } from '../../types';
 
 const leadingFiller = new Set(['for', 'about', 'of', 'on', 'the']);
 const contextWords = new Set(['player', 'character']);

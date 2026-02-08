@@ -9,7 +9,7 @@ import {
   CHARACTER_SHEET_VIEW_ID,
   parseSkillPointAttribute,
   SKILL_POINT_BLOCK_ID,
-} from '../handlers/stats/modal';
+} from '../handlers/commands/stats/modal';
 
 export const registerStatActions = (app: App) => {
   app.action<BlockAction>(

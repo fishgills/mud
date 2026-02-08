@@ -1,10 +1,10 @@
 import type { KnownBlock } from '@slack/types';
-import { COMMANDS, GUILD_SHOP_ACTIONS } from '../commands';
-import { PlayerCommandHandler } from './base';
-import type { HandlerContext } from './types';
-import type { GuildCatalogItem } from '../dm-client';
+import { COMMANDS, GUILD_SHOP_ACTIONS } from '../../commands';
+import { PlayerCommandHandler } from '../base';
+import type { HandlerContext } from '../types';
+import type { GuildCatalogItem } from '../../dm-client';
 import { getQualityBadge, formatQualityLabel } from '@mud/constants';
-import { formatSignedStat } from '../utils/itemDisplay';
+import { formatSignedStat } from '../../utils/itemDisplay';
 
 const formatSlotLabel = (slot?: string | null) => {
   if (!slot) return '—';

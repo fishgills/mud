@@ -1,11 +1,11 @@
-import { COMMANDS } from '../../commands';
-import { registerHandler } from '../handlerRegistry';
-import { getUserFriendlyErrorMessage } from '../errorUtils';
-import { HandlerContext } from '../types';
+import { COMMANDS } from '../../../commands';
+import { registerHandler } from '../../handlerRegistry';
+import { getUserFriendlyErrorMessage } from '../../errorUtils';
+import { HandlerContext } from '../../types';
 import { fetchPlayerRecord } from './lookup';
 import { resolveTarget } from './target';
 import { PlayerStatsSource } from './types';
-import { MISSING_CHARACTER_MESSAGE } from '../characterUtils';
+import { MISSING_CHARACTER_MESSAGE } from '../../characterUtils';
 import { buildCharacterSheetBlocks, buildCharacterSheetModal } from './modal';
 
 export const statsHandlerHelp = `Open the character sheet with "${COMMANDS.STATS}". Example: Send "${COMMANDS.STATS}" for yourself or "${COMMANDS.STATS} @player" to inspect another adventurer.`;

@@ -1,6 +1,6 @@
-import { COMMANDS } from '../commands';
-import { HandlerContext } from './types';
-import { PlayerCommandHandler } from './base';
+import { COMMANDS } from '../../commands';
+import { HandlerContext } from '../types';
+import { PlayerCommandHandler } from '../base';
 
 export const completeHandlerHelp = `Complete your character creation with "complete". Example: Send "complete" when you are done creating your character.`;
 

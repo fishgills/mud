@@ -1,7 +1,7 @@
 import type { KnownBlock } from '@slack/types';
-import { HandlerContext } from './types';
-import { COMMANDS, HELP_ACTIONS } from '../commands';
-import { PlayerCommandHandler } from './base';
+import { HandlerContext } from '../types';
+import { COMMANDS, HELP_ACTIONS } from '../../commands';
+import { PlayerCommandHandler } from '../base';
 
 export const helpHandlerHelp = `Show instructions for using the bot with "help".`;
 

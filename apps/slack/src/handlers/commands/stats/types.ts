@@ -1,5 +1,5 @@
 import type { Player, Monster } from '@mud/database';
-import type { EquipmentTotals } from '../../dm-client';
+import type { EquipmentTotals } from '../../../dm-client';
 
 // PlayerStatsSource extends Player with optional slackUser relation
 // for Slack-specific operations like determining if viewing own stats

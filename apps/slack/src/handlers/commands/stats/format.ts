@@ -1,6 +1,6 @@
 import type { KnownBlock, Block } from '@slack/types';
 import { buildCharacterSheetModel } from '@mud/character-sheet';
-import { SayMessage } from '../types';
+import { SayMessage } from '../../types';
 import { MonsterStatsSource, PlayerStatsSource } from './types';
 import { displayValue, effectiveStat } from './utils';
 

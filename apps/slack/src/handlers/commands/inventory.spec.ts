@@ -1,12 +1,12 @@
-jest.mock('../dm-client', () => ({
+jest.mock('../../dm-client', () => ({
   getPlayerItems: jest.fn(),
 }));
 
 import type { ActionsBlock, Button, SectionBlock } from '@slack/types';
-import type { SayMessage } from './types';
+import type { SayMessage } from '../types';
 import { inventoryHandler, __private__ } from './inventory';
-import { getPlayerItems } from '../dm-client';
-import { COMMANDS } from '../commands';
+import { getPlayerItems } from '../../dm-client';
+import { COMMANDS } from '../../commands';
 
 const mockedGetPlayer = getPlayerItems as unknown as jest.MockedFunction<
   typeof getPlayerItems

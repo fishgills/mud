@@ -1,7 +1,7 @@
 import type { ModalView, KnownBlock } from '@slack/types';
-import { STAT_ACTIONS } from '../../commands';
-import { PlayerAttribute } from '../../dm-types';
-import type { EquipmentTotals } from '../../dm-client';
+import { STAT_ACTIONS } from '../../../commands';
+import { PlayerAttribute } from '../../../dm-types';
+import type { EquipmentTotals } from '../../../dm-client';
 import { displayValue, effectiveStat } from './utils';
 
 export const CHARACTER_SHEET_VIEW_ID = 'character_sheet_view';
