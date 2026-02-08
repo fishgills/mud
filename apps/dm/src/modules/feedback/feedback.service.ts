@@ -37,13 +37,11 @@ export class FeedbackService {
   ): Promise<SubmitFeedbackResponse> {
     const submitter = this.resolveSubmitter(dto);
     if (!submitter) {
-      this.logger.warn(
-        '[FEEDBACK-FLOW] Missing submitter identity (playerId or teamId/userId required)',
+      return this.rejectFeedback(
+        'missing_submitter_identity',
+        'unknown',
+        'Missing feedback submitter identity.',
       );
-      return {
-        success: false,
-        rejectionReason: 'Missing feedback submitter identity.',
-      };
     }
 
     const submitterLabel = submitter.playerId
@@ -73,27 +71,28 @@ export class FeedbackService {
       `[FEEDBACK-FLOW] Rate limit check: recentCount=${recentCount}`,
     );
     if (recentCount > 0) {
-      this.logger.warn(`Submitter ${submitterLabel} is rate limited`);
-      return {
-        success: false,
-        rejectionReason:
-          'You can only submit feedback once per hour. Please try again later.',
-      };
+      return this.rejectFeedback(
+        'rate_limited',
+        submitterLabel,
+        'You can only submit feedback once per hour. Please try again later.',
+      );
     }
 
     // Validate content length
     if (dto.content.length < 10) {
-      return {
-        success: false,
-        rejectionReason: 'Feedback must be at least 10 characters long.',
-      };
+      return this.rejectFeedback(
+        'content_too_short',
+        submitterLabel,
+        'Feedback must be at least 10 characters long.',
+      );
     }
 
     if (dto.content.length > 2000) {
-      return {
-        success: false,
-        rejectionReason: 'Feedback must be less than 2000 characters.',
-      };
+      return this.rejectFeedback(
+        'content_too_long',
+        submitterLabel,
+        'Feedback must be less than 2000 characters.',
+      );
     }
 
     // Validate with LLM
@@ -116,8 +115,10 @@ export class FeedbackService {
     }
 
     if (!validation.isValid) {
-      this.logger.log(
-        `Ignoring non-legitimate feedback from ${submitterLabel}: ${validation.rejectionReason ?? 'rejected by moderation'}`,
+      const moderationReason =
+        validation.rejectionReason ?? 'rejected by moderation';
+      this.logger.warn(
+        `[FEEDBACK-FLOW] Feedback rejected by moderation: submitter=${submitterLabel}, reason="${moderationReason}"`,
       );
       return {
         success: true,
@@ -357,5 +358,19 @@ export class FeedbackService {
     }
 
     return null;
+  }
+
+  private rejectFeedback(
+    reasonCode: string,
+    submitterLabel: string,
+    rejectionReason: string,
+  ): SubmitFeedbackResponse {
+    this.logger.warn(
+      `[FEEDBACK-FLOW] Feedback rejected: code=${reasonCode}, submitter=${submitterLabel}, reason="${rejectionReason}"`,
+    );
+    return {
+      success: false,
+      rejectionReason,
+    };
   }
 }
