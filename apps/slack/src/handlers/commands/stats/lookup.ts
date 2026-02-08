@@ -1,4 +1,4 @@
-import { getPlayer } from '../../dm-client';
+import { getPlayer } from '../../../dm-client';
 import type { PlayerStatsSource } from './types';
 
 export interface PlayerLookupResult {

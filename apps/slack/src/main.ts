@@ -120,25 +120,25 @@ if (receiver?.router) {
   });
 }
 
-import './handlers/attack';
-import './handlers/create';
-import './handlers/reroll';
-import './handlers/complete';
-import './handlers/continue';
-import './handlers/delete';
-import './handlers/sell';
-import './handlers/catalog';
-import './handlers/stats';
-import './handlers/inventory';
-import './handlers/equip';
-import './handlers/feedback';
-import './handlers/guild';
-import './handlers/run';
+import './handlers/commands/attack';
+import './handlers/commands/create';
+import './handlers/commands/reroll';
+import './handlers/commands/complete';
+import './handlers/commands/continue';
+import './handlers/commands/delete';
+import './handlers/commands/sell';
+import './handlers/commands/catalog';
+import './handlers/commands/stats';
+import './handlers/commands/inventory';
+import './handlers/commands/equip';
+import './handlers/commands/feedback';
+import './handlers/commands/guild';
+import './handlers/commands/run';
 import { getAllHandlers } from './handlers/handlerRegistry';
 import { COMMANDS } from './commands';
 import { registerActions } from './actions';
 import { HandlerContext, SayMessage } from './handlers/types';
-import { helpHandler } from './handlers/help';
+import { helpHandler } from './handlers/commands/help';
 import { registerAppHome } from './handlers/appHome';
 import { registerUninstallHandler } from './handlers/uninstall';
 

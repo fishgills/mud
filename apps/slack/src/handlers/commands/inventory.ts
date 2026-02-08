@@ -1,17 +1,17 @@
-import { COMMANDS, GUILD_SHOP_ACTIONS } from '../commands';
-import { getPlayerItems, ItemRecord } from '../dm-client';
-import type { PlayerRecord } from '../dm-client';
-import { MISSING_CHARACTER_MESSAGE } from './characterUtils';
+import { COMMANDS, GUILD_SHOP_ACTIONS } from '../../commands';
+import { getPlayerItems, ItemRecord } from '../../dm-client';
+import type { PlayerRecord } from '../../dm-client';
+import { MISSING_CHARACTER_MESSAGE } from '../characterUtils';
 import type { KnownBlock, ActionsBlock, Button, ModalView } from '@slack/types';
 // Use Prisma-generated enum for item qualities so the mapping follows the
 // canonical backend enum values.
 import { PlayerSlot } from '@mud/database';
-import { formatSignedStat } from '../utils/itemDisplay';
+import { formatSignedStat } from '../../utils/itemDisplay';
 
 type PlayerWithBag = PlayerRecord & { bag?: ItemRecord[] };
-import { getUserFriendlyErrorMessage } from './errorUtils';
-import { registerHandler } from './handlerRegistry';
-import type { HandlerContext } from './types';
+import { getUserFriendlyErrorMessage } from '../errorUtils';
+import { registerHandler } from '../handlerRegistry';
+import type { HandlerContext } from '../types';
 
 type EquipmentSlotKey = PlayerSlot;
 

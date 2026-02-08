@@ -1,4 +1,4 @@
-jest.mock('../dm-client', () => {
+jest.mock('../../dm-client', () => {
   const dmClient = {
     attack: jest.fn(),
     getPlayer: jest.fn(),
@@ -7,11 +7,11 @@ jest.mock('../dm-client', () => {
   return { dmClient };
 });
 
-import { dmClient } from '../dm-client';
-import { AttackOrigin, TargetType } from '../dm-types';
+import { dmClient } from '../../dm-client';
+import { AttackOrigin, TargetType } from '../../dm-types';
 import { attackHandler } from './attack';
 import { catalogHandler } from './catalog';
-import type { HandlerContext, SayMessage } from './types';
+import type { HandlerContext, SayMessage } from '../types';
 
 const mockedDmClient = dmClient as unknown as {
   attack: jest.Mock;

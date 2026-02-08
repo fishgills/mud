@@ -1,7 +1,7 @@
-import { COMMANDS } from '../commands';
-import type { GuildInvitesResponse } from '../dm-client';
-import { PlayerCommandHandler } from './base';
-import type { HandlerContext } from './types';
+import { COMMANDS } from '../../commands';
+import type { GuildInvitesResponse } from '../../dm-client';
+import { PlayerCommandHandler } from '../base';
+import type { HandlerContext } from '../types';
 
 const buildGuildSummary = (data: {
   name: string;

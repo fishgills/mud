@@ -1,9 +1,9 @@
-import { equip } from '../dm-client';
-import { COMMANDS } from '../commands';
-import { registerHandler } from './handlerRegistry';
-import type { HandlerContext } from './types';
-import { getUserFriendlyErrorMessage } from './errorUtils';
-import { buildItemActionMessage } from '../utils/itemDisplay';
+import { equip } from '../../dm-client';
+import { COMMANDS } from '../../commands';
+import { registerHandler } from '../handlerRegistry';
+import type { HandlerContext } from '../types';
+import { getUserFriendlyErrorMessage } from '../errorUtils';
+import { buildItemActionMessage } from '../../utils/itemDisplay';
 
 export const equipHandler = async ({
   userId,
@@ -39,7 +39,9 @@ export const equipHandler = async ({
           res.data,
           res.message ?? `Equipped item ${playerItemId} to ${slot}.`,
           { suffix: `to ${slot}` },
-        ) ?? res.message ?? `Equipped item ${playerItemId} to ${slot}.`;
+        ) ??
+        res.message ??
+        `Equipped item ${playerItemId} to ${slot}.`;
       await say({
         text: successText,
       });
