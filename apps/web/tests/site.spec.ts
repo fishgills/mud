@@ -50,7 +50,7 @@ test('character page prompts sign in when unauthenticated', async ({
   ).toHaveAttribute('href', withBasePath('/api/auth/slack/start'));
   await expect(
     page.getByRole('link', { name: 'Character', exact: true }),
-  ).toHaveAttribute('aria-current', 'page');
+  ).toHaveCount(0);
 });
 
 test('store page prompts sign in when unauthenticated', async ({ page }) => {
@@ -66,7 +66,7 @@ test('store page prompts sign in when unauthenticated', async ({ page }) => {
   ).toHaveAttribute('href', withBasePath('/api/auth/slack/start'));
   await expect(
     page.getByRole('link', { name: 'Store', exact: true }),
-  ).toHaveAttribute('aria-current', 'page');
+  ).toHaveCount(0);
 });
 
 test('terms page provides terms', async ({ page }) => {
