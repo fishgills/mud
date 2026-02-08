@@ -1,12 +1,12 @@
 import type { App, BlockAction } from '@slack/bolt';
 import type { KnownBlock } from '@slack/types';
-import type { WebClient } from '@slack/web-api';
 import { COMMANDS, HELP_ACTIONS } from '../commands';
 import { dispatchCommandViaDM } from './commandDispatch';
 import { dmClient, getPlayerItems } from '../dm-client';
 import { buildCharacterSheetModal } from '../handlers/stats/modal';
 import { buildInventoryModal } from '../handlers/inventory';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
+import { getActionContext, postToUser } from './helpers';
 
 type HelpDetailMessage = {
   text: string;
@@ -165,15 +165,13 @@ const helpDetailMessages: Record<string, HelpDetailMessage> = {
 };
 
 const sendHelpDetailViaDM = async (
-  client: WebClient,
+  client: App['client'],
   userId: string,
   message: HelpDetailMessage,
 ) => {
-  const dm = await client.conversations.open({ users: userId });
-  const channel = dm.channel?.id;
-  if (!channel) return;
-  await client.chat.postMessage({
-    channel,
+  await postToUser({
+    client,
+    userId,
     text: message.text,
     blocks: message.blocks,
   });
@@ -184,10 +182,7 @@ export const registerHelpActions = (app: App) => {
     HELP_ACTIONS.STATS,
     async ({ ack, body, client, context, respond }) => {
       await ack();
-      const userId = body.user?.id;
-      const teamId =
-        typeof context.teamId === 'string' ? context.teamId : undefined;
-      const triggerId = body.trigger_id;
+      const { userId, teamId, triggerId } = getActionContext(body, context);
       if (!userId || !teamId || !triggerId) return;
       try {
         const result = await dmClient.getPlayer({ teamId, userId });
@@ -231,10 +226,7 @@ export const registerHelpActions = (app: App) => {
     HELP_ACTIONS.INVENTORY,
     async ({ ack, body, client, context, respond }) => {
       await ack();
-      const userId = body.user?.id;
-      const teamId =
-        typeof context.teamId === 'string' ? context.teamId : undefined;
-      const triggerId = body.trigger_id;
+      const { userId, teamId, triggerId } = getActionContext(body, context);
       if (!userId || !teamId || !triggerId) return;
       try {
         const result = await getPlayerItems({ teamId, userId });
@@ -274,9 +266,7 @@ export const registerHelpActions = (app: App) => {
     HELP_ACTIONS.COMMAND_REFERENCE,
     async ({ ack, body, client, context }) => {
       await ack();
-      const userId = body.user?.id;
-      const teamId =
-        typeof context.teamId === 'string' ? context.teamId : undefined;
+      const { userId, teamId } = getActionContext(body, context);
       if (!userId) return;
       await dispatchCommandViaDM(client, userId, COMMANDS.HELP, teamId);
     },

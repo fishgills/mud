@@ -1,6 +1,13 @@
 import { formatQualityLabel } from '@mud/constants';
 import type { ItemRecord } from '../dm-client';
 
+export const formatSignedStat = (value: number): string => {
+  if (!Number.isFinite(value)) {
+    return '0';
+  }
+  return value >= 0 ? `+${value}` : `${value}`;
+};
+
 const normalizeName = (value?: string | null): string | undefined => {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();

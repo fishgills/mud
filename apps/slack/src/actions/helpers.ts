@@ -17,6 +17,12 @@ export const getTriggerId = (body: unknown): string | undefined => {
   return (body as { trigger_id?: unknown }).trigger_id as string | undefined;
 };
 
+const getContextTeamId = (context: unknown): string | undefined => {
+  if (!context || typeof context !== 'object') return undefined;
+  const value = (context as { teamId?: unknown }).teamId;
+  return typeof value === 'string' ? value : undefined;
+};
+
 export const getChannelIdFromBody = (body: unknown): string | undefined => {
   const b = body as {
     channel?: { id?: unknown } | undefined;
@@ -27,6 +33,87 @@ export const getChannelIdFromBody = (body: unknown): string | undefined => {
     return b.container.channel_id;
   }
   return undefined;
+};
+
+export type ActionContext = {
+  userId?: string;
+  teamId?: string;
+  triggerId?: string;
+  channelId?: string;
+};
+
+export const getActionContext = (
+  body: unknown,
+  context?: unknown,
+): ActionContext => {
+  const b = body as {
+    user?: { id?: unknown; team_id?: unknown } | undefined;
+    team?: { id?: unknown } | undefined;
+  };
+
+  const userId = typeof b.user?.id === 'string' ? b.user.id : undefined;
+  const bodyTeamId = typeof b.team?.id === 'string' ? b.team.id : undefined;
+  const userTeamId =
+    typeof b.user?.team_id === 'string' ? b.user.team_id : undefined;
+  const teamId = bodyTeamId ?? userTeamId ?? getContextTeamId(context);
+
+  return {
+    userId,
+    teamId,
+    triggerId: getTriggerId(body),
+    channelId: getChannelIdFromBody(body),
+  };
+};
+
+const openDirectMessageChannel = async (
+  client: WebClient,
+  userId: string,
+): Promise<string | undefined> => {
+  const dm = await client.conversations.open({ users: userId });
+  return dm.channel?.id;
+};
+
+export const postToUser = async (params: {
+  client: WebClient;
+  userId?: string;
+  channelId?: string;
+  text: string;
+  blocks?: KnownBlock[];
+}) => {
+  const { client, userId, channelId, text, blocks } = params;
+  const targetChannel =
+    channelId ??
+    (userId ? await openDirectMessageChannel(client, userId) : null);
+  if (!targetChannel) return;
+
+  await client.chat.postMessage({
+    channel: targetChannel,
+    text,
+    ...(blocks && blocks.length > 0 ? { blocks } : {}),
+  });
+};
+
+export const postEphemeralOrDm = async (params: {
+  client: WebClient;
+  userId: string;
+  channelId?: string;
+  text: string;
+}) => {
+  const { client, userId, channelId, text } = params;
+  if (channelId) {
+    await client.chat.postEphemeral({
+      channel: channelId,
+      user: userId,
+      text,
+    });
+    return;
+  }
+
+  await postToUser({
+    client,
+    userId,
+    text,
+  });
 };
 
 export const buildSayHelper =

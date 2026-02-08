@@ -1,9 +1,8 @@
 import type { App, BlockAction } from '@slack/bolt';
-import type { WebClient } from '@slack/web-api';
 import type { KnownBlock } from '@slack/types';
 import { dmClient } from '../dm-client';
 import { RUN_ACTIONS } from '../commands';
-import { getActionValue, getChannelIdFromBody } from './helpers';
+import { getActionContext, getActionValue, postToUser } from './helpers';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
 
 const parseRunId = (value?: string): number | undefined => {
@@ -12,27 +11,8 @@ const parseRunId = (value?: string): number | undefined => {
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 
-const postToUser = async (params: {
-  client: WebClient;
-  userId?: string;
-  channelId?: string;
-  text: string;
-}) => {
-  const { client, userId, channelId, text } = params;
-  if (channelId) {
-    await client.chat.postMessage({ channel: channelId, text });
-    return;
-  }
-  if (!userId) return;
-  const dm = await client.conversations.open({ users: userId });
-  const channel = dm.channel?.id;
-  if (channel) {
-    await client.chat.postMessage({ channel, text });
-  }
-};
-
 const clearRunActionButtons = async (params: {
-  client: WebClient;
+  client: App['client'];
   body: BlockAction;
   channelId?: string;
 }) => {
@@ -40,9 +20,7 @@ const clearRunActionButtons = async (params: {
   const messageTs = body.container?.message_ts;
   const blocks = body.message?.blocks as KnownBlock[] | undefined;
   if (!channelId || !messageTs || !blocks?.length) return;
-  const nextBlocks = blocks.filter(
-    (block) => block.type !== 'actions',
-  );
+  const nextBlocks = blocks.filter((block) => block.type !== 'actions');
   if (nextBlocks.length === blocks.length) return;
   await client.chat.update({
     channel: channelId,
@@ -57,10 +35,7 @@ export const registerRunActions = (app: App) => {
     RUN_ACTIONS.CONTINUE,
     async ({ ack, body, client, context }) => {
       await ack();
-      const userId = body.user?.id;
-      const teamId =
-        body.team?.id ?? (context as { teamId?: string })?.teamId;
-      const channelId = getChannelIdFromBody(body);
+      const { userId, teamId, channelId } = getActionContext(body, context);
       const runId = parseRunId(getActionValue(body));
 
       if (!teamId || !userId) return;
@@ -95,10 +70,7 @@ export const registerRunActions = (app: App) => {
     RUN_ACTIONS.FINISH,
     async ({ ack, body, client, context }) => {
       await ack();
-      const userId = body.user?.id;
-      const teamId =
-        body.team?.id ?? (context as { teamId?: string })?.teamId;
-      const channelId = getChannelIdFromBody(body);
+      const { userId, teamId, channelId } = getActionContext(body, context);
       const runId = parseRunId(getActionValue(body));
 
       if (!teamId || !userId) return;

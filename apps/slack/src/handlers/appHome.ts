@@ -7,6 +7,7 @@ import {
   FEEDBACK_ACTIONS,
 } from '../commands';
 import { getActiveRun, getLeaderboard, getPlayer } from '../dm-client';
+import { formatLeaderboardLines } from './leaderboard';
 
 const buildLeaderboardBlocks = async (
   teamId?: string,
@@ -18,25 +19,15 @@ const buildLeaderboardBlocks = async (
     const globalResult = await getLeaderboard({ limit: 3 });
     const globalPlayers = globalResult.data || [];
 
-    const workspaceLines =
-      workspacePlayers.length > 0
-        ? workspacePlayers
-            .map((player, index) => {
-              const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉';
-              return `${medal} *${player.name}* - L${player.level}`;
-            })
-            .join('\n')
-        : '_No heroes yet_';
+    const workspaceLines = formatLeaderboardLines(workspacePlayers, {
+      emptyLabel: 'No heroes yet',
+      style: 'medal',
+    });
 
-    const globalLines =
-      globalPlayers.length > 0
-        ? globalPlayers
-            .map((player, index) => {
-              const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉';
-              return `${medal} *${player.name}* - L${player.level}`;
-            })
-            .join('\n')
-        : '_No legends yet_';
+    const globalLines = formatLeaderboardLines(globalPlayers, {
+      emptyLabel: 'No legends yet',
+      style: 'medal',
+    });
 
     return [
       {

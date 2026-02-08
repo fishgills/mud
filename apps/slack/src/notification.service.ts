@@ -14,6 +14,7 @@ import {
   formatSlackErrorData,
   formatSlackResponseMetadata,
 } from './handlers/errorUtils';
+import { truncateSlackPayload } from './utils/slackPayload';
 
 interface NotificationServiceOptions {
   installationStore?: InstallationStore;
@@ -22,12 +23,22 @@ interface NotificationServiceOptions {
   guildCrierService?: GuildCrierService;
 }
 
+type NotificationRecipient = NotificationMessage['recipients'][number];
+type SlackNotificationRecipient = Extract<
+  NotificationRecipient,
+  { clientType: 'slack' }
+>;
+
 export class NotificationService {
-  private static readonly SLACK_TEXT_LIMIT = 3000;
-  private static readonly SLACK_BLOCKS_LIMIT = 50;
+  private static readonly MAX_PARALLEL_RECIPIENTS = 5;
   private bridge: RedisEventBridge;
   private readonly options: NotificationServiceOptions;
   private readonly webClients = new Map<string, WebClient>();
+  private readonly botTokenCache = new Map<
+    string,
+    { token: string | null; fromFallback: boolean }
+  >();
+  private readonly dmChannelCache = new Map<string, string>();
   private readonly guildCrier?: GuildCrierService;
 
   constructor(options: NotificationServiceOptions) {
@@ -107,211 +118,199 @@ export class NotificationService {
       );
     }
 
-    // Send message to each recipient
-    for (const recipient of notification.recipients) {
-      if (recipient.clientType !== 'slack') {
-        this.options.logger.debug(
-          { clientType: recipient.clientType },
-          'Skipping non-slack recipient',
-        );
-        continue;
-      }
-      try {
-        this.options.logger.debug(
-          {
-            teamId: recipient.teamId,
-            userId: recipient.userId,
-            role: recipient.role || 'participant',
-            priority: recipient.priority || 'normal',
-            hasBlocks:
-              Array.isArray(recipient.blocks) && recipient.blocks.length > 0,
-          },
-          'Processing recipient',
-        );
+    const slackRecipients = notification.recipients.filter(
+      (recipient): recipient is SlackNotificationRecipient =>
+        recipient.clientType === 'slack',
+    );
 
-        // Open DM channel with user
-        this.options.logger.debug(
-          { teamId: recipient.teamId, userId: recipient.userId },
-          'Opening DM with user',
-        );
-        // Resolve bot credentials for the slack user so we can call the
-        // Web API with the correct bot token for that user's workspace.
-        // Resolve bot credentials for the slack user. In tests or local runs
-        // we may be using the MemoryInstallationStore which doesn't persist
-        // installation rows in the DB. To ensure notifications still work in
-        // those situations, fall back to the globally configured
-        // SLACK_BOT_TOKEN from env when a user-scoped bot token isn't found.
-        const { token: botToken, fromFallback } = await this.resolveBotToken(
-          recipient.teamId,
-          recipient.userId,
-        );
-        if (!botToken) {
-          this.options.logger.error(
-            {
-              teamId: recipient.teamId,
-              userId: recipient.userId,
-            },
-            'No bot credentials or fallback SLACK_BOT_TOKEN available; cannot send notification',
-          );
-          continue;
-        }
+    for (
+      let index = 0;
+      index < slackRecipients.length;
+      index += NotificationService.MAX_PARALLEL_RECIPIENTS
+    ) {
+      const batch = slackRecipients.slice(
+        index,
+        index + NotificationService.MAX_PARALLEL_RECIPIENTS,
+      );
+      await Promise.all(
+        batch.map((recipient) =>
+          this.deliverToRecipient(notification, recipient),
+        ),
+      );
+    }
+  }
 
-        if (fromFallback) {
-          this.options.logger.debug(
-            { teamId: recipient.teamId, userId: recipient.userId },
-            'Using fallback bot token for notification',
-          );
-        }
+  private async deliverToRecipient(
+    notification: NotificationMessage,
+    recipient: SlackNotificationRecipient,
+  ): Promise<void> {
+    try {
+      this.options.logger.debug(
+        {
+          teamId: recipient.teamId,
+          userId: recipient.userId,
+          role: recipient.role || 'participant',
+          priority: recipient.priority || 'normal',
+          hasBlocks:
+            Array.isArray(recipient.blocks) && recipient.blocks.length > 0,
+        },
+        'Processing recipient',
+      );
 
-        const web = this.getOrCreateWebClient(botToken);
-        const dm = await web.conversations.open({ users: recipient.userId });
-
-        // Log DM open response shape minimally
-        try {
-          this.options.logger.debug(
-            {
-              ok: Boolean(dm.ok),
-              channelId: dm.channel?.id || null,
-              is_im: dm.channel?.is_im || null,
-            },
-            'dm.open response',
-          );
-        } catch (e) {
-          this.options.logger.debug(
-            { error: e },
-            'Failed to log dm.open response',
-          );
-        }
-
-        const channelId = dm.channel?.id;
-        if (!channelId) {
-          this.options.logger.error(
-            { teamId: recipient.teamId, userId: recipient.userId },
-            'Could not open DM; no channel ID returned',
-          );
-          continue;
-        }
-
-        // Allow guild crier service to enrich the payload
-        let finalMessage = recipient.message;
-        let finalBlocks = recipient.blocks;
-        if (this.guildCrier) {
-          try {
-            const override = this.guildCrier.formatRecipient(
-              notification,
-              recipient,
-            );
-            if (override) {
-              finalMessage = override.message;
-              finalBlocks = override.blocks;
-            }
-          } catch (error) {
-            this.options.logger.debug(
-              { error },
-              'guild-crier formatting failed; using original payload',
-            );
-          }
-        }
-
-        const truncated = this.truncateSlackPayload(finalMessage, finalBlocks);
-        finalMessage = truncated.text;
-        finalBlocks = truncated.blocks;
-
-        // Send the message. Prefer provided blocks (rich content) if available.
-        if (Array.isArray(finalBlocks) && finalBlocks.length > 0) {
-          const blocksCount = finalBlocks.length;
-          this.options.logger.debug(
-            {
-              channel: channelId,
-              textPreview:
-                typeof finalMessage === 'string' && finalMessage.length > 120
-                  ? `${finalMessage.slice(0, 117)}...`
-                  : finalMessage,
-              blocksCount,
-            },
-            'Posting message with blocks',
-          );
-          await web.chat.postMessage({
-            channel: channelId,
-            text: finalMessage,
-            blocks: (finalBlocks || []) as unknown as (
-              | import('@slack/types').KnownBlock
-              | import('@slack/types').Block
-            )[],
-          });
-        } else {
-          // Add a minimal block wrapper for high-priority messages when no blocks provided
-          const textPreview =
-            typeof finalMessage === 'string' && finalMessage.length > 120
-              ? `${finalMessage.slice(0, 117)}...`
-              : finalMessage;
-
-          this.options.logger.debug(
-            {
-              channel: channelId,
-              textPreview,
-              hasBlocks: recipient.priority === 'high',
-            },
-            'Posting message without blocks',
-          );
-          await web.chat.postMessage({
-            channel: channelId,
-            text: finalMessage,
-            ...(recipient.priority === 'high' && {
-              blocks: [
-                {
-                  type: 'section',
-                  text: {
-                    type: 'mrkdwn',
-                    text: `⚔️ *${notification.type.toUpperCase()}*\n\n${finalMessage}`,
-                  },
-                },
-              ],
-            }),
-          });
-        }
-
-        this.options.logger.info(
-          {
-            teamId: recipient.teamId,
-            userId: recipient.userId,
-            role: recipient.role || 'participant',
-            notificationType: notification.type,
-          },
-          '✅ Sent notification',
-        );
-      } catch (error) {
-        const errorData = formatSlackErrorData(error);
-        const responseMetadata = formatSlackResponseMetadata(error);
-        // Provide stack-aware debug for errors
-        // Log error object for debugging; stringify may fail on circulars so pass as-is
+      const { token: botToken, fromFallback } = await this.resolveBotToken(
+        recipient.teamId,
+        recipient.userId,
+      );
+      if (!botToken) {
         this.options.logger.error(
           {
             teamId: recipient.teamId,
             userId: recipient.userId,
-            error,
-            ...(errorData ? { errorData } : {}),
-            ...(responseMetadata ? { responseMetadata } : {}),
           },
-          'Error sending notification',
+          'No bot credentials or fallback SLACK_BOT_TOKEN available; cannot send notification',
+        );
+        return;
+      }
+
+      if (fromFallback) {
+        this.options.logger.debug(
+          { teamId: recipient.teamId, userId: recipient.userId },
+          'Using fallback bot token for notification',
         );
       }
+
+      const web = this.getOrCreateWebClient(botToken);
+      const channelId = await this.getOrOpenDmChannel(
+        web,
+        botToken,
+        recipient.userId,
+      );
+      if (!channelId) {
+        this.options.logger.error(
+          { teamId: recipient.teamId, userId: recipient.userId },
+          'Could not open DM; no channel ID returned',
+        );
+        return;
+      }
+
+      let finalMessage = recipient.message;
+      let finalBlocks = recipient.blocks;
+      if (this.guildCrier) {
+        try {
+          const override = this.guildCrier.formatRecipient(
+            notification,
+            recipient,
+          );
+          if (override) {
+            finalMessage = override.message;
+            finalBlocks = override.blocks;
+          }
+        } catch (error) {
+          this.options.logger.debug(
+            { error },
+            'guild-crier formatting failed; using original payload',
+          );
+        }
+      }
+
+      const truncated = truncateSlackPayload(finalMessage, finalBlocks);
+      finalMessage = truncated.text;
+      finalBlocks = truncated.blocks;
+
+      if (Array.isArray(finalBlocks) && finalBlocks.length > 0) {
+        this.options.logger.debug(
+          {
+            channel: channelId,
+            textPreview:
+              typeof finalMessage === 'string' && finalMessage.length > 120
+                ? `${finalMessage.slice(0, 117)}...`
+                : finalMessage,
+            blocksCount: finalBlocks.length,
+          },
+          'Posting message with blocks',
+        );
+        await web.chat.postMessage({
+          channel: channelId,
+          text: finalMessage,
+          blocks: (finalBlocks || []) as unknown as (
+            | import('@slack/types').KnownBlock
+            | import('@slack/types').Block
+          )[],
+        });
+      } else {
+        const textPreview =
+          typeof finalMessage === 'string' && finalMessage.length > 120
+            ? `${finalMessage.slice(0, 117)}...`
+            : finalMessage;
+        this.options.logger.debug(
+          {
+            channel: channelId,
+            textPreview,
+            hasBlocks: recipient.priority === 'high',
+          },
+          'Posting message without blocks',
+        );
+        await web.chat.postMessage({
+          channel: channelId,
+          text: finalMessage,
+          ...(recipient.priority === 'high' && {
+            blocks: [
+              {
+                type: 'section',
+                text: {
+                  type: 'mrkdwn',
+                  text: `⚔️ *${notification.type.toUpperCase()}*\n\n${finalMessage}`,
+                },
+              },
+            ],
+          }),
+        });
+      }
+
+      this.options.logger.info(
+        {
+          teamId: recipient.teamId,
+          userId: recipient.userId,
+          role: recipient.role || 'participant',
+          notificationType: notification.type,
+        },
+        '✅ Sent notification',
+      );
+    } catch (error) {
+      const errorData = formatSlackErrorData(error);
+      const responseMetadata = formatSlackResponseMetadata(error);
+      this.options.logger.error(
+        {
+          teamId: recipient.teamId,
+          userId: recipient.userId,
+          error,
+          ...(errorData ? { errorData } : {}),
+          ...(responseMetadata ? { responseMetadata } : {}),
+        },
+        'Error sending notification',
+      );
     }
   }
 
   private async resolveBotToken(
-    teamId: string | null,
-    userId: string | null,
+    teamId: string | null | undefined,
+    userId: string | null | undefined,
   ): Promise<{
     token: string | null;
     fromFallback: boolean;
   }> {
+    const cacheKey = this.getBotTokenCacheKey(teamId, userId);
+    const cached = this.botTokenCache.get(cacheKey);
+    if (cached) return cached;
+
     const fallback =
       this.options.fallbackBotToken ?? env.SLACK_BOT_TOKEN ?? null;
     const store = this.options.installationStore;
 
     if (!store) {
-      return { token: fallback, fromFallback: true };
+      const result = { token: fallback, fromFallback: true };
+      this.botTokenCache.set(cacheKey, result);
+      return result;
     }
 
     try {
@@ -324,7 +323,9 @@ export class NotificationService {
       const installation = await store.fetchInstallation(query);
       const token = installation.bot?.token ?? installation.user?.token ?? null;
       if (token) {
-        return { token, fromFallback: false };
+        const result = { token, fromFallback: false };
+        this.botTokenCache.set(cacheKey, result);
+        return result;
       }
       this.options.logger.warn(
         { teamId, userId },
@@ -337,7 +338,17 @@ export class NotificationService {
       );
     }
 
-    return { token: fallback, fromFallback: true };
+    const result = { token: fallback, fromFallback: true };
+    this.botTokenCache.set(cacheKey, result);
+    return result;
+  }
+
+  private getBotTokenCacheKey(
+    teamId: string | null | undefined,
+    userId: string | null | undefined,
+  ): string {
+    if (teamId) return `team:${teamId}`;
+    return `user:${userId ?? 'unknown'}`;
   }
 
   private getOrCreateWebClient(token: string): WebClient {
@@ -352,75 +363,36 @@ export class NotificationService {
     return client;
   }
 
-  private truncateSlackPayload(
-    message: string,
-    blocks?: Array<Record<string, unknown>>,
-  ): { text: string; blocks?: Array<Record<string, unknown>> } {
-    const text = this.truncateText(
-      message,
-      NotificationService.SLACK_TEXT_LIMIT,
-    );
-    if (!blocks || blocks.length === 0) {
-      return { text };
-    }
-    const truncatedBlocks = this.truncateBlocks(blocks);
-    return { text, blocks: truncatedBlocks };
-  }
+  private async getOrOpenDmChannel(
+    web: WebClient,
+    botToken: string,
+    userId: string,
+  ): Promise<string | undefined> {
+    const cacheKey = `${botToken}:${userId}`;
+    const cached = this.dmChannelCache.get(cacheKey);
+    if (cached) return cached;
 
-  private truncateBlocks(
-    blocks: Array<Record<string, unknown>>,
-  ): Array<Record<string, unknown>> {
-    const limited = blocks.slice(0, NotificationService.SLACK_BLOCKS_LIMIT);
-    return limited.map((block) => this.truncateBlock(block));
-  }
+    this.options.logger.debug({ userId }, 'Opening DM with user');
+    const dm = await web.conversations.open({ users: userId });
 
-  private truncateBlock(
-    block: Record<string, unknown>,
-  ): Record<string, unknown> {
-    const next = { ...block };
-    if (typeof next.text === 'string') {
-      next.text = this.truncateText(
-        next.text,
-        NotificationService.SLACK_TEXT_LIMIT,
+    try {
+      this.options.logger.debug(
+        {
+          ok: Boolean(dm.ok),
+          channelId: dm.channel?.id || null,
+          is_im: dm.channel?.is_im || null,
+        },
+        'dm.open response',
       );
-    } else if (next.text && typeof next.text === 'object') {
-      next.text = this.truncateTextObject(next.text);
+    } catch (error) {
+      this.options.logger.debug({ error }, 'Failed to log dm.open response');
     }
-    if (Array.isArray(next.fields)) {
-      next.fields = next.fields.map((field) => this.truncateTextObject(field));
-    }
-    if (Array.isArray(next.elements)) {
-      next.elements = next.elements.map((element) =>
-        this.truncateTextObject(element),
-      );
-    }
-    if (next.label && typeof next.label === 'object') {
-      next.label = this.truncateTextObject(next.label);
-    }
-    if (next.placeholder && typeof next.placeholder === 'object') {
-      next.placeholder = this.truncateTextObject(next.placeholder);
-    }
-    return next;
-  }
 
-  private truncateTextObject(value: unknown): unknown {
-    if (!value || typeof value !== 'object') return value;
-    const record = value as Record<string, unknown>;
-    if (typeof record.text === 'string') {
-      return {
-        ...record,
-        text: this.truncateText(
-          record.text,
-          NotificationService.SLACK_TEXT_LIMIT,
-        ),
-      };
+    const channelId =
+      typeof dm.channel?.id === 'string' ? dm.channel.id : undefined;
+    if (channelId) {
+      this.dmChannelCache.set(cacheKey, channelId);
     }
-    return value;
-  }
-
-  private truncateText(text: string, limit: number): string {
-    if (text.length <= limit) return text;
-    const suffix = '...';
-    return `${text.slice(0, limit - suffix.length)}${suffix}`;
+    return channelId;
   }
 }
