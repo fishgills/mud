@@ -1,6 +1,6 @@
-import { COMMANDS } from '../commands';
-import { PlayerCommandHandler } from './base';
-import type { HandlerContext } from './types';
+import { COMMANDS } from '../../commands';
+import { PlayerCommandHandler } from '../base';
+import type { HandlerContext } from '../types';
 
 const formatRunType = (value?: string) =>
   value ? value.toLowerCase() : 'solo';

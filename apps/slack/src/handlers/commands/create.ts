@@ -1,8 +1,8 @@
-import { HandlerContext } from './types';
+import { HandlerContext } from '../types';
 
-import { COMMANDS } from '../commands';
+import { COMMANDS } from '../../commands';
 import { buildPlayerStatsMessage } from './stats/format';
-import { PlayerCommandHandler } from './base';
+import { PlayerCommandHandler } from '../base';
 
 export const createHandlerHelp = `Create a new hero with "new". Example: Send "new Thalara" to forge a hero named Thalara.`;
 

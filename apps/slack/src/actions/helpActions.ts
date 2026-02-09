@@ -3,8 +3,8 @@ import type { KnownBlock } from '@slack/types';
 import { COMMANDS, HELP_ACTIONS } from '../commands';
 import { dispatchCommandViaDM } from './commandDispatch';
 import { dmClient, getPlayerItems } from '../dm-client';
-import { buildCharacterSheetModal } from '../handlers/stats/modal';
-import { buildInventoryModal } from '../handlers/inventory';
+import { buildCharacterSheetModal } from '../handlers/commands/stats/modal';
+import { buildInventoryModal } from '../handlers/commands/inventory';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
 import { getActionContext, postToUser } from './helpers';
 

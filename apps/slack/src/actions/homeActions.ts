@@ -7,7 +7,7 @@ import { dispatchCommandViaDM } from './commandDispatch';
 import { getActionContext, postToUser } from './helpers';
 import { getUserFriendlyErrorMessage } from '../handlers/errorUtils';
 import { formatLeaderboardLines } from '../handlers/leaderboard';
-import { buildCharacterSheetModal } from '../handlers/stats/modal';
+import { buildCharacterSheetModal } from '../handlers/commands/stats/modal';
 
 const LEADERBOARD_VIEW_ID = 'leaderboard_view';
 

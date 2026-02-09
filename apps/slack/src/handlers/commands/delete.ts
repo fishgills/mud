@@ -1,7 +1,7 @@
-import { HandlerContext } from './types';
-import { COMMANDS } from '../commands';
-import { PlayerCommandHandler } from './base';
-import { buildDeleteCharacterView } from '../actions/characterActions';
+import { HandlerContext } from '../types';
+import { COMMANDS } from '../../commands';
+import { PlayerCommandHandler } from '../base';
+import { buildDeleteCharacterView } from '../../actions/characterActions';
 
 export const deleteHandlerHelp =
   'Retire your character anytime with "delete". Example: Send "delete" whenever you want to start fresh.';

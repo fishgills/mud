@@ -1,9 +1,9 @@
-import { COMMANDS } from '../commands';
-import { PlayerCommandHandler } from './base';
-import type { HandlerContext } from './types';
-import { dmClient } from '../dm-client';
-import { AttackOrigin, TargetType } from '../dm-types';
-import { getUserFriendlyErrorMessage } from './errorUtils';
+import { COMMANDS } from '../../commands';
+import { PlayerCommandHandler } from '../base';
+import type { HandlerContext } from '../types';
+import { dmClient } from '../../dm-client';
+import { AttackOrigin, TargetType } from '../../dm-types';
+import { getUserFriendlyErrorMessage } from '../errorUtils';
 
 export const SELF_ATTACK_ERROR = "You can't attack yourself.";
 
@@ -21,7 +21,9 @@ export class AttackHandler extends PlayerCommandHandler {
 
     const mentionMatch = target.match(/^<@([A-Z0-9]+)>$/i);
     const targetUserId = mentionMatch?.[1];
-    const targetName = mentionMatch ? undefined : target.replace(/^@/, '').trim();
+    const targetName = mentionMatch
+      ? undefined
+      : target.replace(/^@/, '').trim();
 
     if (targetUserId && targetUserId === userId) {
       await say({ text: SELF_ATTACK_ERROR });

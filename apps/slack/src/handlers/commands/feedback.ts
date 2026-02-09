@@ -1,8 +1,8 @@
-import { PlayerCommandHandler } from './base';
-import type { HandlerContext } from './types';
-import type { FeedbackHistoryItem } from '../dm-client';
+import { PlayerCommandHandler } from '../base';
+import type { HandlerContext } from '../types';
+import type { FeedbackHistoryItem } from '../../dm-client';
 import type { KnownBlock, Button } from '@slack/types';
-import { FEEDBACK_ACTIONS } from '../commands';
+import { FEEDBACK_ACTIONS } from '../../commands';
 
 const COMMANDS = {
   FEEDBACK: 'feedback',

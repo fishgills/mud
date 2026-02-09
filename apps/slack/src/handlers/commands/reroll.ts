@@ -1,6 +1,6 @@
-import { HandlerContext } from './types';
-import { COMMANDS } from '../commands';
-import { PlayerCommandHandler } from './base';
+import { HandlerContext } from '../types';
+import { COMMANDS } from '../../commands';
+import { PlayerCommandHandler } from '../base';
 
 export const rerollHandlerHelp = `Reroll your character's stats with "reroll". Example: Send "reroll" to reroll stats during character creation.`;
 

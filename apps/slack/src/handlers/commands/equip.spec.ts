@@ -1,15 +1,15 @@
-jest.mock('../dm-client', () => ({
+jest.mock('../../dm-client', () => ({
   equip: jest.fn(),
 }));
 
-jest.mock('./handlerRegistry', () => ({
+jest.mock('../handlerRegistry', () => ({
   registerHandler: jest.fn(),
 }));
 
-import { equip } from '../dm-client';
+import { equip } from '../../dm-client';
 import { equipHandler } from './equip';
-import { COMMANDS } from '../commands';
-import type { HandlerContext } from './types';
+import { COMMANDS } from '../../commands';
+import type { HandlerContext } from '../types';
 
 const mockedEquip = equip as jest.MockedFunction<typeof equip>;
 
