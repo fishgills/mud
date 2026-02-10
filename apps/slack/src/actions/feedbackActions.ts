@@ -305,7 +305,7 @@ export const registerFeedbackActions = (app: App) => {
               : result.githubIssueUrl
                 ? `✅ Thank you for your feedback! It has been submitted for review.`
                 : `✅ Thank you for your feedback! It has been recorded.`
-            : `❌ ${result.rejectionReason ?? 'Unable to submit feedback at this time.'}`,
+            : buildFeedbackRejectionMessage(result.rejectionReason),
           githubUrl: result.githubIssueUrl,
         });
       } catch (err) {
@@ -322,6 +322,28 @@ export const registerFeedbackActions = (app: App) => {
     },
   );
 };
+
+function buildFeedbackRejectionMessage(rejectionReason?: string): string {
+  const reason = formatAsSentence(rejectionReason);
+  if (!reason) {
+    return "❌ We couldn't submit your feedback right now. Please try again later.";
+  }
+
+  return `❌ We couldn't submit your feedback. ${reason}`;
+}
+
+function formatAsSentence(text?: string): string | null {
+  if (!text) {
+    return null;
+  }
+
+  const trimmed = text.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
 
 async function sendFeedbackDM(
   client: App['client'],

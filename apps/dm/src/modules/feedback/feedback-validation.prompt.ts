@@ -23,7 +23,7 @@ Respond with this exact JSON structure:
 
 Field descriptions:
 - isValid: true if this is genuine game feedback (not spam, harassment, gibberish, or unrelated to the game)
-- rejectionReason: if invalid, a brief reason (e.g., "not game-related", "inappropriate content", "spam"). null if valid.
+- rejectionReason: if invalid, a short, human-friendly sentence that can be shown directly to the player. Keep it polite and clear (e.g., "Please keep feedback focused on the game so we can act on it.", "We could not accept this feedback because it includes inappropriate language."). Use null if valid.
 - category: classify the feedback type:
   - "bug": something is broken or not working as expected
   - "feature": a new feature request or suggestion
@@ -43,7 +43,8 @@ Rules:
 - Reject spam, repeated gibberish, off-topic promotions, and abusive language
 - Accept even brief feedback if genuine (e.g., "combat is too hard" is valid)
 - Be generous—players may not articulate perfectly
-- For the summary, write it as if it's a GitHub issue title`;
+- For the summary, write it as if it's a GitHub issue title
+- If isValid is false, rejectionReason must be present and user-facing (no internal moderation or model details)`;
 }
 
 export function parseFeedbackValidationResponse(response: string): {

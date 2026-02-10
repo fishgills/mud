@@ -84,6 +84,7 @@ Example: `Hero strike: AR 62.4 vs DR 48.7 (hit 71%) -> HIT`
 - `PORT`: Service port (default: 3000)
 - `GUILD_SHOP_ROTATION_SIZE`: Number of item templates to surface per rotation (default 6).
 - `GUILD_SHOP_ROTATION_INTERVAL_MS`: Interval between automatic catalog refreshes (default 300000 ms / 5 minutes).
+- `FEEDBACK_SUBMISSION_THROTTLE_MS`: Minimum time between feedback submissions per submitter (default 3600000 ms / 1 hour).
 - `OPENAI_API_KEY`: API key for narrative/feedback helpers (optional)
 - `DM_USE_VERTEX_AI`: Enable Vertex AI instead of OpenAI (optional)
 - `GITHUB_TOKEN`, `GITHUB_REPO_OWNER`, `GITHUB_REPO_NAME`: Enable feedback issue creation (optional)
