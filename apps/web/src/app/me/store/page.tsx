@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { getPrismaClient } from '@mud/database';
 import {
   buildInventoryModel,
@@ -102,9 +101,9 @@ export default async function StorePage() {
           <p>You are not signed in.</p>
         </section>
         <div>
-          <Link className="slack-auth-link" href="/api/auth/slack/start">
+          <a className="slack-auth-link" href="/api/auth/slack/start">
             Sign in with Slack
-          </Link>
+          </a>
         </div>
       </main>
     );

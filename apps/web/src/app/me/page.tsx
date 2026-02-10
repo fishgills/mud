@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { getXpToNextLevel } from '@mud/constants';
 import { getPrismaClient, ItemType, PlayerSlot } from '@mud/database';
 import { buildInventoryModel } from '@mud/inventory';
@@ -95,9 +94,9 @@ export default async function CharacterPage() {
           <p>You are not signed in.</p>
         </section>
         <div>
-          <Link className="slack-auth-link" href="/api/auth/slack/start">
+          <a className="slack-auth-link" href="/api/auth/slack/start">
             Sign in with Slack
-          </Link>
+          </a>
         </div>
       </main>
     );
