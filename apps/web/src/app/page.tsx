@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { getSession } from './lib/slack-auth';
 
 export default async function Home() {
@@ -74,9 +73,9 @@ export default async function Home() {
           <span>Add to Slack</span>
         </a>
         {session ? null : (
-          <Link className="slack-auth-link" href="/api/auth/slack/start">
+          <a className="slack-auth-link" href="/api/auth/slack/start">
             Sign in with Slack
-          </Link>
+          </a>
         )}
       </div>
     </main>
