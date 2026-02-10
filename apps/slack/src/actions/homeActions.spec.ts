@@ -96,6 +96,49 @@ describe('registerHomeActions', () => {
     );
   });
 
+  it('opens leaderboard modal with real newlines and explicit level format', async () => {
+    const client = makeClient();
+    mockedGetLeaderboard
+      .mockResolvedValueOnce({
+        success: true,
+        data: [{ name: 'Hero', level: 10 }],
+      } as never)
+      .mockResolvedValueOnce({
+        success: true,
+        data: [{ name: 'Legend', level: 12 }],
+      } as never);
+
+    await handlers[HOME_ACTIONS.VIEW_LEADERBOARD]({
+      ack: jest.fn().mockResolvedValue(undefined),
+      body: { user: { id: 'U1' }, team: { id: 'T1' }, trigger_id: 'TR2' },
+      client,
+    });
+
+    expect(client.views.open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trigger_id: 'TR2',
+      }),
+    );
+
+    const modalView = client.views.open.mock.calls[0][0].view;
+    expect(modalView).toBeDefined();
+    expect(modalView.blocks[2]).toMatchObject({ type: 'section' });
+
+    const workspaceField = (
+      modalView.blocks[2] as { fields: Array<{ text: string }> }
+    ).fields[0].text;
+    const globalField = (
+      modalView.blocks[2] as { fields: Array<{ text: string }> }
+    ).fields[1].text;
+
+    expect(workspaceField).toContain('*This workspace*\n*1.* Hero - Level 10');
+    expect(workspaceField).not.toContain('\\n');
+    expect(globalField).toContain(
+      '*Across all workspaces*\n*1.* Legend - Level 12',
+    );
+    expect(globalField).not.toContain('\\n');
+  });
+
   it('responds ephemerally when leaderboard loading fails and respond is available', async () => {
     const client = makeClient();
     const respond = jest.fn().mockResolvedValue(undefined);

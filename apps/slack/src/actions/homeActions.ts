@@ -32,14 +32,14 @@ const buildLeaderboardView = (params: {
       fields: [
         {
           type: 'mrkdwn',
-          text: `*This workspace*\\n${formatLeaderboardLines(
+          text: `*This workspace*\n${formatLeaderboardLines(
             params.workspacePlayers,
             { emptyLabel: 'No heroes yet', style: 'rank' },
           )}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Across all workspaces*\\n${formatLeaderboardLines(
+          text: `*Across all workspaces*\n${formatLeaderboardLines(
             params.globalPlayers,
             { emptyLabel: 'No legends recorded yet', style: 'rank' },
           )}`,
