@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AiService } from '../../openai/ai.service';
+import { env } from '../../env';
 import { FeedbackRepository } from './feedback.repository';
 import { GitHubService } from './github.service';
 import {
@@ -14,7 +15,9 @@ import {
   parseFeedbackValidationResponse,
 } from './feedback-validation.prompt';
 
-const RATE_LIMIT_MS = 60 * 60 * 1000; // 1 hour
+const SECOND_MS = 1000;
+const MINUTE_MS = 60 * SECOND_MS;
+const HOUR_MS = 60 * MINUTE_MS;
 
 type FeedbackSubmitter = {
   playerId?: number;
@@ -53,6 +56,7 @@ export class FeedbackService {
     );
 
     // Check rate limit
+    const rateLimitMs = env.FEEDBACK_SUBMISSION_THROTTLE_MS;
     this.logger.debug(
       `[FEEDBACK-FLOW] Checking rate limit for ${submitterLabel}`,
     );
@@ -60,12 +64,12 @@ export class FeedbackService {
       submitter.playerId !== undefined
         ? await this.repository.countRecentByPlayerId(
             submitter.playerId,
-            RATE_LIMIT_MS,
+            rateLimitMs,
           )
         : await this.repository.countRecentBySubmitter(
             submitter.teamId!,
             submitter.userId!,
-            RATE_LIMIT_MS,
+            rateLimitMs,
           );
     this.logger.debug(
       `[FEEDBACK-FLOW] Rate limit check: recentCount=${recentCount}`,
@@ -74,7 +78,7 @@ export class FeedbackService {
       return this.rejectFeedback(
         'rate_limited',
         submitterLabel,
-        'You can only submit feedback once per hour. Please try again later.',
+        `You can only submit feedback once per ${this.formatRateLimitWindow(rateLimitMs)}. Please try again later.`,
       );
     }
 
@@ -120,10 +124,11 @@ export class FeedbackService {
       this.logger.warn(
         `[FEEDBACK-FLOW] Feedback rejected by moderation: submitter=${submitterLabel}, reason="${moderationReason}"`,
       );
-      return {
-        success: true,
-        ignored: true,
-      };
+      return this.rejectFeedback(
+        'moderation_rejected',
+        submitterLabel,
+        moderationReason,
+      );
     }
 
     // Create feedback record
@@ -372,5 +377,20 @@ export class FeedbackService {
       success: false,
       rejectionReason,
     };
+  }
+
+  private formatRateLimitWindow(rateLimitMs: number): string {
+    if (rateLimitMs % HOUR_MS === 0) {
+      const hours = rateLimitMs / HOUR_MS;
+      return hours === 1 ? 'hour' : `${hours} hours`;
+    }
+
+    if (rateLimitMs % MINUTE_MS === 0) {
+      const minutes = rateLimitMs / MINUTE_MS;
+      return minutes === 1 ? 'minute' : `${minutes} minutes`;
+    }
+
+    const seconds = Math.max(1, Math.round(rateLimitMs / SECOND_MS));
+    return seconds === 1 ? 'second' : `${seconds} seconds`;
   }
 }

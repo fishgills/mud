@@ -1,6 +1,23 @@
 import { FeedbackService } from './feedback.service';
+import { refreshEnv } from '../../env';
 
 describe('FeedbackService', () => {
+  const originalThrottle = process.env.FEEDBACK_SUBMISSION_THROTTLE_MS;
+
+  beforeEach(() => {
+    process.env.FEEDBACK_SUBMISSION_THROTTLE_MS = '3600000';
+    refreshEnv();
+  });
+
+  afterAll(() => {
+    if (originalThrottle === undefined) {
+      delete process.env.FEEDBACK_SUBMISSION_THROTTLE_MS;
+    } else {
+      process.env.FEEDBACK_SUBMISSION_THROTTLE_MS = originalThrottle;
+    }
+    refreshEnv();
+  });
+
   const createRepository = () => ({
     countRecentByPlayerId: jest.fn(),
     countRecentBySubmitter: jest.fn(),
@@ -71,7 +88,7 @@ describe('FeedbackService', () => {
     });
   });
 
-  it('ignores invalid feedback instead of persisting it', async () => {
+  it('rejects invalid feedback with a reason and does not persist it', async () => {
     const repository = createRepository();
     const aiService = createAiService();
     const githubService = createGithubService();
@@ -102,8 +119,8 @@ describe('FeedbackService', () => {
 
     expect(repository.create).not.toHaveBeenCalled();
     expect(result).toEqual({
-      success: true,
-      ignored: true,
+      success: false,
+      rejectionReason: 'inappropriate content',
     });
   });
 
@@ -167,5 +184,47 @@ describe('FeedbackService', () => {
     );
     expect(repository.countRecentBySubmitter).not.toHaveBeenCalled();
     expect(result.success).toBe(true);
+  });
+
+  it('uses configurable feedback throttle from env', async () => {
+    const originalThrottle = process.env.FEEDBACK_SUBMISSION_THROTTLE_MS;
+    process.env.FEEDBACK_SUBMISSION_THROTTLE_MS = '120000';
+    refreshEnv();
+
+    try {
+      const repository = createRepository();
+      const aiService = createAiService();
+      const githubService = createGithubService();
+      const service = new FeedbackService(
+        repository as never,
+        aiService as never,
+        githubService as never,
+      );
+
+      repository.countRecentBySubmitter.mockResolvedValueOnce(1);
+
+      const result = await service.submitFeedback({
+        teamId: 'T1',
+        userId: 'U1',
+        type: 'general',
+        content: 'This is a valid-length feedback entry.',
+      });
+
+      expect(repository.countRecentBySubmitter).toHaveBeenCalledWith(
+        'T1',
+        'U1',
+        120000,
+      );
+      expect(result.success).toBe(false);
+      expect(result.rejectionReason).toContain('once per 2 minutes');
+      expect(aiService.getText).not.toHaveBeenCalled();
+    } finally {
+      if (originalThrottle === undefined) {
+        delete process.env.FEEDBACK_SUBMISSION_THROTTLE_MS;
+      } else {
+        process.env.FEEDBACK_SUBMISSION_THROTTLE_MS = originalThrottle;
+      }
+      refreshEnv();
+    }
   });
 });

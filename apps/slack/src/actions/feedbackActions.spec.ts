@@ -190,4 +190,68 @@ describe('registerFeedbackActions', () => {
       }),
     );
   });
+
+  it('sends moderation rejection reason back to the user', async () => {
+    mockedDmClient.submitFeedback.mockResolvedValueOnce({
+      success: false,
+      rejectionReason: 'not game-related',
+    });
+
+    const viewHandler = viewHandlers.feedback_modal_submit;
+    expect(viewHandler).toBeDefined();
+    if (!viewHandler) {
+      throw new Error('Feedback submit handler not registered');
+    }
+
+    const ack = jest.fn().mockResolvedValue(undefined);
+    const client = {
+      views: { open: jest.fn() },
+      conversations: {
+        open: jest.fn().mockResolvedValue({ channel: { id: 'D1' } }),
+      },
+      chat: {
+        postMessage: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+
+    await viewHandler({
+      ack,
+      view: {
+        private_metadata: JSON.stringify({
+          teamId: 'T1',
+          userId: 'U1',
+        }),
+        state: {
+          values: {
+            feedback_type_block: {
+              feedback_type: {
+                selected_option: { value: 'general' },
+              },
+            },
+            feedback_content_block: {
+              feedback_content: {
+                value: 'This message should be rejected by moderation.',
+              },
+            },
+          },
+        },
+      },
+      client,
+      logger: {
+        debug: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      },
+    });
+
+    expect(ack).toHaveBeenCalled();
+    expect(client.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: 'D1',
+        text: expect.stringContaining(
+          "We couldn't submit your feedback. not game-related.",
+        ),
+      }),
+    );
+  });
 });
