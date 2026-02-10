@@ -18,9 +18,9 @@ export const formatLeaderboardLines = (
       const level = player.level ?? '-';
       if (options.style === 'medal') {
         const medal = MEDALS[index] ?? `${index + 1}.`;
-        return `${medal} *${name}* - L${level}`;
+        return `${medal} *${name}* - Level ${level}`;
       }
-      return `*${index + 1}.* ${name} - L${level}`;
+      return `*${index + 1}.* ${name} - Level ${level}`;
     })
     .join('\n');
 };
