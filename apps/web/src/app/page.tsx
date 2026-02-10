@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { getSession } from './lib/slack-auth';
 
@@ -46,15 +45,33 @@ export default async function Home() {
       </section>
       <div className="slack-actions">
         <a
+          className="slack-install-link"
           href="https://slack.com/oauth/v2/authorize?client_id=375846128833.9436068256694&scope=im:history,im:write&user_scope="
           aria-label="Add BattleForge to Slack"
         >
-          <Image
-            alt="Add to Slack"
-            height="40"
-            width="139"
-            src="https://platform.slack-edge.com/img/add_to_slack.png"
-          />
+          <span className="slack-install-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+              <rect x="10" y="1.5" width="4" height="9" rx="2" fill="#36C5F0" />
+              <rect
+                x="13.5"
+                y="10"
+                width="9"
+                height="4"
+                rx="2"
+                fill="#2EB67D"
+              />
+              <rect
+                x="10"
+                y="13.5"
+                width="4"
+                height="9"
+                rx="2"
+                fill="#ECB22E"
+              />
+              <rect x="1.5" y="10" width="9" height="4" rx="2" fill="#E01E5A" />
+            </svg>
+          </span>
+          <span>Add to Slack</span>
         </a>
         {session ? null : (
           <Link className="slack-auth-link" href="/api/auth/slack/start">
