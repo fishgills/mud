@@ -211,6 +211,7 @@ body {
 .app-button,
 .inventory-button,
 .shop-button,
+.slack-install-link,
 .slack-auth-link {
   border: 1px solid rgba(180, 130, 70, 0.55);
   background: linear-gradient(
@@ -239,6 +240,7 @@ body {
 .app-button:hover:not(:disabled),
 .inventory-button:hover:not(:disabled),
 .shop-button:hover:not(:disabled),
+.slack-install-link:hover,
 .slack-auth-link:hover {
   border-color: rgba(223, 164, 92, 0.8);
   box-shadow:
@@ -250,6 +252,7 @@ body {
 .app-button:active:not(:disabled),
 .inventory-button:active:not(:disabled),
 .shop-button:active:not(:disabled),
+.slack-install-link:active,
 .slack-auth-link:active {
   transform: translateY(0);
   box-shadow:
@@ -260,6 +263,7 @@ body {
 .app-button:focus-visible,
 .inventory-button:focus-visible,
 .shop-button:focus-visible,
+.slack-install-link:focus-visible,
 .slack-auth-link:focus-visible {
   outline: 2px solid rgba(223, 164, 92, 0.7);
   outline-offset: 2px;
@@ -271,6 +275,40 @@ body {
   opacity: 0.55;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.slack-install-link {
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  border-color: rgba(126, 80, 167, 0.85);
+  background: linear-gradient(
+    160deg,
+    rgba(102, 56, 136, 0.92),
+    rgba(56, 31, 84, 0.96)
+  );
+  color: #fff7ff;
+}
+
+.slack-install-link:hover {
+  border-color: rgba(160, 106, 207, 0.95);
+}
+
+.slack-install-link:focus-visible {
+  outline-color: rgba(186, 129, 236, 0.85);
+}
+
+.slack-install-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slack-install-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .slack-auth-link {
