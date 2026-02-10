@@ -209,6 +209,8 @@ body {
 }
 
 .app-button,
+.inventory-button,
+.shop-button,
 .slack-auth-link {
   border: 1px solid rgba(180, 130, 70, 0.55);
   background: linear-gradient(
