@@ -323,6 +323,44 @@ export interface RunActionResponse extends SuccessResponse {
   data?: RunState;
 }
 
+export interface AchievementSummary {
+  unlockedCount: number;
+  totalCount: number;
+  recentUnlocks: Array<{
+    id: string;
+    name: string;
+    description: string;
+    unlockedAt: string;
+  }>;
+}
+
+export interface AchievementSummaryResponse extends SuccessResponse {
+  data?: AchievementSummary;
+}
+
+export interface AchievementListResponse extends SuccessResponse {
+  data?: {
+    summary: {
+      unlockedCount: number;
+      totalCount: number;
+    };
+    categories: Array<{
+      category: string;
+      achievements: Array<{
+        id: string;
+        name: string;
+        description: string;
+        category: string;
+        isSecret: boolean;
+        isUnlocked: boolean;
+        rewardType: string;
+        rewardValue: string | null;
+        unlockedAt: string | null;
+      }>;
+    }>;
+  };
+}
+
 export async function createPlayer(
   input: CreatePlayerRequest,
 ): Promise<PlayerResponse> {
@@ -507,6 +545,38 @@ export async function getActiveRun(params: {
   });
 }
 
+export async function getAchievementSummary(params: {
+  teamId: string;
+  userId: string;
+}): Promise<AchievementSummaryResponse> {
+  return dmRequest<AchievementSummaryResponse>(
+    '/achievements',
+    HttpMethod.GET,
+    {
+      query: {
+        teamId: params.teamId,
+        userId: params.userId,
+      },
+    },
+  );
+}
+
+export async function getAchievementList(params: {
+  teamId: string;
+  userId: string;
+}): Promise<AchievementListResponse> {
+  return dmRequest<AchievementListResponse>(
+    '/achievements/list',
+    HttpMethod.GET,
+    {
+      query: {
+        teamId: params.teamId,
+        userId: params.userId,
+      },
+    },
+  );
+}
+
 export async function startRun(params: {
   teamId: string;
   userId: string;
@@ -677,6 +747,8 @@ export async function deleteFeedback(
 export const dmClient = {
   createPlayer,
   getPlayer,
+  getAchievementSummary,
+  getAchievementList,
   getActiveRun,
   startRun,
   continueRun,

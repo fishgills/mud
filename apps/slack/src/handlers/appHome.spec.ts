@@ -15,6 +15,14 @@ jest.mock('../dm-client', () => ({
     success: true,
     data: [],
   }),
+  getAchievementSummary: jest.fn().mockResolvedValue({
+    success: true,
+    data: {
+      unlockedCount: 0,
+      totalCount: 0,
+      recentUnlocks: [],
+    },
+  }),
   getActiveRun: jest.fn().mockResolvedValue({
     success: true,
     data: null,

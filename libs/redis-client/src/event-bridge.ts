@@ -15,7 +15,14 @@ export interface EventBridgeConfig {
 }
 
 export interface NotificationMessage {
-  type: 'combat' | 'player' | 'monster' | 'party' | 'announcement' | 'run';
+  type:
+    | 'combat'
+    | 'player'
+    | 'monster'
+    | 'party'
+    | 'announcement'
+    | 'run'
+    | 'achievement';
   recipients: NotificationRecipient[];
   event: GameEvent;
   timestamp?: string;
@@ -26,6 +33,15 @@ export type NotificationRecipient =
       clientType: 'slack';
       teamId: string;
       userId: string;
+      message: string;
+      role?: 'attacker' | 'defender' | 'observer';
+      priority?: 'high' | 'normal' | 'low';
+      blocks?: Array<Record<string, unknown>>;
+    }
+  | {
+      clientType: 'slack-channel';
+      teamId: string;
+      channelId: string;
       message: string;
       role?: 'attacker' | 'defender' | 'observer';
       priority?: 'high' | 'normal' | 'low';
@@ -207,7 +223,7 @@ export class RedisEventBridge {
    * Subscribe to notification messages (for client services like Slack bot)
    */
   async subscribeToNotifications(
-    clientType: 'slack' | 'discord' | 'web',
+    clientType: 'slack' | 'slack-channel' | 'discord' | 'web',
     callback: (notification: NotificationMessage) => void | Promise<void>,
   ): Promise<void> {
     if (!this.isConnected) {

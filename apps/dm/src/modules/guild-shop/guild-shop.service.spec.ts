@@ -19,6 +19,13 @@ describe('guild-shop GuildShopService', () => {
   const runsService = {
     getActiveRunForPlayer: jest.fn(),
   } as unknown as { getActiveRunForPlayer: jest.Mock };
+  const achievementsService = {
+    recordShopPurchase: jest.fn(),
+    recordShopSell: jest.fn(),
+  } as unknown as {
+    recordShopPurchase: jest.Mock;
+    recordShopSell: jest.Mock;
+  };
 
   const makeService = () =>
     new GuildShopService(
@@ -26,6 +33,7 @@ describe('guild-shop GuildShopService', () => {
       repository as never,
       publisher as never,
       runsService as never,
+      achievementsService as never,
     );
 
   const player = {
@@ -63,10 +71,10 @@ describe('guild-shop GuildShopService', () => {
 
     expect(runsService.getActiveRunForPlayer).toHaveBeenCalledWith(42);
     expect(response.direction).toBe('BUY');
-    expect(publisher.publishReceipt).toHaveBeenCalledWith(
-      expect.any(Object),
-      { teamId: 'T1', userId: 'U1' },
-    );
+    expect(publisher.publishReceipt).toHaveBeenCalledWith(expect.any(Object), {
+      teamId: 'T1',
+      userId: 'U1',
+    });
     expect(repository.findCatalogItemBySku).toHaveBeenCalledWith('potion');
   });
 
@@ -110,10 +118,10 @@ describe('guild-shop GuildShopService', () => {
 
     expect(runsService.getActiveRunForPlayer).toHaveBeenCalledWith(42);
     expect(response.direction).toBe('SELL');
-    expect(publisher.publishReceipt).toHaveBeenCalledWith(
-      expect.any(Object),
-      { teamId: 'T1', userId: 'U1' },
-    );
+    expect(publisher.publishReceipt).toHaveBeenCalledWith(expect.any(Object), {
+      teamId: 'T1',
+      userId: 'U1',
+    });
   });
 
   it('sells unlisted item and publishes receipt', async () => {
@@ -139,10 +147,10 @@ describe('guild-shop GuildShopService', () => {
 
     expect(response.direction).toBe('SELL');
     expect(response.itemId).toBe('0');
-    expect(publisher.publishReceipt).toHaveBeenCalledWith(
-      expect.any(Object),
-      { teamId: 'T1', userId: 'U1' },
-    );
+    expect(publisher.publishReceipt).toHaveBeenCalledWith(expect.any(Object), {
+      teamId: 'T1',
+      userId: 'U1',
+    });
   });
 
   it('handles full stack sale (item deletion) correctly', async () => {
@@ -172,9 +180,9 @@ describe('guild-shop GuildShopService', () => {
     expect(response.direction).toBe('SELL');
     expect(response.itemName).toBe('Rusty Sword');
     expect(response.itemQuality).toBe('Poor');
-    expect(publisher.publishReceipt).toHaveBeenCalledWith(
-      expect.any(Object),
-      { teamId: 'T1', userId: 'U1' },
-    );
+    expect(publisher.publishReceipt).toHaveBeenCalledWith(expect.any(Object), {
+      teamId: 'T1',
+      userId: 'U1',
+    });
   });
 });

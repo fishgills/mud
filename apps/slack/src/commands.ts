@@ -40,6 +40,7 @@ export const HOME_ACTIONS = {
   CONTINUE_RUN: 'home_action_continue_run',
   VIEW_STATS: 'home_action_view_stats',
   VIEW_LEADERBOARD: 'home_action_view_leaderboard',
+  VIEW_ACHIEVEMENTS: 'home_action_view_achievements',
   DELETE_CHARACTER: 'home_action_delete_character',
 } as const;
 

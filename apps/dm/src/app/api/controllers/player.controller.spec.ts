@@ -41,12 +41,17 @@ const createEventBridgeService = () => ({
   publishPlayerNotification: jest.fn(),
 });
 
+const createAchievementsService = () => ({
+  recordItemEquipped: jest.fn(),
+});
+
 describe('PlayersController', () => {
   let controller: PlayersController;
   let playerService: ReturnType<typeof createPlayerService>;
   let combatService: ReturnType<typeof createCombatService>;
   let playerItemService: ReturnType<typeof createPlayerItemService>;
   let runsService: ReturnType<typeof createRunsService>;
+  let achievementsService: ReturnType<typeof createAchievementsService>;
   let eventBridge: ReturnType<typeof createEventBridgeService>;
 
   beforeEach(() => {
@@ -55,12 +60,14 @@ describe('PlayersController', () => {
     combatService = createCombatService();
     playerItemService = createPlayerItemService();
     runsService = createRunsService();
+    achievementsService = createAchievementsService();
     eventBridge = createEventBridgeService();
     controller = new PlayersController(
       playerService as never,
       combatService as never,
       playerItemService as never,
       runsService as never,
+      achievementsService as never,
       eventBridge as never,
     );
   });

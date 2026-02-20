@@ -9,6 +9,10 @@ import {
   RunType,
   GuildTradeDirection,
   ItemType,
+  AchievementCategory,
+  AchievementScope,
+  AchievementRewardType,
+  AchievementConditionType,
   type Player,
   type SlackUser,
   type Monster,
@@ -43,6 +47,10 @@ export {
   RunType,
   GuildTradeDirection,
   ItemType,
+  AchievementCategory,
+  AchievementScope,
+  AchievementRewardType,
+  AchievementConditionType,
 };
 
 export type {
@@ -61,6 +69,11 @@ export type {
   ShopCatalogItem,
   TransactionReceipt,
   AnnouncementRecord,
+  AchievementDefinition,
+  PlayerAchievementStats,
+  PlayerAchievementUnlock,
+  WorkspaceBroadcastConfig,
+  AchievementBroadcastLog,
 } from '@prisma/client';
 
 export type { ItemQuality as ItemQualityType } from '@prisma/client';

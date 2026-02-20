@@ -196,6 +196,15 @@ export interface RunEndEvent extends BaseGameEvent {
   guildId?: number;
 }
 
+export interface AchievementUnlockEvent extends BaseGameEvent {
+  eventType: 'achievement:unlock';
+  playerId: number;
+  teamId: string;
+  userId: string;
+  achievementIds: string[];
+  broadcastAchievementIds?: string[];
+}
+
 // Union type of all game events
 export type GameEvent =
   | PlayerSpawnEvent
@@ -220,6 +229,7 @@ export type GameEvent =
   | PartyDisbandEvent
   | RunRoundEvent
   | RunEndEvent
+  | AchievementUnlockEvent
   | GuildShopReceiptEvent
   | GuildAnnouncementDeliveredEvent;
 

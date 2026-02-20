@@ -39,6 +39,37 @@ enum RunStatus {
   FAILED
 }
 
+enum AchievementCategory {
+  RAID
+  COMBAT
+  ECONOMY
+  SOCIAL
+  GUILD
+  SEASONAL
+  SECRET
+}
+
+enum AchievementScope {
+  PLAYER
+  GUILD
+  SEASON
+}
+
+enum AchievementRewardType {
+  NONE
+  TITLE
+  BADGE
+  TICKET
+  COSMETIC
+}
+
+enum AchievementConditionType {
+  THRESHOLD
+  STREAK
+  RECORD
+  EVENT
+}
+
 model Player {
   id                 Int                  @id @default(autoincrement())
   name               String               @unique @db.Citext
@@ -77,6 +108,9 @@ model Player {
   feedbacks          Feedback[]
   runParticipants    RunParticipant[]
   runsLed            Run[]                @relation("RunLeader")
+  achievementStats   PlayerAchievementStats?
+  achievementUnlocks PlayerAchievementUnlock[]
+  achievementBroadcastLogs AchievementBroadcastLog[]
   // Future: discordUsers DiscordUser[], webUsers WebUser[], etc.
 }
 
@@ -170,6 +204,95 @@ model RunParticipant {
 
   @@unique([runId, playerId])
   @@index([playerId])
+}
+
+model AchievementDefinition {
+  id                String                   @id
+  name              String
+  description       String
+  category          AchievementCategory
+  scope             AchievementScope         @default(PLAYER)
+  isSecret          Boolean                  @default(false)
+  isRepeatable      Boolean                  @default(false)
+  broadcastOnUnlock Boolean                  @default(false)
+  broadcastTemplate String?
+  rewardType        AchievementRewardType    @default(NONE)
+  rewardValue       String?
+  conditionType     AchievementConditionType @default(THRESHOLD)
+  conditionKey      String?
+  conditionValue    String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  playerUnlocks     PlayerAchievementUnlock[]
+  broadcastLogs     AchievementBroadcastLog[]
+}
+
+model PlayerAchievementStats {
+  playerId                     Int      @id
+  player                       Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  totalRaidsStarted            Int      @default(0)
+  totalRaidsFinished           Int      @default(0)
+  totalRaidWins                Int      @default(0)
+  totalRaidLosses              Int      @default(0)
+  maxRaidDepthReached          Int      @default(0)
+  maxRaidDepthFinished         Int      @default(0)
+  currentWinStreak             Int      @default(0)
+  bestWinStreak                Int      @default(0)
+  totalDamageDealt             Int      @default(0)
+  totalDamageTaken             Int      @default(0)
+  totalKills                   Int      @default(0)
+  totalCrits                   Int      @default(0)
+  totalGoldEarned              Int      @default(0)
+  totalGoldSpent               Int      @default(0)
+  totalItemsPurchased          Int      @default(0)
+  totalItemsEquipped           Int      @default(0)
+  totalLegendaryItemsPurchased Int      @default(0)
+  biggestHit                   Int      @default(0)
+  lastAchievementAt            DateTime?
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+}
+
+model PlayerAchievementUnlock {
+  id            Int                   @id @default(autoincrement())
+  playerId      Int
+  player        Player                @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   AchievementDefinition @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  unlockedAt    DateTime              @default(now())
+  context       Json?
+
+  @@unique([playerId, achievementId])
+  @@index([playerId, unlockedAt])
+  @@index([achievementId])
+}
+
+model WorkspaceBroadcastConfig {
+  id                       Int                     @id @default(autoincrement())
+  workspaceId              String                  @unique
+  workspace                Workspace               @relation(fields: [workspaceId], references: [workspaceId], onDelete: Cascade)
+  enabled                  Boolean                 @default(false)
+  channelId                String?
+  perPlayerCooldownSeconds Int                     @default(3600)
+  globalCooldownSeconds    Int                     @default(120)
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  broadcastLogs            AchievementBroadcastLog[]
+}
+
+model AchievementBroadcastLog {
+  id            Int                     @id @default(autoincrement())
+  workspaceId   String
+  config        WorkspaceBroadcastConfig @relation(fields: [workspaceId], references: [workspaceId], onDelete: Cascade)
+  playerId      Int
+  player        Player                  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   AchievementDefinition   @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  broadcastedAt DateTime                @default(now())
+
+  @@index([workspaceId, broadcastedAt])
+  @@index([workspaceId, playerId, broadcastedAt])
+  @@index([workspaceId, achievementId, broadcastedAt])
 }
 
 model Monster {
@@ -442,6 +565,7 @@ model Workspace {
   lastActiveAt  DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  broadcastConfig WorkspaceBroadcastConfig?
 
   @@index([workspaceId])
 }

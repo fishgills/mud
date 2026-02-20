@@ -6,7 +6,12 @@ import {
   STAT_ACTIONS,
   FEEDBACK_ACTIONS,
 } from '../commands';
-import { getActiveRun, getLeaderboard, getPlayer } from '../dm-client';
+import {
+  getAchievementSummary,
+  getActiveRun,
+  getLeaderboard,
+  getPlayer,
+} from '../dm-client';
 import { formatLeaderboardLines } from './leaderboard';
 
 const buildLeaderboardBlocks = async (
@@ -202,6 +207,32 @@ export const buildAppHomeBlocks = async (
   const isPowerUser = Boolean(player.hasMoved && player.hasBattled);
   const isRunLeader =
     Boolean(activeRun && player?.id) && activeRun?.leaderPlayerId === player.id;
+  let achievementSummary:
+    | {
+        unlockedCount: number;
+        totalCount: number;
+        recentUnlocks: Array<{ id: string; name: string }>;
+      }
+    | undefined;
+  if (isPowerUser && teamId && userId) {
+    try {
+      const summaryResult = await getAchievementSummary({ teamId, userId });
+      if (summaryResult.success && summaryResult.data) {
+        achievementSummary = {
+          unlockedCount: summaryResult.data.unlockedCount,
+          totalCount: summaryResult.data.totalCount,
+          recentUnlocks: (summaryResult.data.recentUnlocks ?? []).map(
+            (unlock) => ({
+              id: unlock.id,
+              name: unlock.name,
+            }),
+          ),
+        };
+      }
+    } catch {
+      achievementSummary = undefined;
+    }
+  }
   const leaderboardBlocks = isPowerUser
     ? await buildLeaderboardBlocks(teamId)
     : [];
@@ -285,6 +316,31 @@ export const buildAppHomeBlocks = async (
   blocks.push(feedbackActionsBlock);
 
   if (isPowerUser) {
+    blocks.push({ type: 'divider' });
+    blocks.push({
+      type: 'header',
+      text: { type: 'plain_text', text: 'Achievements', emoji: true },
+    });
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: achievementSummary
+          ? `Unlocked *${achievementSummary.unlockedCount}/${achievementSummary.totalCount}* achievements.${achievementSummary.recentUnlocks.length > 0 ? ` Recent: ${achievementSummary.recentUnlocks.map((unlock) => `*${unlock.name}*`).join(', ')}.` : ''}`
+          : 'Track your milestones and unlock hidden accolades.',
+      },
+    });
+    blocks.push({
+      type: 'actions' as const,
+      elements: [
+        {
+          type: 'button' as const,
+          text: { type: 'plain_text' as const, text: 'View Achievements' },
+          action_id: HOME_ACTIONS.VIEW_ACHIEVEMENTS,
+        },
+      ],
+    });
+
     blocks.push({ type: 'divider' }, ...leaderboardBlocks);
     blocks.push({
       type: 'actions' as const,

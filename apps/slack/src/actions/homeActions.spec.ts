@@ -1,7 +1,7 @@
 import { registerHomeActions } from './homeActions';
 import { COMMANDS, HOME_ACTIONS } from '../commands';
 import { dispatchCommandViaDM } from './commandDispatch';
-import { dmClient, getLeaderboard } from '../dm-client';
+import { dmClient, getAchievementList, getLeaderboard } from '../dm-client';
 
 jest.mock('./commandDispatch', () => ({
   dispatchCommandViaDM: jest.fn(),
@@ -12,6 +12,7 @@ jest.mock('../dm-client', () => ({
     getPlayer: jest.fn(),
   },
   getLeaderboard: jest.fn(),
+  getAchievementList: jest.fn(),
 }));
 
 type ActionHandler = (args: {
@@ -37,6 +38,9 @@ describe('registerHomeActions', () => {
   const mockedDmClient = dmClient as unknown as { getPlayer: jest.Mock };
   const mockedGetLeaderboard = getLeaderboard as jest.MockedFunction<
     typeof getLeaderboard
+  >;
+  const mockedGetAchievementList = getAchievementList as jest.MockedFunction<
+    typeof getAchievementList
   >;
 
   let handlers: Record<string, ActionHandler>;
@@ -171,6 +175,46 @@ describe('registerHomeActions', () => {
     expect(client.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         channel: 'D1',
+      }),
+    );
+  });
+
+  it('opens achievements modal when achievement lookup succeeds', async () => {
+    const client = makeClient();
+    mockedGetAchievementList.mockResolvedValueOnce({
+      success: true,
+      data: {
+        summary: { unlockedCount: 2, totalCount: 10 },
+        categories: [
+          {
+            category: 'RAID',
+            achievements: [
+              {
+                id: 'R001',
+                name: 'First Blood',
+                description: 'Win your first raid.',
+                isUnlocked: true,
+                rewardType: 'NONE',
+                rewardValue: null,
+                isSecret: false,
+                category: 'RAID',
+                unlockedAt: null,
+              },
+            ],
+          },
+        ],
+      },
+    } as never);
+
+    await handlers[HOME_ACTIONS.VIEW_ACHIEVEMENTS]({
+      ack: jest.fn().mockResolvedValue(undefined),
+      body: { user: { id: 'U1' }, team: { id: 'T1' }, trigger_id: 'TR3' },
+      client,
+    });
+
+    expect(client.views.open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trigger_id: 'TR3',
       }),
     );
   });

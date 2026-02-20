@@ -23,6 +23,7 @@ import { PlayerItemService } from '../../player/player-item.service';
 import { CombatService } from '../../combat/combat.service';
 import { AppError } from '../../errors/app-error';
 import { RunsService } from '../../../modules/runs/runs.service';
+import { AchievementsService } from '../../../modules/achievements/achievements.service';
 import { EventBridgeService } from '../../../shared/event-bridge.service';
 import { EventBus, type PlayerEquipmentEvent } from '../../../shared/event-bus';
 import type { CombatLog } from '../dto/combat-log.dto';
@@ -85,6 +86,7 @@ export class PlayersController {
     private readonly combatService: CombatService,
     private readonly playerItemService: PlayerItemService,
     private readonly runsService: RunsService,
+    private readonly achievementsService: AchievementsService,
     private readonly eventBridge: EventBridgeService,
   ) {}
 
@@ -662,6 +664,12 @@ export class PlayersController {
       await this.playerService.recalculatePlayerHitPointsFromEquipment(
         player.id,
       );
+      if (payload.teamId && payload.userId) {
+        await this.achievementsService.recordItemEquipped(
+          payload.teamId,
+          payload.userId,
+        );
+      }
       if (payload.teamId && payload.userId) {
         const event: PlayerEquipmentEvent = {
           eventType: 'player:equipment',

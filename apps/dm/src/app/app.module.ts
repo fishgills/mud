@@ -16,6 +16,7 @@ import { GuildAnnouncementsController } from '../modules/guild-announcements/gui
 import { FeedbackController } from '../modules/feedback/feedback.controller';
 import { GuildsController } from '../modules/guilds/guilds.controller';
 import { RunsController } from '../modules/runs/runs.controller';
+import { AchievementsController } from '../modules/achievements/achievements.controller';
 import { CoordinationService } from '../shared/coordination.service';
 import { EventBridgeService } from '../shared/event-bridge.service';
 import { PlayerNotificationService } from './player/player-notification.service';
@@ -34,6 +35,7 @@ import { FeedbackRepository } from '../modules/feedback/feedback.repository';
 import { GitHubService } from '../modules/feedback/github.service';
 import { GuildsService } from '../modules/guilds/guilds.service';
 import { RunsService } from '../modules/runs/runs.service';
+import { AchievementsService } from '../modules/achievements/achievements.service';
 
 @Module({
   imports: [AiModule],
@@ -48,6 +50,7 @@ import { RunsService } from '../modules/runs/runs.service';
     FeedbackController,
     GuildsController,
     RunsController,
+    AchievementsController,
   ],
   providers: [
     AppService,
@@ -65,6 +68,7 @@ import { RunsService } from '../modules/runs/runs.service';
     GuildShopRotationInitializer,
     GuildsService,
     RunsService,
+    AchievementsService,
     GuildAnnouncementsService,
     GuildAnnouncementsRepository,
     GuildAnnouncementsPublisher,

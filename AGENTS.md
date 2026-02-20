@@ -63,6 +63,8 @@
 ### Common Issues
 
 - **Event bus routing**: DM publishes notifications with type='combat' to channel `notifications:slack`. Slack bot subscribes to this channel and processes all notification types.
+- **Achievements architecture**: Player achievements are handled in `apps/dm/src/modules/achievements/`. Run/shop/equip flows call `AchievementsService` to update counters, unlock records, DM summaries, and optional workspace broadcasts.
+- **Slack channel notifications**: Redis notifications now support `clientType: 'slack-channel'` (channel posts) in addition to user DM recipients. Slack NotificationService subscribes to both `notifications:slack` and `notifications:slack-channel`.
 
 ## Infrastructure
 

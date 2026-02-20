@@ -34,6 +34,10 @@ import {
   type NotificationRecipient,
 } from '@mud/redis-client';
 import { AppError, ErrCodes } from '../../app/errors/app-error';
+import {
+  AchievementsService,
+  type PerPlayerRunStats,
+} from '../achievements/achievements.service';
 
 const RUN_ACTION_CONTINUE = 'run_action_continue';
 const RUN_ACTION_FINISH = 'run_action_finish';
@@ -55,6 +59,7 @@ export class RunsService {
     private readonly combatService: CombatService,
     private readonly eventBridge: EventBridgeService,
     private readonly guildsService: GuildsService,
+    private readonly achievementsService: AchievementsService,
   ) {}
 
   async getActiveRunForPlayer(playerId: number) {
@@ -133,6 +138,17 @@ export class RunsService {
 
       return run;
     });
+
+    await Promise.all(
+      participants.map(async (participant) => {
+        const slackUser = participant.player?.slackUser;
+        if (!slackUser) return;
+        await this.achievementsService.recordRunStarted(
+          slackUser.teamId,
+          slackUser.userId,
+        );
+      }),
+    );
 
     await this.resolveNextRound(createdRun.id, player.id);
 
@@ -219,6 +235,42 @@ export class RunsService {
 
     runWithParticipants.status = RunStatus.CASHED_OUT;
     runWithParticipants.endedAt = endTime;
+
+    const runCombatStats = await this.collectRunCombatStats(
+      runWithParticipants.id,
+      runWithParticipants.participants.map((participant) => ({
+        playerId: participant.playerId,
+        playerName: participant.player.name,
+      })),
+    );
+    await this.achievementsService.recordRunEnded({
+      runId: runWithParticipants.id,
+      runStatus: RunStatus.CASHED_OUT,
+      depthReached: depth,
+      bankedGold,
+      participants: runWithParticipants.participants
+        .map((participant) => {
+          const slackUser = participant.player.slackUser;
+          if (!slackUser) return null;
+          return {
+            playerId: participant.playerId,
+            playerName: participant.player.name,
+            teamId: slackUser.teamId,
+            userId: slackUser.userId,
+          };
+        })
+        .filter(
+          (
+            participant,
+          ): participant is {
+            playerId: number;
+            playerName: string;
+            teamId: string;
+            userId: string;
+          } => Boolean(participant),
+        ),
+      perPlayerStats: runCombatStats,
+    });
 
     const baseMessage = `Raid complete! You earned ${bankedXp} XP and ${bankedGold} gold.`;
     const fullMessage = ticketMessage
@@ -436,6 +488,41 @@ export class RunsService {
 
       const summary = `Raid failed. Round ${roundNumber} complete. ${monster.name} defeated the party.`;
       const rewards = 'Banked rewards: 0 XP, 0 gold.';
+      const runCombatStats = await this.collectRunCombatStats(
+        run.id,
+        run.participants.map((participant) => ({
+          playerId: participant.playerId,
+          playerName: participant.player.name,
+        })),
+      );
+      await this.achievementsService.recordRunEnded({
+        runId: run.id,
+        runStatus: RunStatus.FAILED,
+        depthReached: roundNumber,
+        bankedGold: 0,
+        participants: run.participants
+          .map((participant) => {
+            const slackUser = participant.player.slackUser;
+            if (!slackUser) return null;
+            return {
+              playerId: participant.playerId,
+              playerName: participant.player.name,
+              teamId: slackUser.teamId,
+              userId: slackUser.userId,
+            };
+          })
+          .filter(
+            (
+              participant,
+            ): participant is {
+              playerId: number;
+              playerName: string;
+              teamId: string;
+              userId: string;
+            } => Boolean(participant),
+          ),
+        perPlayerStats: runCombatStats,
+      });
       await this.publishRunEndNotifications(run, {
         status: RunStatus.FAILED,
         message: `${summary}\n${rewards}\n\n${combatLogText}`,
@@ -530,6 +617,104 @@ export class RunsService {
       level: Math.max(1, Math.round(total.level / count)),
       isAlive: combatants.some((combatant) => combatant.isAlive),
     };
+  }
+
+  private async collectRunCombatStats(
+    runId: number,
+    participants: Array<{ playerId: number; playerName: string }>,
+  ): Promise<Map<number, PerPlayerRunStats>> {
+    const statsByPlayer = new Map<number, PerPlayerRunStats>();
+    const playerByName = new Map<string, number>();
+
+    for (const participant of participants) {
+      statsByPlayer.set(participant.playerId, {
+        damageDealt: 0,
+        damageTaken: 0,
+        kills: 0,
+        crits: 0,
+        biggestHit: 0,
+      });
+      playerByName.set(
+        participant.playerName.toLowerCase(),
+        participant.playerId,
+      );
+    }
+
+    const combatLogs = await this.prisma.combatLog.findMany({
+      where: { runId },
+      select: { log: true },
+      orderBy: { runRound: 'asc' },
+    });
+
+    for (const entry of combatLogs) {
+      if (
+        !entry.log ||
+        typeof entry.log !== 'object' ||
+        !('rounds' in entry.log)
+      ) {
+        continue;
+      }
+
+      const rounds = (entry.log as { rounds?: unknown }).rounds;
+      if (!Array.isArray(rounds)) continue;
+
+      for (const round of rounds) {
+        if (!round || typeof round !== 'object') continue;
+        const row = round as Record<string, unknown>;
+        const attackerName =
+          typeof row.attackerName === 'string'
+            ? row.attackerName.toLowerCase()
+            : '';
+        const defenderName =
+          typeof row.defenderName === 'string'
+            ? row.defenderName.toLowerCase()
+            : '';
+        const damage =
+          typeof row.damage === 'number' && Number.isFinite(row.damage)
+            ? Math.max(0, Math.floor(row.damage))
+            : 0;
+        const crit = Boolean(row.crit);
+        const killed = Boolean(row.killed);
+        const defenderHpAfter =
+          typeof row.defenderHpAfter === 'number' &&
+          Number.isFinite(row.defenderHpAfter)
+            ? Math.max(0, Math.floor(row.defenderHpAfter))
+            : undefined;
+
+        const attackerPlayerId = playerByName.get(attackerName);
+        if (typeof attackerPlayerId === 'number') {
+          const attackerStats = statsByPlayer.get(attackerPlayerId);
+          if (attackerStats) {
+            attackerStats.damageDealt += damage;
+            if (crit) attackerStats.crits += 1;
+            attackerStats.biggestHit = Math.max(
+              attackerStats.biggestHit,
+              damage,
+            );
+            const defenderPlayerId = playerByName.get(defenderName);
+            if (killed && typeof defenderPlayerId !== 'number') {
+              attackerStats.kills += 1;
+            }
+          }
+        }
+
+        const defenderPlayerId = playerByName.get(defenderName);
+        if (typeof defenderPlayerId === 'number') {
+          const defenderStats = statsByPlayer.get(defenderPlayerId);
+          if (defenderStats) {
+            defenderStats.damageTaken += damage;
+            if (typeof defenderHpAfter === 'number') {
+              defenderStats.minHpAfter =
+                typeof defenderStats.minHpAfter === 'number'
+                  ? Math.min(defenderStats.minHpAfter, defenderHpAfter)
+                  : defenderHpAfter;
+            }
+          }
+        }
+      }
+    }
+
+    return statsByPlayer;
   }
 
   private calculateRewardMultiplier(round: number, scale: number) {

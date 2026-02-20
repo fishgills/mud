@@ -24,10 +24,17 @@ interface NotificationServiceOptions {
 }
 
 type NotificationRecipient = NotificationMessage['recipients'][number];
-type SlackNotificationRecipient = Extract<
+type SlackDmNotificationRecipient = Extract<
   NotificationRecipient,
   { clientType: 'slack' }
 >;
+type SlackChannelNotificationRecipient = Extract<
+  NotificationRecipient,
+  { clientType: 'slack-channel' }
+>;
+type SlackNotificationRecipient =
+  | SlackDmNotificationRecipient
+  | SlackChannelNotificationRecipient;
 
 export class NotificationService {
   private static readonly MAX_PARALLEL_RECIPIENTS = 5;
@@ -60,6 +67,12 @@ export class NotificationService {
     // Subscribe to Slack-specific notifications
     await this.bridge.subscribeToNotifications(
       'slack',
+      async (notification) => {
+        await this.handleNotification(notification);
+      },
+    );
+    await this.bridge.subscribeToNotifications(
+      'slack-channel',
       async (notification) => {
         await this.handleNotification(notification);
       },
@@ -120,7 +133,8 @@ export class NotificationService {
 
     const slackRecipients = notification.recipients.filter(
       (recipient): recipient is SlackNotificationRecipient =>
-        recipient.clientType === 'slack',
+        recipient.clientType === 'slack' ||
+        recipient.clientType === 'slack-channel',
     );
 
     for (
@@ -148,7 +162,10 @@ export class NotificationService {
       this.options.logger.debug(
         {
           teamId: recipient.teamId,
-          userId: recipient.userId,
+          userId:
+            recipient.clientType === 'slack'
+              ? recipient.userId
+              : recipient.channelId,
           role: recipient.role || 'participant',
           priority: recipient.priority || 'normal',
           hasBlocks:
@@ -159,13 +176,16 @@ export class NotificationService {
 
       const { token: botToken, fromFallback } = await this.resolveBotToken(
         recipient.teamId,
-        recipient.userId,
+        recipient.clientType === 'slack' ? recipient.userId : undefined,
       );
       if (!botToken) {
         this.options.logger.error(
           {
             teamId: recipient.teamId,
-            userId: recipient.userId,
+            userId:
+              recipient.clientType === 'slack'
+                ? recipient.userId
+                : recipient.channelId,
           },
           'No bot credentials or fallback SLACK_BOT_TOKEN available; cannot send notification',
         );
@@ -174,21 +194,34 @@ export class NotificationService {
 
       if (fromFallback) {
         this.options.logger.debug(
-          { teamId: recipient.teamId, userId: recipient.userId },
+          {
+            teamId: recipient.teamId,
+            userId:
+              recipient.clientType === 'slack'
+                ? recipient.userId
+                : recipient.channelId,
+          },
           'Using fallback bot token for notification',
         );
       }
 
       const web = this.getOrCreateWebClient(botToken);
-      const channelId = await this.getOrOpenDmChannel(
-        web,
-        botToken,
-        recipient.userId,
-      );
+      const channelId =
+        recipient.clientType === 'slack'
+          ? await this.getOrOpenDmChannel(web, botToken, recipient.userId)
+          : recipient.channelId;
       if (!channelId) {
         this.options.logger.error(
-          { teamId: recipient.teamId, userId: recipient.userId },
-          'Could not open DM; no channel ID returned',
+          {
+            teamId: recipient.teamId,
+            userId:
+              recipient.clientType === 'slack'
+                ? recipient.userId
+                : recipient.channelId,
+          },
+          recipient.clientType === 'slack'
+            ? 'Could not open DM; no channel ID returned'
+            : 'No channel ID provided for channel notification',
         );
         return;
       }
@@ -197,10 +230,10 @@ export class NotificationService {
       let finalBlocks = recipient.blocks;
       if (this.guildCrier) {
         try {
-          const override = this.guildCrier.formatRecipient(
-            notification,
-            recipient,
-          );
+          const override =
+            recipient.clientType === 'slack'
+              ? this.guildCrier.formatRecipient(notification, recipient)
+              : null;
           if (override) {
             finalMessage = override.message;
             finalBlocks = override.blocks;
@@ -270,7 +303,10 @@ export class NotificationService {
       this.options.logger.info(
         {
           teamId: recipient.teamId,
-          userId: recipient.userId,
+          userId:
+            recipient.clientType === 'slack'
+              ? recipient.userId
+              : recipient.channelId,
           role: recipient.role || 'participant',
           notificationType: notification.type,
         },
@@ -282,7 +318,10 @@ export class NotificationService {
       this.options.logger.error(
         {
           teamId: recipient.teamId,
-          userId: recipient.userId,
+          userId:
+            recipient.clientType === 'slack'
+              ? recipient.userId
+              : recipient.channelId,
           error,
           ...(errorData ? { errorData } : {}),
           ...(responseMetadata ? { responseMetadata } : {}),

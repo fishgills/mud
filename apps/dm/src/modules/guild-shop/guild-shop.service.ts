@@ -7,6 +7,7 @@ import { GuildShopPublisher } from './guild-shop.publisher';
 import type { GuildTradeResponse } from '@mud/api-contracts';
 import { RunsService } from '../runs/runs.service';
 import { formatWeaponRoll } from './guild-shop-progression';
+import { AchievementsService } from '../achievements/achievements.service';
 
 interface BuyRequest {
   teamId: string;
@@ -33,6 +34,7 @@ export class GuildShopService {
     private readonly repository: GuildShopRepository,
     private readonly publisher: GuildShopPublisher,
     private readonly runsService: RunsService,
+    private readonly achievementsService: AchievementsService,
   ) {}
 
   async listCatalog(): Promise<
@@ -145,6 +147,18 @@ export class GuildShopService {
         teamId: data.teamId,
         userId: data.userId,
       });
+      await this.achievementsService.recordShopPurchase({
+        teamId: data.teamId,
+        userId: data.userId,
+        playerId: player.id,
+        goldSpent: Math.abs(purchase.receipt.goldDelta),
+        quantity,
+        legendaryPurchased:
+          String(catalogItem.quality).toLowerCase() === 'legendary'
+            ? quantity
+            : 0,
+        itemName: catalogItem.name,
+      });
       return response;
     } catch (error) {
       this.logger.warn('Guild shop purchase failed', error as Error);
@@ -210,6 +224,10 @@ export class GuildShopService {
       await this.publisher.publishReceipt(response, {
         teamId: data.teamId,
         userId: data.userId,
+      });
+      await this.achievementsService.recordShopSell({
+        playerId: player.id,
+        goldEarned: Math.abs(result.receipt.goldDelta),
       });
       return response;
     } catch (error) {
