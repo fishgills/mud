@@ -5,7 +5,7 @@ import { PlayerCommandHandler } from '../base';
 
 export const helpHandlerHelp = `Show instructions for using the bot with "help".`;
 
-export const buildHelpBlocks = (): KnownBlock[] => [
+export const buildHelpBlocks = (hasPlayer = false): KnownBlock[] => [
   {
     type: 'header',
     text: { type: 'plain_text', text: '🗡️ MUD Adventurer Guide', emoji: true },
@@ -20,12 +20,16 @@ export const buildHelpBlocks = (): KnownBlock[] => [
   {
     type: 'actions',
     elements: [
-      {
-        type: 'button',
-        text: { type: 'plain_text', text: 'Create', emoji: true },
-        style: 'primary',
-        action_id: HELP_ACTIONS.CREATE,
-      },
+      ...(!hasPlayer
+        ? [
+            {
+              type: 'button' as const,
+              text: { type: 'plain_text' as const, text: 'Create', emoji: true },
+              style: 'primary' as const,
+              action_id: HELP_ACTIONS.CREATE,
+            },
+          ]
+        : []),
       {
         type: 'button',
         text: { type: 'plain_text', text: 'Stats', emoji: true },
@@ -132,7 +136,7 @@ export class HelpHandler extends PlayerCommandHandler {
   protected async perform({ say }: HandlerContext): Promise<void> {
     await say({
       text: 'MUD Adventurer Guide',
-      blocks: buildHelpBlocks(),
+      blocks: buildHelpBlocks(!!this.player),
     });
   }
 }
