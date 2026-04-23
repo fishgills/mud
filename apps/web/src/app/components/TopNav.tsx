@@ -12,13 +12,13 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { href: '/', label: 'Home' },
-  { href: '/me', label: 'Character', requiresAuth: true },
-  { href: '/me/store', label: 'Store', requiresAuth: true },
-  { href: '/privacy', label: 'Privacy' },
-  { href: '/terms', label: 'Terms' },
-  { href: '/support', label: 'Support' },
-  { href: '/about', label: 'About' },
+  { href: '/', label: 'HOME' },
+  { href: '/me', label: 'CHARACTER', requiresAuth: true },
+  { href: '/me/store', label: 'STORE', requiresAuth: true },
+  { href: '/privacy', label: 'PRIVACY' },
+  { href: '/terms', label: 'TERMS' },
+  { href: '/support', label: 'SUPPORT' },
+  { href: '/about', label: 'ABOUT' },
 ];
 
 type TopNavProps = {
@@ -60,13 +60,11 @@ export default function TopNav({ isAuthenticated = false }: TopNavProps) {
   };
 
   return (
-    <nav className="top-nav" aria-label="Site">
-      <div className="top-nav-brand">
-        <Link href="/" className="top-nav-title">
-          BattleForge
-        </Link>
-      </div>
-      <ul className="top-nav-list">
+    <nav className="nav" aria-label="Site">
+      <Link href="/" className="nav-brand">
+        ⚔ BATTLEFORGE
+      </Link>
+      <ul className="nav-list">
         {navItems
           .filter((item) => !item.requiresAuth || isAuthenticated)
           .map((item) => {
@@ -74,7 +72,7 @@ export default function TopNav({ isAuthenticated = false }: TopNavProps) {
             return (
               <li key={item.href}>
                 <Link
-                  className={`top-nav-link ${active ? 'top-nav-link-active' : ''}`}
+                  className={`nav-btn${active ? ' active' : ''}`}
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
                 >
@@ -83,16 +81,22 @@ export default function TopNav({ isAuthenticated = false }: TopNavProps) {
               </li>
             );
           })}
-        {isAuthenticated && (
+        {isAuthenticated ? (
           <li>
             <button
-              className="top-nav-link"
+              className="nav-btn danger"
               onClick={handleLogout}
               disabled={isLoggingOut}
               style={{ cursor: isLoggingOut ? 'wait' : 'pointer' }}
             >
-              {isLoggingOut ? 'Logging out...' : 'Logout'}
+              {isLoggingOut ? 'LOGGING OUT...' : 'LOGOUT'}
             </button>
+          </li>
+        ) : (
+          <li>
+            <a href="/api/auth/slack/start" className="nav-btn" style={{ color: 'var(--accent)' }}>
+              SIGN IN
+            </a>
           </li>
         )}
       </ul>

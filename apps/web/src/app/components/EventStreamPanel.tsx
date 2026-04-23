@@ -23,6 +23,7 @@ export default function EventStreamPanel({ enabled }: EventStreamPanelProps) {
   const [entries, setEntries] = useState<StreamEntry[]>([]);
   const [status, setStatus] = useState<'idle' | 'connected' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [open, setOpen] = useState(true);
   const counterRef = useRef(0);
   const diagnosticsRef = useRef(0);
 
@@ -49,15 +50,6 @@ export default function EventStreamPanel({ enabled }: EventStreamPanelProps) {
         },
         ...prev,
       ].slice(0, MAX_EVENTS));
-    };
-
-    const handlePayload = (eventName: string, data: string) => {
-      try {
-        const payload = JSON.parse(data) as StreamEventPayload;
-        addEntry(eventName, payload);
-      } catch {
-        addEntry(eventName, { message: data });
-      }
     };
 
     const runDiagnostics = async () => {
@@ -121,58 +113,50 @@ export default function EventStreamPanel({ enabled }: EventStreamPanelProps) {
     return null;
   }
 
-  const statusLabel =
+  const dotClass =
     status === 'connected'
-      ? 'Connected'
+      ? 'events-dot events-dot-connected'
       : status === 'error'
-        ? 'Disconnected'
-        : 'Connecting';
+        ? 'events-dot events-dot-error'
+        : 'events-dot events-dot-idle';
 
   return (
-    <details className="event-stream-panel">
-      <summary className="event-stream-summary">
-        <span className="event-stream-title">Event Stream</span>
-        <span className={`event-stream-status event-stream-status-${status}`}>
-          {statusLabel}
-        </span>
-      </summary>
-      <div className="event-stream-body">
-        {errorMessage ? (
-          <div className="event-stream-error">{errorMessage}</div>
-        ) : null}
-        <div className="event-stream-actions">
-          <button
-            type="button"
-            className="event-stream-clear"
-            onClick={() => setEntries([])}
-          >
-            Clear
-          </button>
-        </div>
-        {entries.length === 0 ? (
-          <div className="event-stream-empty">No events yet.</div>
-        ) : (
-          <div className="event-stream-list">
-            {entries.map((entry) => (
-              <div key={entry.id} className="event-stream-entry">
-                <div className="event-stream-entry-meta">
-                  <span>
-                    {entry.receivedAt} · {entry.payloadEvent ?? entry.eventName}
-                  </span>
-                  {entry.message ? (
-                    <span className="event-stream-entry-message">
-                      {entry.message}
-                    </span>
-                  ) : null}
-                </div>
-                <pre className="event-stream-entry-payload">
-                  {JSON.stringify(entry.payload, null, 2)}
-                </pre>
-              </div>
-            ))}
+    <div className="events-panel">
+      <button
+        className="events-hdr"
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span className="events-title">LIVE EVENTS</span>
+        <div className={dotClass} />
+      </button>
+      {open && (
+        <div className="events-body">
+          {errorMessage ? (
+            <div className="event-line" style={{ color: 'var(--error)' }}>{errorMessage}</div>
+          ) : null}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+            <button
+              type="button"
+              className="btn btn-xs"
+              onClick={() => setEntries([])}
+            >
+              Clear
+            </button>
           </div>
-        )}
-      </div>
-    </details>
+          {entries.length === 0 ? (
+            <div className="event-line" style={{ fontStyle: 'italic' }}>No events yet.</div>
+          ) : (
+            entries.map((entry) => (
+              <div key={entry.id} className="event-line">
+                <span className="event-line-type">{entry.payloadEvent ?? entry.eventName}</span>
+                {entry.message ? ` — ${entry.message}` : null}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   );
 }

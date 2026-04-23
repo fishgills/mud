@@ -1,20 +1,7 @@
 import type { Metadata } from 'next';
-import { Cinzel, Crimson_Text } from 'next/font/google';
 import './globals.css';
 import DatadogRum from './components/DatadogRum';
 import PageLayout from './components/PageLayout';
-
-const titleFont = Cinzel({
-  variable: '--font-title',
-  subsets: ['latin'],
-  weight: ['500', '600', '700'],
-});
-
-const bodyFont = Crimson_Text({
-  variable: '--font-body',
-  subsets: ['latin'],
-  weight: ['400', '600', '700'],
-});
 
 export const metadata: Metadata = {
   title: {
@@ -35,9 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${titleFont.variable} ${bodyFont.variable} antialiased`}
-      >
+      <body className="antialiased">
         <DatadogRum />
         <PageLayout>{children}</PageLayout>
       </body>
