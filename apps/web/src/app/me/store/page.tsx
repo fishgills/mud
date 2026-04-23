@@ -60,28 +60,11 @@ const getShopState = async () => {
   });
 };
 
-const SectionDivider = () => (
-  <div className="section-divider" aria-hidden="true">
-    <svg
-      className="divider-icon"
-      viewBox="0 0 24 24"
-      role="img"
-      aria-label="Crossed blades"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 4l4 4" />
-      <path d="M4 5l3 3" />
-      <path d="M9 9l-2 2" />
-      <path d="M19 4l-4 4" />
-      <path d="M20 5l-3 3" />
-      <path d="M15 9l2 2" />
-      <path d="M7 13l10 6" />
-      <path d="M17 13l-10 6" />
-    </svg>
+const PixelDivider = () => (
+  <div className="divider" aria-hidden="true">
+    <div className="divider-line" />
+    <span className="divider-glyph">⚔</span>
+    <div className="divider-line" />
   </div>
 );
 
@@ -90,22 +73,14 @@ export default async function StorePage() {
 
   if (!session) {
     return (
-      <main className="page-card flex flex-col gap-6">
-        <header className="flex flex-col gap-2">
-          <h1 className="title-font text-3xl font-semibold tracking-tight">
-            Guild Store
-          </h1>
-        </header>
-        <SectionDivider />
-        <section className="text-base leading-7 text-[color:var(--ink-soft)]">
-          <p>You are not signed in.</p>
-        </section>
-        <div>
-          <a className="slack-auth-link" href="/api/auth/slack/start">
-            Sign in with Slack
-          </a>
-        </div>
-      </main>
+      <div className="layout">
+        <main className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="pixel-h2">GUILD STORE</div>
+          <PixelDivider />
+          <p style={{ fontFamily: "'VT323',monospace", fontSize: 18, color: 'var(--ink-soft)' }}>You are not signed in.</p>
+          <a className="btn btn-slack" href="/api/auth/slack/start" style={{ alignSelf: 'flex-start', textDecoration: 'none' }}>SIGN IN WITH SLACK</a>
+        </main>
+      </div>
     );
   }
 
@@ -117,21 +92,16 @@ export default async function StorePage() {
 
   if (!player) {
     return (
-      <main className="page-card flex flex-col gap-6">
-        <header className="flex flex-col gap-2">
-          <h1 className="title-font text-3xl font-semibold tracking-tight">
-            Guild Store
-          </h1>
-        </header>
-        <SectionDivider />
-        <section className="text-base leading-7 text-[color:var(--ink-soft)]">
-          <p>No character was found for this Slack account.</p>
-          <p>
-            Start a character in Slack by messaging the BattleForge bot with
-            <span className="font-semibold"> new YourName</span>.
-          </p>
-        </section>
-      </main>
+      <div className="layout">
+        <main className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="pixel-h2">GUILD STORE</div>
+          <PixelDivider />
+          <div className="page-text">
+            <p>No character was found for this Slack account.</p>
+            <p>Start a character in Slack by messaging the BattleForge bot with <span style={{ color: 'var(--gold)' }}>new YourName</span>.</p>
+          </div>
+        </main>
+      </div>
     );
   }
 
@@ -243,88 +213,50 @@ export default async function StorePage() {
   const lastRefreshAt = shopState?.lastRefreshedAt
     ? shopState.lastRefreshedAt.toISOString()
     : null;
-  const renderTicketIcon = (tone: 'rare' | 'epic' | 'legendary') => (
-    <span className={`ticket-icon ticket-icon-${tone}`} aria-hidden="true">
-      <svg
-        className="ticket-icon-svg"
-        viewBox="0 0 24 24"
-        role="presentation"
-        aria-hidden="true"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2.5 2.5 0 0 0 0 5v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2.5 2.5 0 0 0 0-5V7z" />
-      </svg>
-    </span>
-  );
-
   return (
-    <main className="page-card flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <h1 className="title-font text-3xl font-semibold tracking-tight">
-          Guild Store
-        </h1>
-        <p className="text-sm text-[color:var(--ink-soft)]">
-          <span className="shop-currency-line">
-            <span
-              className="currency-icon currency-icon-gold"
-              aria-hidden="true"
-            >
-              G
-            </span>
-            Gold {inventory.gold}
-          </span>
-          <span aria-hidden="true"> · </span>
-          Rotates on tick events
-        </p>
-        <p className="text-sm text-[color:var(--ink-soft)]">
-          <span className="shop-currency-line shop-ticket-counts">
-            <span
-              className="currency-icon currency-icon-ticket"
-              aria-hidden="true"
-            >
-              T
-            </span>
-            Tickets:
-            <span className="shop-ticket-count">
-              {renderTicketIcon('rare')}
-              <span className="sr-only">Rare</span>
-              {ticketCounts.rare}
-            </span>
-            <span className="shop-ticket-count">
-              {renderTicketIcon('epic')}
-              <span className="sr-only">Epic</span>
-              {ticketCounts.epic}
-            </span>
-            <span className="shop-ticket-count">
-              {renderTicketIcon('legendary')}
-              <span className="sr-only">Legendary</span>
-              {ticketCounts.legendary}
-            </span>
-          </span>
-        </p>
-      </header>
+    <div className="layout">
+      <main className="panel panel-wide" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <header style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="pixel-h1" style={{ fontSize: 12 }}>GUILD STORE</div>
+          <p style={{ fontFamily: "'VT323',monospace", fontSize: 17, color: 'var(--ink-soft)' }}>Trade with the guild merchants</p>
+          <div className="currency-row">
+            <div className="currency-chip chip-gold">
+              <span>⬡</span>
+              <span>{inventory.gold.toLocaleString()}</span>
+              <span className="chip-label">GOLD</span>
+            </div>
+            {ticketCounts.rare > 0 && (
+              <div className="currency-chip chip-rare">
+                <span>{ticketCounts.rare}</span>
+                <span className="chip-label">RARE TICKETS</span>
+              </div>
+            )}
+            {ticketCounts.epic > 0 && (
+              <div className="currency-chip chip-epic">
+                <span>{ticketCounts.epic}</span>
+                <span className="chip-label">EPIC TICKETS</span>
+              </div>
+            )}
+            {ticketCounts.legendary > 0 && (
+              <div className="currency-chip chip-legendary">
+                <span>{ticketCounts.legendary}</span>
+                <span className="chip-label">LEGENDARY TICKETS</span>
+              </div>
+            )}
+          </div>
+        </header>
 
-      <SectionDivider />
+        <PixelDivider />
 
-      <section className="text-sm text-[color:var(--ink-soft)]">
-        <p>
-          Buy new gear from the guild merchants, or sell extra items from your
-          backpack.
-        </p>
-      </section>
-
-      <ShopClient
-        catalog={catalogView}
-        sellItems={sellItems}
-        playerGold={inventory.gold}
-        ticketCounts={ticketCounts}
-        refreshIntervalMs={refreshIntervalMs}
-        lastRefreshAt={lastRefreshAt}
-      />
-    </main>
+        <ShopClient
+          catalog={catalogView}
+          sellItems={sellItems}
+          playerGold={inventory.gold}
+          ticketCounts={ticketCounts}
+          refreshIntervalMs={refreshIntervalMs}
+          lastRefreshAt={lastRefreshAt}
+        />
+      </main>
+    </div>
   );
 }

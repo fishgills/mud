@@ -144,6 +144,7 @@ export default function ShopClient({
     const base = lastRefreshAt ? new Date(lastRefreshAt).getTime() : Date.now();
     return base + refreshIntervalMs;
   });
+  const [tab, setTab] = useState<'buy' | 'sell'>('buy');
 
   const handleShopEvent = useCallback(
     (
@@ -232,13 +233,16 @@ export default function ShopClient({
               <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2.5 2.5 0 0 0 0 5v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2.5 2.5 0 0 0 0-5V7z" />
             </svg>
           </span>
-          <span className="shop-ticket-text">Ticket required</span>
+          <span style={{ fontFamily: "'Press Start 2P',monospace", fontSize: 5, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ticket required</span>
         </span>
       ) : null,
       footer: visibleTags.length ? (
-        <div className="shop-tag-list">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {visibleTags.map((tag) => (
-            <span key={tag} className="shop-tag">
+            <span
+              key={tag}
+              style={{ fontFamily: "'VT323',monospace", fontSize: 14, padding: '1px 6px', background: 'rgba(123,91,58,0.15)', color: 'var(--ink-soft)' }}
+            >
               {tag}
             </span>
           ))}
@@ -246,11 +250,11 @@ export default function ShopClient({
       ) : null,
       actions: (
         <>
-          <span className="shop-stock">
+          <span className="item-card-stock">
             Stock {Math.max(0, item.stockQuantity)}
           </span>
           <button
-            className="shop-button"
+            className="btn btn-xs btn-primary"
             type="button"
             onClick={() => handleBuy(item.sku)}
             disabled={!canBuy}
@@ -271,7 +275,7 @@ export default function ShopClient({
     sellPriceGold: item.sellPriceGold,
     actions: (
       <button
-        className="shop-button"
+        className="btn btn-xs btn-sell"
         type="button"
         onClick={() => handleSell(item.id)}
         disabled={pendingSellId !== null && pendingSellId !== item.id}
@@ -334,37 +338,88 @@ export default function ShopClient({
   };
 
   return (
-    <div className="shop-content">
-      {notice ? (
-        <div
-          className={`shop-notice ${
-            notice.tone === 'success'
-              ? 'shop-notice-success'
-              : 'shop-notice-error'
-          }`}
-          role={notice.tone === 'error' ? 'alert' : 'status'}
-        >
-          {notice.message}
-        </div>
-      ) : null}
-      {showTimer ? (
-        <div className="shop-timer" aria-live="polite">
-          Refresh in {countdownLabel}
-        </div>
-      ) : null}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="pixel-h1">GUILD STORE</div>
+        <p style={{ fontFamily: "'VT323',monospace", fontSize: 18, color: 'var(--ink-soft)' }}>
+          Trade your gold and tickets for powerful gear.
+        </p>
 
-      <StoreItemSection
-        title="For Sale"
-        items={forSaleItems}
-        emptyMessage="The guild merchants are restocking. Check back in a few minutes."
-      />
+        <div className="currency-row">
+          <div className="currency-chip chip-gold">
+            <span className="chip-label">GOLD</span>
+            {playerGold}
+          </div>
+          <div className="currency-chip chip-rare">
+            <span className="chip-label">RARE</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2.5 2.5 0 0 0 0 5v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2.5 2.5 0 0 0 0-5V7z" />
+            </svg>
+            {ticketCounts.rare}
+          </div>
+          <div className="currency-chip chip-epic">
+            <span className="chip-label">EPIC</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2.5 2.5 0 0 0 0 5v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2.5 2.5 0 0 0 0-5V7z" />
+            </svg>
+            {ticketCounts.epic}
+          </div>
+          <div className="currency-chip chip-legendary">
+            <span className="chip-label">LEGENDARY</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2.5 2.5 0 0 0 0 5v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2.5 2.5 0 0 0 0-5V7z" />
+            </svg>
+            {ticketCounts.legendary}
+          </div>
+        </div>
 
-      <StoreItemSection
-        title="Sell from Backpack"
-        items={sellBackpackItems}
-        emptyMessage="You do not have any unequipped items to sell."
-        showSellPrice
-      />
+        {showTimer ? (
+          <div className="shop-timer-row" aria-live="polite">
+            REFRESH IN <span style={{ color: 'var(--accent)' }}>{countdownLabel}</span>
+          </div>
+        ) : null}
+
+        {notice ? (
+          <div
+            className={`notice ${notice.tone === 'success' ? 'notice-success' : 'notice-error'}`}
+            role={notice.tone === 'error' ? 'alert' : 'status'}
+          >
+            {notice.message}
+          </div>
+        ) : null}
+
+        <div className="tab-row">
+          <button
+            className={`tab-btn${tab === 'buy' ? ' active' : ''}`}
+            type="button"
+            onClick={() => setTab('buy')}
+          >
+            FOR SALE
+          </button>
+          <button
+            className={`tab-btn${tab === 'sell' ? ' active' : ''}`}
+            type="button"
+            onClick={() => setTab('sell')}
+          >
+            SELL ITEMS
+          </button>
+        </div>
+
+        {tab === 'buy' && (
+          <StoreItemSection
+            title="For Sale"
+            items={forSaleItems}
+            emptyMessage="The guild merchants are restocking. Check back in a few minutes."
+          />
+        )}
+
+        {tab === 'sell' && (
+          <StoreItemSection
+            title="Sell from Backpack"
+            items={sellBackpackItems}
+            emptyMessage="You do not have any unequipped items to sell."
+            showSellPrice
+          />
+        )}
     </div>
   );
 }
