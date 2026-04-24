@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '../../../../lib/slack-auth';
-import { spendSkillPoint } from '../../../../lib/dm-player';
+import { getSession } from '../../../lib/slack-auth';
+import { spendSkillPoint } from '../../../lib/dm-player';
 
 const VALID_ATTRIBUTES = ['strength', 'agility', 'health'] as const;
 type Attribute = (typeof VALID_ATTRIBUTES)[number];
