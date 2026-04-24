@@ -4,6 +4,7 @@ import { buildInventoryModel } from '@mud/inventory';
 import { buildCharacterSheetModel } from '@mud/character-sheet';
 import { getSession } from '../lib/slack-auth';
 import InventoryClient from './inventory/InventoryClient';
+import AttributesClient from './AttributesClient';
 
 export const metadata = {
   title: 'Character',
@@ -276,19 +277,23 @@ export default async function CharacterPage() {
             <h2 className="title-font character-section-title">
               {section.title}
             </h2>
-            <div className="character-grid">
-              {section.fields.map((field) => (
-                <div key={field.label} className="character-field">
-                  <span className="character-label">{field.label}</span>
-                  <span className="character-value">{field.value}</span>
-                </div>
-              ))}
-            </div>
+            {section.title === 'Attributes' ? (
+              <AttributesClient
+                fields={section.fields}
+                skillPoints={characterSheet.skillPoints}
+              />
+            ) : (
+              <div className="character-grid">
+                {section.fields.map((field) => (
+                  <div key={field.label} className="character-field">
+                    <span className="character-label">{field.label}</span>
+                    <span className="character-value">{field.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
-        {characterSheet.xpContext ? (
-          <p className="character-note">{characterSheet.xpContext}</p>
-        ) : null}
         <p className="character-note">
           Skill points available: {characterSheet.skillPoints}
         </p>

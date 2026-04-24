@@ -86,3 +86,17 @@ export const unequipItem = async (params: {
     },
   });
 };
+
+export const spendSkillPoint = async (params: {
+  teamId: string;
+  userId: string;
+  attribute: 'strength' | 'agility' | 'health';
+}): Promise<ItemActionResponse> => {
+  return dmRequest<ItemActionResponse>('/players/spend-skill-point', 'POST', {
+    body: {
+      teamId: params.teamId,
+      userId: params.userId,
+      attribute: params.attribute,
+    },
+  });
+};

@@ -211,6 +211,7 @@ body {
 .app-button,
 .inventory-button,
 .shop-button,
+.skill-point-btn,
 .slack-install-link,
 .slack-auth-link {
   border: 1px solid rgba(180, 130, 70, 0.55);
@@ -240,6 +241,7 @@ body {
 .app-button:hover:not(:disabled),
 .inventory-button:hover:not(:disabled),
 .shop-button:hover:not(:disabled),
+.skill-point-btn:hover:not(:disabled),
 .slack-install-link:hover,
 .slack-auth-link:hover {
   border-color: rgba(223, 164, 92, 0.8);
@@ -252,6 +254,7 @@ body {
 .app-button:active:not(:disabled),
 .inventory-button:active:not(:disabled),
 .shop-button:active:not(:disabled),
+.skill-point-btn:active:not(:disabled),
 .slack-install-link:active,
 .slack-auth-link:active {
   transform: translateY(0);
@@ -263,6 +266,7 @@ body {
 .app-button:focus-visible,
 .inventory-button:focus-visible,
 .shop-button:focus-visible,
+.skill-point-btn:focus-visible,
 .slack-install-link:focus-visible,
 .slack-auth-link:focus-visible {
   outline: 2px solid rgba(223, 164, 92, 0.7);
@@ -271,7 +275,8 @@ body {
 
 .app-button:disabled,
 .inventory-button:disabled,
-.shop-button:disabled {
+.shop-button:disabled,
+.skill-point-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
   box-shadow: none;
@@ -532,6 +537,12 @@ body {
 .inventory-button {
   font-size: 12px;
   padding: 5px 12px;
+}
+
+.skill-point-btn {
+  font-size: 14px;
+  padding: 2px 10px;
+  line-height: 1;
 }
 
 /* Guild Store */
