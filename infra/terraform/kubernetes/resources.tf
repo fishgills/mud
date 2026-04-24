@@ -902,6 +902,20 @@ resource "kubernetes_manifest" "managed_certificate" {
   }
 }
 
+resource "kubernetes_manifest" "frontend_config" {
+  manifest = {
+    apiVersion = "networking.gke.io/v1beta1"
+    kind       = "FrontendConfig"
+    metadata = {
+      name      = "mud-frontend-config"
+      namespace = kubernetes_namespace.mud.metadata[0].name
+    }
+    spec = {
+      quicOverride = "DISABLE"
+    }
+  }
+}
+
 resource "kubernetes_ingress_v1" "public" {
   metadata {
     name      = "mud-public"
@@ -910,6 +924,7 @@ resource "kubernetes_ingress_v1" "public" {
       "kubernetes.io/ingress.class"                 = "gce"
       "kubernetes.io/ingress.global-static-ip-name" = data.google_compute_global_address.gke_ingress.name
       "networking.gke.io/managed-certificates"      = kubernetes_manifest.managed_certificate.manifest["metadata"]["name"]
+      "networking.gke.io/v1beta1.FrontendConfig"    = "mud-frontend-config"
     }
   }
 

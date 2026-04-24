@@ -135,6 +135,7 @@ export const GET = async (request: Request) => {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
+      'Alt-Svc': 'clear',
     },
   });
 };
