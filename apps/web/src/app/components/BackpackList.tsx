@@ -30,14 +30,14 @@ export default function BackpackList({
 }: BackpackListProps) {
   if (items.length === 0) {
     return (
-      <p className="text-[color:var(--ink-soft)] text-sm italic">
+      <p style={{ fontFamily: "'VT323',monospace", fontSize: 18, color: 'var(--ink-dim)', fontStyle: 'italic' }}>
         {emptyMessage}
       </p>
     );
   }
 
   return (
-    <div className="inventory-list">
+    <div className="bp-grid" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {items.map((item, index) => (
         <ItemCard
           key={item.id ?? `${item.name}-${index}`}

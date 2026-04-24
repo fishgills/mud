@@ -29,28 +29,19 @@ type ItemActionResponse = {
 
 type PendingAction = { type: 'equip' | 'unequip'; id: number } | null;
 
-const SectionDivider = () => (
-  <div className="section-divider" aria-hidden="true">
-    <svg
-      className="divider-icon"
-      viewBox="0 0 24 24"
-      role="img"
-      aria-label="Crossed blades"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 4l4 4" />
-      <path d="M4 5l3 3" />
-      <path d="M9 9l-2 2" />
-      <path d="M19 4l-4 4" />
-      <path d="M20 5l-3 3" />
-      <path d="M15 9l2 2" />
-      <path d="M7 13l10 6" />
-      <path d="M17 13l-10 6" />
-    </svg>
+const normalizeRarity = (qualityLabel: string | null | undefined): string => {
+  const q = qualityLabel?.toLowerCase() ?? '';
+  if (q.includes('legendary')) return 'legendary';
+  if (q.includes('epic')) return 'epic';
+  if (q.includes('rare')) return 'rare';
+  return 'common';
+};
+
+const PixelDivider = () => (
+  <div className="divider" aria-hidden="true">
+    <div className="divider-line" />
+    <span className="divider-glyph">⚔</span>
+    <div className="divider-line" />
   </div>
 );
 
@@ -197,37 +188,41 @@ export default function InventoryClient({
       item: null,
       isEmpty: true,
     };
-  const renderSlot = (slot: EquippedSlot) => (
-    <div key={slot.key} className={`inventory-slot inventory-slot-${slot.key}`}>
-      <span className="inventory-slot-label">{slot.label}</span>
-      {slot.item ? (
-        <ItemCard
-          variant="slot"
-          name={slot.item.name}
-          qualityBadge={slot.item.qualityBadge}
-          qualityLabel={slot.item.qualityLabel}
-          stats={slot.item.stats}
-          sellPriceGold={resolveSellPrice(slot.item.value)}
-          actions={
-            typeof slot.item.id === 'number' ? (
-              <button
-                className="inventory-button"
-                type="button"
-                onClick={() => handleUnequip(slot.item!)}
-                disabled={isPending}
-              >
-                {pending?.type === 'unequip' && pending.id === slot.item.id
-                  ? 'Unequipping…'
-                  : 'Unequip'}
-              </button>
-            ) : null
-          }
-        />
-      ) : (
-        <span className="inventory-empty">Empty</span>
-      )}
-    </div>
-  );
+  const renderSlot = (slot: EquippedSlot) => {
+    const rarity = slot.item ? normalizeRarity(slot.item.qualityLabel) : '';
+    const slotClass = `equip-slot${slot.item ? ` has-item rarity-${rarity}` : ''}`;
+    return (
+      <div key={slot.key} className={slotClass}>
+        <span className="slot-label">{slot.label}</span>
+        {slot.item ? (
+          <ItemCard
+            variant="slot"
+            name={slot.item.name}
+            qualityBadge={slot.item.qualityBadge}
+            qualityLabel={slot.item.qualityLabel}
+            stats={slot.item.stats}
+            sellPriceGold={resolveSellPrice(slot.item.value)}
+            actions={
+              typeof slot.item.id === 'number' ? (
+                <button
+                  className="btn btn-xs"
+                  type="button"
+                  onClick={() => handleUnequip(slot.item!)}
+                  disabled={isPending}
+                >
+                  {pending?.type === 'unequip' && pending.id === slot.item.id
+                    ? 'Unequipping…'
+                    : 'Unequip'}
+                </button>
+              ) : null
+            }
+          />
+        ) : (
+          <span className="slot-empty">Empty</span>
+        )}
+      </div>
+    );
+  };
   const backpackItems: BackpackListItem[] = inventory.backpackItems.map(
     (item) => ({
       id: item.id ?? null,
@@ -241,7 +236,7 @@ export default function InventoryClient({
       actions:
         item.canEquip && typeof item.id === 'number' ? (
           <button
-            className="inventory-button"
+            className="btn btn-xs btn-primary"
             type="button"
             onClick={() => handleEquip(item)}
             disabled={isPending}
@@ -255,45 +250,41 @@ export default function InventoryClient({
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {notice ? (
         <div
-          className={`shop-notice ${
-            notice.tone === 'success'
-              ? 'shop-notice-success'
-              : 'shop-notice-error'
-          }`}
+          className={`notice ${notice.tone === 'success' ? 'notice-success' : 'notice-error'}`}
           role={notice.tone === 'error' ? 'alert' : 'status'}
         >
           {notice.message}
         </div>
       ) : null}
 
-      <SectionDivider />
+      <PixelDivider />
 
-      <section className="inventory-section">
-        <h2 className="title-font inventory-section-title">Equipped Gear</h2>
-        <div className="inventory-grid">
-          <div className="inventory-column inventory-column-center">
+      <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="pixel-h3">Equipped Gear</div>
+        <div className="equip-grid">
+          <div className="equip-col">
             {renderSlot(resolveSlot('arms'))}
           </div>
-          <div className="inventory-column">
+          <div className="equip-col">
             {renderSlot(resolveSlot('head'))}
             {renderSlot(resolveSlot('chest'))}
             {renderSlot(resolveSlot('legs'))}
           </div>
-          <div className="inventory-column inventory-column-center">
+          <div className="equip-col">
             {renderSlot(resolveSlot('weapon'))}
           </div>
         </div>
       </section>
 
-      <SectionDivider />
+      <PixelDivider />
 
-      <section className="inventory-section">
-        <h2 className="title-font inventory-section-title">
+      <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="pixel-h3">
           Backpack ({inventory.totalBackpack} items)
-        </h2>
+        </div>
         <BackpackList items={backpackItems} />
       </section>
     </div>

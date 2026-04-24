@@ -9,29 +9,25 @@ const withBasePath = (href: string) =>
 test('home page has required links', async ({ page }) => {
   await page.goto('/');
 
+  await expect(page.getByText(/BATTLEFORGE/)).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: 'BattleForge', level: 1 }),
-  ).toBeVisible();
-  await expect(
-    page.getByText(
-      'BattleForge is a multiplayer text adventure game designed to be played directly inside Slack through private messages.',
-    ),
+    page.getByText('A multiplayer dungeon adventure played entirely in Slack DMs.'),
   ).toBeVisible();
 
   const nav = page.getByRole('navigation', { name: 'Site' });
-  await expect(nav.getByRole('link', { name: 'Home' })).toHaveAttribute(
+  await expect(nav.getByRole('link', { name: 'HOME' })).toHaveAttribute(
     'aria-current',
     'page',
   );
-  await expect(nav.getByRole('link', { name: 'Character' })).toHaveCount(0);
-  await expect(nav.getByRole('link', { name: 'Store' })).toHaveCount(0);
-  await expect(nav.getByRole('link', { name: 'Privacy' })).toBeVisible();
-  await expect(nav.getByRole('link', { name: 'Terms' })).toBeVisible();
-  await expect(nav.getByRole('link', { name: 'Support' })).toBeVisible();
-  await expect(nav.getByRole('link', { name: 'About' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'CHARACTER' })).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: 'STORE' })).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: 'PRIVACY' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'TERMS' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'SUPPORT' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'ABOUT' })).toBeVisible();
 
   await expect(
-    page.getByRole('link', { name: 'Sign in with Slack' }),
+    page.getByRole('link', { name: 'SIGN IN' }).first(),
   ).toHaveAttribute('href', withBasePath('/api/auth/slack/start'));
 });
 
@@ -41,15 +37,13 @@ test('character page prompts sign in when unauthenticated', async ({
   await page.goto('/me');
 
   await expect(page).toHaveTitle('BattleForge | Character');
-  await expect(
-    page.getByRole('heading', { name: 'Character', level: 1 }),
-  ).toBeVisible();
+  await expect(page.getByText('CHARACTER')).toBeVisible();
   await expect(page.getByText('You are not signed in.')).toBeVisible();
   await expect(
-    page.getByRole('link', { name: 'Sign in with Slack' }),
+    page.getByRole('link', { name: 'SIGN IN' }),
   ).toHaveAttribute('href', withBasePath('/api/auth/slack/start'));
   await expect(
-    page.getByRole('link', { name: 'Character', exact: true }),
+    page.getByRole('link', { name: 'CHARACTER', exact: true }),
   ).toHaveCount(0);
 });
 
@@ -57,15 +51,13 @@ test('store page prompts sign in when unauthenticated', async ({ page }) => {
   await page.goto('/me/store');
 
   await expect(page).toHaveTitle('BattleForge | Guild Store');
-  await expect(
-    page.getByRole('heading', { name: 'Guild Store', level: 1 }),
-  ).toBeVisible();
+  await expect(page.getByText('GUILD STORE')).toBeVisible();
   await expect(page.getByText('You are not signed in.')).toBeVisible();
   await expect(
-    page.getByRole('link', { name: 'Sign in with Slack' }),
+    page.getByRole('link', { name: /SIGN IN/ }),
   ).toHaveAttribute('href', withBasePath('/api/auth/slack/start'));
   await expect(
-    page.getByRole('link', { name: 'Store', exact: true }),
+    page.getByRole('link', { name: 'STORE', exact: true }),
   ).toHaveCount(0);
 });
 
@@ -73,16 +65,15 @@ test('terms page provides terms', async ({ page }) => {
   await page.goto('/terms');
 
   await expect(page).toHaveTitle('BattleForge | Terms of Service');
-  await expect(
-    page.getByRole('heading', { name: 'Terms of Service', level: 1 }),
-  ).toBeVisible();
+  await expect(page.getByText('TERMS OF SERVICE')).toBeVisible();
   await expect(
     page.getByText(
       'BattleForge is provided as-is for entertainment and experimentation in Slack.',
+      { exact: false },
     ),
   ).toBeVisible();
   await expect(
-    page.getByRole('link', { name: 'Terms', exact: true }),
+    page.getByRole('link', { name: 'TERMS', exact: true }),
   ).toHaveAttribute('aria-current', 'page');
 });
 
@@ -90,35 +81,30 @@ test('privacy page lists data handling details', async ({ page }) => {
   await page.goto('/privacy');
 
   await expect(page).toHaveTitle('BattleForge | Privacy Policy');
+  await expect(page.getByText('PRIVACY POLICY')).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: 'Privacy Policy', level: 1 }),
+    page.getByRole('heading', { name: '1. WHAT DATA WE COLLECT', level: 2 }),
   ).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: '1. What Data We Collect', level: 2 }),
+    page.getByRole('heading', { name: '2. WHAT WE DO NOT COLLECT', level: 2 }),
   ).toBeVisible();
   await expect(
-    page.getByRole('heading', {
-      name: '2. What We Do NOT Collect',
-      level: 2,
-    }),
+    page.getByRole('heading', { name: '3. HOW MESSAGES ARE USED', level: 2 }),
   ).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: '3. How Messages Are Used', level: 2 }),
+    page.getByRole('heading', { name: '4. DATA RETENTION', level: 2 }),
   ).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: '4. Data Retention', level: 2 }),
+    page.getByRole('heading', { name: '5. DATA DELETION', level: 2 }),
   ).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: '5. Data Deletion', level: 2 }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: '6. Contact', level: 2 }),
+    page.getByRole('heading', { name: '6. CONTACT', level: 2 }),
   ).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'support@battleforge.app' }),
   ).toHaveAttribute('href', 'mailto:support@battleforge.app');
   await expect(
-    page.getByRole('link', { name: 'Privacy', exact: true }),
+    page.getByRole('link', { name: 'PRIVACY', exact: true }),
   ).toHaveAttribute('aria-current', 'page');
 });
 
@@ -126,14 +112,12 @@ test('support page provides contact details', async ({ page }) => {
   await page.goto('/support');
 
   await expect(page).toHaveTitle('BattleForge | Support');
-  await expect(
-    page.getByRole('heading', { name: 'Support', level: 1 }),
-  ).toBeVisible();
+  await expect(page.getByText('SUPPORT')).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'support@battleforge.app' }),
   ).toHaveAttribute('href', 'mailto:support@battleforge.app');
   await expect(
-    page.getByRole('link', { name: 'Support', exact: true }),
+    page.getByRole('link', { name: 'SUPPORT', exact: true }),
   ).toHaveAttribute('aria-current', 'page');
 });
 
@@ -141,15 +125,13 @@ test('about page explains the project', async ({ page }) => {
   await page.goto('/about');
 
   await expect(page).toHaveTitle('BattleForge | About');
+  await expect(page.getByText('ABOUT BATTLEFORGE')).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: 'About', level: 1 }),
+    page.getByText('BattleForge is a multiplayer text adventure RPG', {
+      exact: false,
+    }),
   ).toBeVisible();
   await expect(
-    page.getByText(
-      'BattleForge is a multiplayer text adventure game that runs inside Slack DMs.',
-    ),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: 'About', exact: true }),
+    page.getByRole('link', { name: 'ABOUT', exact: true }),
   ).toHaveAttribute('aria-current', 'page');
 });

@@ -52,14 +52,14 @@ export default function AttributesClient({ fields, skillPoints }: Props) {
 
   return (
     <>
-      <div className="character-grid">
+      <div className="stat-grid">
         {fields.map((field) => (
-          <div key={field.label} className="character-field">
-            <span className="character-label">{field.label}</span>
-            <span className="character-value">{field.value}</span>
+          <div key={field.label} className="stat-field">
+            <span className="stat-key">{field.label}</span>
+            <span className="stat-val">{field.value}</span>
             {skillPoints > 0 && LABEL_TO_ATTRIBUTE[field.label] ? (
               <button
-                className="skill-point-btn"
+                className="btn btn-xs"
                 disabled={pending}
                 onClick={() => handleSpend(field.label)}
                 aria-label={`Increase ${field.label}`}
@@ -70,7 +70,7 @@ export default function AttributesClient({ fields, skillPoints }: Props) {
           </div>
         ))}
       </div>
-      {error ? <p className="character-note character-note--error">{error}</p> : null}
+      {error ? <p style={{ fontFamily: "'VT323',monospace", fontSize: 16, color: 'var(--error)' }}>{error}</p> : null}
     </>
   );
 }

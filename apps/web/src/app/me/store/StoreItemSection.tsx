@@ -33,10 +33,12 @@ export default function StoreItemSection({
   showSellPrice = false,
 }: StoreItemSectionProps) {
   return (
-    <section className="shop-section">
-      <h2 className="title-font shop-section-title">{title}</h2>
+    <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="pixel-h3">{title}</div>
       {items.length === 0 ? (
-        <p className="text-sm text-[color:var(--ink-soft)]">{emptyMessage}</p>
+        <p style={{ fontFamily: "'VT323',monospace", fontSize: 18, color: 'var(--ink-dim)', fontStyle: 'italic' }}>
+          {emptyMessage}
+        </p>
       ) : (
         <div className="shop-grid">
           {items.map((item, index) => (
