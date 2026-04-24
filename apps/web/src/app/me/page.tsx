@@ -4,6 +4,7 @@ import { buildInventoryModel } from '@mud/inventory';
 import { buildCharacterSheetModel } from '@mud/character-sheet';
 import { getSession } from '../lib/slack-auth';
 import InventoryClient from './inventory/InventoryClient';
+import AttributesClient from './AttributesClient';
 
 export const metadata = {
   title: 'Character',
@@ -243,21 +244,23 @@ export default async function CharacterPage() {
           {characterSheet.sections.map((section) => (
             <div key={section.title} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div className="pixel-h3">{section.title}</div>
-              <div className="stat-grid">
-                {section.fields.map((field) => (
-                  <div key={field.label} className="stat-field">
-                    <span className="stat-key">{field.label}</span>
-                    <span className="stat-val">{field.value}</span>
-                  </div>
-                ))}
-              </div>
+              {section.title === 'Attributes' ? (
+                <AttributesClient
+                  fields={section.fields}
+                  skillPoints={characterSheet.skillPoints}
+                />
+              ) : (
+                <div className="stat-grid">
+                  {section.fields.map((field) => (
+                    <div key={field.label} className="stat-field">
+                      <span className="stat-key">{field.label}</span>
+                      <span className="stat-val">{field.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
-          {characterSheet.xpContext ? (
-            <p style={{ fontFamily: "'VT323',monospace", fontSize: 16, color: 'var(--ink-soft)' }}>
-              {characterSheet.xpContext}
-            </p>
-          ) : null}
           <p style={{ fontFamily: "'VT323',monospace", fontSize: 16, color: 'var(--ink-soft)' }}>
             Skill points available: {characterSheet.skillPoints}
           </p>
