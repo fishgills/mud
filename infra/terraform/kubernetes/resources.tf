@@ -902,21 +902,30 @@ resource "kubernetes_manifest" "managed_certificate" {
   }
 }
 
-resource "kubernetes_manifest" "frontend_config" {
-  manifest = {
-    apiVersion = "networking.gke.io/v1beta1"
-    kind       = "FrontendConfig"
-    metadata = {
-      name      = "mud-frontend-config"
-      namespace = kubernetes_namespace.mud.metadata[0].name
-    }
-    spec = {
-      quicOverride = "DISABLE"
-    }
+resource "null_resource" "frontend_config" {
+  triggers = {
+    namespace    = kubernetes_namespace.mud.metadata[0].name
+    quic_override = "DISABLE"
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOF
+      kubectl apply -f - <<MANIFEST
+      apiVersion: networking.gke.io/v1beta1
+      kind: FrontendConfig
+      metadata:
+        name: mud-frontend-config
+        namespace: ${kubernetes_namespace.mud.metadata[0].name}
+      spec:
+        quicOverride: DISABLE
+      MANIFEST
+    EOF
   }
 }
 
 resource "kubernetes_ingress_v1" "public" {
+  depends_on = [null_resource.frontend_config]
+
   metadata {
     name      = "mud-public"
     namespace = kubernetes_namespace.mud.metadata[0].name
