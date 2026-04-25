@@ -902,9 +902,9 @@ resource "kubernetes_manifest" "managed_certificate" {
   }
 }
 
-resource "kubernetes_manifest" "frontend_config" {
-  computed_fields = ["spec.quicOverride"]
-  manifest = {
+resource "kubectl_manifest" "frontend_config" {
+  validate_schema = false
+  yaml_body = yamlencode({
     apiVersion = "networking.gke.io/v1beta1"
     kind       = "FrontendConfig"
     metadata = {
@@ -914,7 +914,7 @@ resource "kubernetes_manifest" "frontend_config" {
     spec = {
       quicOverride = "DISABLE"
     }
-  }
+  })
 }
 
 resource "kubernetes_ingress_v1" "public" {
