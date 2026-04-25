@@ -113,3 +113,8 @@ apps/web/test-results
 apps/web/playwright-report
 .playwright-mcp
 data/certbot/conf/.certbot.lock
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
