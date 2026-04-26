@@ -53,6 +53,8 @@ export const CHARACTER_ACTIONS = {
 export const COMBAT_ACTIONS = {
   SHOW_LOG: 'combat_action_show_log',
   HIDE_LOG: 'combat_action_hide_log',
+  SHOW_MATH_LOG: 'combat_action_show_math_log',
+  HIDE_MATH_LOG: 'combat_action_hide_math_log',
 } as const;
 
 export const RUN_ACTIONS = {

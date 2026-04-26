@@ -818,72 +818,84 @@ describe('registerActions', () => {
   });
 
   describe('combat log actions', () => {
-    it('formats multiline combat logs with readable bullets', async () => {
+    const makeHitRound = (
+      overrides: Partial<{
+        roundNumber: number;
+        attackerName: string;
+        defenderName: string;
+        hit: boolean;
+        crit: boolean;
+        killed: boolean;
+        damage: number;
+        defenderHpAfter: number;
+        hitChance: number;
+        hitRoll: number;
+        coreDamage: number;
+        weaponDamage: number;
+        weaponDamageRoll: string;
+        mitigation: number;
+        critRoll: number;
+        critMultiplier: number;
+      }> = {},
+    ) => ({
+      roundNumber: 1,
+      attackerName: 'You',
+      defenderName: 'Wild Boar',
+      attackerEffectiveStats: {
+        strength: 3.7,
+        agility: 3.5,
+        health: 3.2,
+        level: 2.0,
+      },
+      defenderEffectiveStats: {
+        strength: 3.1,
+        agility: 3.3,
+        health: 3.0,
+        level: 1.4,
+      },
+      attackRating: 60,
+      defenseRating: 40,
+      hitChance: 0.72,
+      hitRoll: 0.12,
+      hit: true,
+      weaponDamage: 3,
+      weaponDamageRoll: '1d8',
+      coreDamage: 12,
+      baseDamage: 15,
+      mitigation: 0.2,
+      damageAfterMitigation: 12,
+      critChance: 0.05,
+      critRoll: 0.99,
+      critMultiplier: 1.5,
+      crit: false,
+      damage: 12,
+      defenderHpAfter: 20,
+      killed: false,
+      ...overrides,
+    });
+
+    const makeCombatLog = (rounds: ReturnType<typeof makeHitRound>[]) => ({
+      success: true as const,
+      data: {
+        combatId: 'combat-123',
+        participant1: 'You',
+        participant2: 'Wild Boar',
+        initiativeRolls: [],
+        firstAttacker: 'You',
+        rounds,
+        winner: 'You',
+        loser: 'Wild Boar',
+        xpAwarded: 10,
+        goldAwarded: 2,
+        timestamp: '2023-01-01T00:00:00Z',
+      },
+    });
+
+    const invokeShowLog = async (
+      client: MockSlackClient,
+      overrides: { blocks?: KnownBlock[] } = {},
+    ) => {
       const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
-      const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;
-      const chat = createChatMocks();
-      chat.update = update;
-      const client: MockSlackClient = {
-        conversations: { open: jest.fn() as ConversationsOpenMock },
-        chat,
-      };
-
-      mockedGetCombatLog.mockResolvedValueOnce({
-        success: true,
-        data: {
-          combatId: 'combat-123',
-          participant1: 'You',
-          participant2: 'Wild Boar',
-          initiativeRolls: [],
-          firstAttacker: 'You',
-          rounds: [
-            {
-              roundNumber: 1,
-              attackerName: 'You',
-              defenderName: 'Wild Boar',
-              attackerEffectiveStats: {
-                strength: 3.7,
-                agility: 3.5,
-                health: 3.2,
-                level: 2.0,
-              },
-              defenderEffectiveStats: {
-                strength: 3.1,
-                agility: 3.3,
-                health: 3.0,
-                level: 1.4,
-              },
-              attackRating: 60,
-              defenseRating: 40,
-              hitChance: 0.72,
-              hitRoll: 0.12,
-              hit: true,
-              weaponDamage: 3,
-              weaponDamageRoll: '1d8',
-              coreDamage: 12,
-              baseDamage: 15,
-              mitigation: 0.2,
-              damageAfterMitigation: 12,
-              critChance: 0.05,
-              critRoll: 0.99,
-              critMultiplier: 1.5,
-              crit: false,
-              damage: 12,
-              defenderHpAfter: 0,
-              killed: true,
-            },
-          ],
-          winner: 'You',
-          loser: 'Wild Boar',
-          xpAwarded: 10,
-          goldAwarded: 2,
-          timestamp: '2023-01-01T00:00:00Z',
-        },
-      });
-
-      const fullText =
-        '**Combat Log:**Round 1 You attack: swing\nDamage roll: 7\nRound 2 Wild Boar attacks: gore\nDamage roll: 8';
-
       await actionHandlers[COMBAT_ACTIONS.SHOW_LOG]({
         ack,
         body: {
@@ -891,8 +903,8 @@ describe('registerActions', () => {
           actions: [{ value: 'combat-123' }],
           message: {
             ts: 'TS-COMBAT',
-            text: fullText,
-            blocks: [
+            text: 'combat text',
+            blocks: overrides.blocks ?? [
               {
                 type: 'section',
                 text: { type: 'mrkdwn', text: 'Summary' },
@@ -923,45 +935,338 @@ describe('registerActions', () => {
         client,
         context: { teamId: 'T1' },
       });
+    };
 
-      const payload = update.mock.calls[0][0] as {
-        blocks: KnownBlock[];
+    it('renders KO round with skull icon, scoreboard, and context block', async () => {
+      const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;
+      const chat = createChatMocks();
+      chat.update = update;
+      const client: MockSlackClient = {
+        conversations: { open: jest.fn() as ConversationsOpenMock },
+        chat,
       };
-      const detailedBlock = payload.blocks.find(
-        (block) =>
-          block.type === 'section' &&
-          (block as SectionBlock).text?.text?.includes('Round 1'),
-      ) as SectionBlock;
 
-      expect(detailedBlock?.text?.text).toContain(
-        '• Round 1: You strike: AR 60 vs DR 40 (hit 72% (roll 12.0%)) -> HIT',
+      mockedGetCombatLog.mockResolvedValueOnce(
+        makeCombatLog([
+          makeHitRound({ killed: true, defenderHpAfter: 0, damage: 12 }),
+        ]),
       );
-      expect(detailedBlock?.text?.text).toContain("AR math: 10*S'");
-      expect(detailedBlock?.text?.text).toContain(
-        'Damage: 12 (core 12, weapon roll 1d8 -> 3, mit 20% (crit roll 99.0%)) -> Wild Boar HP 0 KO',
+
+      await invokeShowLog(client);
+
+      const payload = update.mock.calls[0][0] as { blocks: KnownBlock[] };
+
+      const scoreboardBlock = payload.blocks.find(
+        (b) =>
+          b.type === 'section' &&
+          (b as SectionBlock).text?.text?.includes('Combat Log'),
+      ) as SectionBlock;
+      expect(scoreboardBlock?.text?.text).toContain('*Combat Log* — 1 rounds');
+      expect(scoreboardBlock?.text?.text).toContain(
+        ':crossed_swords: You → Wild Boar:',
       );
-      expect(detailedBlock?.text?.text).toContain('    AR math:');
+      expect(scoreboardBlock?.text?.text).toContain('1/1 hits');
+
+      const headlineBlock = payload.blocks.find(
+        (b) =>
+          b.type === 'section' &&
+          (b as SectionBlock).text?.text?.includes('Round 1'),
+      ) as SectionBlock;
+      expect(headlineBlock?.text?.text).toContain(':skull:');
+      expect(headlineBlock?.text?.text).toContain('*Round 1*');
+      expect(headlineBlock?.text?.text).toContain('You → Wild Boar');
+      expect(headlineBlock?.text?.text).toContain('*12* dmg');
+      expect(headlineBlock?.text?.text).toContain('(KO)');
+
+      const headlineIdx = payload.blocks.indexOf(headlineBlock);
+      const contextBlock = payload.blocks[headlineIdx + 1];
+      expect(contextBlock?.type).toBe('context');
 
       const actionElements = payload.blocks
-        .filter((block) => block.type === 'actions')
-        .flatMap((block) => (block as ActionsBlock).elements ?? []);
+        .filter((b) => b.type === 'actions')
+        .flatMap((b) => (b as ActionsBlock).elements ?? []);
       expect(actionElements).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({
-            action_id: COMBAT_ACTIONS.HIDE_LOG,
-            text: expect.objectContaining({ text: 'Hide combat log' }),
-          }),
-          expect.objectContaining({
-            action_id: RUN_ACTIONS.CONTINUE,
-          }),
-          expect.objectContaining({
-            action_id: RUN_ACTIONS.FINISH,
-          }),
+          expect.objectContaining({ action_id: COMBAT_ACTIONS.HIDE_LOG }),
+          expect.objectContaining({ action_id: COMBAT_ACTIONS.SHOW_MATH_LOG }),
+          expect.objectContaining({ action_id: RUN_ACTIONS.CONTINUE }),
+          expect.objectContaining({ action_id: RUN_ACTIONS.FINISH }),
         ]),
       );
     });
 
-    it('falls back to a code block when no rounds are detected', async () => {
+    it('renders miss round with dash icon', async () => {
+      const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;
+      const chat = createChatMocks();
+      chat.update = update;
+      const client: MockSlackClient = {
+        conversations: { open: jest.fn() as ConversationsOpenMock },
+        chat,
+      };
+
+      mockedGetCombatLog.mockResolvedValueOnce(
+        makeCombatLog([
+          makeHitRound({ hit: false, damage: 0, weaponDamage: 0 }),
+        ]),
+      );
+
+      await invokeShowLog(client);
+
+      const payload = update.mock.calls[0][0] as { blocks: KnownBlock[] };
+      const headlineBlock = payload.blocks.find(
+        (b) =>
+          b.type === 'section' &&
+          (b as SectionBlock).text?.text?.includes('Round 1'),
+      ) as SectionBlock;
+      expect(headlineBlock?.text?.text).toContain(':dash:');
+      expect(headlineBlock?.text?.text).toContain('miss');
+      expect(headlineBlock?.text?.text).not.toContain('dmg');
+    });
+
+    it('renders crit round with boom icon', async () => {
+      const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;
+      const chat = createChatMocks();
+      chat.update = update;
+      const client: MockSlackClient = {
+        conversations: { open: jest.fn() as ConversationsOpenMock },
+        chat,
+      };
+
+      mockedGetCombatLog.mockResolvedValueOnce(
+        makeCombatLog([
+          makeHitRound({ crit: true, damage: 18, defenderHpAfter: 55 }),
+        ]),
+      );
+
+      await invokeShowLog(client);
+
+      const payload = update.mock.calls[0][0] as { blocks: KnownBlock[] };
+      const headlineBlock = payload.blocks.find(
+        (b) =>
+          b.type === 'section' &&
+          (b as SectionBlock).text?.text?.includes('Round 1'),
+      ) as SectionBlock;
+      expect(headlineBlock?.text?.text).toContain(':boom:');
+      expect(headlineBlock?.text?.text).toContain('crit');
+      expect(headlineBlock?.text?.text).toContain('(HP 55)');
+    });
+
+    it('scoreboard aggregates multiple rounds correctly', async () => {
+      const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;
+      const chat = createChatMocks();
+      chat.update = update;
+      const client: MockSlackClient = {
+        conversations: { open: jest.fn() as ConversationsOpenMock },
+        chat,
+      };
+
+      mockedGetCombatLog.mockResolvedValueOnce(
+        makeCombatLog([
+          makeHitRound({
+            roundNumber: 1,
+            attackerName: 'You',
+            defenderName: 'Wild Boar',
+            damage: 10,
+          }),
+          makeHitRound({
+            roundNumber: 2,
+            attackerName: 'Wild Boar',
+            defenderName: 'You',
+            damage: 5,
+          }),
+          makeHitRound({
+            roundNumber: 3,
+            attackerName: 'You',
+            defenderName: 'Wild Boar',
+            hit: false,
+            damage: 0,
+            weaponDamage: 0,
+          }),
+        ]),
+      );
+
+      await invokeShowLog(client);
+
+      const payload = update.mock.calls[0][0] as { blocks: KnownBlock[] };
+      const scoreboardBlock = payload.blocks.find(
+        (b) =>
+          b.type === 'section' &&
+          (b as SectionBlock).text?.text?.includes('Combat Log'),
+      ) as SectionBlock;
+      expect(scoreboardBlock?.text?.text).toContain('3 rounds');
+      expect(scoreboardBlock?.text?.text).toContain(
+        'You → Wild Boar: 1/2 hits',
+      );
+      expect(scoreboardBlock?.text?.text).toContain('10 dmg');
+      expect(scoreboardBlock?.text?.text).toContain(
+        'Wild Boar → You: 1/1 hits',
+      );
+    });
+
+    it('context block shows hit%, weapon roll, mitigation', async () => {
+      const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;
+      const chat = createChatMocks();
+      chat.update = update;
+      const client: MockSlackClient = {
+        conversations: { open: jest.fn() as ConversationsOpenMock },
+        chat,
+      };
+
+      mockedGetCombatLog.mockResolvedValueOnce(
+        makeCombatLog([
+          makeHitRound({
+            hitChance: 0.9,
+            hitRoll: 0.434,
+            coreDamage: 15.8,
+            weaponDamage: 5,
+            weaponDamageRoll: '1d6',
+            mitigation: 0.28,
+          }),
+        ]),
+      );
+
+      await invokeShowLog(client);
+
+      const payload = update.mock.calls[0][0] as { blocks: KnownBlock[] };
+      const headlineIdx = payload.blocks.findIndex(
+        (b) =>
+          b.type === 'section' &&
+          (b as SectionBlock).text?.text?.includes('Round 1'),
+      );
+      const contextBlock = payload.blocks[headlineIdx + 1] as {
+        type: string;
+        elements: Array<{ type: string; text: string }>;
+      };
+      expect(contextBlock.type).toBe('context');
+      const contextText = contextBlock.elements[0]?.text ?? '';
+      expect(contextText).toContain('hit 90%');
+      expect(contextText).toContain('rolled 43.4%');
+      expect(contextText).toContain('core 15.8');
+      expect(contextText).toContain('1d6 -> 5');
+      expect(contextText).toContain('mit 28%');
+    });
+
+    it('Show math adds AR/DR formula as second context element', async () => {
+      const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;
+      const chat = createChatMocks();
+      chat.update = update;
+      const client: MockSlackClient = {
+        conversations: { open: jest.fn() as ConversationsOpenMock },
+        chat,
+      };
+
+      mockedGetCombatLog.mockResolvedValueOnce(
+        makeCombatLog([makeHitRound({ critRoll: 0.449 })]),
+      );
+
+      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+      await actionHandlers[COMBAT_ACTIONS.SHOW_MATH_LOG]({
+        ack,
+        body: {
+          channel: { id: 'C-COMBAT' },
+          actions: [{ value: 'combat-123' }],
+          message: {
+            ts: 'TS-COMBAT',
+            text: 'combat text',
+            blocks: [
+              {
+                type: 'section',
+                text: { type: 'mrkdwn', text: 'Summary' },
+              } as unknown as KnownBlock,
+            ],
+          },
+        },
+        client,
+        context: { teamId: 'T1' },
+      });
+
+      const payload = update.mock.calls[0][0] as { blocks: KnownBlock[] };
+      const headlineIdx = payload.blocks.findIndex(
+        (b) =>
+          b.type === 'section' &&
+          (b as SectionBlock).text?.text?.includes('Round 1'),
+      );
+      const contextBlock = payload.blocks[headlineIdx + 1] as {
+        type: string;
+        elements: Array<{ type: string; text: string }>;
+      };
+      expect(contextBlock.type).toBe('context');
+      expect(contextBlock.elements.length).toBe(2);
+      const mathText = contextBlock.elements[1]?.text ?? '';
+      expect(mathText).toContain("AR math: 10*S'");
+      expect(mathText).toContain('crit roll 44.9%');
+
+      const actionElements = payload.blocks
+        .filter((b) => b.type === 'actions')
+        .flatMap((b) => (b as ActionsBlock).elements ?? []);
+      expect(actionElements).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ action_id: COMBAT_ACTIONS.HIDE_MATH_LOG }),
+        ]),
+      );
+      expect(actionElements).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ action_id: COMBAT_ACTIONS.SHOW_MATH_LOG }),
+        ]),
+      );
+    });
+
+    it('Hide math switches back to clean view with Show math button', async () => {
+      const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;
+      const chat = createChatMocks();
+      chat.update = update;
+      const client: MockSlackClient = {
+        conversations: { open: jest.fn() as ConversationsOpenMock },
+        chat,
+      };
+
+      mockedGetCombatLog.mockResolvedValueOnce(makeCombatLog([makeHitRound()]));
+
+      const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
+      await actionHandlers[COMBAT_ACTIONS.HIDE_MATH_LOG]({
+        ack,
+        body: {
+          channel: { id: 'C-COMBAT' },
+          actions: [{ value: 'combat-123' }],
+          message: {
+            ts: 'TS-COMBAT',
+            text: 'combat text',
+            blocks: [
+              {
+                type: 'section',
+                text: { type: 'mrkdwn', text: 'Summary' },
+              } as unknown as KnownBlock,
+            ],
+          },
+        },
+        client,
+        context: { teamId: 'T1' },
+      });
+
+      const payload = update.mock.calls[0][0] as { blocks: KnownBlock[] };
+      const headlineIdx = payload.blocks.findIndex(
+        (b) =>
+          b.type === 'section' &&
+          (b as SectionBlock).text?.text?.includes('Round 1'),
+      );
+      const contextBlock = payload.blocks[headlineIdx + 1] as {
+        type: string;
+        elements: Array<{ type: string; text: string }>;
+      };
+      expect(contextBlock.type).toBe('context');
+      expect(contextBlock.elements.length).toBe(1);
+
+      const actionElements = payload.blocks
+        .filter((b) => b.type === 'actions')
+        .flatMap((b) => (b as ActionsBlock).elements ?? []);
+      expect(actionElements).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ action_id: COMBAT_ACTIONS.SHOW_MATH_LOG }),
+        ]),
+      );
+    });
+
+    it('falls back to a code block when API call yields no entries', async () => {
       const ack = jest.fn().mockResolvedValue(undefined) as AckMock;
       const update = jest.fn().mockResolvedValue(undefined) as ChatUpdateMock;
       const chat = createChatMocks();
