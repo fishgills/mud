@@ -10,25 +10,25 @@ export async function deleteWorkspaceData(
 ): Promise<WorkspaceCleanupResult> {
   const prisma = getPrismaClient();
 
-  const slackUsers = await prisma.slackUser.findMany({
-    where: { teamId },
-    select: { playerId: true },
-  });
-  const playerIds = slackUsers.map((entry) => entry.playerId);
-
   return prisma.$transaction(async (tx) => {
-    const deletedPlayers = playerIds.length
-      ? await tx.player.deleteMany({
-          where: { id: { in: playerIds } },
-        })
-      : { count: 0 };
+    const slackUsers = await tx.slackUser.findMany({
+      where: { teamId },
+      select: { playerId: true },
+    });
+    const playerIds = slackUsers.map((entry) => entry.playerId);
+
+    if (playerIds.length) {
+      // Run.leaderPlayerId has onDelete: Restrict, so runs must be deleted before players
+      await tx.run.deleteMany({ where: { leaderPlayerId: { in: playerIds } } });
+      await tx.player.deleteMany({ where: { id: { in: playerIds } } });
+    }
 
     const deletedInstallations = await tx.slackAppInstallation.deleteMany({
       where: { teamId },
     });
 
     return {
-      deletedPlayers: deletedPlayers.count,
+      deletedPlayers: playerIds.length,
       deletedInstallations: deletedInstallations.count,
     };
   });
