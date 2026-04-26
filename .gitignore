@@ -118,3 +118,7 @@ data/certbot/conf/.certbot.lock
 .dolt/
 *.db
 .beads-credential-key
+
+# Serena (local overrides and agent memories are per-developer; see .serena/.gitignore)
+**/.serena/project.local.yml
+**/.serena/memories/
