@@ -15,6 +15,10 @@
       {
         "hooks": [
           {
+            "command": "bd dolt pull",
+            "type": "command"
+          },
+          {
             "command": "bd prime",
             "type": "command"
           }
