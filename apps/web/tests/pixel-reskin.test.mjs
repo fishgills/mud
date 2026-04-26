@@ -58,14 +58,8 @@ function assertIncludes(haystack, needle, label = '') {
 // Read source files
 // ---------------------------------------------------------------------------
 
-const globalsCss = readFileSync(
-  path.join(ROOT, 'src/app/globals.css'),
-  'utf8',
-);
-const homePage = readFileSync(
-  path.join(ROOT, 'src/app/page.tsx'),
-  'utf8',
-);
+const globalsCss = readFileSync(path.join(ROOT, 'src/app/globals.css'), 'utf8');
+const homePage = readFileSync(path.join(ROOT, 'src/app/page.tsx'), 'utf8');
 const topNav = readFileSync(
   path.join(ROOT, 'src/app/components/TopNav.tsx'),
   'utf8',
@@ -82,14 +76,8 @@ const backpackList = readFileSync(
   path.join(ROOT, 'src/app/components/BackpackList.tsx'),
   'utf8',
 );
-const layoutTsx = readFileSync(
-  path.join(ROOT, 'src/app/layout.tsx'),
-  'utf8',
-);
-const mePage = readFileSync(
-  path.join(ROOT, 'src/app/me/page.tsx'),
-  'utf8',
-);
+const layoutTsx = readFileSync(path.join(ROOT, 'src/app/layout.tsx'), 'utf8');
+const mePage = readFileSync(path.join(ROOT, 'src/app/me/page.tsx'), 'utf8');
 const storePage = readFileSync(
   path.join(ROOT, 'src/app/me/store/page.tsx'),
   'utf8',
@@ -122,6 +110,10 @@ const termsPage = readFileSync(
   path.join(ROOT, 'src/app/terms/page.tsx'),
   'utf8',
 );
+const installedPage = readFileSync(
+  path.join(ROOT, 'src/app/installed/page.tsx'),
+  'utf8',
+);
 
 // ---------------------------------------------------------------------------
 // Helper: extract CSS classes defined in globals.css
@@ -136,10 +128,7 @@ function getCssClasses(css) {
 const cssClasses = getCssClasses(globalsCss);
 
 function assertCssClass(cls) {
-  assert(
-    cssClasses.has(cls),
-    `CSS class ".${cls}" not found in globals.css`,
-  );
+  assert(cssClasses.has(cls), `CSS class ".${cls}" not found in globals.css`);
 }
 
 // ---------------------------------------------------------------------------
@@ -149,28 +138,83 @@ function assertCssClass(cls) {
 console.log('\n== 1. CSS class coverage ==');
 
 const requiredClasses = [
-  'nav', 'nav-brand', 'nav-btn',
-  'panel', 'panel-wide',
-  'btn', 'btn-xs', 'btn-primary', 'btn-slack', 'btn-sell',
-  'badge', 'badge-common', 'badge-rare', 'badge-epic', 'badge-legendary',
-  'equip-grid', 'equip-col', 'equip-slot',
-  'slot-label', 'slot-name', 'slot-stat', 'slot-empty',
-  'item-card', 'item-card-top', 'item-card-name', 'item-card-price',
-  'item-card-desc', 'item-card-stats', 'item-card-actions',
-  'bp-card', 'bp-header', 'bp-name', 'bp-qty', 'bp-desc', 'bp-meta', 'bp-actions',
+  'nav',
+  'nav-brand',
+  'nav-btn',
+  'panel',
+  'panel-wide',
+  'btn',
+  'btn-xs',
+  'btn-primary',
+  'btn-slack',
+  'btn-sell',
+  'badge',
+  'badge-common',
+  'badge-rare',
+  'badge-epic',
+  'badge-legendary',
+  'equip-grid',
+  'equip-col',
+  'equip-slot',
+  'slot-label',
+  'slot-name',
+  'slot-stat',
+  'slot-empty',
+  'item-card',
+  'item-card-top',
+  'item-card-name',
+  'item-card-price',
+  'item-card-desc',
+  'item-card-stats',
+  'item-card-actions',
+  'bp-card',
+  'bp-header',
+  'bp-name',
+  'bp-qty',
+  'bp-desc',
+  'bp-meta',
+  'bp-actions',
   'shop-grid',
-  'currency-row', 'currency-chip', 'chip-gold', 'chip-rare', 'chip-epic', 'chip-legendary', 'chip-label',
-  'bar-row', 'bar-key', 'bar-track', 'bar-fill', 'bar-val',
-  'notice', 'notice-success', 'notice-error',
-  'stat-grid', 'stat-field', 'stat-key', 'stat-val',
-  'divider', 'divider-line', 'divider-glyph',
-  'pixel-h1', 'pixel-h2', 'pixel-h3', 'pixel-label',
-  'dialog-box', 'dialog-cursor',
-  'events-panel', 'events-hdr', 'events-title', 'events-body',
-  'event-line', 'event-line-type',
-  'tab-row', 'tab-btn',
+  'currency-row',
+  'currency-chip',
+  'chip-gold',
+  'chip-rare',
+  'chip-epic',
+  'chip-legendary',
+  'chip-label',
+  'bar-row',
+  'bar-key',
+  'bar-track',
+  'bar-fill',
+  'bar-val',
+  'notice',
+  'notice-success',
+  'notice-error',
+  'stat-grid',
+  'stat-field',
+  'stat-key',
+  'stat-val',
+  'divider',
+  'divider-line',
+  'divider-glyph',
+  'pixel-h1',
+  'pixel-h2',
+  'pixel-h3',
+  'pixel-label',
+  'dialog-box',
+  'dialog-cursor',
+  'events-panel',
+  'events-hdr',
+  'events-title',
+  'events-body',
+  'event-line',
+  'event-line-type',
+  'tab-row',
+  'tab-btn',
   'page-text',
-  'layout', 'page-shell', 'page-layout',
+  'layout',
+  'page-shell',
+  'page-layout',
   'inventory-gold',
 ];
 
@@ -190,9 +234,12 @@ test('globals.css has .tab-btn.active compound selector', () => {
 });
 
 // events-dot status variants (defined as separate classes, not .events-dot.connected)
-test('globals.css defines events-dot-connected', () => assertCssClass('events-dot-connected'));
-test('globals.css defines events-dot-error', () => assertCssClass('events-dot-error'));
-test('globals.css defines events-dot-idle', () => assertCssClass('events-dot-idle'));
+test('globals.css defines events-dot-connected', () =>
+  assertCssClass('events-dot-connected'));
+test('globals.css defines events-dot-error', () =>
+  assertCssClass('events-dot-error'));
+test('globals.css defines events-dot-idle', () =>
+  assertCssClass('events-dot-idle'));
 
 // ---------------------------------------------------------------------------
 // 2. TypeScript / structural correctness (source-level checks)
@@ -220,7 +267,11 @@ test('EventStreamPanel calls stream.subscribe', () => {
 });
 
 test('EventStreamPanel calls stream.subscribeStatus', () => {
-  assertIncludes(eventStream, 'stream.subscribeStatus(', 'stream.subscribeStatus call');
+  assertIncludes(
+    eventStream,
+    'stream.subscribeStatus(',
+    'stream.subscribeStatus call',
+  );
 });
 
 test('EventStreamPanel has useEffect with [enabled] dependency', () => {
@@ -237,7 +288,11 @@ test('ItemCard has normalizeRarity helper with correct signature', () => {
 
 test('ItemCard normalizeRarity handles legendary branch', () => {
   assertIncludes(itemCard, "'legendary'", 'legendary branch');
-  assertIncludes(itemCard, "q.includes('legendary')", 'legendary includes check');
+  assertIncludes(
+    itemCard,
+    "q.includes('legendary')",
+    'legendary includes check',
+  );
 });
 
 test('ItemCard normalizeRarity handles epic branch', () => {
@@ -293,7 +348,7 @@ test('ShopClient declares tab state with buy/sell union type', () => {
   assertIncludes(
     shopClient,
     "useState<'buy' | 'sell'>('buy')",
-    "tab useState declaration",
+    'tab useState declaration',
   );
 });
 
@@ -306,11 +361,11 @@ test('ShopClient renders SELL ITEMS tab button', () => {
 });
 
 test('ShopClient conditionally renders buy section on tab === buy', () => {
-  assertIncludes(shopClient, "tab === 'buy'", "buy tab conditional");
+  assertIncludes(shopClient, "tab === 'buy'", 'buy tab conditional');
 });
 
 test('ShopClient conditionally renders sell section on tab === sell', () => {
-  assertIncludes(shopClient, "tab === 'sell'", "sell tab conditional");
+  assertIncludes(shopClient, "tab === 'sell'", 'sell tab conditional');
 });
 
 // ---------------------------------------------------------------------------
@@ -340,7 +395,11 @@ test('support page has contact email', () => {
 });
 
 test('privacy page has "WHAT DATA WE COLLECT" section', () => {
-  assertIncludes(privacyPage, 'WHAT DATA WE COLLECT', 'What we collect section');
+  assertIncludes(
+    privacyPage,
+    'WHAT DATA WE COLLECT',
+    'What we collect section',
+  );
 });
 
 test('privacy page has "HOW MESSAGES ARE USED" section', () => {
@@ -356,7 +415,11 @@ test('privacy page has "CONTACT" section', () => {
 });
 
 test('privacy page has support email', () => {
-  assertIncludes(privacyPage, 'support@battleforge.app', 'privacy contact email');
+  assertIncludes(
+    privacyPage,
+    'support@battleforge.app',
+    'privacy contact email',
+  );
 });
 
 test('terms page has terms content', () => {
@@ -367,13 +430,63 @@ test('terms page has terms content', () => {
 // 4. Slack OAuth URL
 // ---------------------------------------------------------------------------
 
-console.log('\n== 4. Slack OAuth URL ==');
+console.log('\n== 4. Add to Slack button ==');
 
-const EXPECTED_SLACK_URL =
-  'https://slack.com/oauth/v2/authorize?client_id=375846128833.9436068256694&scope=im:history,im:write&user_scope=';
+test('home page Add to Slack button routes through Bolt install endpoint', () => {
+  assertIncludes(
+    homePage,
+    'https://slack.battleforge.app/slack/install',
+    'Bolt install URL',
+  );
+});
 
-test('home page Add to Slack href is exactly correct', () => {
-  assertIncludes(homePage, EXPECTED_SLACK_URL, 'Slack OAuth URL');
+test('home page Add to Slack button does not use a hardcoded Slack OAuth URL', () => {
+  if (homePage.includes('slack.com/oauth/v2/authorize')) {
+    throw new Error(
+      'page.tsx still contains a hardcoded Slack OAuth URL — use /slack/install instead',
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 4b. /installed success page
+// ---------------------------------------------------------------------------
+
+console.log('\n== 4b. /installed success page ==');
+
+test('installed page renders QUEST UNLOCKED heading', () => {
+  assertIncludes(installedPage, 'QUEST UNLOCKED', 'heading');
+});
+
+test('installed page uses panel and pixel-h1 design classes', () => {
+  assertIncludes(installedPage, 'panel', 'panel class');
+  assertIncludes(installedPage, 'pixel-h1', 'pixel-h1 class');
+});
+
+test('installed page has dialog-box flavor text', () => {
+  assertIncludes(installedPage, 'dialog-box', 'dialog-box class');
+  assertIncludes(installedPage, 'BattleForge has joined your', 'flavor text');
+});
+
+test('installed page lists first commands: new, raid, attack, stats', () => {
+  assertIncludes(installedPage, "'new'", 'new command');
+  assertIncludes(installedPage, "'raid'", 'raid command');
+  assertIncludes(installedPage, "'attack'", 'attack command');
+  assertIncludes(installedPage, "'stats'", 'stats command');
+});
+
+test('installed page has Open Slack CTA linking to slack://open', () => {
+  assertIncludes(installedPage, 'slack://open', 'Open Slack href');
+  assertIncludes(installedPage, 'OPEN SLACK', 'Open Slack label');
+});
+
+test('installed page has back to home link', () => {
+  assertIncludes(installedPage, 'BACK TO HOME', 'back to home link');
+});
+
+test('installed page uses stat-grid for command reference', () => {
+  assertIncludes(installedPage, 'stat-grid', 'stat-grid class');
+  assertIncludes(installedPage, 'stat-field', 'stat-field class');
 });
 
 // ---------------------------------------------------------------------------

@@ -77,6 +77,20 @@ const app = new App({
   ],
   installerOptions: {
     directInstall: true,
+    callbackOptions: {
+      successAsync: async (_installation, _installOptions, _req, res) => {
+        res.writeHead(302, {
+          Location: 'https://www.battleforge.app/installed',
+        });
+        res.end();
+      },
+      failureAsync: async (_error, _installOptions, _req, res) => {
+        res.writeHead(302, {
+          Location: 'https://www.battleforge.app/?install_error=1',
+        });
+        res.end();
+      },
+    },
   },
   installationStore: installationStore,
   ...(slackLogger ? { logger: slackLogger } : {}),
