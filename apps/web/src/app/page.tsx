@@ -43,8 +43,8 @@ export default async function Home() {
             lineHeight: 1.5,
           }}
         >
-          Explore procedurally generated dungeons. Fight monsters. Collect
-          legendary loot. Level up your hero — without leaving Slack.
+          Join epic raids with your team. Fight monsters. Collect legendary
+          loot. Level up your hero — without leaving Slack.
         </p>
         <div
           style={{
@@ -86,59 +86,6 @@ export default async function Home() {
               SIGN IN
             </a>
           )}
-        </div>
-        <div className="divider">
-          <div className="divider-line" />
-          <span className="divider-glyph">⚔</span>
-          <div className="divider-line" />
-        </div>
-        <div
-          style={{
-            border: '2px solid #1c2038',
-            background: '#080a12',
-            padding: '18px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 14,
-          }}
-        >
-          <div
-            style={{
-              fontFamily: "'Press Start 2P',monospace",
-              fontSize: 6,
-              color: 'var(--accent)',
-              letterSpacing: '0.1em',
-            }}
-          >
-            ▶ DUNGEON MAP
-          </div>
-          <pre
-            style={{
-              fontFamily: "'Press Start 2P',monospace",
-              fontSize: 7,
-              color: '#2a3260',
-              lineHeight: 1.3,
-              letterSpacing: '0.05em',
-              border: '2px solid #1c2038',
-              padding: 12,
-              background: '#080a12',
-            }}
-          >{`┌──────────────────────┐
-│  @ · · · G · · │
-│  · █ █ · · · │
-│  · · · · $ · │
-│  · G · █ · · │
-│  · · · · · ≡ │
-└──────────────────────┘`}</pre>
-          <div
-            style={{
-              fontFamily: "'VT323',monospace",
-              fontSize: 14,
-              color: '#2a3260',
-            }}
-          >
-            @ = hero G = goblin $ = loot ≡ = exit
-          </div>
         </div>
       </div>
     </div>
