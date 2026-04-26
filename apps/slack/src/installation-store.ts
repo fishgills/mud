@@ -109,15 +109,45 @@ export class TrackingInstallationStore implements InstallationStore {
       } catch (err) {
         const slackError = err as { data?: { error?: string } };
         if (slackError.data?.error === 'name_taken') {
-          // Channel exists — find it
+          // Active channel — find it
           const list = await web.conversations.list({ limit: 1000 });
-          const existing = list.channels?.find(
-            (ch) => ch.name === 'battleforge',
-          );
-          channelId = existing?.id;
-          logger?.info(
-            `bootstrapBattleforgeChannel: reused existing #battleforge (${channelId}) for team ${teamId}`,
-          );
+          const active = list.channels?.find((ch) => ch.name === 'battleforge');
+          if (active?.id) {
+            channelId = active.id;
+            logger?.info(
+              `bootstrapBattleforgeChannel: reused existing #battleforge (${channelId}) for team ${teamId}`,
+            );
+          } else {
+            // Deleted channels reserve the name but won't appear in list results.
+            // Try including archived channels to find and unarchive it.
+            const archivedList = await web.conversations.list({
+              limit: 1000,
+              exclude_archived: false,
+            });
+            const archived = archivedList.channels?.find(
+              (ch) => ch.name === 'battleforge',
+            );
+            if (archived?.id) {
+              channelId = archived.id;
+              logger?.info(
+                `bootstrapBattleforgeChannel: found archived #battleforge (${channelId}), unarchiving for team ${teamId}`,
+              );
+              await web.conversations.unarchive({ channel: channelId });
+            } else {
+              // Name reserved by a recently deleted channel — use fallback name
+              logger?.warn(
+                `bootstrapBattleforgeChannel: #battleforge name reserved (recently deleted) for team ${teamId} — creating battleforge-guild`,
+              );
+              const fallback = await web.conversations.create({
+                name: 'battleforge-guild',
+                is_private: false,
+              });
+              channelId = fallback.channel?.id;
+              logger?.info(
+                `bootstrapBattleforgeChannel: created #battleforge-guild (${channelId}) for team ${teamId}`,
+              );
+            }
+          }
         } else {
           throw err;
         }
