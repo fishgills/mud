@@ -17,11 +17,16 @@
     }
   },
   "oauth_config": {
+    "pkce_enabled": false,
     "scopes": {
       "bot": [
         "im:history",
         "im:write",
-        "chat:write"
+        "chat:write",
+        "channels:manage",
+        "channels:join",
+        "channels:read",
+        "chat:write.public"
       ]
     },
     "redirect_urls": [
@@ -34,7 +39,9 @@
       "bot_events": [
         "app_home_opened",
         "app_uninstalled",
-        "message.im"
+        "message.im",
+        "member_joined_channel",
+        "member_left_channel"
       ],
       "request_url": "https://closet.battleforge.app/slack/events"
     },
@@ -44,6 +51,7 @@
     },
     "org_deploy_enabled": false,
     "socket_mode_enabled": false,
-    "token_rotation_enabled": false
+    "token_rotation_enabled": false,
+    "is_mcp_enabled": false
   }
 }
