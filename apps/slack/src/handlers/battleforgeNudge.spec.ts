@@ -17,7 +17,7 @@ describe('maybeShowBattleforgePrompt', () => {
   };
   let client: {
     conversations: { open: jest.Mock };
-    chat: { postEphemeral: jest.Mock };
+    chat: { postMessage: jest.Mock };
   };
 
   beforeEach(() => {
@@ -40,7 +40,7 @@ describe('maybeShowBattleforgePrompt', () => {
         open: jest.fn().mockResolvedValue({ channel: { id: 'D_CHANNEL' } }),
       },
       chat: {
-        postEphemeral: jest.fn().mockResolvedValue(undefined),
+        postMessage: jest.fn().mockResolvedValue(undefined),
       },
     };
   });
@@ -55,10 +55,9 @@ describe('maybeShowBattleforgePrompt', () => {
     await maybeShowBattleforgePrompt(client as never, 'T1', 'U1');
 
     expect(client.conversations.open).toHaveBeenCalledWith({ users: 'U1' });
-    expect(client.chat.postEphemeral).toHaveBeenCalledWith(
+    expect(client.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         channel: 'D_CHANNEL',
-        user: 'U1',
         blocks: expect.arrayContaining([
           expect.objectContaining({ type: 'actions' }),
         ]),
@@ -66,7 +65,7 @@ describe('maybeShowBattleforgePrompt', () => {
     );
 
     // Confirm both action buttons are present
-    const call = client.chat.postEphemeral.mock.calls[0][0] as {
+    const call = client.chat.postMessage.mock.calls[0][0] as {
       blocks: Array<{ elements?: Array<{ action_id?: string }> }>;
     };
     const actionsBlock = call.blocks.find((b) => b.elements);
@@ -91,8 +90,7 @@ describe('maybeShowBattleforgePrompt', () => {
     // Update should happen after the ephemeral is posted (timestamp only bumped on success)
     const updateOrder =
       prismaMock.slackUser.updateMany.mock.invocationCallOrder[0];
-    const ephemeralOrder =
-      client.chat.postEphemeral.mock.invocationCallOrder[0];
+    const ephemeralOrder = client.chat.postMessage.mock.invocationCallOrder[0];
     expect(updateOrder).toBeGreaterThan(ephemeralOrder!);
   });
 
@@ -105,7 +103,7 @@ describe('maybeShowBattleforgePrompt', () => {
 
     await maybeShowBattleforgePrompt(client as never, 'T1', 'U1');
 
-    expect(client.chat.postEphemeral).not.toHaveBeenCalled();
+    expect(client.chat.postMessage).not.toHaveBeenCalled();
   });
 
   it('does nothing when the user has declined the prompt', async () => {
@@ -117,7 +115,7 @@ describe('maybeShowBattleforgePrompt', () => {
 
     await maybeShowBattleforgePrompt(client as never, 'T1', 'U1');
 
-    expect(client.chat.postEphemeral).not.toHaveBeenCalled();
+    expect(client.chat.postMessage).not.toHaveBeenCalled();
   });
 
   it('does nothing when the user was prompted less than 7 days ago', async () => {
@@ -130,7 +128,7 @@ describe('maybeShowBattleforgePrompt', () => {
 
     await maybeShowBattleforgePrompt(client as never, 'T1', 'U1');
 
-    expect(client.chat.postEphemeral).not.toHaveBeenCalled();
+    expect(client.chat.postMessage).not.toHaveBeenCalled();
   });
 
   it('sends the prompt when last prompted exactly over 7 days ago', async () => {
@@ -143,7 +141,7 @@ describe('maybeShowBattleforgePrompt', () => {
 
     await maybeShowBattleforgePrompt(client as never, 'T1', 'U1');
 
-    expect(client.chat.postEphemeral).toHaveBeenCalled();
+    expect(client.chat.postMessage).toHaveBeenCalled();
   });
 
   it('does nothing when the slack user record does not exist', async () => {
@@ -151,6 +149,6 @@ describe('maybeShowBattleforgePrompt', () => {
 
     await maybeShowBattleforgePrompt(client as never, 'T1', 'U_UNKNOWN');
 
-    expect(client.chat.postEphemeral).not.toHaveBeenCalled();
+    expect(client.chat.postMessage).not.toHaveBeenCalled();
   });
 });

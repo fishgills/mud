@@ -53,9 +53,8 @@ export async function maybeShowBattleforgePrompt(
     const channelId = dm.channel?.id;
     if (!channelId) return;
 
-    await client.chat.postEphemeral({
+    await client.chat.postMessage({
       channel: channelId,
-      user: userId,
       text: 'Want to see game events in #battleforge?',
       blocks: [
         {
