@@ -5,6 +5,7 @@ import { withGuildLogFields } from '@mud/logging';
 import { EventBridgeService } from '../../shared/event-bridge.service';
 import { EventBus } from '../../shared/event-bus';
 import { GuildEventType } from '@mud/event-bus';
+import { buildBattleforgeRecipients } from '../../shared/battleforge-channel.recipients';
 
 type Recipient = Array<{ teamId: string; userId: string }>;
 
@@ -54,7 +55,7 @@ export class GuildAnnouncementsPublisher {
     this.logger.debug(
       withGuildLogFields(
         {
-          message: 'Delivered guild announcement',
+          message: 'Delivered guild announcement to #battleforge',
           announcementId: raw.id,
           source,
           occupants: occupants.length,
@@ -84,36 +85,24 @@ export class GuildAnnouncementsPublisher {
 
     await EventBus.emit(event);
 
-    const message =
-      audience === 'guild'
-        ? `📣 *${announcement.title}*\n${announcement.body}`
-        : `📜 ${announcement.digest}`;
+    const message = `📣 *${announcement.title}*\n${announcement.body}`;
+    const blocks = [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*:scroll: Town Crier*\n*${announcement.title}*\n${announcement.body}`,
+        },
+      },
+    ];
 
-    const blocks =
-      audience === 'guild'
-        ? [
-            {
-              type: 'section',
-              text: {
-                type: 'mrkdwn',
-                text: `*:scroll: Town Crier*
-*${announcement.title}*
-${announcement.body}`,
-              },
-            },
-          ]
-        : undefined;
-
-    await this.eventBridge.publishNotification({
-      type: 'announcement',
-      recipients: recipients.map((recipient) => ({
-        clientType: 'slack' as const,
-        teamId: recipient.teamId,
-        userId: recipient.userId,
-        message,
-        ...(blocks ? { blocks } : {}),
-      })),
-      event,
-    });
+    const channelRecipients = await buildBattleforgeRecipients(message, blocks);
+    if (channelRecipients.length > 0) {
+      await this.eventBridge.publishNotification({
+        type: 'announcement',
+        recipients: channelRecipients,
+        event,
+      });
+    }
   }
 }

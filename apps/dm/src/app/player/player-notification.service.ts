@@ -12,6 +12,7 @@ import {
   type PlayerRespawnEvent,
 } from '../../shared/event-bus';
 import { EventBridgeService } from '../../shared/event-bridge.service';
+import { buildBattleforgeRecipients } from '../../shared/battleforge-channel.recipients';
 
 @Injectable()
 export class PlayerNotificationService
@@ -182,6 +183,16 @@ export class PlayerNotificationService
     }
 
     await this.eventBridge.publishPlayerNotification(event, recipients);
+
+    // Also post to #battleforge channel in each workspace
+    const channelMessage = `🎉 ${player.name} reached level ${event.newLevel}!`;
+    const channelRecipients = await buildBattleforgeRecipients(channelMessage);
+    if (channelRecipients.length > 0) {
+      await this.eventBridge.publishPlayerNotification(
+        event,
+        channelRecipients,
+      );
+    }
 
     this.logger.debug(
       `Sent level-up notification for player ${player.id} to ${recipients.length} recipient(s)`,

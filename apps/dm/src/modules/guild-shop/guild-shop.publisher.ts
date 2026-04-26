@@ -1,14 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { GuildTradeResponse } from '@mud/api-contracts';
-import { getPrismaClient } from '@mud/database';
 import { EventBus } from '../../shared/event-bus';
 import { EventBridgeService } from '../../shared/event-bridge.service';
 import { formatWebRecipientId } from '@mud/redis-client';
+import { buildBattleforgeRecipients } from '../../shared/battleforge-channel.recipients';
 
 @Injectable()
 export class GuildShopPublisher {
   private readonly logger = new Logger(GuildShopPublisher.name);
-  private readonly prisma = getPrismaClient();
 
   constructor(private readonly eventBridge: EventBridgeService) {}
 
@@ -59,24 +58,15 @@ export class GuildShopPublisher {
 
       await EventBus.emit(event);
 
-      const slackUsers = await this.prisma.slackUser.findMany({
-        select: { teamId: true, userId: true },
-      });
-      if (slackUsers.length === 0) {
-        return;
+      const message = `🏪 The guild shop has refreshed (${payload.items} items). Use /catalog to browse.`;
+      const channelRecipients = await buildBattleforgeRecipients(message);
+      if (channelRecipients.length > 0) {
+        await this.eventBridge.publishNotification({
+          type: 'player',
+          event,
+          recipients: channelRecipients,
+        });
       }
-
-      await this.eventBridge.publishNotification({
-        type: 'player',
-        event,
-        recipients: slackUsers.map((user) => ({
-          clientType: 'web',
-          teamId: undefined,
-          userId: formatWebRecipientId(user.teamId, user.userId),
-          message: 'Store refreshed.',
-          priority: 'normal',
-        })),
-      });
     } catch (error) {
       this.logger.warn('Failed to emit guild shop refresh', error as Error);
     }

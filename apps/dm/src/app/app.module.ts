@@ -35,6 +35,7 @@ import { FeedbackRepository } from '../modules/feedback/feedback.repository';
 import { GitHubService } from '../modules/feedback/github.service';
 import { GuildsService } from '../modules/guilds/guilds.service';
 import { RunsService } from '../modules/runs/runs.service';
+import { RunsPublisher } from '../modules/runs/runs.publisher';
 import { AchievementsService } from '../modules/achievements/achievements.service';
 
 @Module({
@@ -68,6 +69,7 @@ import { AchievementsService } from '../modules/achievements/achievements.servic
     GuildShopRotationInitializer,
     GuildsService,
     RunsService,
+    RunsPublisher,
     AchievementsService,
     GuildAnnouncementsService,
     GuildAnnouncementsRepository,

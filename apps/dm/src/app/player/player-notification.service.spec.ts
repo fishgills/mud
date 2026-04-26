@@ -23,11 +23,12 @@ describe('PlayerNotificationService', () => {
   let eventBridge: { publishPlayerNotification: jest.Mock };
   let listeners: Record<
     string,
-    ((event: PlayerRespawnEvent | PlayerLevelUpEvent) => Promise<void> | void)
+    (event: PlayerRespawnEvent | PlayerLevelUpEvent) => Promise<void> | void
   >;
   let prismaMock: {
     player: { findUnique: jest.Mock };
     guildMember: { findUnique: jest.Mock; findMany: jest.Mock };
+    workspace: { findMany: jest.Mock };
   };
 
   beforeEach(() => {
@@ -50,6 +51,7 @@ describe('PlayerNotificationService', () => {
     prismaMock = {
       player: { findUnique: jest.fn() },
       guildMember: { findUnique: jest.fn(), findMany: jest.fn() },
+      workspace: { findMany: jest.fn().mockResolvedValue([]) },
     };
     (getPrismaClient as jest.Mock).mockReturnValue(prismaMock);
 
@@ -212,9 +214,9 @@ describe('PlayerNotificationService', () => {
     const failingUnsub = jest.fn(() => {
       throw new Error('boom');
     });
-    (service as unknown as { subscriptions: Array<() => void> }).subscriptions.push(
-      failingUnsub,
-    );
+    (
+      service as unknown as { subscriptions: Array<() => void> }
+    ).subscriptions.push(failingUnsub);
 
     const errorSpy = jest
       .spyOn(Logger.prototype, 'error')
@@ -228,7 +230,8 @@ describe('PlayerNotificationService', () => {
       expect.any(Error),
     );
     expect(
-      (service as unknown as { subscriptions: Array<() => void> }).subscriptions,
+      (service as unknown as { subscriptions: Array<() => void> })
+        .subscriptions,
     ).toHaveLength(0);
   });
 });

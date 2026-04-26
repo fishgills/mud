@@ -8,6 +8,7 @@ import { registerCombatLogActions } from './actions/combatLogActions';
 import { registerGuildShopActions } from './actions/guildShopActions';
 import { registerFeedbackActions } from './actions/feedbackActions';
 import { registerRunActions } from './actions/runActions';
+import { registerBattleforgeActions } from './actions/battleforgeActions';
 
 export const registerActions = (app: App) => {
   registerHelpActions(app);
@@ -19,4 +20,5 @@ export const registerActions = (app: App) => {
   registerGuildShopActions(app);
   registerFeedbackActions(app);
   registerRunActions(app);
+  registerBattleforgeActions(app);
 };

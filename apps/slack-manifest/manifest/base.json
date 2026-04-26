@@ -18,12 +18,26 @@
   },
   "oauth_config": {
     "scopes": {
-      "bot": ["im:history", "im:write", "chat:write"]
+      "bot": [
+        "im:history",
+        "im:write",
+        "chat:write",
+        "channels:manage",
+        "channels:join",
+        "channels:read",
+        "chat:write.public"
+      ]
     }
   },
   "settings": {
     "event_subscriptions": {
-      "bot_events": ["app_home_opened", "app_uninstalled", "message.im"]
+      "bot_events": [
+        "app_home_opened",
+        "app_uninstalled",
+        "message.im",
+        "member_joined_channel",
+        "member_left_channel"
+      ]
     },
     "interactivity": {
       "is_enabled": true

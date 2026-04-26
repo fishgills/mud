@@ -43,6 +43,18 @@ export async function markWorkspaceUninstalled(
   });
 }
 
+export async function setBattleforgeChannelId(
+  workspaceId: string,
+  channelId: string,
+) {
+  const prisma = getPrismaClient();
+
+  return prisma.workspace.update({
+    where: { workspaceId },
+    data: { battleforgeChannelId: channelId },
+  });
+}
+
 export async function touchWorkspaceActivity(
   workspaceId: string,
   lastActiveAt: Date = new Date(),
