@@ -25,6 +25,9 @@ export class TrackingInstallationStore implements InstallationStore {
       undefined;
     if (teamId) {
       await upsertWorkspaceInstall(teamId);
+      logger?.info(
+        `install.received: teamId=${teamId} — launching battleforge bootstrap`,
+      );
       void this.bootstrapBattleforgeChannel(installation, logger);
     }
   }
@@ -56,7 +59,7 @@ export class TrackingInstallationStore implements InstallationStore {
     const botToken = installation.bot?.token;
 
     if (!teamId || !botToken) {
-      logger?.debug(
+      logger?.warn(
         'bootstrapBattleforgeChannel: missing teamId or botToken — skipping',
       );
       return;
@@ -82,8 +85,8 @@ export class TrackingInstallationStore implements InstallationStore {
             info.channel &&
             !(info.channel as { is_archived?: boolean }).is_archived
           ) {
-            logger?.debug(
-              'bootstrapBattleforgeChannel: channel already exists — skipping',
+            logger?.info(
+              `bootstrapBattleforgeChannel: channel ${workspace.battleforgeChannelId} already active for team ${teamId} — skipping`,
             );
             return;
           }
@@ -100,6 +103,9 @@ export class TrackingInstallationStore implements InstallationStore {
           is_private: false,
         });
         channelId = createResult.channel?.id;
+        logger?.info(
+          `bootstrapBattleforgeChannel: created #battleforge (${channelId}) for team ${teamId}`,
+        );
       } catch (err) {
         const slackError = err as { data?: { error?: string } };
         if (slackError.data?.error === 'name_taken') {
@@ -109,27 +115,32 @@ export class TrackingInstallationStore implements InstallationStore {
             (ch) => ch.name === 'battleforge',
           );
           channelId = existing?.id;
+          logger?.info(
+            `bootstrapBattleforgeChannel: reused existing #battleforge (${channelId}) for team ${teamId}`,
+          );
         } else {
           throw err;
         }
       }
 
       if (!channelId) {
-        logger?.debug(
-          'bootstrapBattleforgeChannel: could not determine channel ID',
+        logger?.warn(
+          `bootstrapBattleforgeChannel: could not determine channel ID for team ${teamId}`,
         );
         return;
       }
 
-      // Bug 4 fix: persist channelId immediately after create, before join/seed
       await setBattleforgeChannelId(teamId, channelId);
+      logger?.info(
+        `bootstrapBattleforgeChannel: persisted channelId=${channelId} for team ${teamId}`,
+      );
 
       // Ensure the bot is a member (best-effort)
       try {
         await web.conversations.join({ channel: channelId });
       } catch (joinErr) {
-        logger?.debug(
-          'bootstrapBattleforgeChannel: failed to join channel — non-fatal',
+        logger?.warn(
+          `bootstrapBattleforgeChannel: failed to join channel ${channelId} — non-fatal`,
           joinErr,
         );
       }
@@ -147,8 +158,8 @@ export class TrackingInstallationStore implements InstallationStore {
           });
         }
       } catch (seedErr) {
-        logger?.debug(
-          'bootstrapBattleforgeChannel: failed to seed members — non-fatal',
+        logger?.warn(
+          `bootstrapBattleforgeChannel: failed to seed members for team ${teamId} — non-fatal`,
           seedErr,
         );
       }
@@ -159,12 +170,14 @@ export class TrackingInstallationStore implements InstallationStore {
         text: 'Welcome to BattleForge! Game events show up here.',
       });
 
-      logger?.debug(
-        `bootstrapBattleforgeChannel: channel ${channelId} ready for team ${teamId}`,
+      logger?.info(
+        `bootstrapBattleforgeChannel: #battleforge ready (${channelId}) for team ${teamId}`,
       );
     } catch (error) {
-      // Never block install on channel bootstrap failures
-      logger?.debug('bootstrapBattleforgeChannel: error (non-fatal)', error);
+      logger?.error(
+        `bootstrapBattleforgeChannel: unexpected error for team ${teamId} — channel not created`,
+        error,
+      );
     }
   }
 }

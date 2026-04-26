@@ -78,13 +78,20 @@ const app = new App({
   installerOptions: {
     directInstall: true,
     callbackOptions: {
-      successAsync: async (_installation, _installOptions, _req, res) => {
+      successAsync: async (installation, _installOptions, _req, res) => {
+        const teamId = installation.team?.id ?? 'unknown';
+        (slackLogger ?? console).info(
+          `oauth.success: teamId=${teamId} — redirecting to /installed`,
+        );
         res.writeHead(302, {
           Location: 'https://www.battleforge.app/installed',
         });
         res.end();
       },
-      failureAsync: async (_error, _installOptions, _req, res) => {
+      failureAsync: async (error, _installOptions, _req, res) => {
+        (slackLogger ?? console).warn(
+          `oauth.failure: ${(error as Error).message ?? String(error)} — redirecting to home`,
+        );
         res.writeHead(302, {
           Location: 'https://www.battleforge.app/?install_error=1',
         });
