@@ -2,11 +2,11 @@
  * Adversarial tests for maybeShowBattleforgePrompt.
  *
  * BUG DOCUMENTED (flagged for reviewer):
- *   lastBattleforgePromptAt is bumped via updateMany BEFORE postEphemeral is
- *   called. If postEphemeral throws, the timestamp is already persisted and the
+ *   lastBattleforgePromptAt is bumped via updateMany BEFORE postMessage is
+ *   called. If postMessage throws, the timestamp is already persisted and the
  *   user will not see the prompt for another 7 days. The task spec says the
  *   timestamp should NOT be bumped on failure. See test:
- *   "does not bump lastBattleforgePromptAt when postEphemeral fails"
+ *   "does not bump lastBattleforgePromptAt when postMessage fails"
  *
  * MISSING WORKSPACE CHECK (flagged for reviewer):
  *   maybeShowBattleforgePrompt never reads workspace.battleforgeChannelId. If
@@ -65,7 +65,7 @@ const buildClient = (
         jest.fn().mockResolvedValue({ channel: { id: 'D_CHANNEL' } }),
     },
     chat: {
-      postEphemeral:
+      postMessage:
         overrides.chatPostEphemeral ??
         jest.fn().mockResolvedValue({ ok: true }),
     },
@@ -92,7 +92,7 @@ describe('maybeShowBattleforgePrompt — adversarial', () => {
 
       await maybeShowBattleforgePrompt(client as never, 'T1', 'U1');
 
-      expect(client.chat.postEphemeral).not.toHaveBeenCalled();
+      expect(client.chat.postMessage).not.toHaveBeenCalled();
       expect(prisma.slackUser.updateMany).not.toHaveBeenCalled();
     });
 
@@ -109,7 +109,7 @@ describe('maybeShowBattleforgePrompt — adversarial', () => {
 
       await maybeShowBattleforgePrompt(client as never, 'T1', 'U1');
 
-      expect(client.chat.postEphemeral).not.toHaveBeenCalled();
+      expect(client.chat.postMessage).not.toHaveBeenCalled();
     });
 
     it('no-op when battleforgePromptDeclined: true', async () => {
@@ -125,7 +125,7 @@ describe('maybeShowBattleforgePrompt — adversarial', () => {
 
       await maybeShowBattleforgePrompt(client as never, 'T1', 'U1');
 
-      expect(client.chat.postEphemeral).not.toHaveBeenCalled();
+      expect(client.chat.postMessage).not.toHaveBeenCalled();
     });
 
     it('no-op when lastBattleforgePromptAt is within 7-day cooldown', async () => {
@@ -141,7 +141,7 @@ describe('maybeShowBattleforgePrompt — adversarial', () => {
 
       await maybeShowBattleforgePrompt(client as never, 'T1', 'U1');
 
-      expect(client.chat.postEphemeral).not.toHaveBeenCalled();
+      expect(client.chat.postMessage).not.toHaveBeenCalled();
     });
 
     it('sends ephemeral when lastBattleforgePromptAt is exactly outside the 7-day window', async () => {
@@ -157,7 +157,7 @@ describe('maybeShowBattleforgePrompt — adversarial', () => {
 
       await maybeShowBattleforgePrompt(client as never, 'T1', 'U1');
 
-      expect(client.chat.postEphemeral).toHaveBeenCalled();
+      expect(client.chat.postMessage).toHaveBeenCalled();
     });
   });
 
@@ -182,7 +182,7 @@ describe('maybeShowBattleforgePrompt — adversarial', () => {
       ).resolves.toBeUndefined();
     });
 
-    it('does not throw when postEphemeral fails', async () => {
+    it('does not throw when postMessage fails', async () => {
       const prisma = buildPrisma({
         slackUserFindUnique: jest.fn().mockResolvedValue({
           inBattleforgeChannel: false,
@@ -203,14 +203,14 @@ describe('maybeShowBattleforgePrompt — adversarial', () => {
     });
 
     /**
-     * BUG: lastBattleforgePromptAt IS bumped before postEphemeral is called.
-     * If postEphemeral throws, the timestamp persists — the user is silenced
+     * BUG: lastBattleforgePromptAt IS bumped before postMessage is called.
+     * If postMessage throws, the timestamp persists — the user is silenced
      * for 7 days even though they never saw the prompt.
      *
      * This test asserts the CORRECT intended behavior (timestamp NOT bumped on
      * failure) and is expected to FAIL on the current implementation.
      */
-    it('[BUG] does not bump lastBattleforgePromptAt when postEphemeral fails', async () => {
+    it('[BUG] does not bump lastBattleforgePromptAt when postMessage fails', async () => {
       const slackUserUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
       const prisma = buildPrisma({
         slackUserFindUnique: jest.fn().mockResolvedValue({
@@ -248,7 +248,7 @@ describe('maybeShowBattleforgePrompt — adversarial', () => {
 
       await maybeShowBattleforgePrompt(client as never, 'T1', 'U1');
 
-      expect(client.chat.postEphemeral).not.toHaveBeenCalled();
+      expect(client.chat.postMessage).not.toHaveBeenCalled();
     });
   });
 
@@ -282,7 +282,7 @@ describe('maybeShowBattleforgePrompt — adversarial', () => {
 
       await maybeShowBattleforgePrompt(client as never, 'T1', 'U1');
 
-      expect(client.chat.postEphemeral).not.toHaveBeenCalled();
+      expect(client.chat.postMessage).not.toHaveBeenCalled();
     });
   });
 
@@ -298,7 +298,7 @@ describe('maybeShowBattleforgePrompt — adversarial', () => {
         maybeShowBattleforgePrompt(client as never, '', 'U1'),
       ).resolves.toBeUndefined();
 
-      expect(client.chat.postEphemeral).not.toHaveBeenCalled();
+      expect(client.chat.postMessage).not.toHaveBeenCalled();
     });
 
     it('handles empty string userId gracefully', async () => {
@@ -312,7 +312,7 @@ describe('maybeShowBattleforgePrompt — adversarial', () => {
         maybeShowBattleforgePrompt(client as never, 'T1', ''),
       ).resolves.toBeUndefined();
 
-      expect(client.chat.postEphemeral).not.toHaveBeenCalled();
+      expect(client.chat.postMessage).not.toHaveBeenCalled();
     });
   });
 });
