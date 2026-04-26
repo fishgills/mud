@@ -17,6 +17,7 @@
     }
   },
   "oauth_config": {
+    "pkce_enabled": false,
     "scopes": {
       "bot": [
         "im:history",
@@ -44,6 +45,7 @@
     },
     "org_deploy_enabled": false,
     "socket_mode_enabled": false,
-    "token_rotation_enabled": false
+    "token_rotation_enabled": false,
+    "is_mcp_enabled": false
   }
 }

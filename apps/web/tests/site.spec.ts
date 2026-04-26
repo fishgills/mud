@@ -9,9 +9,11 @@ const withBasePath = (href: string) =>
 test('home page has required links', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByText(/BATTLEFORGE/)).toBeVisible();
+  await expect(page.getByText(/BATTLEFORGE/).first()).toBeVisible();
   await expect(
-    page.getByText('A multiplayer dungeon adventure played entirely in Slack DMs.'),
+    page.getByText(
+      'A multiplayer dungeon adventure played entirely in Slack DMs.',
+    ),
   ).toBeVisible();
 
   const nav = page.getByRole('navigation', { name: 'Site' });
@@ -40,7 +42,7 @@ test('character page prompts sign in when unauthenticated', async ({
   await expect(page.getByText('CHARACTER')).toBeVisible();
   await expect(page.getByText('You are not signed in.')).toBeVisible();
   await expect(
-    page.getByRole('link', { name: 'SIGN IN' }),
+    page.getByRole('link', { name: 'SIGN IN' }).first(),
   ).toHaveAttribute('href', withBasePath('/api/auth/slack/start'));
   await expect(
     page.getByRole('link', { name: 'CHARACTER', exact: true }),
@@ -54,7 +56,7 @@ test('store page prompts sign in when unauthenticated', async ({ page }) => {
   await expect(page.getByText('GUILD STORE')).toBeVisible();
   await expect(page.getByText('You are not signed in.')).toBeVisible();
   await expect(
-    page.getByRole('link', { name: /SIGN IN/ }),
+    page.getByRole('link', { name: 'SIGN IN', exact: true }).first(),
   ).toHaveAttribute('href', withBasePath('/api/auth/slack/start'));
   await expect(
     page.getByRole('link', { name: 'STORE', exact: true }),
@@ -112,7 +114,7 @@ test('support page provides contact details', async ({ page }) => {
   await page.goto('/support');
 
   await expect(page).toHaveTitle('BattleForge | Support');
-  await expect(page.getByText('SUPPORT')).toBeVisible();
+  await expect(page.getByText('SUPPORT').first()).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'support@battleforge.app' }),
   ).toHaveAttribute('href', 'mailto:support@battleforge.app');
