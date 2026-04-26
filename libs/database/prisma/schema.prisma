@@ -115,13 +115,16 @@ model Player {
 }
 
 model SlackUser {
-  id        Int      @id @default(autoincrement())
-  teamId    String // Slack workspace/team ID (e.g., "TB1QW3SQHU")
-  userId    String // Slack user ID (e.g., "UB389SP46")
-  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  playerId  Int      @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                         Int       @id @default(autoincrement())
+  teamId                     String // Slack workspace/team ID (e.g., "TB1QW3SQHU")
+  userId                     String // Slack user ID (e.g., "UB389SP46")
+  player                     Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playerId                   Int       @unique
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+  inBattleforgeChannel       Boolean   @default(false)
+  battleforgePromptDeclined  Boolean   @default(false)
+  lastBattleforgePromptAt    DateTime?
 
   @@unique([teamId, userId])
   @@index([teamId])
@@ -558,14 +561,15 @@ model SlackAppInstallation {
 }
 
 model Workspace {
-  id            Int      @id @default(autoincrement())
-  workspaceId   String   @unique
-  installedAt   DateTime @default(now())
-  uninstalledAt DateTime?
-  lastActiveAt  DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  broadcastConfig WorkspaceBroadcastConfig?
+  id                   Int      @id @default(autoincrement())
+  workspaceId          String   @unique
+  installedAt          DateTime @default(now())
+  uninstalledAt        DateTime?
+  lastActiveAt         DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  battleforgeChannelId String?
+  broadcastConfig      WorkspaceBroadcastConfig?
 
   @@index([workspaceId])
 }

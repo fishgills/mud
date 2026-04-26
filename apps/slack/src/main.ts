@@ -66,7 +66,15 @@ const app = new App({
   clientId: decodedEnv.SLACK_CLIENT_ID,
   clientSecret: decodedEnv.SLACK_CLIENT_SECRET,
   stateSecret: decodedEnv.SLACK_STATE_SECRET,
-  scopes: ['im:history', 'im:write', 'chat:write'],
+  scopes: [
+    'im:history',
+    'im:write',
+    'chat:write',
+    'channels:manage',
+    'channels:join',
+    'channels:read',
+    'chat:write.public',
+  ],
   installerOptions: {
     directInstall: true,
   },
@@ -141,6 +149,8 @@ import { HandlerContext, SayMessage } from './handlers/types';
 import { helpHandler } from './handlers/commands/help';
 import { registerAppHome } from './handlers/appHome';
 import { registerUninstallHandler } from './handlers/uninstall';
+import { registerBattleforgeEvents } from './handlers/battleforgeEvents';
+import { maybeShowBattleforgePrompt } from './handlers/battleforgeNudge';
 
 app.event('app_mention', async ({ event, say }) => {
   await say(
@@ -165,6 +175,7 @@ app.event('app_mention', async ({ event, say }) => {
 
 registerAppHome(app);
 registerUninstallHandler(app);
+registerBattleforgeEvents(app);
 
 app.message(async ({ message, say, client, context }) => {
   // Only handle direct user messages (not message_changed, etc)
@@ -249,6 +260,9 @@ app.message(async ({ message, say, client, context }) => {
       teamId: teamId!,
       triggerId,
     });
+    if (teamId) {
+      void maybeShowBattleforgePrompt(client, teamId, userId);
+    }
     return;
   }
 
@@ -270,6 +284,9 @@ app.message(async ({ message, say, client, context }) => {
         teamId: teamId!,
         triggerId,
       });
+      if (teamId) {
+        void maybeShowBattleforgePrompt(client, teamId, userId);
+      }
       return;
     }
   }

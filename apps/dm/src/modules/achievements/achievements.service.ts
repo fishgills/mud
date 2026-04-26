@@ -12,6 +12,7 @@ import {
 } from '@mud/database';
 import { PlayerService } from '../../app/player/player.service';
 import { EventBridgeService } from '../../shared/event-bridge.service';
+import { buildBattleforgeRecipients } from '../../shared/battleforge-channel.recipients';
 import {
   PLAYER_ACHIEVEMENT_DEFINITIONS,
   type AchievementDefinitionSeed,
@@ -179,6 +180,11 @@ export class AchievementsService implements OnModuleInit {
             participant.playerName,
             unlocked,
           );
+          await this.postUnlocksToBattleforge(
+            participant.playerId,
+            participant.playerName,
+            unlocked,
+          );
         }
       } catch (error) {
         this.logger.warn(
@@ -232,6 +238,11 @@ export class AchievementsService implements OnModuleInit {
         );
         await this.maybeBroadcastUnlocks(
           input.teamId,
+          input.playerId,
+          player.name,
+          unlocked,
+        );
+        await this.postUnlocksToBattleforge(
           input.playerId,
           player.name,
           unlocked,
@@ -290,6 +301,7 @@ export class AchievementsService implements OnModuleInit {
           player.name,
           unlocked,
         );
+        await this.postUnlocksToBattleforge(player.id, player.name, unlocked);
       }
     } catch (error) {
       this.logger.warn(
@@ -659,6 +671,37 @@ export class AchievementsService implements OnModuleInit {
     });
   }
 
+  private async postUnlocksToBattleforge(
+    playerId: number,
+    playerName: string,
+    unlocked: UnlockedAchievement[],
+  ): Promise<void> {
+    const broadcasts = unlocked.filter((u) => u.broadcastOnUnlock);
+    if (broadcasts.length === 0) return;
+
+    const names = broadcasts.map((b) => `*${b.name}*`).join(', ');
+    const message = `🏆 ${playerName} unlocked ${names}!`;
+
+    const broadcastEvent = {
+      eventType: 'achievement:unlock' as const,
+      playerId,
+      teamId: '',
+      userId: '',
+      achievementIds: broadcasts.map((b) => b.id),
+      broadcastAchievementIds: broadcasts.map((b) => b.id),
+      timestamp: new Date(),
+    };
+
+    const battleforgeRecipients = await buildBattleforgeRecipients(message);
+    if (battleforgeRecipients.length > 0) {
+      await this.eventBridge.publishNotification({
+        type: 'announcement',
+        event: broadcastEvent,
+        recipients: battleforgeRecipients,
+      });
+    }
+  }
+
   private async maybeBroadcastUnlocks(
     teamId: string,
     playerId: number,
@@ -725,24 +768,26 @@ export class AchievementsService implements OnModuleInit {
         .replaceAll('{achievementName}', achievement.name)
         .replaceAll('{achievementDescription}', achievement.description);
 
+      const broadcastEvent = {
+        eventType: 'achievement:unlock' as const,
+        playerId,
+        teamId,
+        userId: '',
+        achievementIds: [achievement.id],
+        broadcastAchievementIds: [achievement.id],
+        timestamp: new Date(),
+      };
+
       await this.eventBridge.publishNotification({
         type: 'announcement',
-        event: {
-          eventType: 'achievement:unlock',
-          playerId,
-          teamId,
-          userId: '',
-          achievementIds: [achievement.id],
-          broadcastAchievementIds: [achievement.id],
-          timestamp: new Date(),
-        },
+        event: broadcastEvent,
         recipients: [
           {
-            clientType: 'slack-channel',
+            clientType: 'slack-channel' as const,
             teamId,
             channelId: config.channelId,
             message,
-            priority: 'normal',
+            priority: 'normal' as const,
           },
         ],
       });
