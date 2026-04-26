@@ -9,7 +9,7 @@
  *   See test: "[BUG] marks inBattleforgeChannel true and responds success when invite returns already_in_channel"
  */
 
-import type { App, BlockAction, RespondFn } from '@slack/bolt';
+import type { App, RespondFn } from '@slack/bolt';
 import {
   registerBattleforgeActions,
   BATTLEFORGE_ACTIONS,
