@@ -3,14 +3,13 @@ import type {
   ActionsBlock,
   Block,
   Button,
+  ContextBlock,
   DividerBlock,
   KnownBlock,
   SectionBlock,
 } from '@slack/types';
 import { COMBAT_ACTIONS } from '../commands';
 import { getCombatLog, type DetailedCombatLog } from '../dm-client';
-
-type CombatLogEntry = { round: string; description: string };
 
 const SLACK_TEXT_LIMIT = 3000;
 const SLACK_BLOCKS_LIMIT = 50;
@@ -65,54 +64,177 @@ const formatRatingsMath = (
   ].join(' ');
 };
 
-const buildEntriesFromLog = (log: DetailedCombatLog): CombatLogEntry[] => {
-  return log.rounds.map((round) => {
-    const hitRoll = formatRollPercent(round.hitRoll);
-    const hitSegment = hitRoll ? ` (roll ${hitRoll})` : '';
-    const attackLine = `${round.attackerName} strike: AR ${formatNumber(round.attackRating)} vs DR ${formatNumber(round.defenseRating)} (hit ${formatPercent(round.hitChance)}${hitSegment}) -> ${round.hit ? 'HIT' : 'MISS'}`;
-    const ratingsMath = formatRatingsMath(round);
-    let damageLine: string;
-    if (round.hit) {
-      const weaponSegment =
-        round.weaponDamage > 0 ? `, ${formatWeaponRoll(round)}` : '';
-      const critRoll = formatRollPercent(round.critRoll);
-      const critSegment = round.crit
-        ? `, crit x${round.critMultiplier ?? 1.5}`
-        : '';
-      const critRollSegment = critRoll ? ` (crit roll ${critRoll})` : '';
-      const breakdown = `core ${formatNumber(round.coreDamage)}${weaponSegment}, mit ${formatPercent(round.mitigation)}${critSegment}${critRollSegment}`;
-      damageLine = `Damage: ${round.damage} (${breakdown}) -> ${round.defenderName} HP ${round.defenderHpAfter}${round.killed ? ' KO' : ''}`;
-    } else {
-      damageLine = `Damage: 0 -> ${round.defenderName} HP ${round.defenderHpAfter} (miss)`;
-    }
+type RoundIcon = ':crossed_swords:' | ':dash:' | ':boom:' | ':skull:';
 
-    const lines = [
-      attackLine,
-      ...(ratingsMath ? [ratingsMath] : []),
-      damageLine,
-    ]
-      .map((line, index) => (index === 0 ? line : `    ${line}`))
-      .join('\n');
-
-    return {
-      round: String(round.roundNumber),
-      description: lines,
-    };
-  });
+const getRoundIcon = (
+  round: DetailedCombatLog['rounds'][number],
+): RoundIcon => {
+  if (round.killed) return ':skull:';
+  if (round.crit) return ':boom:';
+  if (round.hit) return ':crossed_swords:';
+  return ':dash:';
 };
 
-const parseCombatLogValue = (value: unknown): string | undefined => {
-  if (typeof value !== 'string' || value.trim().length === 0) return undefined;
-  const trimmed = value.trim();
-  if (trimmed.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(trimmed) as { combatId?: string };
-      if (typeof parsed?.combatId === 'string') return parsed.combatId;
-    } catch {
-      return undefined;
+const buildRoundHeadline = (
+  round: DetailedCombatLog['rounds'][number],
+): string => {
+  const icon = getRoundIcon(round);
+  const base = `${icon} *Round ${round.roundNumber}* ${round.attackerName} → ${round.defenderName}`;
+  if (!round.hit) {
+    return `${base}  miss`;
+  }
+  const critLabel = round.crit ? ' crit' : '';
+  const koLabel = round.killed ? ' (KO)' : ` (HP ${round.defenderHpAfter})`;
+  return `${base}  *${round.damage}* dmg${critLabel}${koLabel}`;
+};
+
+const buildRoundContext = (
+  round: DetailedCombatLog['rounds'][number],
+): string => {
+  const hitPct = formatPercent(round.hitChance);
+  const hitRoll = formatRollPercent(round.hitRoll);
+  const rollPart = hitRoll ? ` (rolled ${hitRoll})` : '';
+
+  if (!round.hit) {
+    return `hit ${hitPct}${rollPart}`;
+  }
+
+  const corePart = `core ${formatNumber(round.coreDamage)}`;
+  const weaponPart =
+    round.weaponDamage > 0 ? ` · ${formatWeaponRoll(round)}` : '';
+  const mitPart = ` · mit ${formatPercent(round.mitigation)}`;
+
+  return `hit ${hitPct}${rollPart} · ${corePart}${weaponPart}${mitPart}`;
+};
+
+const buildRoundMathContext = (
+  round: DetailedCombatLog['rounds'][number],
+): string | null => {
+  const math = formatRatingsMath(round);
+  if (!math) return null;
+  const critRoll = formatRollPercent(round.critRoll);
+  const critRollPart = critRoll ? ` · crit roll ${critRoll}` : '';
+  return `${math}${critRollPart}`;
+};
+
+type SideStats = {
+  name: string;
+  hits: number;
+  total: number;
+  crits: number;
+  damage: number;
+};
+
+const buildScoreboard = (log: DetailedCombatLog): SectionBlock => {
+  const sides = new Map<string, SideStats>();
+
+  for (const round of log.rounds) {
+    const attacker = round.attackerName;
+    const defender = round.defenderName;
+
+    if (!sides.has(attacker)) {
+      sides.set(attacker, {
+        name: attacker,
+        hits: 0,
+        total: 0,
+        crits: 0,
+        damage: 0,
+      });
+    }
+    if (!sides.has(defender)) {
+      sides.set(defender, {
+        name: defender,
+        hits: 0,
+        total: 0,
+        crits: 0,
+        damage: 0,
+      });
+    }
+
+    const side = sides.get(attacker)!;
+    side.total += 1;
+    if (round.hit) {
+      side.hits += 1;
+      side.damage += round.damage;
+    }
+    if (round.crit) {
+      side.crits += 1;
     }
   }
-  return trimmed;
+
+  const firstAttacker = log.firstAttacker;
+  const names = [...sides.keys()];
+  const sorted = names.sort((a, b) => {
+    if (a === firstAttacker) return -1;
+    if (b === firstAttacker) return 1;
+    return 0;
+  });
+
+  const roundCount = log.rounds.length;
+  const lines: string[] = [`*Combat Log* — ${roundCount} rounds`];
+
+  for (const name of sorted) {
+    const s = sides.get(name)!;
+    const opponentName = sorted.find((n) => n !== name) ?? '?';
+    const isFirst = name === sorted[0];
+    const icon = isFirst ? ':crossed_swords:' : ':shield:';
+    lines.push(
+      `${icon} ${s.name} → ${opponentName}: ${s.hits}/${s.total} hits · ${s.crits} crits · ${s.damage} dmg`,
+    );
+  }
+
+  return {
+    type: 'section',
+    text: { type: 'mrkdwn', text: lines.join('\n') },
+  };
+};
+
+const buildLogBlocks = (
+  log: DetailedCombatLog,
+  maxBlocks: number,
+  includeMath: boolean,
+): { blocks: (SectionBlock | ContextBlock)[]; truncated: boolean } => {
+  const blocks: (SectionBlock | ContextBlock)[] = [];
+  let truncated = false;
+
+  for (const round of log.rounds) {
+    if (blocks.length + 2 > maxBlocks) {
+      truncated = true;
+      break;
+    }
+
+    const headlineBlock: SectionBlock = {
+      type: 'section',
+      text: { type: 'mrkdwn', text: buildRoundHeadline(round) },
+    };
+    blocks.push(headlineBlock);
+
+    const contextText = buildRoundContext(round);
+    const contextElements: ContextBlock['elements'] = [
+      { type: 'mrkdwn', text: contextText },
+    ];
+
+    if (includeMath) {
+      const mathText = buildRoundMathContext(round);
+      if (mathText) {
+        contextElements.push({ type: 'mrkdwn', text: mathText });
+      }
+    }
+
+    const contextBlock: ContextBlock = {
+      type: 'context',
+      elements: contextElements,
+    };
+    blocks.push(contextBlock);
+  }
+
+  return { blocks, truncated };
+};
+
+const truncateCodeBlock = (text: string): string => {
+  const maxInner = Math.max(0, SLACK_TEXT_LIMIT - 6);
+  const inner = truncateText(text, maxInner);
+  return `\`\`\`${inner}\`\`\``;
 };
 
 type ActionElement = BlockAction['actions'][number];
@@ -130,6 +252,20 @@ const getActionValue = (
   return candidate?.value;
 };
 
+const parseCombatLogValue = (value: unknown): string | undefined => {
+  if (typeof value !== 'string' || value.trim().length === 0) return undefined;
+  const trimmed = value.trim();
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed) as { combatId?: string };
+      if (typeof parsed?.combatId === 'string') return parsed.combatId;
+    } catch {
+      return undefined;
+    }
+  }
+  return trimmed;
+};
+
 const isActionsBlock = (block: Block | KnownBlock): block is ActionsBlock =>
   (block as { type?: string }).type === 'actions';
 
@@ -140,7 +276,9 @@ const filterCombatLogActions = (
     const actionId = 'action_id' in element ? element.action_id : undefined;
     return (
       actionId !== COMBAT_ACTIONS.SHOW_LOG &&
-      actionId !== COMBAT_ACTIONS.HIDE_LOG
+      actionId !== COMBAT_ACTIONS.HIDE_LOG &&
+      actionId !== COMBAT_ACTIONS.SHOW_MATH_LOG &&
+      actionId !== COMBAT_ACTIONS.HIDE_MATH_LOG
     );
   });
 
@@ -157,104 +295,100 @@ const getPreservedActionBlocks = (
   return preserved;
 };
 
-const extractCombatLogEntries = (fullText: string): CombatLogEntry[] => {
-  const marker = '**Combat Log:**';
-  const start = fullText.indexOf(marker);
-  const text = start >= 0 ? fullText.slice(start + marker.length) : fullText;
-
-  const regex =
-    /Round\s+(\d+)(?:\s*:)?\s*([\s\S]*?)(?=(?:Round\s+\d+(?:\s*:)?\s*)|$)/gi;
-  const entries: CombatLogEntry[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(text)) !== null) {
-    const roundNo = match[1];
-    const rawDesc = (match[2] || '').trim();
-    const normalized = rawDesc
-      .split(/\r?\n+/)
-      .map((line) => line.replace(/\s+/g, ' ').trim())
-      .filter(Boolean)
-      .map((line, index) => (index === 0 ? line : `    ${line}`))
-      .join('\n');
-    if (roundNo) {
-      entries.push({ round: roundNo, description: normalized });
-    }
-  }
-
-  if (entries.length > 0) return entries;
-
-  const rough = text.replace(/\.?\s+(?=Round\s+\d+(?:\s*:)?\s*)/g, '\n');
-  return rough
-    .split(/\n+/)
-    .map((s) => s.trim())
-    .filter((s) => /^Round\s+\d+(?:\s*:)?\s*/i.test(s))
-    .map((line) => {
-      const [, round = '', description = ''] =
-        line.match(/Round\s+(\d+)(?:\s*:)?\s*(.*)$/i) || [];
-      const normalized = description
-        .split(/\r?\n+/)
-        .map((part) => part.replace(/\s+/g, ' ').trim())
-        .filter(Boolean)
-        .map((part, index) => (index === 0 ? part : `    ${part}`))
-        .join('\n');
-      return { round, description: normalized };
-    })
-    .filter((entry): entry is CombatLogEntry => Boolean(entry.round));
-};
-
-const buildEntryLines = (entries: CombatLogEntry[]): string[] => {
-  return entries.map((entry) =>
-    truncateText(`• Round ${entry.round}: ${entry.description}`),
+const buildExpandedView = async (
+  combatId: string | undefined,
+  fullText: string,
+  originalBlocks: (KnownBlock | Block)[],
+  includeMath: boolean,
+): Promise<(KnownBlock | Block)[]> => {
+  const preservedActions = getPreservedActionBlocks(originalBlocks);
+  const summarySection = originalBlocks.find(
+    (b): b is SectionBlock =>
+      typeof (b as { type?: string }).type === 'string' &&
+      (b as { type?: string }).type === 'section',
   );
-};
 
-const buildSectionsFromLines = (
-  lines: string[],
-  maxBlocks: number,
-): { blocks: SectionBlock[]; truncated: boolean } => {
-  const blocks: SectionBlock[] = [];
-  let current = '';
-  let truncated = false;
+  const newBlocks: (KnownBlock | Block)[] = [];
+  if (summarySection) newBlocks.push(summarySection);
+  if (preservedActions.length > 0) {
+    newBlocks.push(...preservedActions);
+  }
+  const divider: DividerBlock = { type: 'divider' };
+  newBlocks.push(divider);
 
-  for (const line of lines) {
-    const next = current ? `${current}\n${line}` : line;
-    if (next.length <= SLACK_TEXT_LIMIT) {
-      current = next;
-      continue;
-    }
-
-    if (current) {
-      blocks.push({
-        type: 'section',
-        text: { type: 'mrkdwn', text: truncateText(current) },
-      });
-      if (blocks.length >= maxBlocks) {
-        truncated = true;
-        return { blocks, truncated };
+  let log: DetailedCombatLog | null = null;
+  if (combatId) {
+    try {
+      const response = await getCombatLog(combatId);
+      if (response.success && response.data) {
+        log = response.data;
       }
+    } catch {
+      log = null;
     }
-
-    current = truncateText(line);
   }
 
-  if (current) {
-    blocks.push({
+  if (log && log.rounds.length > 0) {
+    const scoreboard = buildScoreboard(log);
+    newBlocks.push(scoreboard);
+
+    const baseBlocksCount = newBlocks.length;
+    // Reserve 1 block for buttons, 1 for possible truncation notice
+    const maxLogBlocks = Math.max(0, SLACK_BLOCKS_LIMIT - baseBlocksCount - 2);
+
+    const { blocks: logBlocks, truncated } = buildLogBlocks(
+      log,
+      maxLogBlocks,
+      includeMath,
+    );
+    newBlocks.push(...logBlocks);
+
+    if (truncated && newBlocks.length < SLACK_BLOCKS_LIMIT - 1) {
+      newBlocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: '_Combat log truncated._' },
+      } as SectionBlock);
+    }
+  } else {
+    newBlocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: truncateText(current) },
-    });
+      text: { type: 'mrkdwn', text: truncateCodeBlock(fullText) },
+    } as SectionBlock);
   }
 
-  if (blocks.length > maxBlocks) {
-    truncated = true;
-    return { blocks: blocks.slice(0, maxBlocks), truncated };
+  const hideButton: Button = {
+    type: 'button',
+    action_id: COMBAT_ACTIONS.HIDE_LOG,
+    text: { type: 'plain_text', text: 'Hide combat log' },
+    style: 'danger',
+  };
+  if (combatId) {
+    hideButton.value = combatId;
   }
 
-  return { blocks, truncated };
-};
+  const mathButton: Button = includeMath
+    ? {
+        type: 'button',
+        action_id: COMBAT_ACTIONS.HIDE_MATH_LOG,
+        text: { type: 'plain_text', text: 'Hide math' },
+        ...(combatId ? { value: combatId } : {}),
+      }
+    : {
+        type: 'button',
+        action_id: COMBAT_ACTIONS.SHOW_MATH_LOG,
+        text: { type: 'plain_text', text: 'Show math' },
+        ...(combatId ? { value: combatId } : {}),
+      };
 
-const truncateCodeBlock = (text: string): string => {
-  const maxInner = Math.max(0, SLACK_TEXT_LIMIT - 6); // ``` + ```
-  const inner = truncateText(text, maxInner);
-  return `\`\`\`${inner}\`\`\``;
+  const actions: ActionsBlock = {
+    type: 'actions',
+    elements: [hideButton, mathButton],
+  };
+  newBlocks.push(actions);
+
+  return newBlocks
+    .filter((b): b is KnownBlock => 'type' in b)
+    .slice(0, SLACK_BLOCKS_LIMIT);
 };
 
 export const registerCombatLogActions = (app: App) => {
@@ -279,89 +413,101 @@ export const registerCombatLogActions = (app: App) => {
 
       const fullText =
         typeof body.message?.text === 'string' ? body.message.text : '';
-
       const originalBlocks = (body.message?.blocks || []) as (
         | KnownBlock
         | Block
       )[];
-      const preservedActions = getPreservedActionBlocks(originalBlocks);
-      const summarySection = originalBlocks.find(
-        (b): b is SectionBlock =>
-          typeof (b as { type?: string }).type === 'string' &&
-          (b as { type?: string }).type === 'section',
+
+      const blocks = await buildExpandedView(
+        combatId,
+        fullText,
+        originalBlocks,
+        false,
       );
 
-      const newBlocks: (KnownBlock | Block)[] = [];
-      if (summarySection) newBlocks.push(summarySection);
-      if (preservedActions.length > 0) {
-        newBlocks.push(...preservedActions);
-      }
-      const divider: DividerBlock = { type: 'divider' };
-      newBlocks.push(divider);
+      await client.chat.update({
+        channel: channelId,
+        ts: messageTs,
+        text: fullText,
+        blocks,
+      });
+    },
+  );
 
-      newBlocks.push({
-        type: 'section',
-        text: { type: 'mrkdwn', text: '*Combat Log*' },
-      } as SectionBlock);
+  app.action<BlockAction>(
+    COMBAT_ACTIONS.SHOW_MATH_LOG,
+    async ({ ack, body, client }) => {
+      await ack();
 
-      let entries: CombatLogEntry[] = [];
-      if (combatId) {
-        try {
-          const response = await getCombatLog(combatId);
-          if (response.success && response.data) {
-            entries = buildEntriesFromLog(response.data);
-          }
-        } catch {
-          entries = [];
-        }
-      }
+      const combatId = parseCombatLogValue(getActionValue(body.actions));
+      const channelId =
+        body.channel?.id ||
+        (typeof body.container?.channel_id === 'string'
+          ? body.container.channel_id
+          : undefined);
+      const messageTs =
+        (typeof body.message?.ts === 'string' ? body.message.ts : undefined) ||
+        (typeof body.container?.message_ts === 'string'
+          ? body.container.message_ts
+          : undefined);
 
-      if (entries.length === 0) {
-        entries = extractCombatLogEntries(fullText);
-      }
+      if (!channelId || !messageTs) return;
 
-      const baseBlocksCount = newBlocks.length;
-      const maxLogBlocks = Math.max(
-        0,
-        SLACK_BLOCKS_LIMIT - baseBlocksCount - 1,
+      const fullText =
+        typeof body.message?.text === 'string' ? body.message.text : '';
+      const originalBlocks = (body.message?.blocks || []) as (
+        | KnownBlock
+        | Block
+      )[];
+
+      const blocks = await buildExpandedView(
+        combatId,
+        fullText,
+        originalBlocks,
+        true,
       );
 
-      if (entries.length > 0) {
-        const lines = buildEntryLines(entries);
-        const { blocks: logBlocks, truncated } = buildSectionsFromLines(
-          lines,
-          maxLogBlocks,
-        );
-        newBlocks.push(...logBlocks);
+      await client.chat.update({
+        channel: channelId,
+        ts: messageTs,
+        text: fullText,
+        blocks,
+      });
+    },
+  );
 
-        if (truncated && newBlocks.length < SLACK_BLOCKS_LIMIT - 1) {
-          newBlocks.push({
-            type: 'section',
-            text: { type: 'mrkdwn', text: '_Combat log truncated._' },
-          } as SectionBlock);
-        }
-      } else {
-        newBlocks.push({
-          type: 'section',
-          text: { type: 'mrkdwn', text: truncateCodeBlock(fullText) },
-        } as SectionBlock);
-      }
+  app.action<BlockAction>(
+    COMBAT_ACTIONS.HIDE_MATH_LOG,
+    async ({ ack, body, client }) => {
+      await ack();
 
-      const hideButton: Button = {
-        type: 'button',
-        action_id: COMBAT_ACTIONS.HIDE_LOG,
-        text: { type: 'plain_text', text: 'Hide combat log' },
-        style: 'danger',
-      };
-      if (combatId) {
-        hideButton.value = combatId;
-      }
-      const actions: ActionsBlock = { type: 'actions', elements: [hideButton] };
-      newBlocks.push(actions);
+      const combatId = parseCombatLogValue(getActionValue(body.actions));
+      const channelId =
+        body.channel?.id ||
+        (typeof body.container?.channel_id === 'string'
+          ? body.container.channel_id
+          : undefined);
+      const messageTs =
+        (typeof body.message?.ts === 'string' ? body.message.ts : undefined) ||
+        (typeof body.container?.message_ts === 'string'
+          ? body.container.message_ts
+          : undefined);
 
-      const blocks = newBlocks
-        .filter((b): b is KnownBlock => 'type' in b)
-        .slice(0, SLACK_BLOCKS_LIMIT);
+      if (!channelId || !messageTs) return;
+
+      const fullText =
+        typeof body.message?.text === 'string' ? body.message.text : '';
+      const originalBlocks = (body.message?.blocks || []) as (
+        | KnownBlock
+        | Block
+      )[];
+
+      const blocks = await buildExpandedView(
+        combatId,
+        fullText,
+        originalBlocks,
+        false,
+      );
 
       await client.chat.update({
         channel: channelId,
